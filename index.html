@@ -459,29 +459,6 @@ button{
   <div id="tab-snabb" class="card">
     <h3>Snabbval</h3>
     <div id="quickMainList" class="grid2"></div>
-    <div class="grid2">
-      <div class="card">
-        <h3>Havstång</h3>
-        <div class="muted">Välj utkörning eller inkörning och sedan bad. Samma regler som i Nytt jobb.</div>
-        <label style="margin-top:10px">Havstång</label>
-        <select id="quickSeaweedMode">
-          <option value="">Välj riktning</option>
-          <option value="utkörning">Utkörning</option>
-          <option value="inkörning">Inkörning</option>
-        </select>
-        <label style="margin-top:10px">Bad</label>
-        <select id="quickSeaweedBeach">
-          <option value="">Välj bad</option>
-          <option value="Askimsbadet">Askimsbadet</option>
-          <option value="Hovåsbadet">Hovåsbadet</option>
-          <option value="Smithska udden">Smithska udden</option>
-          <option value="Billdalsbadet">Billdalsbadet</option>
-          <option value="Amundön">Amundön</option>
-          <option value="Sillviksbadet">Sillviksbadet</option>
-        </select>
-        <button class="primary" style="margin-top:12px" onclick="startQuickSeaweed()">Starta havstång</button>
-      </div>
-    </div>
   </div>
   <div id="tab-nytt" class="card hidden">
     <h3>Nytt jobb</h3>
@@ -495,26 +472,6 @@ button{
         <option value="CityCat 5006">CityCat 5006</option>
         <option value="CityCat V20">CityCat V20</option>
         <option value="Lundbergare">Lundbergare</option>
-      </select>
-    </div>
-    <div id="newSeaweedModeWrap" class="hidden">
-      <label style="margin-top:10px">Havstång</label>
-      <select id="newSeaweedMode">
-        <option value="">Välj riktning</option>
-        <option value="utkörning">Utkörning</option>
-        <option value="inkörning">Inkörning</option>
-      </select>
-    </div>
-    <div id="newSeaweedBeachWrap" class="hidden">
-      <label style="margin-top:10px">Bad</label>
-      <select id="newSeaweedBeach">
-        <option value="">Välj bad</option>
-        <option value="Askimsbadet">Askimsbadet</option>
-        <option value="Hovåsbadet">Hovåsbadet</option>
-        <option value="Smithska udden">Smithska udden</option>
-        <option value="Billdalsbadet">Billdalsbadet</option>
-        <option value="Amundön">Amundön</option>
-        <option value="Sillviksbadet">Sillviksbadet</option>
       </select>
     </div>
     <label style="margin-top:10px">Från</label>
@@ -690,14 +647,11 @@ button{
       </div>
     </div>
     <div id="jobTypeManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper, ta bort jobbtyper, ange Mtrl kod och lägga in krav/varningar.</div>
+      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper eller ta bort jobbtyper.</div>
 
       <div class="place-row">
         <div class="place-key">Ny jobbtyp</div>
         <input id="newManagedJobTypeName" placeholder="Namn på jobbtyp">
-        <input id="newManagedJobTypeCode" placeholder="Mtrl kod (valfritt)">
-        <textarea id="newManagedJobTypeRequirements" placeholder="Krav/varningar, ett per rad"></textarea>
-        <div class="multi-help">Exempel: HJÄLMKRAV, TRANSPORTDOKUMENT, TA MED TOMT FLAK.</div>
         <div class="row">
           <button class="primary inline" onclick="addManagedJobType()">Lägg till jobbtyp</button>
         </div>
@@ -802,10 +756,12 @@ button{
 <script>
 
 const KEY = 'driftlogg_v4_full';
-const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avfall','Tryckimpregnerat','Komprimator','Kompost','Ris','Flis','Havstång','Maskintransport','Snö','Annat','Övriga jobb'];
+const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avfall','Tryckimpregnerat','Komprimator','Kompost','Ris','Flis','Maskintransport','Snö','Annat','Övriga jobb'];
 function cloneDefaultJobTypes(){ return DEFAULT_TRUCK_TYPES.slice(); }
 let truckTypes = cloneDefaultJobTypes();
 let sortedTruckTypes = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
+const REMOVED_JOB_TYPES = ['Havstång','Havstång utkörning','Havstång inkörning'];
+function isRemovedJobType(type){ return REMOVED_JOB_TYPES.includes(String(type || '').trim()); }
 const places = ['Ringön (BAS)','von Utfallsgatan','Slottskogen','Säldammen','Flaklager Skräppekärr','Ruskvädersgatan (Ristipp)','Renova Bioanläggning','Renova Skräppekärr','Renova Sävenäs','Renova Högsbo','Renova verkstad','Stena Metall','Sortera Torslanda','Ströman Kungälv','Maskinparken Kungälv','Annan plats'];
 const dests = ['Sortera Torslanda','Stena Metall','Renova Skräppekärr','Renova Sävenäs','Renova Högsbo','Renova Bioanläggning','Renova verkstad','Ströman Kungälv','Maskinparken Kungälv','Flaklager Skräppekärr','Ruskvädersgatan (Ristipp)','Ringön (BAS)','Annan destination'];
 const DEFAULT_MACHINES = [
@@ -919,7 +875,7 @@ function stopDistanceTracking(){
 }
 
 function normalizeJobTypesList(list){
-  const cleaned = Array.isArray(list) ? list.map(type => String(type || '').trim()).filter(Boolean) : [];
+  const cleaned = Array.isArray(list) ? list.map(type => String(type || '').trim()).filter(Boolean).filter(type => !isRemovedJobType(type)) : [];
   const unique = [];
   cleaned.forEach(type => {
     if(!unique.some(existing => existing.toLocaleLowerCase('sv-SE') === type.toLocaleLowerCase('sv-SE'))){
@@ -927,29 +883,6 @@ function normalizeJobTypesList(list){
     }
   });
   return unique.length ? unique : cloneDefaultJobTypes();
-}
-
-function normalizeRequirements(value){
-  if(Array.isArray(value)){
-    return Array.from(new Set(value.map(item => String(item || '').trim()).filter(Boolean)));
-  }
-  return Array.from(new Set(String(value || '').split(/\n|,/).map(item => item.trim()).filter(Boolean)));
-}
-
-function normalizeJobTypeMeta(meta){
-  const next = {};
-  if(!meta || typeof meta !== 'object' || Array.isArray(meta)) return next;
-  Object.keys(meta).forEach(type => {
-    const cleanType = String(type || '').trim();
-    if(!cleanType) return;
-    const raw = meta[type] || {};
-    const materialCode = String(raw.materialCode || raw.code || raw.mtrlCode || '').trim();
-    const requirements = normalizeRequirements(raw.requirements || raw.krav || raw.requirement || '');
-    if(materialCode || requirements.length){
-      next[cleanType] = { materialCode, requirements };
-    }
-  });
-  return next;
 }
 
 function refreshTruckTypesFromState(){
@@ -974,8 +907,6 @@ function normalizeVehicleState(){
   if(!('placeAddresses' in state)) state.placeAddresses = {};
   if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
-  if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)) state.jobTypeMeta = {};
-  state.jobTypeMeta = normalizeJobTypeMeta(state.jobTypeMeta);
   if(!Array.isArray(state.machines)) state.machines = cloneDefaultMachines();
   state.machines = state.machines.map((machine, index) => ({
     id: machine.id || ('machine_' + index + '_' + id()),
@@ -994,7 +925,7 @@ function normalizeVehicleState(){
     comment: item.comment || '',
     displayType: item.displayType || '',
     action: item.action || ''
-  }));
+  })).filter(item => !isRemovedJobType(item.type) && !String(item.label || '').toLocaleLowerCase('sv-SE').includes('havstång') && !String(item.group || '').toLocaleLowerCase('sv-SE').includes('havstång'));
   state.quickItems.forEach(item => {
     if(item && item.type === 'Ris' && item.place === 'Ringön (BAS)' && !item.dest){
       item.dest = 'Ruskvädersgatan (Ristipp)';
@@ -1007,8 +938,6 @@ function normalizeVehicleState(){
     normalizeItem(item);
     if(item && !item.status) item.status = 'köad';
     if(item && !item.plannedDate) item.plannedDate = todayStr();
-    if(item && !item.placeLabel) item.placeLabel = getStoredPlaceLabel(item.place);
-    if(item && !item.destLabel) item.destLabel = getStoredPlaceLabel(item.dest);
   });
 }
 
@@ -1026,13 +955,11 @@ function loadState(){
       if(!('placeAddresses' in parsed)) parsed.placeAddresses = {};
       if(!Array.isArray(parsed.jobTypes)) parsed.jobTypes = cloneDefaultJobTypes();
       parsed.jobTypes = normalizeJobTypesList(parsed.jobTypes);
-      if(!parsed.jobTypeMeta || typeof parsed.jobTypeMeta !== 'object' || Array.isArray(parsed.jobTypeMeta)) parsed.jobTypeMeta = {};
-      parsed.jobTypeMeta = normalizeJobTypeMeta(parsed.jobTypeMeta);
       if(!Array.isArray(parsed.machines)) parsed.machines = cloneDefaultMachines();
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[]};
+  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), machines:cloneDefaultMachines(), jobs:[], queue:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1046,36 +973,15 @@ function clockTime(ts){
 }
 function id(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
 
-function getJobTypeMeta(type){
-  if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)){
-    state.jobTypeMeta = {};
-  }
-  const meta = state.jobTypeMeta[type] || {};
-  return {
-    materialCode: String(meta.materialCode || '').trim(),
-    requirements: normalizeRequirements(meta.requirements || [])
-  };
-}
-
-function setJobTypeMeta(type, materialCode, requirements){
-  if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)){
-    state.jobTypeMeta = {};
-  }
-  const code = String(materialCode || '').trim();
-  const reqs = normalizeRequirements(requirements || []);
-  if(code || reqs.length){
-    state.jobTypeMeta[type] = { materialCode: code, requirements: reqs };
-  } else if(state.jobTypeMeta[type]){
-    delete state.jobTypeMeta[type];
-  }
-}
-
 function getMaterialCode(type){
-  return getJobTypeMeta(type).materialCode || '';
-}
-
-function getJobTypeRequirements(type){
-  return getJobTypeMeta(type).requirements || [];
+  const codes = {
+    'Blandat avfall': '301',
+    'Blandat': '301',
+    'Kompost': '611',
+    'Komprimator': '101',
+    'Tryckimpregnerat': '179'
+  };
+  return codes[type] || '';
 }
 
 
@@ -1084,43 +990,9 @@ function getCustomPlaceByKey(key){
 }
 
 function getPlaceLabel(value){
-  if(!value) return '';
   const custom = getCustomPlaceByKey(value);
   if(custom) return custom.label || value;
-  if(state.placeLabels && state.placeLabels[value]) return state.placeLabels[value];
-  if(isUnknownCustomPlace(value)) return 'Okänd egen plats';
-  return value;
-}
-
-function isUnknownCustomPlace(value){
-  const text = String(value || '');
-  return text.startsWith('custom_') && !getCustomPlaceByKey(text) && !(state.placeLabels && state.placeLabels[text]);
-}
-
-function getStoredPlaceLabel(value){
-  const label = getPlaceLabel(value);
-  return label === 'Okänd egen plats' ? '' : label;
-}
-
-function getItemPlaceLabel(item, field){
-  if(!item) return '';
-  const value = item[field] || '';
-  const storedField = field === 'place' ? 'placeLabel' : 'destLabel';
-  const label = getPlaceLabel(value);
-  if(label === 'Okänd egen plats' && item[storedField]){
-    return item[storedField];
-  }
-  return label;
-}
-
-function unknownPlaceWarning(item){
-  if(!item) return '';
-  const missing = [];
-  if(isUnknownCustomPlace(item.place)) missing.push('Från');
-  if(isUnknownCustomPlace(item.dest)) missing.push('Till');
-  return missing.length
-    ? '<div class="queue-alert" style="margin-top:8px">' + missing.join(' och ') + ' saknar platsnamn. Välj platsen på nytt i snabbval/uppdrag.</div>'
-    : '';
+  return (state.placeLabels && state.placeLabels[value]) ? state.placeLabels[value] : value;
 }
 
 function getPlaceAddress(value){
@@ -1542,8 +1414,6 @@ function toggleJobTypeManager(){
 
 function addManagedJobType(){
   const nameEl = document.getElementById('newManagedJobTypeName');
-  const codeEl = document.getElementById('newManagedJobTypeCode');
-  const requirementsEl = document.getElementById('newManagedJobTypeRequirements');
   if(!nameEl) return;
   const name = (nameEl.value || '').trim();
   if(!name){
@@ -1557,10 +1427,7 @@ function addManagedJobType(){
   }
   state.jobTypes.push(name);
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
-  setJobTypeMeta(name, codeEl ? codeEl.value : '', requirementsEl ? requirementsEl.value : '');
   nameEl.value = '';
-  if(codeEl) codeEl.value = '';
-  if(requirementsEl) requirementsEl.value = '';
   saveState();
   refreshJobTypeSelects();
   renderJobTypeManager();
@@ -1570,11 +1437,6 @@ function addManagedJobType(){
 }
 
 function replaceJobTypeReferences(oldName, newName){
-  if(state.jobTypeMeta && state.jobTypeMeta[oldName]){
-    state.jobTypeMeta[newName] = state.jobTypeMeta[oldName];
-    if(newName !== oldName) delete state.jobTypeMeta[oldName];
-  }
-
   const replaceInItem = item => {
     if(item && item.type === oldName) item.type = newName;
   };
@@ -1597,8 +1459,6 @@ function replaceJobTypeReferences(oldName, newName){
 }
 
 function removeJobTypeReferences(typeName){
-  if(state.jobTypeMeta && state.jobTypeMeta[typeName]) delete state.jobTypeMeta[typeName];
-
   Object.keys(state.placeConfigs || {}).forEach(key => {
     const config = state.placeConfigs[key];
     if(!config) return;
@@ -1617,8 +1477,6 @@ function removeJobTypeReferences(typeName){
 function saveManagedJobType(oldName){
   refreshTruckTypesFromState();
   const input = document.querySelector('#jobTypeManagerList input[data-jobtype-name="'+cssEscape(oldName)+'"]');
-  const codeInput = document.querySelector('#jobTypeManagerList input[data-jobtype-code="'+cssEscape(oldName)+'"]');
-  const requirementsInput = document.querySelector('#jobTypeManagerList textarea[data-jobtype-requirements="'+cssEscape(oldName)+'"]');
   if(!input) return;
   const nextName = (input.value || '').trim();
   if(!nextName){
@@ -1635,7 +1493,6 @@ function saveManagedJobType(oldName){
     replaceJobTypeReferences(oldName, nextName);
   }
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
-  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '');
   saveState();
   refreshJobTypeSelects();
   renderJobTypeManager();
@@ -1668,22 +1525,16 @@ function renderJobTypeManager(){
   if(!listEl) return;
   refreshTruckTypesFromState();
   const items = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
-  listEl.innerHTML = items.map(type => {
-    const meta = getJobTypeMeta(type);
-    return '<div class="place-row">'+
+  listEl.innerHTML = items.map(type =>
+    '<div class="place-row">'+
       '<div class="place-key">'+escapeHtml(type)+'</div>'+
-      '<label>Namn</label>'+
       '<input data-jobtype-name="'+escapeHtml(type)+'" value="'+escapeHtml(type)+'">'+
-      '<label>Mtrl kod</label>'+
-      '<input data-jobtype-code="'+escapeHtml(type)+'" value="'+escapeHtml(meta.materialCode || '')+'" placeholder="Mtrl kod (valfritt)">'+
-      '<label>Krav/varningar</label>'+
-      '<textarea data-jobtype-requirements="'+escapeHtml(type)+'" placeholder="Ett krav per rad">'+escapeHtml((meta.requirements || []).join('\n'))+'</textarea>'+
       '<div class="row">'+
         '<button class="primary inline" onclick="saveManagedJobType(\''+escapeJsSingle(type)+'\')">Spara</button>'+
         '<button class="danger inline" onclick="removeManagedJobType(\''+escapeJsSingle(type)+'\')">Ta bort</button>'+
       '</div>'+
-    '</div>';
-  }).join('');
+    '</div>'
+  ).join('');
 }
 
 function toggleMachineManager(){
@@ -1943,69 +1794,6 @@ function applySopsandDefaultDestination(){
   }
 }
 
-function updateNewSeaweedUI(){
-  const typeEl = document.getElementById('newType');
-  const modeWrap = document.getElementById('newSeaweedModeWrap');
-  const beachWrap = document.getElementById('newSeaweedBeachWrap');
-  const modeEl = document.getElementById('newSeaweedMode');
-  if(!typeEl || !modeWrap || !beachWrap || !modeEl) return;
-
-  const isSeaweed = typeEl.value === 'Havstång';
-  modeWrap.classList.toggle('hidden', !isSeaweed);
-
-  if(!isSeaweed){
-    beachWrap.classList.add('hidden');
-    return;
-  }
-
-  beachWrap.classList.toggle('hidden', !modeEl.value);
-  updateNewSeaweedRoute();
-}
-
-function updateNewSeaweedRoute(){
-  const typeEl = document.getElementById('newType');
-  const modeEl = document.getElementById('newSeaweedMode');
-  const beachEl = document.getElementById('newSeaweedBeach');
-  const placeEl = document.getElementById('newPlace');
-  const destEl = document.getElementById('newDest');
-  if(!typeEl || !modeEl || !beachEl || !placeEl || !destEl) return;
-  if(typeEl.value !== 'Havstång') return;
-
-  const mode = modeEl.value;
-  const beach = beachEl.value;
-  document.getElementById('newSeaweedBeachWrap').classList.toggle('hidden', !mode);
-
-  if(mode === 'utkörning'){
-    if(Array.from(placeEl.options).some(o => o.value === 'Skräppekärr flak lager')) {
-      placeEl.value = 'Skräppekärr flak lager';
-    } else if(Array.from(placeEl.options).some(o => o.value === 'Flaklager Skräppekärr')) {
-      placeEl.value = 'Flaklager Skräppekärr';
-    }
-    if(beach){
-      if(!Array.from(destEl.options).some(o => o.value === beach)){
-        const opt = document.createElement('option');
-        opt.value = beach;
-        opt.textContent = beach;
-        destEl.appendChild(opt);
-      }
-      destEl.value = beach;
-    }
-  } else if(mode === 'inkörning'){
-    if(beach){
-      if(!Array.from(placeEl.options).some(o => o.value === beach)){
-        const opt = document.createElement('option');
-        opt.value = beach;
-        opt.textContent = beach;
-        placeEl.appendChild(opt);
-      }
-      placeEl.value = beach;
-    }
-    if(Array.from(destEl.options).some(o => o.value === 'Renova Bioanläggning')) {
-      destEl.value = 'Renova Bioanläggning';
-    }
-  }
-}
-
 function showTab(tab){
   ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
   document.getElementById('tab-'+tab).classList.remove('hidden');
@@ -2061,8 +1849,6 @@ function startJob(vehicle, type, place, dest, comment, displayType){
     displayType: displayType || type,
     place,
     dest,
-    placeLabel:getStoredPlaceLabel(place),
-    destLabel:getStoredPlaceLabel(dest),
     comment:comment||'',
     plannedDate: todayStr(),
     start:Date.now(),
@@ -2094,39 +1880,8 @@ function openNewJobPreset(type){
   }
 
   updateNewMachineUI();
-  updateNewSeaweedUI();
   updateFixedRouteRules();
 }
-function startQuickSeaweed(){
-  const modeEl = document.getElementById('quickSeaweedMode');
-  const beachEl = document.getElementById('quickSeaweedBeach');
-  if(!modeEl || !beachEl) return;
-
-  const mode = modeEl.value;
-  const beach = beachEl.value;
-
-  if(!mode || !beach){
-    alert('Välj riktning och bad.');
-    return;
-  }
-
-  let type = '';
-  let place = '';
-  let dest = '';
-
-  if(mode === 'utkörning'){
-    type = 'Havstång utkörning';
-    place = 'Flaklager Skräppekärr';
-    dest = beach;
-  } else if(mode === 'inkörning'){
-    type = 'Havstång inkörning';
-    place = beach;
-    dest = 'Renova Bioanläggning';
-  }
-
-  quickJob('lastbil', type, place, dest, '');
-}
-
 function startManualJob(){
   let vehicle = 'lastbil';
   let type = document.getElementById('newType').value;
@@ -2148,24 +1903,10 @@ function startManualJob(){
     dest = 'Stena Metall';
   }
   const machine = document.getElementById('newMachine') ? document.getElementById('newMachine').value : '';
-  const seaweedMode = document.getElementById('newSeaweedMode') ? document.getElementById('newSeaweedMode').value : '';
-  const seaweedBeach = document.getElementById('newSeaweedBeach') ? document.getElementById('newSeaweedBeach').value : '';
-
   let comment = baseComment;
 
   if(type === 'Maskintransport' && machine){
     comment = baseComment ? machine + ' – ' + baseComment : machine;
-  }
-
-  if(type === 'Havstång'){
-    if(seaweedMode === 'utkörning') type = 'Havstång utkörning';
-    if(seaweedMode === 'inkörning') type = 'Havstång inkörning';
-    if(seaweedBeach){
-      const seaweedText = seaweedMode === 'utkörning'
-        ? ('utkörning till ' + seaweedBeach)
-        : ('inkörning från ' + seaweedBeach);
-      comment = comment ? seaweedText + ' – ' + comment : seaweedText;
-    }
   }
 
   startJob(vehicle, type, place, dest, comment);
@@ -2175,26 +1916,24 @@ function startManualJob(){
 
 function addQueuedJob(){
   const chosenType = document.getElementById('queueType').value;
-  const queuePlaceValue = document.getElementById('queuePlace').value;
-  const queueDestValue = document.getElementById('queueDest').value;
-  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:queuePlaceValue, dest:queueDestValue, placeLabel:getStoredPlaceLabel(queuePlaceValue), destLabel:getStoredPlaceLabel(queueDestValue), comment:document.getElementById('queueComment').value, status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:document.getElementById('queuePlace').value, dest:document.getElementById('queueDest').value, comment:document.getElementById('queueComment').value, status:'köad', date:todayStr(), plannedDate:todayStr()});
   document.getElementById('queueComment').value = '';
   saveState(); render();
 }
 
 function quickQueue(type, place, dest, displayType){
   const vehicle = type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
   saveState(); render();
 }
 
 function quickQueueCustom(vehicle, type, place, dest, comment, displayType){
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
   saveState(); render();
 }
 
 function quickQueueMachine(type, place, dest, displayType){
-  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
   saveState(); render();
 }
 
@@ -2212,10 +1951,6 @@ function startQueuedJob(qid){
 
   if(state.active && q.plannedDate){
     state.active.plannedDate = q.plannedDate;
-  }
-  if(state.active){
-    if(q.placeLabel) state.active.placeLabel = q.placeLabel;
-    if(q.destLabel) state.active.destLabel = q.destLabel;
   }
 
   state.queue = state.queue.filter(x => x.id !== qid);
@@ -2363,15 +2098,15 @@ function renderActive(){
 
   const materialCode = getMaterialCode(state.active.type);
   const activeTypeLabel = state.active.displayType || state.active.type;
-  const requirementPills = getJobTypeRequirements(state.active.type)
-    .map(req => '<span class="pill pill-alert">'+escapeHtml(req)+'</span>')
-    .join('');
+  const helmetWarning = (state.active.dest === 'Sortera Torslanda' || state.active.dest === 'Stena Metall')
+    ? '<span class="pill pill-alert">HJÄLMKRAV</span>'
+    : '';
   document.getElementById('activePills').innerHTML =
     '<span class="pill pill-type">'+activeTypeLabel+'</span>'+
-    '<span class="pill pill-place">Från '+getItemPlaceLabel(state.active, 'place')+'</span>'+
-    requirementPills +
-    (state.active.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(state.active, 'dest')+'</span>' : '')+
-    (materialCode ? '<span class="pill pill-code">Mtrl kod '+escapeHtml(materialCode)+'</span>' : '');
+    '<span class="pill pill-place">Från '+getPlaceLabel(state.active.place)+'</span>'+
+    helmetWarning +
+    (state.active.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(state.active.dest)+'</span>' : '')+
+    (materialCode ? '<span class="pill pill-code">Mtrl kod '+materialCode+'</span>' : '');
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
@@ -2432,8 +2167,7 @@ function renderQueue(){
   }
   el.innerHTML = ordered.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
-      unknownPlaceWarning(x)+
+      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getPlaceLabel(x.place)+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(x.dest)+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
@@ -2517,7 +2251,7 @@ function renderToday(){
   }
   el.innerHTML = todays.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
+      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getPlaceLabel(x.place)+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(x.dest)+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
       (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
@@ -2827,8 +2561,6 @@ function confirmMachineTransport(){
       type:type,
       place:place,
       dest:dest,
-      placeLabel:getStoredPlaceLabel(place),
-      destLabel:getStoredPlaceLabel(dest),
       comment:'',
       status:'köad',
       date:todayStr(),
@@ -2940,8 +2672,6 @@ function queueQuickItem(quickId){
     displayType:item.displayType || item.type,
     place:item.place || '',
     dest:item.dest || '',
-    placeLabel:getStoredPlaceLabel(item.place || ''),
-    destLabel:getStoredPlaceLabel(item.dest || ''),
     comment:item.comment || '',
     status:'köad',
     date:todayStr(),
@@ -3456,7 +3186,6 @@ refreshPlaceSelects();
 
 document.getElementById('newType').addEventListener('change', function(){
   updateNewMachineUI();
-  updateNewSeaweedUI();
   updateFixedRouteRules();
   applySopsandDefaultDestination();
 });
@@ -3482,21 +3211,12 @@ document.getElementById('newMachine').addEventListener('change', function(){
   updateNewMachineDestination();
 });
 
-document.getElementById('newSeaweedMode').addEventListener('change', function(){
-  updateNewSeaweedUI();
-});
-
-document.getElementById('newSeaweedBeach').addEventListener('change', function(){
-  updateNewSeaweedRoute();
-});
-
 
 if(state.active){
   startDistanceTracking();
   startActiveTimer();
 }
 updateNewMachineUI();
-updateNewSeaweedUI();
 updateFixedRouteRules();
 applySopsandDefaultDestination();
 updateSummaryControls();
