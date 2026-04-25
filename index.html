@@ -690,11 +690,14 @@ button{
       </div>
     </div>
     <div id="jobTypeManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper eller ta bort jobbtyper.</div>
+      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper, ta bort jobbtyper, ange Mtrl kod och lägga in krav/varningar.</div>
 
       <div class="place-row">
         <div class="place-key">Ny jobbtyp</div>
         <input id="newManagedJobTypeName" placeholder="Namn på jobbtyp">
+        <input id="newManagedJobTypeCode" placeholder="Mtrl kod (valfritt)">
+        <textarea id="newManagedJobTypeRequirements" placeholder="Krav/varningar, ett per rad"></textarea>
+        <div class="multi-help">Exempel: HJÄLMKRAV, TRANSPORTDOKUMENT, TA MED TOMT FLAK.</div>
         <div class="row">
           <button class="primary inline" onclick="addManagedJobType()">Lägg till jobbtyp</button>
         </div>
@@ -926,6 +929,29 @@ function normalizeJobTypesList(list){
   return unique.length ? unique : cloneDefaultJobTypes();
 }
 
+function normalizeRequirements(value){
+  if(Array.isArray(value)){
+    return Array.from(new Set(value.map(item => String(item || '').trim()).filter(Boolean)));
+  }
+  return Array.from(new Set(String(value || '').split(/\n|,/).map(item => item.trim()).filter(Boolean)));
+}
+
+function normalizeJobTypeMeta(meta){
+  const next = {};
+  if(!meta || typeof meta !== 'object' || Array.isArray(meta)) return next;
+  Object.keys(meta).forEach(type => {
+    const cleanType = String(type || '').trim();
+    if(!cleanType) return;
+    const raw = meta[type] || {};
+    const materialCode = String(raw.materialCode || raw.code || raw.mtrlCode || '').trim();
+    const requirements = normalizeRequirements(raw.requirements || raw.krav || raw.requirement || '');
+    if(materialCode || requirements.length){
+      next[cleanType] = { materialCode, requirements };
+    }
+  });
+  return next;
+}
+
 function refreshTruckTypesFromState(){
   if(typeof state === 'undefined') return;
   if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
@@ -948,6 +974,8 @@ function normalizeVehicleState(){
   if(!('placeAddresses' in state)) state.placeAddresses = {};
   if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)) state.jobTypeMeta = {};
+  state.jobTypeMeta = normalizeJobTypeMeta(state.jobTypeMeta);
   if(!Array.isArray(state.machines)) state.machines = cloneDefaultMachines();
   state.machines = state.machines.map((machine, index) => ({
     id: machine.id || ('machine_' + index + '_' + id()),
@@ -998,11 +1026,13 @@ function loadState(){
       if(!('placeAddresses' in parsed)) parsed.placeAddresses = {};
       if(!Array.isArray(parsed.jobTypes)) parsed.jobTypes = cloneDefaultJobTypes();
       parsed.jobTypes = normalizeJobTypesList(parsed.jobTypes);
+      if(!parsed.jobTypeMeta || typeof parsed.jobTypeMeta !== 'object' || Array.isArray(parsed.jobTypeMeta)) parsed.jobTypeMeta = {};
+      parsed.jobTypeMeta = normalizeJobTypeMeta(parsed.jobTypeMeta);
       if(!Array.isArray(parsed.machines)) parsed.machines = cloneDefaultMachines();
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), machines:cloneDefaultMachines(), jobs:[], queue:[]};
+  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1016,18 +1046,36 @@ function clockTime(ts){
 }
 function id(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
 
-function getMaterialCode(type){
-  const codes = {
-    'Blandat avfall': '301',
-    'Blandat': '301',
-    'Kompost': '611',
-    'Komprimator': '101',
-    'Havstång': '611',
-    'Havstång utkörning': '611',
-    'Havstång inkörning': '611',
-    'Tryckimpregnerat': '179'
+function getJobTypeMeta(type){
+  if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)){
+    state.jobTypeMeta = {};
+  }
+  const meta = state.jobTypeMeta[type] || {};
+  return {
+    materialCode: String(meta.materialCode || '').trim(),
+    requirements: normalizeRequirements(meta.requirements || [])
   };
-  return codes[type] || '';
+}
+
+function setJobTypeMeta(type, materialCode, requirements){
+  if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)){
+    state.jobTypeMeta = {};
+  }
+  const code = String(materialCode || '').trim();
+  const reqs = normalizeRequirements(requirements || []);
+  if(code || reqs.length){
+    state.jobTypeMeta[type] = { materialCode: code, requirements: reqs };
+  } else if(state.jobTypeMeta[type]){
+    delete state.jobTypeMeta[type];
+  }
+}
+
+function getMaterialCode(type){
+  return getJobTypeMeta(type).materialCode || '';
+}
+
+function getJobTypeRequirements(type){
+  return getJobTypeMeta(type).requirements || [];
 }
 
 
@@ -1494,6 +1542,8 @@ function toggleJobTypeManager(){
 
 function addManagedJobType(){
   const nameEl = document.getElementById('newManagedJobTypeName');
+  const codeEl = document.getElementById('newManagedJobTypeCode');
+  const requirementsEl = document.getElementById('newManagedJobTypeRequirements');
   if(!nameEl) return;
   const name = (nameEl.value || '').trim();
   if(!name){
@@ -1507,7 +1557,10 @@ function addManagedJobType(){
   }
   state.jobTypes.push(name);
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  setJobTypeMeta(name, codeEl ? codeEl.value : '', requirementsEl ? requirementsEl.value : '');
   nameEl.value = '';
+  if(codeEl) codeEl.value = '';
+  if(requirementsEl) requirementsEl.value = '';
   saveState();
   refreshJobTypeSelects();
   renderJobTypeManager();
@@ -1517,6 +1570,11 @@ function addManagedJobType(){
 }
 
 function replaceJobTypeReferences(oldName, newName){
+  if(state.jobTypeMeta && state.jobTypeMeta[oldName]){
+    state.jobTypeMeta[newName] = state.jobTypeMeta[oldName];
+    if(newName !== oldName) delete state.jobTypeMeta[oldName];
+  }
+
   const replaceInItem = item => {
     if(item && item.type === oldName) item.type = newName;
   };
@@ -1539,6 +1597,8 @@ function replaceJobTypeReferences(oldName, newName){
 }
 
 function removeJobTypeReferences(typeName){
+  if(state.jobTypeMeta && state.jobTypeMeta[typeName]) delete state.jobTypeMeta[typeName];
+
   Object.keys(state.placeConfigs || {}).forEach(key => {
     const config = state.placeConfigs[key];
     if(!config) return;
@@ -1557,6 +1617,8 @@ function removeJobTypeReferences(typeName){
 function saveManagedJobType(oldName){
   refreshTruckTypesFromState();
   const input = document.querySelector('#jobTypeManagerList input[data-jobtype-name="'+cssEscape(oldName)+'"]');
+  const codeInput = document.querySelector('#jobTypeManagerList input[data-jobtype-code="'+cssEscape(oldName)+'"]');
+  const requirementsInput = document.querySelector('#jobTypeManagerList textarea[data-jobtype-requirements="'+cssEscape(oldName)+'"]');
   if(!input) return;
   const nextName = (input.value || '').trim();
   if(!nextName){
@@ -1573,6 +1635,7 @@ function saveManagedJobType(oldName){
     replaceJobTypeReferences(oldName, nextName);
   }
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '');
   saveState();
   refreshJobTypeSelects();
   renderJobTypeManager();
@@ -1605,16 +1668,22 @@ function renderJobTypeManager(){
   if(!listEl) return;
   refreshTruckTypesFromState();
   const items = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
-  listEl.innerHTML = items.map(type =>
-    '<div class="place-row">'+
+  listEl.innerHTML = items.map(type => {
+    const meta = getJobTypeMeta(type);
+    return '<div class="place-row">'+
       '<div class="place-key">'+escapeHtml(type)+'</div>'+
+      '<label>Namn</label>'+
       '<input data-jobtype-name="'+escapeHtml(type)+'" value="'+escapeHtml(type)+'">'+
+      '<label>Mtrl kod</label>'+
+      '<input data-jobtype-code="'+escapeHtml(type)+'" value="'+escapeHtml(meta.materialCode || '')+'" placeholder="Mtrl kod (valfritt)">'+
+      '<label>Krav/varningar</label>'+
+      '<textarea data-jobtype-requirements="'+escapeHtml(type)+'" placeholder="Ett krav per rad">'+escapeHtml((meta.requirements || []).join('\n'))+'</textarea>'+
       '<div class="row">'+
         '<button class="primary inline" onclick="saveManagedJobType(\''+escapeJsSingle(type)+'\')">Spara</button>'+
         '<button class="danger inline" onclick="removeManagedJobType(\''+escapeJsSingle(type)+'\')">Ta bort</button>'+
       '</div>'+
-    '</div>'
-  ).join('');
+    '</div>';
+  }).join('');
 }
 
 function toggleMachineManager(){
@@ -2294,15 +2363,15 @@ function renderActive(){
 
   const materialCode = getMaterialCode(state.active.type);
   const activeTypeLabel = state.active.displayType || state.active.type;
-  const helmetWarning = (state.active.dest === 'Sortera Torslanda' || state.active.dest === 'Stena Metall')
-    ? '<span class="pill pill-alert">HJÄLMKRAV</span>'
-    : '';
+  const requirementPills = getJobTypeRequirements(state.active.type)
+    .map(req => '<span class="pill pill-alert">'+escapeHtml(req)+'</span>')
+    .join('');
   document.getElementById('activePills').innerHTML =
     '<span class="pill pill-type">'+activeTypeLabel+'</span>'+
     '<span class="pill pill-place">Från '+getItemPlaceLabel(state.active, 'place')+'</span>'+
-    helmetWarning +
+    requirementPills +
     (state.active.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(state.active, 'dest')+'</span>' : '')+
-    (materialCode ? '<span class="pill pill-code">Mtrl kod '+materialCode+'</span>' : '');
+    (materialCode ? '<span class="pill pill-code">Mtrl kod '+escapeHtml(materialCode)+'</span>' : '');
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
