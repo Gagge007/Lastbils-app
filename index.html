@@ -59,6 +59,7 @@ button{
 
 .pill-type{ background:#fff8cc !important; }
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
+.private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
 
 #activePills{
   display:flex !important;
@@ -440,6 +441,10 @@ button{
             <input id="activeCommentInput" placeholder="Skriv kommentar" style="max-width:240px">
             <button class="inline" onclick="saveActiveComment()">Spara kommentar</button>
           </div>
+          <div class="row" style="gap:10px; align-items:center">
+            <input id="activePrivateCommentInput" placeholder="Intern kommentar (exporteras inte)" style="max-width:240px">
+            <button class="inline" onclick="saveActivePrivateComment()">Spara intern kommentar</button>
+          </div>
           <div class="row" style="gap:10px; align-items:center; margin-top:8px">
             <button class="queue-pause" onclick="pauseActiveJob()">Pausa</button>
             <button class="queue-complete" onclick="stopJob()" style="margin-left:auto">Klart</button>
@@ -481,6 +486,8 @@ button{
     <select id="newDest"></select>
     <label style="margin-top:10px">Kommentar</label>
     <textarea id="newComment"></textarea>
+    <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
+    <textarea id="newPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
     <button class="primary" style="margin-top:12px" onclick="startManualJob()">Starta jobb</button>
   </div>
 
@@ -499,6 +506,8 @@ button{
           <select id="queueDest"></select>
           <label style="margin-top:10px">Kommentar</label>
           <textarea id="queueComment"></textarea>
+          <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
+          <textarea id="queuePrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
           <button class="primary" style="margin-top:12px" onclick="addQueuedJob()">Lägg i kö</button>
         </div>
       </div>
@@ -548,6 +557,8 @@ button{
     <input id="editDest">
     <label style="margin-top:10px">Kommentar</label>
     <textarea id="editComment"></textarea>
+    <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
+    <textarea id="editPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
     <label style="margin-top:10px">Tid i minuter</label>
     <input id="editMinutes" type="number" min="0" step="1" placeholder="Ange tid i minuter">
     <label style="margin-top:10px">Total vikt i ton</label>
@@ -628,11 +639,11 @@ button{
       </div>
     </div>
     <div id="backupManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du säkerhetskopiera och återställa all appdata: platser, adresser, jobbtyper, maskiner, snabbval, kö, aktiva jobb och avslutade jobb.</div>
+      <div class="place-help">Här kan du säkerhetskopiera och återställa appdata. Interna kommentarer exporteras inte i backupfilen.</div>
 
       <div class="place-row">
         <div class="place-key">Exportera backup</div>
-        <div class="multi-help">Skapar en JSON-fil som du kan spara på mobilen eller datorn.</div>
+        <div class="multi-help">Skapar en JSON-fil som du kan spara på mobilen eller datorn. Interna kommentarer följer inte med.</div>
         <div class="row">
           <button class="primary inline" onclick="exportAppBackup()">Exportera backup</button>
         </div>
@@ -1423,6 +1434,22 @@ function getBackupFilename(){
   return 'lastbil_app_backup_' + stamp + '.json';
 }
 
+function sanitizeStateForExport(source){
+  const clean = JSON.parse(JSON.stringify(source || {}));
+  const strip = item => {
+    if(item && typeof item === 'object'){
+      delete item.privateComment;
+      delete item.internalComment;
+      delete item.sensitiveComment;
+    }
+  };
+  strip(clean.active);
+  strip(clean.pausedOtherWork);
+  (clean.jobs || []).forEach(strip);
+  (clean.queue || []).forEach(strip);
+  return clean;
+}
+
 function exportAppBackup(){
   saveState();
 
@@ -1431,7 +1458,7 @@ function exportAppBackup(){
     backupVersion: 1,
     storageKey: KEY,
     exportedAt: new Date().toISOString(),
-    state: state
+    state: sanitizeStateForExport(state)
   };
 
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -1938,7 +1965,7 @@ function showTab(tab){
   }
 }
 
-function startJob(vehicle, type, place, dest, comment, displayType){
+function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
   if(state.active){
     const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
     const nextIsOtherWork = type === 'Övrig verksamhet';
@@ -1967,6 +1994,7 @@ function startJob(vehicle, type, place, dest, comment, displayType){
     placeLabel:getStoredPlaceLabel(place),
     destLabel:getStoredPlaceLabel(dest),
     comment:comment||'',
+    privateComment:privateComment||'',
     plannedDate: todayStr(),
     start:Date.now(),
     loads:[],
@@ -1980,8 +2008,8 @@ function startJob(vehicle, type, place, dest, comment, displayType){
   return true;
 }
 
-function quickJob(vehicle, type, place, dest, comment, displayType){
-  const started = startJob(vehicle, type, place, dest, comment, displayType);
+function quickJob(vehicle, type, place, dest, comment, displayType, privateComment){
+  const started = startJob(vehicle, type, place, dest, comment, displayType, privateComment || '');
   if(started && state.active) showTab('idag');
 }
 
@@ -2010,6 +2038,7 @@ function startManualJob(){
   let place = document.getElementById('newPlace').value;
   let dest = document.getElementById('newDest').value;
   const baseComment = document.getElementById('newComment').value;
+  const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
 
   if(type === 'Övrig verksamhet'){
     vehicle = 'övrigt arbete';
@@ -2035,7 +2064,7 @@ function startManualJob(){
   }
 
 
-  startJob(vehicle, type, place, dest, comment);
+  startJob(vehicle, type, place, dest, comment, '', privateComment);
   if(state.active) showTab('idag');
 }
 
@@ -2044,8 +2073,9 @@ function addQueuedJob(){
   const chosenType = document.getElementById('queueType').value;
   const queuePlaceValue = document.getElementById('queuePlace').value;
   const queueDestValue = document.getElementById('queueDest').value;
-  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:queuePlaceValue, dest:queueDestValue, placeLabel:getStoredPlaceLabel(queuePlaceValue), destLabel:getStoredPlaceLabel(queueDestValue), comment:document.getElementById('queueComment').value, status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:queuePlaceValue, dest:queueDestValue, placeLabel:getStoredPlaceLabel(queuePlaceValue), destLabel:getStoredPlaceLabel(queueDestValue), comment:document.getElementById('queueComment').value, privateComment:(document.getElementById('queuePrivateComment') ? document.getElementById('queuePrivateComment').value : ''), status:'köad', date:todayStr(), plannedDate:todayStr()});
   document.getElementById('queueComment').value = '';
+  if(document.getElementById('queuePrivateComment')) document.getElementById('queuePrivateComment').value = '';
   saveState(); render();
 }
 
@@ -2074,7 +2104,7 @@ function startQueuedJob(qid){
     return;
   }
 
-  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType);
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, q.privateComment || '');
   if(!started) return;
 
   if(state.active && q.plannedDate){
@@ -2097,6 +2127,10 @@ function pauseActiveJob(){
   const commentInput = document.getElementById('activeCommentInput');
   if(commentInput){
     state.active.comment = commentInput.value || '';
+  }
+  const privateCommentInput = document.getElementById('activePrivateCommentInput');
+  if(privateCommentInput){
+    state.active.privateComment = privateCommentInput.value || '';
   }
 
   const paused = {...state.active};
@@ -2259,6 +2293,11 @@ function renderActive(){
   if(commentInput && document.activeElement !== commentInput){
     commentInput.value = state.active.comment || '';
   }
+
+  const privateCommentInput = document.getElementById('activePrivateCommentInput');
+  if(privateCommentInput && document.activeElement !== privateCommentInput){
+    privateCommentInput.value = state.active.privateComment || '';
+  }
 }
 
 function setQueuedJobPlannedDate(qid, value){
@@ -2301,7 +2340,8 @@ function renderQueue(){
     '<div class="job">'+
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
-      (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
+      (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
+      (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
         '<input type="date" value="'+getQueuedJobDate(x)+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
@@ -2327,6 +2367,7 @@ function openEditJob(jobId){
   document.getElementById('editPlace').value = job.place || '';
   document.getElementById('editDest').value = job.dest || '';
   document.getElementById('editComment').value = job.comment || '';
+  document.getElementById('editPrivateComment').value = job.privateComment || '';
   document.getElementById('editMinutes').value = totalMinutes;
   document.getElementById('editWeight').value = Number(job.totalWeight || 0).toFixed(1).replace('.', ',');
   document.getElementById('editJobModal').classList.add('show');
@@ -2359,6 +2400,7 @@ function saveEditedJob(){
   job.place = document.getElementById('editPlace').value;
   job.dest = document.getElementById('editDest').value;
   job.comment = document.getElementById('editComment').value;
+  job.privateComment = document.getElementById('editPrivateComment').value;
   job.end = (job.start || Date.now()) + Math.round(minutes) * 60000;
   job.totalWeight = weight;
   job.loads = weight > 0 ? [weight] : [];
@@ -2387,7 +2429,8 @@ function renderToday(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
-      (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
+      (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
+      (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
@@ -3384,6 +3427,14 @@ function saveActiveComment(){
   if(!state.active) return;
   const val = document.getElementById('activeCommentInput').value;
   state.active.comment = val;
+  saveState();
+  renderActive();
+}
+
+function saveActivePrivateComment(){
+  if(!state.active) return;
+  const input = document.getElementById('activePrivateCommentInput');
+  state.active.privateComment = input ? input.value : '';
   saveState();
   renderActive();
 }
