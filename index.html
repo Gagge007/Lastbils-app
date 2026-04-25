@@ -1,0 +1,3399 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lastbil app4</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#cbd5e1;--btn:#e2e8f0;--primary:#0f172a;--danger:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1,h2,h3{margin:0 0 10px}
+.muted{color:var(--muted);font-size:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;margin-top:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:800px){.grid2{grid-template-columns:1fr 1fr}}
+button,select,input,textarea{font-size:16px;padding:12px;border:1px solid var(--border);border-radius:12px}
+button{background:var(--btn);cursor:pointer}
+button.primary{background:var(--primary);color:#fff}
+button.danger{background:var(--danger);color:#fff}
+button.inline{width:auto}
+select,input,textarea{width:100%}
+textarea{min-height:90px}
+.hidden{display:none}
+.pill{display:inline-block;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:12px;margin:4px 6px 0 0}
+.job{border:1px solid var(--border);border-radius:14px;padding:12px;margin-top:10px;background:#fff}
+.stats{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:700px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff}
+.stat small{color:var(--muted);text-transform:uppercase}
+.stat strong{display:block;margin-top:6px;font-size:22px}
+.tabs button{width:auto}
+.btn-grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:700px){.btn-grid{grid-template-columns:1fr 1fr}}
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000}
+.modal-backdrop.show{display:flex}
+.modal-card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:16px;max-width:520px;width:100%}
+
+.queue-alert{ color:#d32f2f; font-weight:700; }
+
+.pill-place{ background:#e8f5e9; }
+.pill-dest{ background:#fdecea; }
+
+.job{
+  padding:16px !important;
+  border-radius:16px !important;
+  font-size:16px !important;
+}
+.pill{
+  padding:8px 14px !important;
+  font-size:15px !important;
+}
+button{
+  font-size:16px !important;
+  padding:10px 14px !important;
+}
+
+
+.pill-type{ background:#fff8cc !important; }
+.pill-code{ background:#eef2ff !important; font-weight:700 !important; }
+
+#activePills{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px 10px !important;
+  align-items:center !important;
+}
+#activePills .pill{
+  margin:0 !important;
+}
+#activePills .pill-code{
+  margin-left:auto !important;
+  padding:10px 20px !important;
+  font-size:18px !important;
+  min-width:180px !important;
+  text-align:center !important;
+}
+#activePills .pill-alert{
+  margin-left:auto !important;
+  padding:10px 20px !important;
+  font-size:18px !important;
+  min-width:200px !important;
+  text-align:center !important;
+  font-weight:800 !important;
+  background:#fff4cc !important;
+  color:#5c4800 !important;
+}
+
+.queue-start,
+.queue-complete,
+.queue-remove,
+.queue-pause{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  border-radius:999px !important;
+  min-height:60px !important;
+  padding:0 26px 0 0 !important;
+  font-size:16px !important;
+  font-weight:700 !important;
+  border:1px solid #bfc8d1 !important;
+  box-shadow:0 1px 0 rgba(0,0,0,.04) inset !important;
+}
+
+.queue-start{
+  background:linear-gradient(90deg,#84c66b 0,#dbeed5 100%) !important;
+  color:#23411e !important;
+}
+
+.queue-start::before{
+  content:'▶' !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:54px !important;
+  min-width:54px !important;
+  height:54px !important;
+  margin:2px 4px 2px 2px !important;
+  border-radius:999px !important;
+  background:#69b455 !important;
+  color:#fff !important;
+  font-size:22px !important;
+  line-height:1 !important;
+}
+
+.queue-complete{
+  background:linear-gradient(90deg,#ff3c2e 0,#ff5d52 100%) !important;
+  color:#fff !important;
+}
+
+.queue-complete::before{
+  content:'✓' !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:54px !important;
+  min-width:54px !important;
+  height:54px !important;
+  margin:2px 4px 2px 2px !important;
+  border-radius:999px !important;
+  background:#ff2f24 !important;
+  color:#fff !important;
+  font-size:26px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+}
+
+.queue-remove{
+  background:linear-gradient(180deg,#eef2f6 0,#dfe5eb 100%) !important;
+  color:#39434d !important;
+  padding-left:0 !important;
+}
+
+.queue-remove::before{
+  content:'🗑' !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:54px !important;
+  min-width:54px !important;
+  height:54px !important;
+  margin:2px 4px 2px 2px !important;
+  border-radius:999px !important;
+  color:#6f7b86 !important;
+  font-size:25px !important;
+  line-height:1 !important;
+}
+
+.queue-actions{
+  margin-top:18px !important;
+  display:grid !important;
+  grid-template-columns:1fr auto !important;
+  column-gap:16px !important;
+  row-gap:14px !important;
+  align-items:center !important;
+}
+
+.queue-actions .queue-remove{
+  grid-column:1 / 2 !important;
+  justify-self:start !important;
+}
+
+.queue-actions .queue-complete{
+  justify-self:end !important;
+}
+
+.queue-actions .queue-start{
+  justify-self:start !important;
+}
+
+.queue-pause{
+  background:linear-gradient(90deg,#f2c94c 0,#f8e7a6 100%) !important;
+  color:#5c4800 !important;
+}
+
+.queue-pause::before{
+  content:'Ⅱ' !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:54px !important;
+  min-width:54px !important;
+  height:54px !important;
+  margin:2px 4px 2px 2px !important;
+  border-radius:999px !important;
+  background:#e4b52d !important;
+  color:#fff !important;
+  font-size:22px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+}
+
+.queue-actions .queue-pause{
+  justify-self:start !important;
+}
+
+.queue-yellow{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  border-radius:999px !important;
+  min-height:60px !important;
+  padding:0 26px 0 0 !important;
+  font-size:16px !important;
+  font-weight:700 !important;
+  border:1px solid #d8c16a !important;
+  box-shadow:0 1px 0 rgba(0,0,0,.04) inset !important;
+  background:linear-gradient(90deg,#f2c94c 0,#f8e7a6 100%) !important;
+  color:#5c4800 !important;
+}
+
+.queue-yellow::before{
+  content:'+' !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:54px !important;
+  min-width:54px !important;
+  height:54px !important;
+  margin:2px 4px 2px 2px !important;
+  border-radius:999px !important;
+  background:#e4b52d !important;
+  color:#fff !important;
+  font-size:28px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+}
+
+.app-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.app-header h1{
+  margin:0;
+}
+
+.settings-btn{
+  width:72px !important;
+  min-width:72px !important;
+  height:72px !important;
+  padding:0 !important;
+  border-radius:999px !important;
+  border:1px solid #bfc8d1 !important;
+  background:linear-gradient(180deg,#f7fbff 0%, #dfe9f6 100%) !important;
+  box-shadow:0 3px 10px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.85) !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+
+.settings-btn svg{
+  width:42px;
+  height:42px;
+  display:block;
+}
+
+#tab-settings .setting-placeholder{
+  border:1px dashed #c7d2de;
+  border-radius:18px;
+  padding:18px;
+  background:#fafcff;
+}
+#tab-settings .settings-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:6px;
+}
+
+#tab-settings .place-manager{
+  margin-top:18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+#tab-settings .place-manager.hidden{
+  display:none !important;
+}
+
+#tab-settings .place-row{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#fff;
+}
+
+#tab-settings .place-key{
+  font-size:14px;
+  color:var(--muted);
+  font-weight:700;
+}
+
+#tab-settings .place-help{
+  margin-top:10px;
+  color:var(--muted);
+}
+#tab-settings .place-meta{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+
+#tab-settings .place-row .danger{
+  width:auto;
+}
+
+#tab-settings input[type="checkbox"]{
+  width:auto;
+}
+
+#tab-settings select[multiple]{
+  min-height:150px;
+}
+
+#tab-settings .multi-help{
+  color:var(--muted);
+  font-size:13px;
+  margin-top:4px;
+}
+
+#tab-settings .quick-manager{
+  margin-top:18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+#tab-settings .quick-manager.hidden{
+  display:none !important;
+}
+
+#tab-settings .quick-edit-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+
+@media(min-width:700px){
+  #tab-settings .quick-edit-grid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+#tab-settings .quick-special-note{
+  color:var(--muted);
+  font-size:14px;
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="app-header">
+    <h1>Lastbil app</h1>
+    <button class="settings-btn" onclick="showTab('settings')" aria-label="Inställningar" title="Inställningar">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="gearEFill" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#7fe1ea"/>
+            <stop offset="100%" stop-color="#1f98a8"/>
+          </linearGradient>
+        </defs>
+        <g transform="translate(32 32)">
+          <g fill="url(#gearEFill)" stroke="#0f6070" stroke-width="2.1" stroke-linejoin="round">
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(30)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(60)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(90)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(120)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(150)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(180)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(210)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(240)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(270)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(300)"/>
+            <rect x="-3.2" y="-27" width="6.4" height="10" rx="1.8" transform="rotate(330)"/>
+            <circle r="20.5"/>
+          </g>
+          <circle r="14.5" fill="#f5fdfe" stroke="#0f6070" stroke-width="2.1"/>
+          <g stroke="#11879a" stroke-width="4.6" stroke-linecap="round">
+            <line x1="0" y1="0" x2="0" y2="-11.5"/>
+            <line x1="0" y1="0" x2="9.96" y2="5.75"/>
+            <line x1="0" y1="0" x2="-9.96" y2="5.75"/>
+          </g>
+          <circle r="4.2" fill="#65dbe4" stroke="#0f6070" stroke-width="2"/>
+        </g>
+      </svg>
+    </button>
+  </div>
+  
+
+  <div id="activeJobCard" class="card">
+    <h2>Aktivt jobb</h2>
+    <div id="activeNone" class="muted">Inget aktivt jobb.</div>
+    <div id="activeBox" class="hidden">
+      <div id="activePills"></div>
+      <div class="stats" style="margin-top:12px">
+        <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
+        <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
+        <div class="stat" id="activeLoadsStat"><small>Antal last</small><strong id="activeLoads">0</strong></div>
+        <div class="stat" id="activeWeightStat"><small>Total vikt i ton</small><strong id="activeWeight">0.0 ton</strong></div>
+      </div>
+      
+<div class="row" style="margin-top:12px; align-items:flex-end">
+        <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
+          <div class="row" id="activeWeightRow" style="gap:10px; align-items:center">
+            <input id="weightInput" placeholder="Ange vikt i ton" style="max-width:240px">
+            <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
+          </div>
+          <div class="row" style="gap:10px; align-items:center">
+            <input id="activeCommentInput" placeholder="Skriv kommentar" style="max-width:240px">
+            <button class="inline" onclick="saveActiveComment()">Spara kommentar</button>
+          </div>
+          <div class="row" style="gap:10px; align-items:center; margin-top:8px">
+            <button class="queue-pause" onclick="pauseActiveJob()">Pausa</button>
+            <button class="queue-complete" onclick="stopJob()" style="margin-left:auto">Klart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainTabs" class="tabs row" style="margin-top:16px">
+    <button data-main-menu="true" onclick="showTab('snabb')">Huvudmeny</button>
+    <button onclick="showTab('nytt')">Nytt jobb</button>
+    
+    <button onclick="showTab('ko')">Uppdrag i kö (<span id="queueCount">0</span>)</button>
+    <button onclick="showTab('idag')">Idag</button>
+  </div>
+
+  <div id="tab-snabb" class="card">
+    <h3>Snabbval</h3>
+    <div id="quickMainList" class="grid2"></div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Havstång</h3>
+        <div class="muted">Välj utkörning eller inkörning och sedan bad. Samma regler som i Nytt jobb.</div>
+        <label style="margin-top:10px">Havstång</label>
+        <select id="quickSeaweedMode">
+          <option value="">Välj riktning</option>
+          <option value="utkörning">Utkörning</option>
+          <option value="inkörning">Inkörning</option>
+        </select>
+        <label style="margin-top:10px">Bad</label>
+        <select id="quickSeaweedBeach">
+          <option value="">Välj bad</option>
+          <option value="Askimsbadet">Askimsbadet</option>
+          <option value="Hovåsbadet">Hovåsbadet</option>
+          <option value="Smithska udden">Smithska udden</option>
+          <option value="Billdalsbadet">Billdalsbadet</option>
+          <option value="Amundön">Amundön</option>
+          <option value="Sillviksbadet">Sillviksbadet</option>
+        </select>
+        <button class="primary" style="margin-top:12px" onclick="startQuickSeaweed()">Starta havstång</button>
+      </div>
+    </div>
+  </div>
+  <div id="tab-nytt" class="card hidden">
+    <h3>Nytt jobb</h3>
+    <input id="newVehicle" type="hidden" value="lastbil">
+    <label>Jobbtyp</label>
+    <select id="newType"></select>
+    <div id="newMachineWrap" class="hidden">
+      <label style="margin-top:10px">Maskin</label>
+      <select id="newMachine">
+        <option value="">Välj maskin</option>
+        <option value="CityCat 5006">CityCat 5006</option>
+        <option value="CityCat V20">CityCat V20</option>
+        <option value="Lundbergare">Lundbergare</option>
+      </select>
+    </div>
+    <div id="newSeaweedModeWrap" class="hidden">
+      <label style="margin-top:10px">Havstång</label>
+      <select id="newSeaweedMode">
+        <option value="">Välj riktning</option>
+        <option value="utkörning">Utkörning</option>
+        <option value="inkörning">Inkörning</option>
+      </select>
+    </div>
+    <div id="newSeaweedBeachWrap" class="hidden">
+      <label style="margin-top:10px">Bad</label>
+      <select id="newSeaweedBeach">
+        <option value="">Välj bad</option>
+        <option value="Askimsbadet">Askimsbadet</option>
+        <option value="Hovåsbadet">Hovåsbadet</option>
+        <option value="Smithska udden">Smithska udden</option>
+        <option value="Billdalsbadet">Billdalsbadet</option>
+        <option value="Amundön">Amundön</option>
+        <option value="Sillviksbadet">Sillviksbadet</option>
+      </select>
+    </div>
+    <label style="margin-top:10px">Från</label>
+    <select id="newPlace"></select>
+    <label style="margin-top:10px">Till</label>
+    <select id="newDest"></select>
+    <label style="margin-top:10px">Kommentar</label>
+    <textarea id="newComment"></textarea>
+    <button class="primary" style="margin-top:12px" onclick="startManualJob()">Starta jobb</button>
+  </div>
+
+  <div id="tab-ko" class="card hidden">
+      <h3>Uppdrag i kö</h3>
+      <div class="muted">Köade jobb visas överst. Snabbvalen hamnar längre ner när kön växer.</div>
+      <div id="queueList"></div>
+<div id="queueQuickList" class="grid2"></div>
+      <div class="grid2">
+        <div>
+          <label>Jobbtyp</label>
+          <select id="queueType"></select>
+          <label style="margin-top:10px">Från</label>
+          <select id="queuePlace"></select>
+          <label style="margin-top:10px">Till</label>
+          <select id="queueDest"></select>
+          <label style="margin-top:10px">Kommentar</label>
+          <textarea id="queueComment"></textarea>
+          <button class="primary" style="margin-top:12px" onclick="addQueuedJob()">Lägg i kö</button>
+        </div>
+      </div>
+</div>
+
+  <div id="tab-idag" class="card hidden">
+    <h3>Idag</h3>
+    <div id="todayList"></div>
+  </div>
+
+</div>
+
+
+<div id="machineTransportModal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3>Maskintransport</h3>
+    <label>Välj maskin</label>
+    <select id="mtMachine">
+      <option value="CityCat 5006">CityCat 5006</option>
+      <option value="CityCat V20">CityCat V20</option>
+      <option value="Lundbergare">Lundbergare</option>
+      <option value="Annat frd/mtrl">Annat frd/mtrl</option>
+    </select>
+    <label style="margin-top:10px">Välj riktning</label>
+    <select id="mtDirection">
+      <option value="to">Till verkstad</option>
+      <option value="from">Från verkstad</option>
+      <option value="other">Annan plats</option>
+    </select>
+    <div class="row" style="margin-top:12px">
+      <button class="primary inline" onclick="confirmMachineTransport()">OK</button>
+      <button class="inline" onclick="closeMachineTransport()">Avbryt</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="editJobModal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3>Redigera avslutat jobb</h3>
+    <input type="hidden" id="editJobId">
+    <label>Jobbtyp</label>
+    <select id="editType"></select>
+    <label style="margin-top:10px">Från</label>
+    <input id="editPlace">
+    <label style="margin-top:10px">Till</label>
+    <input id="editDest">
+    <label style="margin-top:10px">Kommentar</label>
+    <textarea id="editComment"></textarea>
+    <label style="margin-top:10px">Tid i minuter</label>
+    <input id="editMinutes" type="number" min="0" step="1" placeholder="Ange tid i minuter">
+    <label style="margin-top:10px">Total vikt i ton</label>
+    <input id="editWeight" placeholder="Ange vikt i ton">
+    <div class="row" style="margin-top:12px">
+      <button class="primary inline" onclick="saveEditedJob()">Spara</button>
+      <button class="inline" onclick="closeEditJob()">Avbryt</button>
+    </div>
+  </div>
+</div>
+
+  <div id="tab-settings" class="card hidden">
+    <h3>Inställningar</h3>
+    <div class="settings-actions">
+      <button class="primary" onclick="togglePlaceManager()">Hantera platser</button>
+      <button class="primary" onclick="toggleQuickManager()">Snabbval</button>
+      <button class="primary" onclick="toggleJobTypeManager()">Jobbtyper</button>
+      <button class="primary" onclick="toggleMachineManager()">Maskiner</button>
+      <button class="primary" onclick="toggleBackupManager()">Backup</button>
+      <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
+      <button class="primary" onclick="toggleSettingsSummary()">Sammanställning</button>
+    </div>
+  <div id="settingsSummaryWrap" class="card hidden">
+    <h3>Sammanställning</h3>
+    <div class="row" style="margin-bottom:12px; align-items:flex-end; gap:10px; flex-wrap:wrap">
+      <div style="min-width:220px; flex:1">
+        <label>Period</label>
+        <select id="sumPeriod" onchange="updateSummaryControls(); renderSummary();">
+          <option value="today">Idag</option>
+          <option value="current_month">Denna månad</option>
+          <option value="month">Valfri månad</option>
+          <option value="all">All tid</option>
+        </select>
+      </div>
+      <div id="sumMonthWrap" class="hidden" style="min-width:220px; flex:1">
+        <label>Månad</label>
+        <select id="sumMonth" onchange="renderSummary()"></select>
+      </div>
+      <div style="min-width:210px">
+        <button class="primary" onclick="exportSummaryExcel()">Exportera till Excel</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><small id="sumJobsLabel">Jobb idag</small><strong id="sumJobs">0</strong></div>
+      <div class="stat"><small id="sumLoadsLabel">Antal last idag</small><strong id="sumLoads">0</strong></div>
+      <div class="stat"><small id="sumWeightLabel">Total vikt idag</small><strong id="sumWeight">0.0 ton</strong></div>
+      <div class="stat"><small id="sumDistanceLabel">Sträcka idag</small><strong id="sumDistance">0.0 km</strong></div>
+      <div class="stat"><small id="sumTimeLabel">Tid idag</small><strong id="sumTime">0 min</strong></div>
+    </div>
+    <div class="card">
+      <h3 id="sumByTypeTitle">Per jobbtyp</h3>
+      <div id="sumByType"></div>
+    </div>
+  </div>
+    <div id="gpsTestManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kan du testa om telefonen och webbläsaren ger appen GPS-position. Testet påverkar inte aktivt jobb.</div>
+
+      <div class="place-row">
+        <div class="place-key">GPS-test</div>
+        <div class="multi-help">Tryck Starta GPS-test och låt sidan vara öppen. Om adressen börjar med content:// eller file:// kan GPS fungera sämre än om appen körs via https://.</div>
+        <div class="stats">
+          <div class="stat"><small>Status</small><strong id="gpsTestStatus">Ej startad</strong></div>
+          <div class="stat"><small>Stöd</small><strong id="gpsTestSupport">Kontrolleras</strong></div>
+          <div class="stat"><small>Behörighet</small><strong id="gpsTestPermission">Okänd</strong></div>
+          <div class="stat"><small>Teststräcka</small><strong id="gpsTestDistance">0.000 km</strong></div>
+        </div>
+        <div class="stats" style="margin-top:12px">
+          <div class="stat"><small>Adressläge</small><strong id="gpsTestProtocol">-</strong></div>
+          <div class="stat"><small>Noggrannhet</small><strong id="gpsTestAccuracy">-</strong></div>
+          <div class="stat"><small>Senaste position</small><strong id="gpsTestPosition">-</strong></div>
+          <div class="stat"><small>Senaste fel</small><strong id="gpsTestError">-</strong></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary inline" onclick="startGpsTest()">Starta GPS-test</button>
+          <button class="inline" onclick="stopGpsTest()">Stoppa GPS-test</button>
+          <button class="inline" onclick="clearGpsTest()">Rensa test</button>
+        </div>
+      </div>
+    </div>
+    <div id="backupManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kan du säkerhetskopiera och återställa all appdata: platser, adresser, jobbtyper, maskiner, snabbval, kö, aktiva jobb och avslutade jobb.</div>
+
+      <div class="place-row">
+        <div class="place-key">Exportera backup</div>
+        <div class="multi-help">Skapar en JSON-fil som du kan spara på mobilen eller datorn.</div>
+        <div class="row">
+          <button class="primary inline" onclick="exportAppBackup()">Exportera backup</button>
+        </div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Importera backup</div>
+        <div class="multi-help">Import skriver över nuvarande appdata med innehållet från backupfilen.</div>
+        <input id="backupImportFile" type="file" accept=".json,application/json">
+        <div class="row">
+          <button class="primary inline" onclick="importAppBackup()">Importera backup</button>
+        </div>
+      </div>
+    </div>
+    <div id="jobTypeManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper eller ta bort jobbtyper.</div>
+
+      <div class="place-row">
+        <div class="place-key">Ny jobbtyp</div>
+        <input id="newManagedJobTypeName" placeholder="Namn på jobbtyp">
+        <div class="row">
+          <button class="primary inline" onclick="addManagedJobType()">Lägg till jobbtyp</button>
+        </div>
+      </div>
+
+      <div id="jobTypeManagerList"></div>
+    </div>
+    <div id="machineManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kan du redigera maskinerna som används i Maskintransport, lägga till nya maskiner eller ta bort maskiner.</div>
+
+      <div class="place-row">
+        <div class="place-key">Ny maskin</div>
+        <input id="newManagedMachineName" placeholder="Namn på maskin">
+        <div>
+          <label>Verkstad/plats</label>
+          <select id="newManagedMachineWorkshop"></select>
+        </div>
+        <div class="row">
+          <button class="primary inline" onclick="addManagedMachine()">Lägg till maskin</button>
+        </div>
+      </div>
+
+      <div id="machineManagerList"></div>
+    </div>
+    <div id="quickManagerWrap" class="quick-manager hidden">
+      <div class="place-help">Här kan du redigera snabbvalen i Huvudmeny och i Uppdrag i kö, lägga till nya snabbval eller ta bort snabbval.</div>
+
+      <datalist id="quickPlaceOptions"></datalist>
+      <datalist id="quickDestOptions"></datalist>
+
+      <div class="place-row">
+        <div class="place-key">Nytt snabbval</div>
+        <div class="quick-edit-grid">
+          <div>
+            <label>Rubrik/grupp</label>
+            <select id="newQuickGroup"></select>
+          </div>
+          <div>
+            <label>Knappnamn</label>
+            <input id="newQuickLabel" placeholder="Ex. Sopsand">
+          </div>
+          <div>
+            <label>Jobbtyp</label>
+            <select id="newQuickType"></select>
+          </div>
+          <div>
+            <label>Från</label>
+            <select id="newQuickPlace"></select>
+          </div>
+          <div>
+            <label>Till</label>
+            <select id="newQuickDest"></select>
+          </div>
+          <div>
+            <label>Visas som (valfritt)</label>
+            <input id="newQuickDisplayType" placeholder="Ex. Komprimator 41099">
+          </div>
+        </div>
+        <label>Kommentar</label>
+        <input id="newQuickComment" placeholder="Valfritt">
+        <div class="row">
+          <button class="primary inline" onclick="addQuickItem()">Lägg till snabbval</button>
+        </div>
+      </div>
+
+      <div id="quickManagerList"></div>
+      <div class="row" style="margin-top:4px">
+        <button class="primary" onclick="saveQuickItems()">Spara snabbval</button>
+      </div>
+    </div>
+    <div id="placeManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kan du ändra visningsnamn på platserna i appen, lägga till nya platser, skriva adress eller Plus Code och valfritt knyta en eller flera jobbtyper till platsen.</div>
+
+      <div class="place-row">
+        <div class="place-key">Ny plats</div>
+        <input id="newManagedPlaceName" placeholder="Namn på ny plats">
+        <input id="newManagedPlaceAddress" placeholder="Adress eller Plus Code">
+        <div class="multi-help">Du kan skriva vanlig adress eller Plus Code för framtida Google Maps-koppling.</div>
+        <div class="row" style="gap:12px; align-items:center">
+          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="newManagedPlaceFrom" type="checkbox" checked> Från</label>
+          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="newManagedPlaceTo" type="checkbox" checked> Till</label>
+        </div>
+        <div>
+          <label>Koppla jobbtyper (valfritt)</label>
+          <select id="newManagedPlaceJobType" multiple size="6"></select>
+          <div class="multi-help">Välj en eller flera jobbtyper.</div>
+        </div>
+        <div class="row">
+          <button class="primary inline" onclick="addManagedPlace()">Lägg till plats</button>
+        </div>
+      </div>
+
+      <div id="placeManagerList"></div>
+      <div class="row" style="margin-top:4px">
+        <button class="primary" onclick="saveManagedPlaces()">Spara platser</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+const KEY = 'driftlogg_v4_full';
+const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avfall','Tryckimpregnerat','Komprimator','Kompost','Ris','Flis','Havstång','Maskintransport','Snö','Annat','Övriga jobb'];
+function cloneDefaultJobTypes(){ return DEFAULT_TRUCK_TYPES.slice(); }
+let truckTypes = cloneDefaultJobTypes();
+let sortedTruckTypes = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
+const places = ['Ringön (BAS)','von Utfallsgatan','Slottskogen','Säldammen','Flaklager Skräppekärr','Ruskvädersgatan (Ristipp)','Renova Bioanläggning','Renova Skräppekärr','Renova Sävenäs','Renova Högsbo','Renova verkstad','Stena Metall','Sortera Torslanda','Ströman Kungälv','Maskinparken Kungälv','Annan plats'];
+const dests = ['Sortera Torslanda','Stena Metall','Renova Skräppekärr','Renova Sävenäs','Renova Högsbo','Renova Bioanläggning','Renova verkstad','Ströman Kungälv','Maskinparken Kungälv','Flaklager Skräppekärr','Ruskvädersgatan (Ristipp)','Ringön (BAS)','Annan destination'];
+const DEFAULT_MACHINES = [
+  {id:'machine_citycat_5006', name:'CityCat 5006', workshop:'Ströman Kungälv'},
+  {id:'machine_citycat_v20', name:'CityCat V20', workshop:'Ströman Kungälv'},
+  {id:'machine_lundbergare', name:'Lundbergare', workshop:'Maskinparken Kungälv'},
+  {id:'machine_annat', name:'Annat frd/mtrl', workshop:'Annan destination'}
+];
+function cloneDefaultMachines(){ return DEFAULT_MACHINES.map(item => ({...item})); }
+const DEFAULT_QUICK_ITEMS = [
+  {id:'quick_ring_ovrig', group:'Ringön', label:'Övrig verksamhet', vehicle:'övrigt arbete', type:'Övrig verksamhet', place:'Ringön (BAS)', dest:'', comment:'', displayType:''},
+  {id:'quick_ring_sopsand', group:'Ringön', label:'Sopsand', vehicle:'lastbil', type:'Sopsand', place:'Ringön (BAS)', dest:'Sortera Torslanda', comment:'', displayType:''},
+  {id:'quick_ring_metall', group:'Ringön', label:'Metall', vehicle:'lastbil', type:'Metall', place:'Ringön (BAS)', dest:'Stena Metall', comment:'', displayType:''},
+  {id:'quick_ring_blandat', group:'Ringön', label:'Blandat', vehicle:'lastbil', type:'Blandat avfall', place:'Ringön (BAS)', dest:'Renova Skräppekärr', comment:'', displayType:''},
+  {id:'quick_ring_tryck', group:'Ringön', label:'Tryckimpregnerat', vehicle:'lastbil', type:'Tryckimpregnerat', place:'Ringön (BAS)', dest:'Renova Sävenäs', comment:'', displayType:''},
+  {id:'quick_ring_kompost', group:'Ringön', label:'Kompost', vehicle:'lastbil', type:'Kompost', place:'Ringön (BAS)', dest:'Renova Bioanläggning', comment:'', displayType:''},
+  {id:'quick_ring_ris', group:'Ringön', label:'Ris', vehicle:'lastbil', type:'Ris', place:'Ringön (BAS)', dest:'Ruskvädersgatan (Ristipp)', comment:'', displayType:''},
+  {id:'quick_ring_41099', group:'Ringön', label:'Komprimator 41099', vehicle:'lastbil', type:'Komprimator', place:'Ringön (BAS)', dest:'Renova Sävenäs', comment:'41099', displayType:'Komprimator 41099'},
+  {id:'quick_ring_40360', group:'Ringön', label:'Komprimator 40360', vehicle:'lastbil', type:'Komprimator', place:'Ringön (BAS)', dest:'Renova Sävenäs', comment:'40360', displayType:'Komprimator 40360'},
+  {id:'quick_ring_maskin', group:'Ringön', label:'Maskintransport', action:'machineTransport'},
+  {id:'quick_slottskogen_komp', group:'Slottskogen', label:'Komprimator', vehicle:'lastbil', type:'Komprimator', place:'Slottskogen', dest:'Renova Högsbo', comment:'Slottskogen', displayType:'Komprimator'},
+  {id:'quick_saldammen_sopsand', group:'Säldammen', label:'Sopsand', vehicle:'lastbil', type:'Sopsand', place:'Säldammen', dest:'Sortera Torslanda', comment:'', displayType:''},
+  {id:'quick_vonutfall_sopsand', group:'von Utfall', label:'Sopsand', vehicle:'lastbil', type:'Sopsand', place:'von Utfallsgatan', dest:'Sortera Torslanda', comment:'', displayType:''}
+];
+function cloneDefaultQuickItems(){ return DEFAULT_QUICK_ITEMS.map(item => ({...item})); }
+
+let state = loadState();
+normalizeVehicleState();
+refreshTruckTypesFromState();
+let gpsWatchId = null;
+let lastGpsPoint = null;
+let activeTimerId = null;
+let gpsTestWatchId = null;
+let gpsTestLastPoint = null;
+let gpsTestDistanceKm = 0;
+
+function haversineKm(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+
+function startActiveTimer(){
+  stopActiveTimer();
+  if(!state.active) return;
+  activeTimerId = setInterval(() => {
+    renderActive();
+  }, 1000);
+}
+
+function stopActiveTimer(){
+  if(activeTimerId !== null){
+    clearInterval(activeTimerId);
+  }
+  activeTimerId = null;
+}
+
+function startDistanceTracking(){
+  stopDistanceTracking();
+  if(!navigator.geolocation || !state.active) return;
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    pos => {
+      if(!state.active) return;
+
+      const point = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        ts: Date.now(),
+        accuracy: pos.coords.accuracy || 9999
+      };
+
+      if(point.accuracy > 50){
+        return;
+      }
+
+      if(lastGpsPoint){
+        const delta = haversineKm(lastGpsPoint.lat, lastGpsPoint.lon, point.lat, point.lon);
+
+        if(Number.isFinite(delta) && delta > 0.005 && delta < 3){
+          state.active.distanceKm = Number((state.active.distanceKm || 0) + delta);
+          saveState();
+          renderActive();
+          renderSummary();
+        }
+      }
+
+      lastGpsPoint = point;
+    },
+    err => {
+      console.log('GPS-fel:', err && err.message ? err.message : err);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 20000
+    }
+  );
+}
+
+function stopDistanceTracking(){
+  if(gpsWatchId !== null && navigator.geolocation){
+    navigator.geolocation.clearWatch(gpsWatchId);
+  }
+  gpsWatchId = null;
+  lastGpsPoint = null;
+}
+
+function normalizeJobTypesList(list){
+  const cleaned = Array.isArray(list) ? list.map(type => String(type || '').trim()).filter(Boolean) : [];
+  const unique = [];
+  cleaned.forEach(type => {
+    if(!unique.some(existing => existing.toLocaleLowerCase('sv-SE') === type.toLocaleLowerCase('sv-SE'))){
+      unique.push(type);
+    }
+  });
+  return unique.length ? unique : cloneDefaultJobTypes();
+}
+
+function refreshTruckTypesFromState(){
+  if(typeof state === 'undefined') return;
+  if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
+  state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  truckTypes = state.jobTypes.slice();
+  sortedTruckTypes = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
+}
+
+function normalizeVehicleState(){
+  const normalizeItem = item => {
+    if(item && item.vehicle === 'maskin'){
+      item.vehicle = 'lastbil';
+    }
+  };
+  if(!('pausedOtherWork' in state)) state.pausedOtherWork = null;
+  if(!('placeLabels' in state)) state.placeLabels = {};
+  if(!('customPlaces' in state)) state.customPlaces = [];
+  if(!('placeConfigs' in state)) state.placeConfigs = {};
+  if(!('placeUsage' in state)) state.placeUsage = {};
+  if(!('placeAddresses' in state)) state.placeAddresses = {};
+  if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
+  state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  if(!Array.isArray(state.machines)) state.machines = cloneDefaultMachines();
+  state.machines = state.machines.map((machine, index) => ({
+    id: machine.id || ('machine_' + index + '_' + id()),
+    name: machine.name || 'Maskin',
+    workshop: machine.workshop || 'Annan destination'
+  }));
+  if(!Array.isArray(state.quickItems)) state.quickItems = cloneDefaultQuickItems();
+  state.quickItems = state.quickItems.map((item, index) => ({
+    id: item.id || ('quick_' + index + '_' + id()),
+    group: item.group || 'Övrigt',
+    label: item.label || item.displayType || item.type || 'Snabbval',
+    vehicle: item.vehicle || (item.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil'),
+    type: item.type || '',
+    place: item.place || '',
+    dest: item.dest || '',
+    comment: item.comment || '',
+    displayType: item.displayType || '',
+    action: item.action || ''
+  }));
+  state.quickItems.forEach(item => {
+    if(item && item.type === 'Ris' && item.place === 'Ringön (BAS)' && !item.dest){
+      item.dest = 'Ruskvädersgatan (Ristipp)';
+    }
+  });
+  if(state.active) normalizeItem(state.active);
+  if(state.pausedOtherWork) normalizeItem(state.pausedOtherWork);
+  (state.jobs || []).forEach(normalizeItem);
+  (state.queue || []).forEach(item => {
+    normalizeItem(item);
+    if(item && !item.status) item.status = 'köad';
+    if(item && !item.plannedDate) item.plannedDate = todayStr();
+  });
+}
+
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(!('pausedOtherWork' in parsed)) parsed.pausedOtherWork = null;
+      if(!('placeLabels' in parsed)) parsed.placeLabels = {};
+      if(!('customPlaces' in parsed)) parsed.customPlaces = [];
+      if(!('placeConfigs' in parsed)) parsed.placeConfigs = {};
+      if(!('placeUsage' in parsed)) parsed.placeUsage = {};
+      if(!('placeAddresses' in parsed)) parsed.placeAddresses = {};
+      if(!Array.isArray(parsed.jobTypes)) parsed.jobTypes = cloneDefaultJobTypes();
+      parsed.jobTypes = normalizeJobTypesList(parsed.jobTypes);
+      if(!Array.isArray(parsed.machines)) parsed.machines = cloneDefaultMachines();
+      return parsed;
+    }
+  }catch(e){}
+  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), machines:cloneDefaultMachines(), jobs:[], queue:[]};
+}
+function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function getQueuedJobDate(job){ return (job && job.plannedDate) ? job.plannedDate : todayStr(); }
+function km(x){ return (x||0).toFixed(1)+' km'; }
+function mins(ms){ const t=Math.floor(ms/60000), h=Math.floor(t/60), m=t%60; return h>0 ? h+' h '+m+' min' : m+' min'; }
+function clockTime(ts){
+  if(!ts) return '--:--';
+  const d = new Date(ts);
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function id(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
+
+function getMaterialCode(type){
+  const codes = {
+    'Blandat avfall': '301',
+    'Blandat': '301',
+    'Kompost': '611',
+    'Komprimator': '101',
+    'Havstång': '611',
+    'Havstång utkörning': '611',
+    'Havstång inkörning': '611',
+    'Tryckimpregnerat': '179'
+  };
+  return codes[type] || '';
+}
+
+
+function getCustomPlaceByKey(key){
+  return (state.customPlaces || []).find(p => p.key === key) || null;
+}
+
+function getPlaceLabel(value){
+  const custom = getCustomPlaceByKey(value);
+  if(custom) return custom.label || value;
+  return (state.placeLabels && state.placeLabels[value]) ? state.placeLabels[value] : value;
+}
+
+function getPlaceAddress(value){
+  return (state.placeAddresses && state.placeAddresses[value]) ? state.placeAddresses[value] : '';
+}
+
+function getPlaceConfig(value){
+  return (state.placeConfigs && state.placeConfigs[value]) ? state.placeConfigs[value] : { jobType:'', jobTypes:[] };
+}
+
+function normalizeJobTypesConfig(config){
+  if(!config) return [];
+  const raw = Array.isArray(config.jobTypes) ? config.jobTypes : (config.jobType ? [config.jobType] : []);
+  return Array.from(new Set(raw.filter(type => truckTypes.includes(type))));
+}
+
+function getPlaceJobTypes(value){
+  return normalizeJobTypesConfig(getPlaceConfig(value));
+}
+
+function getSelectedValues(select){
+  if(!select) return [];
+  return Array.from(select.selectedOptions).map(o => o.value).filter(Boolean);
+}
+
+function clearSelectedValues(select){
+  if(!select) return;
+  Array.from(select.options).forEach(o => { o.selected = false; });
+}
+
+function getDefaultPlaceUsage(value){
+  return {
+    from: (places || []).includes(value),
+    to: (dests || []).includes(value)
+  };
+}
+
+function getPlaceUsage(value){
+  const custom = getCustomPlaceByKey(value);
+  if(custom){
+    return { from: !!custom.from, to: !!custom.to };
+  }
+
+  const base = getDefaultPlaceUsage(value);
+  const saved = (state.placeUsage && state.placeUsage[value]) ? state.placeUsage[value] : {};
+  return {
+    from: typeof saved.from === 'boolean' ? saved.from : base.from,
+    to: typeof saved.to === 'boolean' ? saved.to : base.to
+  };
+}
+
+function getAllPlaceKeys(){
+  return Array.from(new Set([
+    ...(places || []),
+    ...(dests || []),
+    ...((state.customPlaces || []).map(p => p.key))
+  ]));
+}
+
+function sortPlaceValues(values, pinnedFirst, pinnedLast){
+  return [...values].sort((a, b) => {
+    if(a === pinnedFirst && b !== pinnedFirst) return -1;
+    if(b === pinnedFirst && a !== pinnedFirst) return 1;
+    if(a === pinnedLast && b !== pinnedLast) return 1;
+    if(b === pinnedLast && a !== pinnedLast) return -1;
+
+    const labelA = getPlaceLabel(a).toLocaleLowerCase('sv-SE');
+    const labelB = getPlaceLabel(b).toLocaleLowerCase('sv-SE');
+    return labelA.localeCompare(labelB, 'sv-SE');
+  });
+}
+
+function getFromPlaceValues(){
+  return sortPlaceValues(getAllPlaceKeys().filter(key => getPlaceUsage(key).from), 'Ringön (BAS)', 'Annan plats');
+}
+
+function getToPlaceValues(){
+  return sortPlaceValues(getAllPlaceKeys().filter(key => getPlaceUsage(key).to), 'Ringön (BAS)', 'Annan destination');
+}
+
+function getManageablePlaces(){
+  const builtIn = Array.from(new Set([...(places || []), ...(dests || [])])).map(key => ({ key, custom:false }));
+  const custom = (state.customPlaces || []).map(p => ({ key:p.key, custom:true }));
+  return [...builtIn, ...custom];
+}
+
+function fillSelect(idName, arr, includeBlank){
+  const el = document.getElementById(idName);
+  if(!el) return;
+  el.innerHTML = '';
+  if(includeBlank){
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'Ingen koppling';
+    el.appendChild(blank);
+  }
+  arr.forEach(v=>{
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = getPlaceLabel(v);
+    el.appendChild(o);
+  });
+}
+
+function refillSelectKeepingValue(idName, arr, includeBlank){
+  const el = document.getElementById(idName);
+  if(!el) return;
+  const current = el.value;
+  fillSelect(idName, arr, includeBlank);
+  if(Array.from(el.options).some(o => o.value === current)){
+    el.value = current;
+  }
+}
+
+function refreshPlaceSelects(){
+  refillSelectKeepingValue('newPlace', getFromPlaceValues());
+  refillSelectKeepingValue('newDest', getToPlaceValues());
+  refillSelectKeepingValue('queuePlace', getFromPlaceValues());
+  refillSelectKeepingValue('queueDest', getToPlaceValues());
+  updateQuickDatalists();
+  fillMachineSelects();
+}
+
+function fillSelectKeepingSelections(idName, arr){
+  const el = document.getElementById(idName);
+  if(!el) return;
+  const selected = Array.from(el.selectedOptions || []).map(o => o.value);
+  fillSelect(idName, arr);
+  Array.from(el.options).forEach(o => { o.selected = selected.includes(o.value); });
+}
+
+function refreshJobTypeSelects(){
+  refreshTruckTypesFromState();
+  refillSelectKeepingValue('newType', sortedTruckTypes);
+  refillSelectKeepingValue('queueType', sortedTruckTypes);
+  refillSelectKeepingValue('editType', sortedTruckTypes);
+  refillSelectKeepingValue('newQuickType', sortedTruckTypes);
+  fillSelectKeepingSelections('newManagedPlaceJobType', sortedTruckTypes);
+  updateQuickDatalists();
+}
+
+
+function applyLinkedJobType(typeSelectId, placeKey){
+  if(!placeKey) return;
+  const select = document.getElementById(typeSelectId);
+  if(!select) return;
+  const linkedTypes = getPlaceJobTypes(placeKey);
+  if(!linkedTypes.length) return;
+  if(linkedTypes.includes(select.value)) return;
+
+  const firstAvailable = linkedTypes.find(type => Array.from(select.options).some(o => o.value === type));
+  if(firstAvailable){
+    select.value = firstAvailable;
+  }
+}
+
+function getMachineItems(){
+  if(!Array.isArray(state.machines) || !state.machines.length){
+    state.machines = cloneDefaultMachines();
+  }
+  return state.machines;
+}
+
+function getMachineConfig(machineName){
+  return getMachineItems().find(machine => machine.name === machineName) || null;
+}
+
+function fillMachineSelect(idName){
+  const el = document.getElementById(idName);
+  if(!el) return;
+  const current = el.value;
+  el.innerHTML = '';
+  getMachineItems().forEach(machine => {
+    const opt = document.createElement('option');
+    opt.value = machine.name;
+    opt.textContent = machine.name;
+    el.appendChild(opt);
+  });
+  if(Array.from(el.options).some(o => o.value === current)){
+    el.value = current;
+  }
+}
+
+function fillMachineSelects(){
+  fillMachineSelect('newMachine');
+  fillMachineSelect('mtMachine');
+  fillSelect('newManagedMachineWorkshop', getToPlaceValues());
+}
+function cssEscape(value){
+  if(window.CSS && CSS.escape) return CSS.escape(value);
+  return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\"');
+}
+
+
+function setGpsTestText(idName, value){
+  const el = document.getElementById(idName);
+  if(el) el.textContent = value;
+}
+
+function getGpsErrorText(err){
+  if(!err) return 'Okänt fel';
+  if(err.code === 1) return 'Nekad behörighet';
+  if(err.code === 2) return 'Position ej tillgänglig';
+  if(err.code === 3) return 'Timeout';
+  return err.message || 'Okänt fel';
+}
+
+function updateGpsEnvironmentInfo(){
+  const supported = !!navigator.geolocation;
+  setGpsTestText('gpsTestSupport', supported ? 'Ja' : 'Nej');
+
+  let protocol = '-';
+  try{
+    protocol = window.location.protocol || '-';
+    if(window.location.href && window.location.href.indexOf('content://') === 0){
+      protocol = 'content://';
+    }
+  }catch(e){}
+  setGpsTestText('gpsTestProtocol', protocol);
+
+  if(navigator.permissions && navigator.permissions.query){
+    navigator.permissions.query({name:'geolocation'}).then(result => {
+      const map = {granted:'Tillåten', prompt:'Frågar vid behov', denied:'Nekad'};
+      setGpsTestText('gpsTestPermission', map[result.state] || result.state || 'Okänd');
+    }).catch(() => {
+      setGpsTestText('gpsTestPermission', 'Kan inte läsas');
+    });
+  } else {
+    setGpsTestText('gpsTestPermission', 'Kan inte läsas');
+  }
+}
+
+function renderGpsTestPoint(point, extraStatus){
+  if(!point) return;
+  setGpsTestText('gpsTestPosition', point.lat.toFixed(6) + ', ' + point.lon.toFixed(6));
+  setGpsTestText('gpsTestAccuracy', Math.round(point.accuracy) + ' m');
+  setGpsTestText('gpsTestDistance', gpsTestDistanceKm.toFixed(3) + ' km');
+  setGpsTestText('gpsTestStatus', extraStatus || 'GPS aktiv');
+}
+
+function toggleGpsTestManager(){
+  const wrap = document.getElementById('gpsTestManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden');
+  if(willShow){
+    updateGpsEnvironmentInfo();
+  }
+}
+
+function startGpsTest(){
+  updateGpsEnvironmentInfo();
+  setGpsTestText('gpsTestError', '-');
+
+  if(!navigator.geolocation){
+    setGpsTestText('gpsTestStatus', 'GPS stöds inte');
+    return;
+  }
+
+  stopGpsTest(false);
+  gpsTestLastPoint = null;
+  gpsTestDistanceKm = 0;
+  setGpsTestText('gpsTestDistance', '0.000 km');
+  setGpsTestText('gpsTestStatus', 'Väntar på GPS');
+
+  gpsTestWatchId = navigator.geolocation.watchPosition(
+    pos => {
+      const point = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        ts: Date.now(),
+        accuracy: pos.coords.accuracy || 9999
+      };
+
+      let status = 'GPS aktiv';
+
+      if(point.accuracy > 100){
+        status = 'GPS aktiv, låg precision';
+      } else if(gpsTestLastPoint){
+        const delta = haversineKm(gpsTestLastPoint.lat, gpsTestLastPoint.lon, point.lat, point.lon);
+        if(Number.isFinite(delta) && delta > 0.005 && delta < 3){
+          gpsTestDistanceKm = Number((gpsTestDistanceKm || 0) + delta);
+          status = 'GPS aktiv, mäter sträcka';
+        } else if(Number.isFinite(delta) && delta <= 0.005){
+          status = 'GPS aktiv, står stilla';
+        } else if(Number.isFinite(delta) && delta >= 3){
+          status = 'GPS-hopp ignorerat';
+        }
+      }
+
+      gpsTestLastPoint = point;
+      renderGpsTestPoint(point, status);
+    },
+    err => {
+      setGpsTestText('gpsTestStatus', 'GPS-fel');
+      setGpsTestText('gpsTestError', getGpsErrorText(err));
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 20000
+    }
+  );
+}
+
+function stopGpsTest(showStopped){
+  if(gpsTestWatchId !== null && navigator.geolocation){
+    navigator.geolocation.clearWatch(gpsTestWatchId);
+  }
+  gpsTestWatchId = null;
+  if(showStopped !== false){
+    setGpsTestText('gpsTestStatus', 'Stoppad');
+  }
+}
+
+function clearGpsTest(){
+  stopGpsTest(false);
+  gpsTestLastPoint = null;
+  gpsTestDistanceKm = 0;
+  setGpsTestText('gpsTestStatus', 'Ej startad');
+  setGpsTestText('gpsTestDistance', '0.000 km');
+  setGpsTestText('gpsTestAccuracy', '-');
+  setGpsTestText('gpsTestPosition', '-');
+  setGpsTestText('gpsTestError', '-');
+  updateGpsEnvironmentInfo();
+}
+
+function toggleBackupManager(){
+  const wrap = document.getElementById('backupManagerWrap');
+  if(!wrap) return;
+  wrap.classList.toggle('hidden');
+}
+
+function getBackupFilename(){
+  const d = new Date();
+  const stamp =
+    d.getFullYear() +
+    String(d.getMonth()+1).padStart(2,'0') +
+    String(d.getDate()).padStart(2,'0') + '_' +
+    String(d.getHours()).padStart(2,'0') +
+    String(d.getMinutes()).padStart(2,'0');
+  return 'lastbil_app_backup_' + stamp + '.json';
+}
+
+function exportAppBackup(){
+  saveState();
+
+  const backup = {
+    app: 'Lastbil app',
+    backupVersion: 1,
+    storageKey: KEY,
+    exportedAt: new Date().toISOString(),
+    state: state
+  };
+
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = getBackupFilename();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function importAppBackup(){
+  const input = document.getElementById('backupImportFile');
+  if(!input || !input.files || !input.files[0]){
+    alert('Välj en backupfil först.');
+    return;
+  }
+
+  const file = input.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function(){
+    try{
+      const parsed = JSON.parse(String(reader.result || ''));
+      const importedState = parsed && parsed.state ? parsed.state : parsed;
+
+      if(!importedState || typeof importedState !== 'object' || Array.isArray(importedState)){
+        alert('Backupfilen har fel format.');
+        return;
+      }
+
+      if(!confirm('Import skriver över nuvarande appdata. Fortsätt?')){
+        return;
+      }
+
+      try{
+        localStorage.setItem(KEY + '_before_import', JSON.stringify(state));
+      }catch(e){}
+
+      localStorage.setItem(KEY, JSON.stringify(importedState));
+      alert('Backup importerad. Appen laddas om.');
+      location.reload();
+    }catch(e){
+      alert('Kunde inte läsa backupfilen.');
+    }
+  };
+
+  reader.onerror = function(){
+    alert('Kunde inte läsa filen.');
+  };
+
+  reader.readAsText(file);
+}
+
+function toggleJobTypeManager(){
+  const wrap = document.getElementById('jobTypeManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden');
+  if(willShow){
+    renderJobTypeManager();
+  }
+}
+
+function addManagedJobType(){
+  const nameEl = document.getElementById('newManagedJobTypeName');
+  if(!nameEl) return;
+  const name = (nameEl.value || '').trim();
+  if(!name){
+    alert('Skriv namn på jobbtypen.');
+    return;
+  }
+  refreshTruckTypesFromState();
+  if(truckTypes.some(type => type.toLocaleLowerCase('sv-SE') === name.toLocaleLowerCase('sv-SE'))){
+    alert('Jobbtypen finns redan.');
+    return;
+  }
+  state.jobTypes.push(name);
+  state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  nameEl.value = '';
+  saveState();
+  refreshJobTypeSelects();
+  renderJobTypeManager();
+  renderPlaceManager();
+  renderQuickManager();
+  render();
+}
+
+function replaceJobTypeReferences(oldName, newName){
+  const replaceInItem = item => {
+    if(item && item.type === oldName) item.type = newName;
+  };
+
+  if(state.active) replaceInItem(state.active);
+  if(state.pausedOtherWork) replaceInItem(state.pausedOtherWork);
+  (state.jobs || []).forEach(replaceInItem);
+  (state.queue || []).forEach(replaceInItem);
+  (state.quickItems || []).forEach(replaceInItem);
+
+  Object.keys(state.placeConfigs || {}).forEach(key => {
+    const config = state.placeConfigs[key];
+    if(!config) return;
+    if(config.jobType === oldName) config.jobType = newName;
+    if(Array.isArray(config.jobTypes)){
+      config.jobTypes = config.jobTypes.map(type => type === oldName ? newName : type);
+      config.jobTypes = Array.from(new Set(config.jobTypes));
+    }
+  });
+}
+
+function removeJobTypeReferences(typeName){
+  Object.keys(state.placeConfigs || {}).forEach(key => {
+    const config = state.placeConfigs[key];
+    if(!config) return;
+    if(config.jobType === typeName) delete config.jobType;
+    if(Array.isArray(config.jobTypes)){
+      config.jobTypes = config.jobTypes.filter(type => type !== typeName);
+      if(!config.jobTypes.length && !config.jobType){
+        delete state.placeConfigs[key];
+      }
+    } else if(!config.jobType){
+      delete state.placeConfigs[key];
+    }
+  });
+}
+
+function saveManagedJobType(oldName){
+  refreshTruckTypesFromState();
+  const input = document.querySelector('#jobTypeManagerList input[data-jobtype-name="'+cssEscape(oldName)+'"]');
+  if(!input) return;
+  const nextName = (input.value || '').trim();
+  if(!nextName){
+    alert('Jobbtypen måste ha ett namn.');
+    return;
+  }
+  if(nextName !== oldName && truckTypes.some(type => type !== oldName && type.toLocaleLowerCase('sv-SE') === nextName.toLocaleLowerCase('sv-SE'))){
+    alert('Jobbtypen finns redan.');
+    return;
+  }
+
+  state.jobTypes = truckTypes.map(type => type === oldName ? nextName : type);
+  if(nextName !== oldName){
+    replaceJobTypeReferences(oldName, nextName);
+  }
+  state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  saveState();
+  refreshJobTypeSelects();
+  renderJobTypeManager();
+  renderPlaceManager();
+  renderQuickManager();
+  render();
+  alert('Jobbtyp sparad.');
+}
+
+function removeManagedJobType(typeName){
+  refreshTruckTypesFromState();
+  if(truckTypes.length <= 1){
+    alert('Det måste finnas minst en jobbtyp.');
+    return;
+  }
+  if(!confirm('Ta bort jobbtypen?')) return;
+  state.jobTypes = truckTypes.filter(type => type !== typeName);
+  removeJobTypeReferences(typeName);
+  state.jobTypes = normalizeJobTypesList(state.jobTypes);
+  saveState();
+  refreshJobTypeSelects();
+  renderJobTypeManager();
+  renderPlaceManager();
+  renderQuickManager();
+  render();
+}
+
+function renderJobTypeManager(){
+  const listEl = document.getElementById('jobTypeManagerList');
+  if(!listEl) return;
+  refreshTruckTypesFromState();
+  const items = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
+  listEl.innerHTML = items.map(type =>
+    '<div class="place-row">'+
+      '<div class="place-key">'+escapeHtml(type)+'</div>'+
+      '<input data-jobtype-name="'+escapeHtml(type)+'" value="'+escapeHtml(type)+'">'+
+      '<div class="row">'+
+        '<button class="primary inline" onclick="saveManagedJobType(\''+escapeJsSingle(type)+'\')">Spara</button>'+
+        '<button class="danger inline" onclick="removeManagedJobType(\''+escapeJsSingle(type)+'\')">Ta bort</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+}
+
+function toggleMachineManager(){
+  const wrap = document.getElementById('machineManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden');
+  if(willShow){
+    fillMachineSelects();
+    renderMachineManager();
+  }
+}
+
+function addManagedMachine(){
+  const nameEl = document.getElementById('newManagedMachineName');
+  const workshopEl = document.getElementById('newManagedMachineWorkshop');
+  const name = (nameEl.value || '').trim();
+  const workshop = workshopEl.value || 'Annan destination';
+
+  if(!name){
+    alert('Skriv namn på maskinen.');
+    return;
+  }
+
+  if(getMachineItems().some(machine => (machine.name || '').toLowerCase() === name.toLowerCase())){
+    alert('Maskinen finns redan.');
+    return;
+  }
+
+  state.machines.push({
+    id:'machine_' + id(),
+    name,
+    workshop
+  });
+
+  nameEl.value = '';
+  if(workshopEl) workshopEl.value = 'Annan destination';
+  saveState();
+  fillMachineSelects();
+  renderMachineManager();
+  updateNewMachineDestination();
+}
+
+function saveManagedMachine(machineId){
+  const machine = getMachineItems().find(item => item.id === machineId);
+  if(!machine) return;
+
+  const nameEl = document.querySelector('#machineManagerList input[data-machine-name="'+machineId+'"]');
+  const workshopEl = document.querySelector('#machineManagerList select[data-machine-workshop="'+machineId+'"]');
+  const nextName = nameEl ? (nameEl.value || '').trim() : '';
+  const nextWorkshop = workshopEl ? workshopEl.value : 'Annan destination';
+
+  if(!nextName){
+    alert('Maskinen måste ha ett namn.');
+    return;
+  }
+
+  const duplicate = getMachineItems().some(item => item.id !== machineId && (item.name || '').toLowerCase() === nextName.toLowerCase());
+  if(duplicate){
+    alert('Det finns redan en maskin med samma namn.');
+    return;
+  }
+
+  const oldName = machine.name;
+  machine.name = nextName;
+  machine.workshop = nextWorkshop;
+
+  if(oldName !== nextName){
+    const updateMachineText = item => {
+      if(!item) return;
+      if(item.comment === oldName) item.comment = nextName;
+      if(item.type && item.type.includes(oldName)) item.type = item.type.replace(oldName, nextName);
+      if(item.displayType && item.displayType.includes(oldName)) item.displayType = item.displayType.replace(oldName, nextName);
+    };
+    if(state.active) updateMachineText(state.active);
+    if(state.pausedOtherWork) updateMachineText(state.pausedOtherWork);
+    (state.jobs || []).forEach(updateMachineText);
+    (state.queue || []).forEach(updateMachineText);
+  }
+
+  saveState();
+  fillMachineSelects();
+  renderMachineManager();
+  render();
+}
+
+function removeManagedMachine(machineId){
+  if(!confirm('Ta bort maskinen?')) return;
+  state.machines = getMachineItems().filter(machine => machine.id !== machineId);
+  if(!state.machines.length){
+    state.machines = cloneDefaultMachines();
+  }
+  saveState();
+  fillMachineSelects();
+  renderMachineManager();
+}
+
+function renderMachineManager(){
+  const listEl = document.getElementById('machineManagerList');
+  if(!listEl) return;
+
+  listEl.innerHTML = getMachineItems().map(machine =>
+    '<div class="place-row">'+
+      '<div class="place-key">'+escapeHtml(machine.name || '')+'</div>'+
+      '<label>Maskin</label>'+
+      '<input data-machine-name="'+escapeHtml(machine.id)+'" value="'+escapeHtml(machine.name || '')+'">'+
+      '<label>Verkstad/plats</label>'+
+      '<select data-machine-workshop="'+escapeHtml(machine.id)+'">'+quickDestOptions(machine.workshop || 'Annan destination')+'</select>'+
+      '<div class="row">'+
+        '<button class="primary inline" onclick="saveManagedMachine(\''+escapeHtml(machine.id)+'\')">Spara</button>'+
+        '<button class="danger inline" onclick="removeManagedMachine(\''+escapeHtml(machine.id)+'\')">Ta bort</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+}
+
+function updateNewMachineUI(){
+  const typeEl = document.getElementById('newType');
+  const machineWrap = document.getElementById('newMachineWrap');
+  const machineEl = document.getElementById('newMachine');
+  const destEl = document.getElementById('newDest');
+  if(!typeEl || !machineWrap || !machineEl || !destEl) return;
+
+  const isMachineTransport = typeEl.value === 'Maskintransport';
+  machineWrap.classList.toggle('hidden', !isMachineTransport);
+
+  if(!isMachineTransport){
+    return;
+  }
+
+  updateNewMachineDestination();
+}
+
+function updateNewMachineDestination(){
+  const typeEl = document.getElementById('newType');
+  const machineEl = document.getElementById('newMachine');
+  const destEl = document.getElementById('newDest');
+  if(!typeEl || !machineEl || !destEl) return;
+  if(typeEl.value !== 'Maskintransport') return;
+
+  const machine = machineEl.value;
+  const machineConfig = getMachineConfig(machine);
+  let wanted = machineConfig ? (machineConfig.workshop || '') : '';
+
+  if(wanted){
+    const exists = Array.from(destEl.options).some(o => o.value === wanted);
+    if(exists) destEl.value = wanted;
+  }
+}
+
+function updateFixedRouteRules(){
+  const typeEl = document.getElementById('newType');
+  const placeEl = document.getElementById('newPlace');
+  const destEl = document.getElementById('newDest');
+  const vehicleEl = document.getElementById('newVehicle');
+  const placeLabel = document.querySelector('label[for="newPlace"]') || (placeEl ? placeEl.previousElementSibling : null);
+  const destLabel = document.querySelector('label[for="newDest"]') || (destEl ? destEl.previousElementSibling : null);
+  if(!typeEl || !placeEl || !destEl) return;
+
+  const type = typeEl.value;
+
+  if(type === 'Övrig verksamhet'){
+    if(vehicleEl) vehicleEl.value = 'lastbil';
+    if(Array.from(placeEl.options).some(o => o.value === 'Ringön (BAS)')) {
+      placeEl.value = 'Ringön (BAS)';
+    }
+    destEl.value = '';
+    if(placeLabel) placeLabel.style.display = 'none';
+    placeEl.style.display = 'none';
+    if(destLabel) destLabel.style.display = 'none';
+    destEl.style.display = 'none';
+    return;
+  } else {
+    if(placeLabel) placeLabel.style.display = '';
+    placeEl.style.display = '';
+    if(destLabel) destLabel.style.display = '';
+    destEl.style.display = '';
+  }
+
+  if(type === 'Ris'){
+    if(Array.from(placeEl.options).some(o => o.value === 'Ringön (BAS)')) {
+      placeEl.value = 'Ringön (BAS)';
+    }
+    if(Array.from(destEl.options).some(o => o.value === 'Ruskvädersgatan (Ristipp)')) {
+      destEl.value = 'Ruskvädersgatan (Ristipp)';
+    }
+  }
+
+  if(type === 'Metall'){
+    if(Array.from(placeEl.options).some(o => o.value === 'Ringön (BAS)')) {
+      placeEl.value = 'Ringön (BAS)';
+    }
+    if(Array.from(destEl.options).some(o => o.value === 'Stena Metall')) {
+      destEl.value = 'Stena Metall';
+    }
+  }
+}
+
+function applySopsandDefaultDestination(){
+  const typeEl = document.getElementById('newType');
+  const placeEl = document.getElementById('newPlace');
+  const destEl = document.getElementById('newDest');
+  if(!typeEl || !placeEl || !destEl) return;
+
+  const type = typeEl.value;
+  const place = placeEl.value;
+
+  const isSopsand = type === 'Sopsand';
+  const shouldDefaultToSortera =
+    place === 'Säldammen' ||
+    place === 'Ringön (BAS)';
+
+  if(isSopsand && shouldDefaultToSortera){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Sortera Torslanda');
+    if(exists){
+      destEl.value = 'Sortera Torslanda';
+      return;
+    }
+  }
+
+  const isKomprimator = type === 'Komprimator';
+
+  if(isKomprimator && place === 'Slottskogen'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Högsbo');
+    if(exists){
+      destEl.value = 'Renova Högsbo';
+      return;
+    }
+  }
+
+  if(isKomprimator && place === 'Ringön (BAS)'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Sävenäs');
+    if(exists){
+      destEl.value = 'Renova Sävenäs';
+      return;
+    }
+  }
+
+  const isKompost = type === 'Kompost';
+
+  if(isKompost && place === 'Ringön (BAS)'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Bioanläggning');
+    if(exists){
+      destEl.value = 'Renova Bioanläggning';
+      return;
+    }
+  }
+
+  const isBlandat = type === 'Blandat avfall';
+
+  if(isBlandat && place === 'Ringön (BAS)'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Skräppekärr');
+    if(exists){
+      destEl.value = 'Renova Skräppekärr';
+      return;
+    }
+  }
+}
+
+function updateNewSeaweedUI(){
+  const typeEl = document.getElementById('newType');
+  const modeWrap = document.getElementById('newSeaweedModeWrap');
+  const beachWrap = document.getElementById('newSeaweedBeachWrap');
+  const modeEl = document.getElementById('newSeaweedMode');
+  if(!typeEl || !modeWrap || !beachWrap || !modeEl) return;
+
+  const isSeaweed = typeEl.value === 'Havstång';
+  modeWrap.classList.toggle('hidden', !isSeaweed);
+
+  if(!isSeaweed){
+    beachWrap.classList.add('hidden');
+    return;
+  }
+
+  beachWrap.classList.toggle('hidden', !modeEl.value);
+  updateNewSeaweedRoute();
+}
+
+function updateNewSeaweedRoute(){
+  const typeEl = document.getElementById('newType');
+  const modeEl = document.getElementById('newSeaweedMode');
+  const beachEl = document.getElementById('newSeaweedBeach');
+  const placeEl = document.getElementById('newPlace');
+  const destEl = document.getElementById('newDest');
+  if(!typeEl || !modeEl || !beachEl || !placeEl || !destEl) return;
+  if(typeEl.value !== 'Havstång') return;
+
+  const mode = modeEl.value;
+  const beach = beachEl.value;
+  document.getElementById('newSeaweedBeachWrap').classList.toggle('hidden', !mode);
+
+  if(mode === 'utkörning'){
+    if(Array.from(placeEl.options).some(o => o.value === 'Skräppekärr flak lager')) {
+      placeEl.value = 'Skräppekärr flak lager';
+    } else if(Array.from(placeEl.options).some(o => o.value === 'Flaklager Skräppekärr')) {
+      placeEl.value = 'Flaklager Skräppekärr';
+    }
+    if(beach){
+      if(!Array.from(destEl.options).some(o => o.value === beach)){
+        const opt = document.createElement('option');
+        opt.value = beach;
+        opt.textContent = beach;
+        destEl.appendChild(opt);
+      }
+      destEl.value = beach;
+    }
+  } else if(mode === 'inkörning'){
+    if(beach){
+      if(!Array.from(placeEl.options).some(o => o.value === beach)){
+        const opt = document.createElement('option');
+        opt.value = beach;
+        opt.textContent = beach;
+        placeEl.appendChild(opt);
+      }
+      placeEl.value = beach;
+    }
+    if(Array.from(destEl.options).some(o => o.value === 'Renova Bioanläggning')) {
+      destEl.value = 'Renova Bioanläggning';
+    }
+  }
+}
+
+function showTab(tab){
+  ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
+  document.getElementById('tab-'+tab).classList.remove('hidden');
+
+  const isSettings = tab === 'settings';
+  const activeCard = document.getElementById('activeJobCard');
+  const mainTabs = document.getElementById('mainTabs');
+
+  if(activeCard){
+    activeCard.classList.toggle('hidden', isSettings);
+  }
+
+  if(mainTabs){
+    Array.from(mainTabs.querySelectorAll('button')).forEach(btn => {
+      const isMainMenuButton = btn.getAttribute('data-main-menu') === 'true';
+      btn.classList.toggle('hidden', isSettings && !isMainMenuButton);
+    });
+  }
+
+  if(isSettings){
+    const placeManager = document.getElementById('placeManagerWrap');
+    const summaryWrap = document.getElementById('settingsSummaryWrap');
+    const quickManager = document.getElementById('quickManagerWrap');
+    if(placeManager) placeManager.classList.add('hidden');
+    if(summaryWrap) summaryWrap.classList.add('hidden');
+    if(quickManager) quickManager.classList.add('hidden');
+  }
+}
+
+function startJob(vehicle, type, place, dest, comment, displayType){
+  if(state.active){
+    const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
+    const nextIsOtherWork = type === 'Övrig verksamhet';
+
+    if(activeIsOtherWork && !nextIsOtherWork){
+      const paused = {...state.active};
+      paused.pausedElapsedMs = Date.now() - (state.active.start || Date.now());
+      state.pausedOtherWork = paused;
+      state.active = null;
+      stopDistanceTracking();
+      stopActiveTimer();
+    } else {
+      alert('Du har redan ett aktivt jobb.');
+      return false;
+    }
+  }
+
+  state.active = {
+    id:id(),
+    date:todayStr(),
+    vehicle,
+    type,
+    displayType: displayType || type,
+    place,
+    dest,
+    comment:comment||'',
+    plannedDate: todayStr(),
+    start:Date.now(),
+    loads:[],
+    totalWeight:0,
+    distanceKm:0
+  };
+  saveState();
+  startDistanceTracking();
+  startActiveTimer();
+  render();
+  return true;
+}
+
+function quickJob(vehicle, type, place, dest, comment, displayType){
+  const started = startJob(vehicle, type, place, dest, comment, displayType);
+  if(started && state.active) showTab('idag');
+}
+
+
+function openNewJobPreset(type){
+  showTab('nytt');
+
+  const typeEl = document.getElementById('newType');
+  const vehicleEl = document.getElementById('newVehicle');
+  if(vehicleEl) vehicleEl.value = 'lastbil';
+  if(typeEl){
+    typeEl.value = type;
+  }
+
+  updateNewMachineUI();
+  updateNewSeaweedUI();
+  updateFixedRouteRules();
+}
+function startQuickSeaweed(){
+  const modeEl = document.getElementById('quickSeaweedMode');
+  const beachEl = document.getElementById('quickSeaweedBeach');
+  if(!modeEl || !beachEl) return;
+
+  const mode = modeEl.value;
+  const beach = beachEl.value;
+
+  if(!mode || !beach){
+    alert('Välj riktning och bad.');
+    return;
+  }
+
+  let type = '';
+  let place = '';
+  let dest = '';
+
+  if(mode === 'utkörning'){
+    type = 'Havstång utkörning';
+    place = 'Flaklager Skräppekärr';
+    dest = beach;
+  } else if(mode === 'inkörning'){
+    type = 'Havstång inkörning';
+    place = beach;
+    dest = 'Renova Bioanläggning';
+  }
+
+  quickJob('lastbil', type, place, dest, '');
+}
+
+function startManualJob(){
+  let vehicle = 'lastbil';
+  let type = document.getElementById('newType').value;
+  let place = document.getElementById('newPlace').value;
+  let dest = document.getElementById('newDest').value;
+  const baseComment = document.getElementById('newComment').value;
+
+  if(type === 'Övrig verksamhet'){
+    vehicle = 'övrigt arbete';
+    place = 'Ringön (BAS)';
+    dest = '';
+  }
+  if(type === 'Ris'){
+    place = 'Ringön (BAS)';
+    dest = 'Ruskvädersgatan (Ristipp)';
+  }
+  if(type === 'Metall'){
+    place = 'Ringön (BAS)';
+    dest = 'Stena Metall';
+  }
+  const machine = document.getElementById('newMachine') ? document.getElementById('newMachine').value : '';
+  const seaweedMode = document.getElementById('newSeaweedMode') ? document.getElementById('newSeaweedMode').value : '';
+  const seaweedBeach = document.getElementById('newSeaweedBeach') ? document.getElementById('newSeaweedBeach').value : '';
+
+  let comment = baseComment;
+
+  if(type === 'Maskintransport' && machine){
+    comment = baseComment ? machine + ' – ' + baseComment : machine;
+  }
+
+  if(type === 'Havstång'){
+    if(seaweedMode === 'utkörning') type = 'Havstång utkörning';
+    if(seaweedMode === 'inkörning') type = 'Havstång inkörning';
+    if(seaweedBeach){
+      const seaweedText = seaweedMode === 'utkörning'
+        ? ('utkörning till ' + seaweedBeach)
+        : ('inkörning från ' + seaweedBeach);
+      comment = comment ? seaweedText + ' – ' + comment : seaweedText;
+    }
+  }
+
+  startJob(vehicle, type, place, dest, comment);
+  if(state.active) showTab('idag');
+}
+
+
+function addQueuedJob(){
+  const chosenType = document.getElementById('queueType').value;
+  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:document.getElementById('queuePlace').value, dest:document.getElementById('queueDest').value, comment:document.getElementById('queueComment').value, status:'köad', date:todayStr(), plannedDate:todayStr()});
+  document.getElementById('queueComment').value = '';
+  saveState(); render();
+}
+
+function quickQueue(type, place, dest, displayType){
+  const vehicle = type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  saveState(); render();
+}
+
+function quickQueueCustom(vehicle, type, place, dest, comment, displayType){
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  saveState(); render();
+}
+
+function quickQueueMachine(type, place, dest, displayType){
+  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  saveState(); render();
+}
+
+function startQueuedJob(qid){
+  const q = state.queue.find(x => x.id === qid);
+  if(!q) return;
+
+  if(q.status === 'pausad'){
+    resumePausedJob(qid);
+    return;
+  }
+
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType);
+  if(!started) return;
+
+  if(state.active && q.plannedDate){
+    state.active.plannedDate = q.plannedDate;
+  }
+
+  state.queue = state.queue.filter(x => x.id !== qid);
+  saveState();
+  render();
+  showTab('idag');
+}
+
+function pauseActiveJob(){
+  if(!state.active) return;
+
+  const commentInput = document.getElementById('activeCommentInput');
+  if(commentInput){
+    state.active.comment = commentInput.value || '';
+  }
+
+  const paused = {...state.active};
+  paused.status = 'pausad';
+  paused.plannedDate = paused.plannedDate || paused.date || todayStr();
+  paused.pausedElapsedMs = Date.now() - (paused.start || Date.now());
+
+  state.queue.push(paused);
+  state.active = null;
+  stopDistanceTracking();
+  stopActiveTimer();
+  saveState();
+  render();
+  showTab('snabb');
+}
+
+function resumePausedJob(qid){
+  const q = state.queue.find(x => x.id === qid);
+  if(!q) return;
+  if(state.active){
+    alert('Du har redan ett aktivt jobb.');
+    return;
+  }
+
+  const elapsed = q.pausedElapsedMs || 0;
+  const resumed = {...q};
+  delete resumed.status;
+  delete resumed.pausedElapsedMs;
+  delete resumed._queueIndex;
+  resumed.start = Date.now() - elapsed;
+  resumed.loads = resumed.loads || [];
+  resumed.totalWeight = resumed.totalWeight || resumed.loads.reduce((a,b)=>a+b,0);
+  resumed.distanceKm = resumed.distanceKm || 0;
+
+  state.active = resumed;
+  state.queue = state.queue.filter(x => x.id !== qid);
+  saveState();
+  startDistanceTracking();
+  startActiveTimer();
+  render();
+  showTab('idag');
+}
+
+function completeQueuedJob(qid){
+  const q = state.queue.find(x => x.id === qid);
+  if(!q) return;
+
+  if(q.status === 'pausad'){
+    const elapsed = q.pausedElapsedMs || 0;
+    const finished = {...q};
+    delete finished.status;
+    delete finished.pausedElapsedMs;
+    delete finished._queueIndex;
+    finished.end = Date.now();
+    finished.start = finished.end - elapsed;
+    state.jobs.unshift(finished);
+    state.queue = state.queue.filter(x => x.id !== qid);
+    saveState();
+    render();
+    return;
+  }
+
+  q.status = 'slutförd';
+  saveState(); render();
+}
+
+function removeQueuedJob(qid){
+  state.queue = state.queue.filter(x => x.id !== qid);
+  saveState(); render();
+}
+
+function addLoadToCurrent(){
+  if(!state.active) return;
+  const raw = document.getElementById('weightInput').value.replace(',', '.');
+  const n = Number(raw);
+  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
+  state.active.loads.push(n);
+  state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
+  document.getElementById('weightInput').value = '';
+  saveState(); render();
+}
+
+function addLoadToLatest(){
+  const raw = document.getElementById('weightInput').value.replace(',', '.');
+  const n = Number(raw);
+  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
+  const latest = state.active || state.jobs[0];
+  if(!latest){ alert('Det finns inget jobb att lägga vikt på.'); return; }
+  latest.loads = latest.loads || [];
+  latest.loads.push(n);
+  latest.totalWeight = latest.loads.reduce((a,b)=>a+b,0);
+  document.getElementById('weightInput').value = '';
+  saveState(); render();
+}
+
+function stopJob(){
+  if(!state.active) return;
+
+  state.jobs.unshift({...state.active, end:Date.now()});
+  state.active = null;
+  stopDistanceTracking();
+  stopActiveTimer();
+
+  if(state.pausedOtherWork){
+    const resumed = {...state.pausedOtherWork};
+    const pausedElapsedMs = resumed.pausedElapsedMs || 0;
+    delete resumed.pausedElapsedMs;
+    resumed.start = Date.now() - pausedElapsedMs;
+    state.active = resumed;
+    state.pausedOtherWork = null;
+    startDistanceTracking();
+    startActiveTimer();
+  }
+
+  saveState();
+  render();
+}
+
+function switchJob(){
+  if(state.active) stopJob();
+  showTab('snabb');
+}
+
+function renderActive(){
+  const none = document.getElementById('activeNone');
+  const box = document.getElementById('activeBox');
+  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); return; }
+  none.classList.add('hidden'); box.classList.remove('hidden');
+
+  const isOtherWork = state.active.type === 'Övrig verksamhet';
+
+  const materialCode = getMaterialCode(state.active.type);
+  const activeTypeLabel = state.active.displayType || state.active.type;
+  const helmetWarning = (state.active.dest === 'Sortera Torslanda' || state.active.dest === 'Stena Metall')
+    ? '<span class="pill pill-alert">HJÄLMKRAV</span>'
+    : '';
+  document.getElementById('activePills').innerHTML =
+    '<span class="pill pill-type">'+activeTypeLabel+'</span>'+
+    '<span class="pill pill-place">Från '+getPlaceLabel(state.active.place)+'</span>'+
+    helmetWarning +
+    (state.active.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(state.active.dest)+'</span>' : '')+
+    (materialCode ? '<span class="pill pill-code">Mtrl kod '+materialCode+'</span>' : '');
+
+  document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
+  document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
+  document.getElementById('activeLoads').textContent = String((state.active.loads||[]).length);
+  document.getElementById('activeWeight').textContent = (state.active.totalWeight||0).toFixed(1)+' ton';
+
+  const distanceStat = document.getElementById('activeDistanceStat');
+  const loadsStat = document.getElementById('activeLoadsStat');
+  const weightStat = document.getElementById('activeWeightStat');
+  const weightRow = document.getElementById('activeWeightRow');
+
+  if(distanceStat) distanceStat.style.display = isOtherWork ? 'none' : '';
+  if(loadsStat) loadsStat.style.display = isOtherWork ? 'none' : '';
+  if(weightStat) weightStat.style.display = isOtherWork ? 'none' : '';
+  if(weightRow) weightRow.style.display = isOtherWork ? 'none' : '';
+
+  const commentInput = document.getElementById('activeCommentInput');
+  if(commentInput && document.activeElement !== commentInput){
+    commentInput.value = state.active.comment || '';
+  }
+}
+
+function setQueuedJobPlannedDate(qid, value){
+  const q = state.queue.find(x => x.id === qid);
+  if(!q) return;
+  q.plannedDate = value || todayStr();
+  saveState();
+  renderQueue();
+}
+
+function renderQueue(){
+  const visible = state.queue
+    .map((x, index) => ({...x, _queueIndex:index}))
+    .filter(x => x.status !== 'slutförd');
+  const ordered = visible.slice().sort((a,b) => {
+    const aPaused = a.status === 'pausad';
+    const bPaused = b.status === 'pausad';
+
+    if(aPaused !== bPaused){
+      return aPaused ? -1 : 1;
+    }
+
+    const dateCompare = getQueuedJobDate(a).localeCompare(getQueuedJobDate(b));
+    if(dateCompare !== 0) return dateCompare;
+    return a._queueIndex - b._queueIndex;
+  });
+  const qcEl = document.getElementById('queueCount');
+  qcEl.textContent = visible.length;
+  if(visible.length > 0){
+    qcEl.classList.add('queue-alert');
+  } else {
+    qcEl.classList.remove('queue-alert');
+  }
+  const el = document.getElementById('queueList');
+  if(!ordered.length){
+    el.innerHTML = '<div class="muted">Inga uppdrag i kö.</div>';
+    return;
+  }
+  el.innerHTML = ordered.map(x =>
+    '<div class="job">'+
+      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getPlaceLabel(x.place)+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(x.dest)+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
+      (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
+      '<div style="margin-top:10px; max-width:240px">'+
+        '<label>Dag för uppdrag</label>'+
+        '<input type="date" value="'+getQueuedJobDate(x)+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
+      '</div>'+
+      '<div class="queue-actions">'+
+        (x.status === 'pausad' ? '<button class="queue-start" onclick="resumePausedJob(\''+x.id+'\')">Fortsätt</button>' : (x.status === 'köad' ? '<button class="queue-start" onclick="startQueuedJob(\''+x.id+'\')">Start</button>' : '<span></span>'))+
+        '<button class="queue-complete" onclick="completeQueuedJob(\''+x.id+'\')">Uppdrag slutfört</button>'+
+        '<button class="queue-remove" onclick="removeQueuedJob(\''+x.id+'\')">Ta bort</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+}
+
+
+function openEditJob(jobId){
+  const job = state.jobs.find(x => x.id === jobId);
+  if(!job) return;
+
+  const totalMinutes = Math.max(0, Math.round(((job.end || Date.now()) - (job.start || Date.now())) / 60000));
+
+  document.getElementById('editJobId').value = job.id;
+  document.getElementById('editType').value = job.type || '';
+  document.getElementById('editPlace').value = job.place || '';
+  document.getElementById('editDest').value = job.dest || '';
+  document.getElementById('editComment').value = job.comment || '';
+  document.getElementById('editMinutes').value = totalMinutes;
+  document.getElementById('editWeight').value = Number(job.totalWeight || 0).toFixed(1).replace('.', ',');
+  document.getElementById('editJobModal').classList.add('show');
+}
+
+function closeEditJob(){
+  document.getElementById('editJobModal').classList.remove('show');
+}
+
+function saveEditedJob(){
+  const jobId = document.getElementById('editJobId').value;
+  const job = state.jobs.find(x => x.id === jobId);
+  if(!job) return;
+
+  const rawMinutes = document.getElementById('editMinutes').value.trim();
+  const minutes = rawMinutes === '' ? 0 : Number(rawMinutes);
+  if(rawMinutes !== '' && (!Number.isFinite(minutes) || minutes < 0)){
+    alert('Skriv en giltig tid i minuter.');
+    return;
+  }
+
+  const rawWeight = document.getElementById('editWeight').value.replace(',', '.').trim();
+  const weight = rawWeight === '' ? 0 : Number(rawWeight);
+  if(rawWeight !== '' && (!Number.isFinite(weight) || weight < 0)){
+    alert('Skriv en giltig vikt.');
+    return;
+  }
+
+  job.type = document.getElementById('editType').value;
+  job.place = document.getElementById('editPlace').value;
+  job.dest = document.getElementById('editDest').value;
+  job.comment = document.getElementById('editComment').value;
+  job.end = (job.start || Date.now()) + Math.round(minutes) * 60000;
+  job.totalWeight = weight;
+  job.loads = weight > 0 ? [weight] : [];
+  saveState();
+  render();
+  closeEditJob();
+}
+
+function deleteFinishedJob(jobId){
+  if(!confirm('Ta bort avslutat jobb?')) return;
+  state.jobs = state.jobs.filter(x => x.id !== jobId);
+  saveState();
+  render();
+}
+
+function renderToday(){
+  const today = todayStr();
+  const todays = state.jobs.filter(x => x.date === today);
+  const el = document.getElementById('todayList');
+  if(!todays.length){
+    el.innerHTML = '<div class="muted">Inga avslutade jobb idag.</div>';
+    return;
+  }
+  el.innerHTML = todays.map(x =>
+    '<div class="job">'+
+      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getPlaceLabel(x.place)+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(x.dest)+'</span>' : '')+'</div>'+
+      '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
+      '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
+      (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
+      '<div class="row" style="margin-top:8px">'+
+        '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
+        '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+}
+
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function getCurrentMonthValue(){
+  const d = new Date();
+  return d.getFullYear() + '-' + pad2(d.getMonth()+1);
+}
+
+function getSummarySelection(){
+  const periodEl = document.getElementById('sumPeriod');
+  const monthEl = document.getElementById('sumMonth');
+  const period = periodEl ? periodEl.value : 'today';
+  const monthValue = monthEl && monthEl.value ? monthEl.value : getCurrentMonthValue();
+  return { period, monthValue };
+}
+
+function matchesSummaryPeriod(job, selection){
+  if(!job || !job.date) return false;
+  if(selection.period === 'today'){
+    return job.date === todayStr();
+  }
+  if(selection.period === 'current_month'){
+    return job.date.slice(0,7) === getCurrentMonthValue();
+  }
+  if(selection.period === 'month'){
+    return job.date.slice(0,7) === selection.monthValue;
+  }
+  return true;
+}
+
+function getSummaryLabel(selection){
+  if(selection.period === 'today') return 'idag';
+  if(selection.period === 'current_month') return 'denna månad';
+  if(selection.period === 'month') return selection.monthValue;
+  return 'all tid';
+}
+
+function populateSummaryMonthOptions(){
+  const monthEl = document.getElementById('sumMonth');
+  if(!monthEl) return;
+
+  const months = new Set();
+  months.add(getCurrentMonthValue());
+  (state.jobs || []).forEach(job => {
+    if(job && job.date && job.date.length >= 7){
+      months.add(job.date.slice(0,7));
+    }
+  });
+
+  const sortedMonths = Array.from(months).sort().reverse();
+  const previous = monthEl.value || getCurrentMonthValue();
+  monthEl.innerHTML = '';
+  sortedMonths.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    monthEl.appendChild(opt);
+  });
+
+  monthEl.value = sortedMonths.includes(previous) ? previous : sortedMonths[0];
+}
+
+function updateSummaryControls(){
+  const periodEl = document.getElementById('sumPeriod');
+  const monthWrap = document.getElementById('sumMonthWrap');
+  const monthEl = document.getElementById('sumMonth');
+  if(!periodEl || !monthWrap || !monthEl) return;
+
+  populateSummaryMonthOptions();
+  monthWrap.classList.toggle('hidden', periodEl.value !== 'month');
+}
+
+function getFilteredSummaryJobs(){
+  const selection = getSummarySelection();
+  return state.jobs.filter(x => matchesSummaryPeriod(x, selection));
+}
+
+function escapeXml(value){
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&apos;');
+}
+
+function decimalHours(ms){
+  return ((ms || 0) / 3600000);
+}
+
+function summarizeJobsByDate(jobs){
+  const byDate = {};
+  jobs.forEach(job => {
+    const key = job.date || '';
+    if(!byDate[key]) byDate[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
+    byDate[key].jobs += 1;
+    byDate[key].loads += (job.loads || []).length;
+    byDate[key].weight += (job.totalWeight || 0);
+    byDate[key].distance += (job.distanceKm || 0);
+    byDate[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
+  });
+  return byDate;
+}
+
+function summarizeJobsByType(jobs){
+  const byType = {};
+  jobs.forEach(job => {
+    const key = job.type || '';
+    if(!byType[key]) byType[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
+    byType[key].jobs += 1;
+    byType[key].loads += (job.loads || []).length;
+    byType[key].weight += (job.totalWeight || 0);
+    byType[key].distance += (job.distanceKm || 0);
+    byType[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
+  });
+  return byType;
+}
+
+function xmlCell(value, type){
+  const t = type || 'String';
+  if(t === 'Number'){
+    return '<Cell><Data ss:Type="Number">' + value + '</Data></Cell>';
+  }
+  return '<Cell><Data ss:Type="String">' + escapeXml(value) + '</Data></Cell>';
+}
+
+function xmlRow(values, types){
+  return '<Row>' + values.map((v,i) => xmlCell(v, types ? types[i] : 'String')).join('') + '</Row>';
+}
+
+function buildExcelWorkbookXml(selection, filtered){
+  const label = getSummaryLabel(selection);
+  const totalJobs = filtered.length;
+  const totalLoads = filtered.reduce((a,x)=>a+(x.loads||[]).length,0);
+  const totalWeight = filtered.reduce((a,x)=>a+(x.totalWeight||0),0);
+  const totalDistance = filtered.reduce((a,x)=>a+(x.distanceKm||0),0);
+  const totalTimeMs = filtered.reduce((a,x)=>a+(((x.end||Date.now())-x.start)||0),0);
+
+  const byDate = summarizeJobsByDate(filtered);
+  const byType = summarizeJobsByType(filtered);
+
+  let summaryRows = '';
+  summaryRows += xmlRow(['Sammanställning', 'Lastbil app']);
+  summaryRows += xmlRow(['Period', label]);
+  summaryRows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
+  summaryRows += xmlRow(['']);
+  summaryRows += xmlRow(['Nyckeltal', 'Värde']);
+  summaryRows += xmlRow(['Antal jobb', totalJobs], ['String','Number']);
+  summaryRows += xmlRow(['Antal last', totalLoads], ['String','Number']);
+  summaryRows += xmlRow(['Total vikt i ton', totalWeight.toFixed(1)], ['String','Number']);
+  summaryRows += xmlRow(['Sträcka km', totalDistance.toFixed(1)], ['String','Number']);
+  summaryRows += xmlRow(['Tid timmar', decimalHours(totalTimeMs).toFixed(2)], ['String','Number']);
+
+  let dayRows = '';
+  dayRows += xmlRow(['Datum', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
+  Object.keys(byDate).sort().forEach(date => {
+    const row = byDate[date];
+    dayRows += xmlRow(
+      [date, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
+      ['String','Number','Number','Number','Number','Number']
+    );
+  });
+
+  let typeRows = '';
+  typeRows += xmlRow(['Jobbtyp', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
+  Object.keys(byType).sort().forEach(type => {
+    const row = byType[type];
+    typeRows += xmlRow(
+      [type, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
+      ['String','Number','Number','Number','Number','Number']
+    );
+  });
+
+  let detailRows = '';
+  detailRows += xmlRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']);
+  filtered
+    .slice()
+    .sort((a,b) => (a.date || '').localeCompare(b.date || '') || (a.start || 0) - (b.start || 0))
+    .forEach(job => {
+      detailRows += xmlRow(
+        [
+          job.date || '',
+          job.vehicle || '',
+          job.type || '',
+          job.place || '',
+          job.dest || '',
+          (job.loads || []).length,
+          (job.totalWeight || 0).toFixed(1),
+          (job.distanceKm || 0).toFixed(1),
+          decimalHours((((job.end||Date.now()) - job.start)||0)).toFixed(2),
+          job.comment || ''
+        ],
+        ['String','String','String','String','String','Number','Number','Number','Number','String']
+      );
+    });
+
+  const xml = '<?xml version="1.0"?>'
+    + '<?mso-application progid="Excel.Sheet"?>'
+    + '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"'
+    + ' xmlns:o="urn:schemas-microsoft-com:office:office"'
+    + ' xmlns:x="urn:schemas-microsoft-com:office:excel"'
+    + ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"'
+    + ' xmlns:html="http://www.w3.org/TR/REC-html40">'
+    + '<Styles>'
+    +   '<Style ss:ID="Header"><Font ss:Bold="1"/></Style>'
+    + '</Styles>'
+    + '<Worksheet ss:Name="Sammanfattning"><Table>' + summaryRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Dag för dag"><Table>' + dayRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Per jobbtyp"><Table>' + typeRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Detaljer"><Table>' + detailRows + '</Table></Worksheet>'
+    + '</Workbook>';
+  return xml;
+}
+
+function exportSummaryExcel(){
+  updateSummaryControls();
+  const selection = getSummarySelection();
+  const filtered = getFilteredSummaryJobs();
+  const xml = buildExcelWorkbookXml(selection, filtered);
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const periodPart = selection.period === 'month' ? selection.monthValue : selection.period;
+  a.href = url;
+  a.download = 'lastbil_app_sammanstallning_' + periodPart + '.xls';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function renderSummary(){
+  updateSummaryControls();
+  const selection = getSummarySelection();
+  const label = getSummaryLabel(selection);
+  const filtered = getFilteredSummaryJobs();
+
+  document.getElementById('sumJobsLabel').textContent = 'Jobb ' + label;
+  document.getElementById('sumLoadsLabel').textContent = 'Antal last ' + label;
+  document.getElementById('sumWeightLabel').textContent = 'Total vikt ' + label;
+  document.getElementById('sumDistanceLabel').textContent = 'Sträcka ' + label;
+  document.getElementById('sumTimeLabel').textContent = 'Tid ' + label;
+  document.getElementById('sumByTypeTitle').textContent = 'Per jobbtyp – ' + label;
+
+  document.getElementById('sumJobs').textContent = filtered.length;
+  document.getElementById('sumLoads').textContent = filtered.reduce((a,x)=>a+(x.loads||[]).length,0);
+  document.getElementById('sumWeight').textContent = filtered.reduce((a,x)=>a+(x.totalWeight||0),0).toFixed(1)+' ton';
+  document.getElementById('sumDistance').textContent = km(filtered.reduce((a,x)=>a+(x.distanceKm||0),0));
+  document.getElementById('sumTime').textContent = mins(filtered.reduce((a,x)=>a+(((x.end||Date.now())-x.start)||0),0));
+
+  const byType = summarizeJobsByType(filtered);
+  const el = document.getElementById('sumByType');
+  const keys = Object.keys(byType).sort();
+  el.innerHTML = keys.length ? keys.map(k =>
+    '<div class="job"><strong>'+k+'</strong><div style="margin-top:6px">Jobb: '+byType[k].jobs+' · Antal last: '+byType[k].loads+' · Total vikt i ton: '+byType[k].weight.toFixed(1)+' ton · Tid: '+mins(byType[k].timeMs)+'</div></div>'
+  ).join('') : '<div class="muted">Ingen data för vald period.</div>';
+}
+
+
+let machineTransportTarget = 'active';
+
+function openMachineTransport(target){
+  machineTransportTarget = target;
+  document.getElementById('machineTransportModal').classList.add('show');
+}
+function closeMachineTransport(){
+  document.getElementById('machineTransportModal').classList.remove('show');
+}
+function confirmMachineTransport(){
+  const machine = document.getElementById('mtMachine').value;
+  const direction = document.getElementById('mtDirection').value;
+  const machineConfig = getMachineConfig(machine);
+  const workshop = machineConfig ? (machineConfig.workshop || 'Annan destination') : 'Annan destination';
+  const usesGeneric = !workshop || workshop === 'Annan destination' || machine === 'Annat frd/mtrl';
+
+  let place = 'Ringön (BAS)';
+  let dest = workshop || 'Annan destination';
+  let type = usesGeneric ? machine + ' till' : machine + ' till verkstad';
+
+  if(direction === 'from'){
+    place = usesGeneric ? 'Annan plats' : workshop;
+    dest = 'Ringön (BAS)';
+    type = usesGeneric ? machine + ' från' : machine + ' från verkstad';
+  }
+
+  if(direction === 'other'){
+    place = 'Ringön (BAS)';
+    dest = 'Annan plats';
+    type = machine + ' till annan plats';
+  }
+
+  if(machineTransportTarget === 'queue'){
+    state.queue.push({
+      id:id(),
+      vehicle:'lastbil',
+      type:type,
+      place:place,
+      dest:dest,
+      comment:'',
+      status:'köad',
+      date:todayStr(),
+      plannedDate:todayStr()
+    });
+    saveState();
+    render();
+  } else {
+    quickJob('lastbil', type, place, dest, '');
+  }
+  closeMachineTransport();
+}
+
+
+
+function escapeHtml(value){
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function escapeJsSingle(value){
+  return String(value ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
+function getQuickItems(){
+  return Array.isArray(state.quickItems) ? state.quickItems : [];
+}
+
+function getQuickItemById(quickId){
+  return getQuickItems().find(item => item.id === quickId) || null;
+}
+
+function getQuickVehicle(item){
+  if(!item) return 'lastbil';
+  if(item.vehicle) return item.vehicle;
+  return item.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
+}
+
+function groupedQuickItems(){
+  const groups = [];
+  getQuickItems().forEach(item => {
+    const groupName = item.group || 'Övrigt';
+    let group = groups.find(g => g.name === groupName);
+    if(!group){
+      group = {name: groupName, items: []};
+      groups.push(group);
+    }
+    group.items.push(item);
+  });
+  return groups;
+}
+
+function renderQuickGroupCards(target){
+  const groups = groupedQuickItems();
+  if(!groups.length){
+    return '<div class="muted">Inga snabbval finns inlagda.</div>';
+  }
+  const fn = target === 'queue' ? 'queueQuickItem' : 'startQuickItem';
+  return groups.map(group =>
+    '<div class="card">'+
+      '<h3>' + escapeHtml(target === 'queue' ? ('Snabbval ' + group.name + ' (kö)') : group.name) + '</h3>'+
+      '<div class="btn-grid">'+
+        group.items.map(item => '<button onclick="'+fn+'(\''+escapeJsSingle(item.id)+'\')">'+escapeHtml(item.label || item.type || 'Snabbval')+'</button>').join('')+
+      '</div>'+
+    '</div>'
+  ).join('');
+}
+
+function renderQuickSelections(){
+  const mainEl = document.getElementById('quickMainList');
+  if(mainEl) mainEl.innerHTML = renderQuickGroupCards('active');
+  const queueEl = document.getElementById('queueQuickList');
+  if(queueEl) queueEl.innerHTML = renderQuickGroupCards('queue');
+}
+
+function startQuickItem(quickId){
+  const item = getQuickItemById(quickId);
+  if(!item) return;
+  if(item.action === 'machineTransport'){
+    openMachineTransport('active');
+    return;
+  }
+  if(!item.type){
+    alert('Snabbvalet saknar jobbtyp.');
+    return;
+  }
+  quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '');
+}
+
+function queueQuickItem(quickId){
+  const item = getQuickItemById(quickId);
+  if(!item) return;
+  if(item.action === 'machineTransport'){
+    openMachineTransport('queue');
+    return;
+  }
+  if(!item.type){
+    alert('Snabbvalet saknar jobbtyp.');
+    return;
+  }
+  state.queue.push({
+    id:id(),
+    vehicle:getQuickVehicle(item),
+    type:item.type,
+    displayType:item.displayType || item.type,
+    place:item.place || '',
+    dest:item.dest || '',
+    comment:item.comment || '',
+    status:'köad',
+    date:todayStr(),
+    plannedDate:todayStr()
+  });
+  saveState();
+  render();
+}
+
+function getQuickGroupValues(extraValues = []){
+  const placeGroups = getFromPlaceValues()
+    .map(value => getPlaceLabel(value))
+    .filter(Boolean);
+  return Array.from(new Set([
+    ...placeGroups,
+    ...getQuickItems().map(item => (item.group || '').trim()).filter(Boolean),
+    ...extraValues.map(value => (value || '').trim()).filter(Boolean),
+    'Övrigt'
+  ])).sort((a, b) => a.localeCompare(b, 'sv-SE'));
+}
+
+function quickSelectOptions(values, selected, includeBlank, blankLabel){
+  const normalized = Array.from(new Set([
+    ...values.filter(Boolean),
+    ...(selected && !values.includes(selected) ? [selected] : [])
+  ]));
+  let html = '';
+  if(includeBlank){
+    html += '<option value="">'+escapeHtml(blankLabel || 'Välj')+'</option>';
+  }
+  html += normalized.map(value => '<option value="'+escapeHtml(value)+'" '+(value === selected ? 'selected' : '')+'>'+escapeHtml(value)+'</option>').join('');
+  return html;
+}
+
+function quickPlaceValueOptions(values, selected, includeBlank, blankLabel){
+  const normalized = Array.from(new Set([
+    ...values.filter(Boolean),
+    ...(selected && !values.includes(selected) ? [selected] : [])
+  ]));
+  let html = '';
+  if(includeBlank){
+    html += '<option value="">'+escapeHtml(blankLabel || 'Välj')+'</option>';
+  }
+  html += normalized.map(value => '<option value="'+escapeHtml(value)+'" '+(value === selected ? 'selected' : '')+'>'+escapeHtml(getPlaceLabel(value))+'</option>').join('');
+  return html;
+}
+
+function quickPlaceOptions(selected){
+  return quickPlaceValueOptions(getFromPlaceValues(), selected || '', true, 'Välj från');
+}
+
+function quickDestOptions(selected){
+  return quickPlaceValueOptions(getToPlaceValues(), selected || '', true, 'Välj till');
+}
+
+function quickGroupOptions(selected){
+  return quickSelectOptions(getQuickGroupValues([selected || 'Övrigt']), selected || 'Övrigt', false, '');
+}
+
+function updateQuickDatalists(){
+  const newQuickGroup = document.getElementById('newQuickGroup');
+  const newQuickPlace = document.getElementById('newQuickPlace');
+  const newQuickDest = document.getElementById('newQuickDest');
+  if(newQuickGroup) newQuickGroup.innerHTML = quickGroupOptions(newQuickGroup.value || 'Övrigt');
+  if(newQuickPlace) newQuickPlace.innerHTML = quickPlaceOptions(newQuickPlace.value || '');
+  if(newQuickDest) newQuickDest.innerHTML = quickDestOptions(newQuickDest.value || '');
+}
+
+function quickTypeOptions(selected){
+  const values = selected && !sortedTruckTypes.includes(selected) ? [selected, ...sortedTruckTypes] : sortedTruckTypes;
+  return values.map(type => '<option value="'+escapeHtml(type)+'" '+(type === selected ? 'selected' : '')+'>'+escapeHtml(type)+'</option>').join('');
+}
+
+function toggleQuickManager(){
+  const wrap = document.getElementById('quickManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden');
+  if(willShow){
+    updateQuickDatalists();
+    renderQuickManager();
+  }
+}
+
+function addQuickItem(){
+  const group = (document.getElementById('newQuickGroup').value || '').trim() || 'Övrigt';
+  const label = (document.getElementById('newQuickLabel').value || '').trim();
+  const type = document.getElementById('newQuickType').value || '';
+  const place = (document.getElementById('newQuickPlace').value || '').trim();
+  const dest = (document.getElementById('newQuickDest').value || '').trim();
+  const comment = (document.getElementById('newQuickComment').value || '').trim();
+  const displayType = (document.getElementById('newQuickDisplayType').value || '').trim();
+
+  if(!label){
+    alert('Skriv knappnamn.');
+    return;
+  }
+  if(!type){
+    alert('Välj jobbtyp.');
+    return;
+  }
+
+  state.quickItems.push({
+    id:'quick_' + id(),
+    group,
+    label,
+    vehicle:type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil',
+    type,
+    place,
+    dest,
+    comment,
+    displayType
+  });
+
+  document.getElementById('newQuickGroup').value = '';
+  document.getElementById('newQuickLabel').value = '';
+  document.getElementById('newQuickPlace').value = '';
+  document.getElementById('newQuickDest').value = '';
+  document.getElementById('newQuickComment').value = '';
+  document.getElementById('newQuickDisplayType').value = '';
+
+  saveState();
+  renderQuickManager();
+  render();
+}
+
+function removeQuickItem(quickId){
+  if(!confirm('Ta bort snabbvalet?')) return;
+  state.quickItems = getQuickItems().filter(item => item.id !== quickId);
+  saveState();
+  renderQuickManager();
+  render();
+}
+
+function renderQuickManager(){
+  const listEl = document.getElementById('quickManagerList');
+  if(!listEl) return;
+
+  const items = getQuickItems();
+  if(!items.length){
+    listEl.innerHTML = '<div class="muted">Inga snabbval finns inlagda.</div>';
+    return;
+  }
+
+  const groups = [];
+  items.forEach(item => {
+    const groupName = (item.group || 'Övrigt').trim() || 'Övrigt';
+    let group = groups.find(g => g.name === groupName);
+    if(!group){
+      group = { name: groupName, items: [] };
+      groups.push(group);
+    }
+    group.items.push(item);
+  });
+
+  groups.sort((a, b) => a.name.localeCompare(b.name, 'sv-SE'));
+
+  const renderQuickManagerItem = item => {
+    if(item.action === 'machineTransport'){
+      return '<div class="place-row">'+
+        '<div class="place-key">'+escapeHtml(item.group || 'Övrigt')+' – '+escapeHtml(item.label || 'Maskintransport')+'</div>'+ 
+        '<div class="quick-edit-grid">'+
+          '<div><label>Rubrik/grupp</label><select data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="group">'+quickGroupOptions(item.group || 'Övrigt')+'</select></div>'+ 
+          '<div><label>Knappnamn</label><input data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="label" value="'+escapeHtml(item.label || '')+'"></div>'+ 
+        '</div>'+ 
+        '<div class="quick-special-note">Specialknapp: öppnar valet för maskintransport.</div>'+ 
+        '<div class="row"><button class="primary inline" onclick="saveSingleQuickItem(\''+escapeJsSingle(item.id)+'\')">Spara</button><button class="danger inline" onclick="removeQuickItem(\''+escapeJsSingle(item.id)+'\')">Ta bort</button></div>'+ 
+      '</div>';
+    }
+
+    return '<div class="place-row">'+
+      '<div class="place-key">'+escapeHtml(item.group || 'Övrigt')+' – '+escapeHtml(item.label || item.type || 'Snabbval')+'</div>'+ 
+      '<div class="quick-edit-grid">'+
+        '<div><label>Rubrik/grupp</label><select data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="group">'+quickGroupOptions(item.group || 'Övrigt')+'</select></div>'+ 
+        '<div><label>Knappnamn</label><input data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="label" value="'+escapeHtml(item.label || '')+'"></div>'+ 
+        '<div><label>Jobbtyp</label><select data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="type">'+quickTypeOptions(item.type || '')+'</select></div>'+ 
+        '<div><label>Från</label><select data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="place">'+quickPlaceOptions(item.place || '')+'</select></div>'+ 
+        '<div><label>Till</label><select data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="dest">'+quickDestOptions(item.dest || '')+'</select></div>'+ 
+        '<div><label>Visas som</label><input data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="displayType" value="'+escapeHtml(item.displayType || '')+'"></div>'+ 
+      '</div>'+ 
+      '<label>Kommentar</label><input data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="comment" value="'+escapeHtml(item.comment || '')+'">'+
+      '<div class="row"><button class="primary inline" onclick="saveSingleQuickItem(\''+escapeJsSingle(item.id)+'\')">Spara</button><button class="danger inline" onclick="removeQuickItem(\''+escapeJsSingle(item.id)+'\')">Ta bort</button></div>'+ 
+    '</div>';
+  };
+
+  listEl.innerHTML = groups.map(group =>
+    '<div class="card">'+
+      '<h3>'+escapeHtml(group.name)+'</h3>'+ 
+      group.items.map(renderQuickManagerItem).join('')+
+    '</div>'
+  ).join('');
+}
+
+function saveSingleQuickItem(quickId){
+  const current = getQuickItems().find(item => item.id === quickId);
+  if(!current) return;
+
+  const updatedItem = {...current};
+  const fields = document.querySelectorAll('#quickManagerList [data-quick-id][data-quick-field]');
+
+  fields.forEach(el => {
+    if(el.getAttribute('data-quick-id') !== quickId) return;
+    const field = el.getAttribute('data-quick-field');
+    updatedItem[field] = (el.value || '').trim();
+  });
+
+  if(updatedItem.action !== 'machineTransport'){
+    updatedItem.vehicle = updatedItem.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
+  }
+
+  if(!updatedItem.label){
+    alert('Snabbvalet måste ha knappnamn.');
+    return;
+  }
+  if(!updatedItem.action && !updatedItem.type){
+    alert('Snabbvalet måste ha jobbtyp.');
+    return;
+  }
+
+  state.quickItems = getQuickItems().map(item => item.id === quickId ? updatedItem : item);
+  saveState();
+  render();
+  renderQuickManager();
+  alert('Snabbval sparat.');
+}
+
+function saveQuickItems(){
+  const updated = getQuickItems().map(item => ({...item}));
+  const fields = document.querySelectorAll('#quickManagerList [data-quick-id][data-quick-field]');
+
+  fields.forEach(el => {
+    const quickId = el.getAttribute('data-quick-id');
+    const field = el.getAttribute('data-quick-field');
+    const item = updated.find(x => x.id === quickId);
+    if(!item) return;
+    item[field] = (el.value || '').trim();
+  });
+
+  updated.forEach(item => {
+    if(item.action === 'machineTransport') return;
+    item.vehicle = item.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
+  });
+
+  if(updated.some(item => !item.label)){
+    alert('Alla snabbval måste ha knappnamn.');
+    return;
+  }
+  if(updated.some(item => !item.action && !item.type)){
+    alert('Alla vanliga snabbval måste ha jobbtyp.');
+    return;
+  }
+
+  state.quickItems = updated;
+  saveState();
+  render();
+  renderQuickManager();
+  alert('Snabbval sparade.');
+}
+function toggleSettingsSummary(){
+  const wrap = document.getElementById('settingsSummaryWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden');
+  if(willShow){
+    updateSummaryControls();
+    renderSummary();
+  }
+}
+
+function togglePlaceManager(){
+  const wrap = document.getElementById('placeManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden');
+  if(willShow){
+    renderPlaceManager();
+  }
+}
+
+function addManagedPlace(){
+  const nameEl = document.getElementById('newManagedPlaceName');
+  const addressEl = document.getElementById('newManagedPlaceAddress');
+  const fromEl = document.getElementById('newManagedPlaceFrom');
+  const toEl = document.getElementById('newManagedPlaceTo');
+  const jobEl = document.getElementById('newManagedPlaceJobType');
+
+  const label = (nameEl.value || '').trim();
+  const address = addressEl ? (addressEl.value || '').trim() : '';
+  if(!label){
+    alert('Skriv namn på platsen.');
+    return;
+  }
+  if(!fromEl.checked && !toEl.checked){
+    alert('Välj Från, Till eller båda.');
+    return;
+  }
+
+  const key = 'custom_' + id();
+  state.customPlaces.push({
+    key,
+    label,
+    from: fromEl.checked,
+    to: toEl.checked
+  });
+
+  const jobTypes = getSelectedValues(jobEl);
+  if(jobTypes.length){
+    state.placeConfigs[key] = { jobTypes };
+  }
+  if(!state.placeAddresses) state.placeAddresses = {};
+  if(address){
+    state.placeAddresses[key] = address;
+  }
+
+  nameEl.value = '';
+  if(addressEl) addressEl.value = '';
+  fromEl.checked = true;
+  toEl.checked = true;
+  clearSelectedValues(jobEl);
+  saveState();
+  refreshPlaceSelects();
+  renderPlaceManager();
+  render();
+}
+
+function removeManagedPlace(key){
+  if(!confirm('Ta bort platsen?')) return;
+  state.customPlaces = (state.customPlaces || []).filter(p => p.key !== key);
+  if(state.placeConfigs && state.placeConfigs[key]){
+    delete state.placeConfigs[key];
+  }
+  if(state.placeAddresses && state.placeAddresses[key]){
+    delete state.placeAddresses[key];
+  }
+  saveState();
+  refreshPlaceSelects();
+  renderPlaceManager();
+  render();
+}
+
+function renderPlaceManager(){
+  const listEl = document.getElementById('placeManagerList');
+  if(!listEl) return;
+  listEl.innerHTML = '';
+
+  getManageablePlaces().forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'place-row';
+
+    const label = document.createElement('div');
+    label.className = 'place-key';
+    label.textContent = entry.custom ? getPlaceLabel(entry.key) : entry.key;
+
+    const input = document.createElement('input');
+    input.value = getPlaceLabel(entry.key);
+    input.setAttribute('data-place-key', entry.key);
+    input.placeholder = 'Visningsnamn';
+
+    const addressInput = document.createElement('input');
+    addressInput.value = getPlaceAddress(entry.key);
+    addressInput.setAttribute('data-place-address-key', entry.key);
+    addressInput.placeholder = 'Adress eller Plus Code';
+
+    const meta = document.createElement('div');
+    meta.className = 'place-meta';
+
+    const jobWrap = document.createElement('div');
+    const jobLabel = document.createElement('label');
+    jobLabel.textContent = 'Kopplade jobbtyper';
+    const jobSelect = document.createElement('select');
+    jobSelect.setAttribute('data-place-job-key', entry.key);
+    jobSelect.multiple = true;
+    jobSelect.size = 6;
+
+    const linkedJobTypes = getPlaceJobTypes(entry.key);
+    sortedTruckTypes.forEach(type => {
+      const opt = document.createElement('option');
+      opt.value = type;
+      opt.textContent = type;
+      opt.selected = linkedJobTypes.includes(type);
+      jobSelect.appendChild(opt);
+    });
+    const help = document.createElement('div');
+    help.className = 'multi-help';
+    help.textContent = 'Välj en eller flera jobbtyper.';
+    jobWrap.appendChild(jobLabel);
+    jobWrap.appendChild(jobSelect);
+    jobWrap.appendChild(help);
+    meta.appendChild(jobWrap);
+
+    const usage = getPlaceUsage(entry.key);
+    const toggles = document.createElement('div');
+    toggles.className = 'row';
+    toggles.style.gap = '12px';
+    toggles.style.alignItems = 'center';
+    toggles.innerHTML =
+      '<label style="display:flex; align-items:center; gap:8px; width:auto"><input type="checkbox" data-place-from-key="'+entry.key+'" '+(usage.from ? 'checked' : '')+'> Från</label>' +
+      '<label style="display:flex; align-items:center; gap:8px; width:auto"><input type="checkbox" data-place-to-key="'+entry.key+'" '+(usage.to ? 'checked' : '')+'> Till</label>' +
+      (entry.custom ? '<button class="danger inline" onclick="removeManagedPlace(\''+entry.key+'\')">Ta bort</button>' : '');
+    meta.appendChild(toggles);
+
+    row.appendChild(label);
+    row.appendChild(input);
+    row.appendChild(addressInput);
+    row.appendChild(meta);
+    listEl.appendChild(row);
+  });
+}
+
+function saveManagedPlaces(){
+  const labelInputs = document.querySelectorAll('#placeManagerList input[data-place-key]');
+  const nextLabels = {};
+  const nextConfigs = {};
+  const nextAddresses = {};
+  const updatedCustomPlaces = (state.customPlaces || []).map(p => ({...p}));
+
+  labelInputs.forEach(input => {
+    const key = input.getAttribute('data-place-key');
+    const value = input.value.trim();
+    const custom = updatedCustomPlaces.find(p => p.key === key);
+
+    if(custom){
+      custom.label = value || custom.label;
+    } else if(value && value !== key){
+      nextLabels[key] = value;
+    }
+  });
+
+  const addressInputs = document.querySelectorAll('#placeManagerList input[data-place-address-key]');
+  addressInputs.forEach(input => {
+    const key = input.getAttribute('data-place-address-key');
+    const value = input.value.trim();
+    if(value){
+      nextAddresses[key] = value;
+    }
+  });
+
+  const jobSelects = document.querySelectorAll('#placeManagerList select[data-place-job-key]');
+  jobSelects.forEach(select => {
+    const key = select.getAttribute('data-place-job-key');
+    const jobTypes = getSelectedValues(select);
+    if(jobTypes.length){
+      nextConfigs[key] = { jobTypes };
+    }
+  });
+
+  const nextUsage = {};
+  const ensureUsage = key => {
+    if(!nextUsage[key]) nextUsage[key] = getPlaceUsage(key);
+    return nextUsage[key];
+  };
+
+  const fromChecks = document.querySelectorAll('#placeManagerList input[data-place-from-key]');
+  fromChecks.forEach(cb => {
+    const key = cb.getAttribute('data-place-from-key');
+    const custom = updatedCustomPlaces.find(p => p.key === key);
+    if(custom){
+      custom.from = cb.checked;
+    } else {
+      ensureUsage(key).from = cb.checked;
+    }
+  });
+
+  const toChecks = document.querySelectorAll('#placeManagerList input[data-place-to-key]');
+  toChecks.forEach(cb => {
+    const key = cb.getAttribute('data-place-to-key');
+    const custom = updatedCustomPlaces.find(p => p.key === key);
+    if(custom){
+      custom.to = cb.checked;
+    } else {
+      ensureUsage(key).to = cb.checked;
+    }
+  });
+
+  const allKeys = Array.from(new Set([...(places || []), ...(dests || []), ...updatedCustomPlaces.map(p => p.key)]));
+  const hasHiddenPlace = allKeys.some(key => {
+    const custom = updatedCustomPlaces.find(p => p.key === key);
+    const usage = custom ? { from: !!custom.from, to: !!custom.to } : (nextUsage[key] || getPlaceUsage(key));
+    return !usage.from && !usage.to;
+  });
+
+  if(hasHiddenPlace){
+    alert('En plats måste vara valbar som Från, Till eller båda.');
+    return;
+  }
+
+  state.placeLabels = nextLabels;
+  state.placeAddresses = nextAddresses;
+  state.placeConfigs = nextConfigs;
+  state.placeUsage = nextUsage;
+  state.customPlaces = updatedCustomPlaces;
+  saveState();
+  refreshPlaceSelects();
+  renderPlaceManager();
+  render();
+  alert('Platser sparade.');
+}
+
+function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); saveState(); }
+
+fillSelect('newType', sortedTruckTypes);
+fillSelect('newPlace', getFromPlaceValues());
+fillSelect('newDest', getToPlaceValues());
+fillSelect('queueType', sortedTruckTypes);
+fillSelect('queuePlace', getFromPlaceValues());
+fillSelect('queueDest', getToPlaceValues());
+fillSelect('editType', sortedTruckTypes);
+fillSelect('newManagedPlaceJobType', sortedTruckTypes);
+fillSelect('newQuickType', sortedTruckTypes);
+fillMachineSelects();
+refreshPlaceSelects();
+
+document.getElementById('newType').addEventListener('change', function(){
+  updateNewMachineUI();
+  updateNewSeaweedUI();
+  updateFixedRouteRules();
+  applySopsandDefaultDestination();
+});
+
+document.getElementById('newPlace').addEventListener('change', function(){
+  applyLinkedJobType('newType', this.value);
+  applySopsandDefaultDestination();
+});
+
+document.getElementById('newDest').addEventListener('change', function(){
+  applyLinkedJobType('newType', this.value);
+});
+
+document.getElementById('queuePlace').addEventListener('change', function(){
+  applyLinkedJobType('queueType', this.value);
+});
+
+document.getElementById('queueDest').addEventListener('change', function(){
+  applyLinkedJobType('queueType', this.value);
+});
+
+document.getElementById('newMachine').addEventListener('change', function(){
+  updateNewMachineDestination();
+});
+
+document.getElementById('newSeaweedMode').addEventListener('change', function(){
+  updateNewSeaweedUI();
+});
+
+document.getElementById('newSeaweedBeach').addEventListener('change', function(){
+  updateNewSeaweedRoute();
+});
+
+
+if(state.active){
+  startDistanceTracking();
+  startActiveTimer();
+}
+updateNewMachineUI();
+updateNewSeaweedUI();
+updateFixedRouteRules();
+applySopsandDefaultDestination();
+updateSummaryControls();
+updateGpsEnvironmentInfo();
+showTab('snabb');
+render();
+
+function saveActiveComment(){
+  if(!state.active) return;
+  const val = document.getElementById('activeCommentInput').value;
+  state.active.comment = val;
+  saveState();
+  renderActive();
+}
+
+</script>
+</body>
+</html>
