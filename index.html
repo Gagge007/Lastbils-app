@@ -488,29 +488,16 @@ button{
     <textarea id="newComment"></textarea>
     <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
     <textarea id="newPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
-    <button class="primary" style="margin-top:12px" onclick="startManualJob()">Starta jobb</button>
+    <div class="row" style="margin-top:12px">
+      <button class="queue-start" onclick="startManualJob()">Starta jobb</button>
+      <button class="queue-yellow" onclick="addManualJobToQueue()">Lägg i kön</button>
+    </div>
   </div>
 
   <div id="tab-ko" class="card hidden">
       <h3>Uppdrag i kö</h3>
-      <div class="muted">Köade jobb visas överst. Snabbvalen hamnar längre ner när kön växer.</div>
+      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Nytt jobb.</div>
       <div id="queueList"></div>
-<div id="queueQuickList" class="grid2"></div>
-      <div class="grid2">
-        <div>
-          <label>Jobbtyp</label>
-          <select id="queueType"></select>
-          <label style="margin-top:10px">Från</label>
-          <select id="queuePlace"></select>
-          <label style="margin-top:10px">Till</label>
-          <select id="queueDest"></select>
-          <label style="margin-top:10px">Kommentar</label>
-          <textarea id="queueComment"></textarea>
-          <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
-          <textarea id="queuePrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
-          <button class="primary" style="margin-top:12px" onclick="addQueuedJob()">Lägg i kö</button>
-        </div>
-      </div>
 </div>
 
   <div id="tab-idag" class="card hidden">
@@ -1176,14 +1163,14 @@ function getManageablePlaces(){
   return [...builtIn, ...custom];
 }
 
-function fillSelect(idName, arr, includeBlank){
+function fillSelect(idName, arr, includeBlank, blankLabel){
   const el = document.getElementById(idName);
   if(!el) return;
   el.innerHTML = '';
   if(includeBlank){
     const blank = document.createElement('option');
     blank.value = '';
-    blank.textContent = 'Ingen koppling';
+    blank.textContent = blankLabel || 'Ingen koppling';
     el.appendChild(blank);
   }
   arr.forEach(v=>{
@@ -1194,19 +1181,19 @@ function fillSelect(idName, arr, includeBlank){
   });
 }
 
-function refillSelectKeepingValue(idName, arr, includeBlank){
+function refillSelectKeepingValue(idName, arr, includeBlank, blankLabel){
   const el = document.getElementById(idName);
   if(!el) return;
   const current = el.value;
-  fillSelect(idName, arr, includeBlank);
+  fillSelect(idName, arr, includeBlank, blankLabel);
   if(Array.from(el.options).some(o => o.value === current)){
     el.value = current;
   }
 }
 
 function refreshPlaceSelects(){
-  refillSelectKeepingValue('newPlace', getFromPlaceValues());
-  refillSelectKeepingValue('newDest', getToPlaceValues());
+  refillSelectKeepingValue('newPlace', getFromPlaceValues(), true, '----');
+  refillSelectKeepingValue('newDest', getToPlaceValues(), true, '----');
   refillSelectKeepingValue('queuePlace', getFromPlaceValues());
   refillSelectKeepingValue('queueDest', getToPlaceValues());
   updateQuickDatalists();
@@ -1330,13 +1317,25 @@ function renderGpsTestPoint(point, extraStatus){
   setGpsTestText('gpsTestStatus', extraStatus || 'GPS aktiv');
 }
 
+
+function hideSettingsPanels(exceptId){
+  ['settingsSummaryWrap','gpsTestManagerWrap','backupManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+    if(panelId === exceptId) return;
+    const panel = document.getElementById(panelId);
+    if(panel) panel.classList.add('hidden');
+  });
+}
+
 function toggleGpsTestManager(){
   const wrap = document.getElementById('gpsTestManagerWrap');
   if(!wrap) return;
   const willShow = wrap.classList.contains('hidden');
-  wrap.classList.toggle('hidden');
   if(willShow){
+    hideSettingsPanels('gpsTestManagerWrap');
+    wrap.classList.remove('hidden');
     updateGpsEnvironmentInfo();
+  } else {
+    wrap.classList.add('hidden');
   }
 }
 
@@ -1420,7 +1419,13 @@ function clearGpsTest(){
 function toggleBackupManager(){
   const wrap = document.getElementById('backupManagerWrap');
   if(!wrap) return;
-  wrap.classList.toggle('hidden');
+  const willShow = wrap.classList.contains('hidden');
+  if(willShow){
+    hideSettingsPanels('backupManagerWrap');
+    wrap.classList.remove('hidden');
+  } else {
+    wrap.classList.add('hidden');
+  }
 }
 
 function getBackupFilename(){
@@ -1519,9 +1524,12 @@ function toggleJobTypeManager(){
   const wrap = document.getElementById('jobTypeManagerWrap');
   if(!wrap) return;
   const willShow = wrap.classList.contains('hidden');
-  wrap.classList.toggle('hidden');
   if(willShow){
+    hideSettingsPanels('jobTypeManagerWrap');
+    wrap.classList.remove('hidden');
     renderJobTypeManager();
+  } else {
+    wrap.classList.add('hidden');
   }
 }
 
@@ -1675,10 +1683,13 @@ function toggleMachineManager(){
   const wrap = document.getElementById('machineManagerWrap');
   if(!wrap) return;
   const willShow = wrap.classList.contains('hidden');
-  wrap.classList.toggle('hidden');
   if(willShow){
+    hideSettingsPanels('machineManagerWrap');
+    wrap.classList.remove('hidden');
     fillMachineSelects();
     renderMachineManager();
+  } else {
+    wrap.classList.add('hidden');
   }
 }
 
@@ -2032,6 +2043,42 @@ function startQuickSeaweed(){
   alert('Havstång används nu som vanlig jobbtyp med vanliga Från/Till.');
 }
 
+function resetNewJobForm(){
+  const typeEl = document.getElementById('newType');
+  const placeEl = document.getElementById('newPlace');
+  const destEl = document.getElementById('newDest');
+  const machineEl = document.getElementById('newMachine');
+  const commentEl = document.getElementById('newComment');
+  const privateCommentEl = document.getElementById('newPrivateComment');
+
+  if(typeEl) typeEl.value = '';
+  if(placeEl) placeEl.value = '';
+  if(destEl) destEl.value = '';
+  if(machineEl) machineEl.value = '';
+  if(commentEl) commentEl.value = '';
+  if(privateCommentEl) privateCommentEl.value = '';
+
+  updateNewMachineUI();
+  updateNewSeaweedUI();
+  updateFixedRouteRules();
+}
+
+function validateNewJobSelection(type, place, dest){
+  if(!type){
+    alert('Välj jobbtyp.');
+    return false;
+  }
+  if(type !== 'Övrig verksamhet' && !place){
+    alert('Välj Från.');
+    return false;
+  }
+  if(type !== 'Övrig verksamhet' && !dest){
+    alert('Välj Till.');
+    return false;
+  }
+  return true;
+}
+
 function startManualJob(){
   let vehicle = 'lastbil';
   let type = document.getElementById('newType').value;
@@ -2039,6 +2086,8 @@ function startManualJob(){
   let dest = document.getElementById('newDest').value;
   const baseComment = document.getElementById('newComment').value;
   const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
+
+  if(!validateNewJobSelection(type, place, dest)) return;
 
   if(type === 'Övrig verksamhet'){
     vehicle = 'övrigt arbete';
@@ -2065,7 +2114,10 @@ function startManualJob(){
 
 
   startJob(vehicle, type, place, dest, comment, '', privateComment);
-  if(state.active) showTab('idag');
+  if(state.active){
+    resetNewJobForm();
+    showTab('idag');
+  }
 }
 
 
@@ -2077,6 +2129,59 @@ function addQueuedJob(){
   document.getElementById('queueComment').value = '';
   if(document.getElementById('queuePrivateComment')) document.getElementById('queuePrivateComment').value = '';
   saveState(); render();
+}
+
+function addManualJobToQueue(){
+  let vehicle = 'lastbil';
+  let type = document.getElementById('newType').value;
+  let place = document.getElementById('newPlace').value;
+  let dest = document.getElementById('newDest').value;
+  const baseComment = document.getElementById('newComment').value;
+  const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
+
+  if(!validateNewJobSelection(type, place, dest)) return;
+
+  if(type === 'Övrig verksamhet'){
+    vehicle = 'övrigt arbete';
+    place = 'Ringön (BAS)';
+    dest = '';
+  }
+  if(type === 'Ris'){
+    place = 'Ringön (BAS)';
+    dest = 'Ruskvädersgatan (Ristipp)';
+  }
+  if(type === 'Metall'){
+    place = 'Ringön (BAS)';
+    dest = 'Stena Metall';
+  }
+
+  const machine = document.getElementById('newMachine') ? document.getElementById('newMachine').value : '';
+  let comment = baseComment;
+
+  if(type === 'Maskintransport' && machine){
+    comment = baseComment ? machine + ' – ' + baseComment : machine;
+  }
+
+  state.queue.push({
+    id:id(),
+    vehicle:vehicle,
+    type:type,
+    displayType:type,
+    place:place,
+    dest:dest,
+    placeLabel:getStoredPlaceLabel(place),
+    destLabel:getStoredPlaceLabel(dest),
+    comment:comment,
+    privateComment:privateComment,
+    status:'köad',
+    date:todayStr(),
+    plannedDate:todayStr()
+  });
+
+  resetNewJobForm();
+  saveState();
+  render();
+  showTab('ko');
 }
 
 function quickQueue(type, place, dest, displayType){
@@ -2929,10 +3034,13 @@ function toggleQuickManager(){
   const wrap = document.getElementById('quickManagerWrap');
   if(!wrap) return;
   const willShow = wrap.classList.contains('hidden');
-  wrap.classList.toggle('hidden');
   if(willShow){
+    hideSettingsPanels('quickManagerWrap');
+    wrap.classList.remove('hidden');
     updateQuickDatalists();
     renderQuickManager();
+  } else {
+    wrap.classList.add('hidden');
   }
 }
 
@@ -3114,10 +3222,13 @@ function toggleSettingsSummary(){
   const wrap = document.getElementById('settingsSummaryWrap');
   if(!wrap) return;
   const willShow = wrap.classList.contains('hidden');
-  wrap.classList.toggle('hidden');
   if(willShow){
+    hideSettingsPanels('settingsSummaryWrap');
+    wrap.classList.remove('hidden');
     updateSummaryControls();
     renderSummary();
+  } else {
+    wrap.classList.add('hidden');
   }
 }
 
@@ -3125,9 +3236,12 @@ function togglePlaceManager(){
   const wrap = document.getElementById('placeManagerWrap');
   if(!wrap) return;
   const willShow = wrap.classList.contains('hidden');
-  wrap.classList.toggle('hidden');
   if(willShow){
+    hideSettingsPanels('placeManagerWrap');
+    wrap.classList.remove('hidden');
     renderPlaceManager();
+  } else {
+    wrap.classList.add('hidden');
   }
 }
 
@@ -3352,9 +3466,9 @@ function saveManagedPlaces(){
 
 function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); saveState(); }
 
-fillSelect('newType', sortedTruckTypes);
-fillSelect('newPlace', getFromPlaceValues());
-fillSelect('newDest', getToPlaceValues());
+fillSelect('newType', sortedTruckTypes, true, '----');
+fillSelect('newPlace', getFromPlaceValues(), true, '----');
+fillSelect('newDest', getToPlaceValues(), true, '----');
 fillSelect('queueType', sortedTruckTypes);
 fillSelect('queuePlace', getFromPlaceValues());
 fillSelect('queueDest', getToPlaceValues());
@@ -3380,13 +3494,19 @@ document.getElementById('newDest').addEventListener('change', function(){
   applyLinkedJobType('newType', this.value);
 });
 
-document.getElementById('queuePlace').addEventListener('change', function(){
-  applyLinkedJobType('queueType', this.value);
-});
+const queuePlaceEl = document.getElementById('queuePlace');
+if(queuePlaceEl){
+  queuePlaceEl.addEventListener('change', function(){
+    applyLinkedJobType('queueType', this.value);
+  });
+}
 
-document.getElementById('queueDest').addEventListener('change', function(){
-  applyLinkedJobType('queueType', this.value);
-});
+const queueDestEl = document.getElementById('queueDest');
+if(queueDestEl){
+  queueDestEl.addEventListener('change', function(){
+    applyLinkedJobType('queueType', this.value);
+  });
+}
 
 const newMachineEl = document.getElementById('newMachine');
 if(newMachineEl){
