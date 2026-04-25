@@ -979,6 +979,8 @@ function normalizeVehicleState(){
     normalizeItem(item);
     if(item && !item.status) item.status = 'köad';
     if(item && !item.plannedDate) item.plannedDate = todayStr();
+    if(item && !item.placeLabel) item.placeLabel = getStoredPlaceLabel(item.place);
+    if(item && !item.destLabel) item.destLabel = getStoredPlaceLabel(item.dest);
   });
 }
 
@@ -1034,9 +1036,43 @@ function getCustomPlaceByKey(key){
 }
 
 function getPlaceLabel(value){
+  if(!value) return '';
   const custom = getCustomPlaceByKey(value);
   if(custom) return custom.label || value;
-  return (state.placeLabels && state.placeLabels[value]) ? state.placeLabels[value] : value;
+  if(state.placeLabels && state.placeLabels[value]) return state.placeLabels[value];
+  if(isUnknownCustomPlace(value)) return 'Okänd egen plats';
+  return value;
+}
+
+function isUnknownCustomPlace(value){
+  const text = String(value || '');
+  return text.startsWith('custom_') && !getCustomPlaceByKey(text) && !(state.placeLabels && state.placeLabels[text]);
+}
+
+function getStoredPlaceLabel(value){
+  const label = getPlaceLabel(value);
+  return label === 'Okänd egen plats' ? '' : label;
+}
+
+function getItemPlaceLabel(item, field){
+  if(!item) return '';
+  const value = item[field] || '';
+  const storedField = field === 'place' ? 'placeLabel' : 'destLabel';
+  const label = getPlaceLabel(value);
+  if(label === 'Okänd egen plats' && item[storedField]){
+    return item[storedField];
+  }
+  return label;
+}
+
+function unknownPlaceWarning(item){
+  if(!item) return '';
+  const missing = [];
+  if(isUnknownCustomPlace(item.place)) missing.push('Från');
+  if(isUnknownCustomPlace(item.dest)) missing.push('Till');
+  return missing.length
+    ? '<div class="queue-alert" style="margin-top:8px">' + missing.join(' och ') + ' saknar platsnamn. Välj platsen på nytt i snabbval/uppdrag.</div>'
+    : '';
 }
 
 function getPlaceAddress(value){
@@ -1956,6 +1992,8 @@ function startJob(vehicle, type, place, dest, comment, displayType){
     displayType: displayType || type,
     place,
     dest,
+    placeLabel:getStoredPlaceLabel(place),
+    destLabel:getStoredPlaceLabel(dest),
     comment:comment||'',
     plannedDate: todayStr(),
     start:Date.now(),
@@ -2068,24 +2106,26 @@ function startManualJob(){
 
 function addQueuedJob(){
   const chosenType = document.getElementById('queueType').value;
-  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:document.getElementById('queuePlace').value, dest:document.getElementById('queueDest').value, comment:document.getElementById('queueComment').value, status:'köad', date:todayStr(), plannedDate:todayStr()});
+  const queuePlaceValue = document.getElementById('queuePlace').value;
+  const queueDestValue = document.getElementById('queueDest').value;
+  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:queuePlaceValue, dest:queueDestValue, placeLabel:getStoredPlaceLabel(queuePlaceValue), destLabel:getStoredPlaceLabel(queueDestValue), comment:document.getElementById('queueComment').value, status:'köad', date:todayStr(), plannedDate:todayStr()});
   document.getElementById('queueComment').value = '';
   saveState(); render();
 }
 
 function quickQueue(type, place, dest, displayType){
   const vehicle = type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
   saveState(); render();
 }
 
 function quickQueueCustom(vehicle, type, place, dest, comment, displayType){
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
   saveState(); render();
 }
 
 function quickQueueMachine(type, place, dest, displayType){
-  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
   saveState(); render();
 }
 
@@ -2103,6 +2143,10 @@ function startQueuedJob(qid){
 
   if(state.active && q.plannedDate){
     state.active.plannedDate = q.plannedDate;
+  }
+  if(state.active){
+    if(q.placeLabel) state.active.placeLabel = q.placeLabel;
+    if(q.destLabel) state.active.destLabel = q.destLabel;
   }
 
   state.queue = state.queue.filter(x => x.id !== qid);
@@ -2255,9 +2299,9 @@ function renderActive(){
     : '';
   document.getElementById('activePills').innerHTML =
     '<span class="pill pill-type">'+activeTypeLabel+'</span>'+
-    '<span class="pill pill-place">Från '+getPlaceLabel(state.active.place)+'</span>'+
+    '<span class="pill pill-place">Från '+getItemPlaceLabel(state.active, 'place')+'</span>'+
     helmetWarning +
-    (state.active.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(state.active.dest)+'</span>' : '')+
+    (state.active.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(state.active, 'dest')+'</span>' : '')+
     (materialCode ? '<span class="pill pill-code">Mtrl kod '+materialCode+'</span>' : '');
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
@@ -2319,7 +2363,8 @@ function renderQueue(){
   }
   el.innerHTML = ordered.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getPlaceLabel(x.place)+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(x.dest)+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
+      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
+      unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
@@ -2403,7 +2448,7 @@ function renderToday(){
   }
   el.innerHTML = todays.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getPlaceLabel(x.place)+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getPlaceLabel(x.dest)+'</span>' : '')+'</div>'+
+      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
       (x.comment ? '<div style="margin-top:6px">'+x.comment+'</div>' : '')+
@@ -2713,6 +2758,8 @@ function confirmMachineTransport(){
       type:type,
       place:place,
       dest:dest,
+      placeLabel:getStoredPlaceLabel(place),
+      destLabel:getStoredPlaceLabel(dest),
       comment:'',
       status:'köad',
       date:todayStr(),
@@ -2824,6 +2871,8 @@ function queueQuickItem(quickId){
     displayType:item.displayType || item.type,
     place:item.place || '',
     dest:item.dest || '',
+    placeLabel:getStoredPlaceLabel(item.place || ''),
+    destLabel:getStoredPlaceLabel(item.dest || ''),
     comment:item.comment || '',
     status:'köad',
     date:todayStr(),
