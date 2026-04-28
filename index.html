@@ -993,6 +993,41 @@ function loadState(){
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function getQueuedJobDate(job){ return (job && job.plannedDate) ? job.plannedDate : todayStr(); }
+function formatShortDate(isoDate){
+  if(!isoDate || typeof isoDate !== 'string') return '';
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!match) return isoDate;
+  return Number(match[3]) + '/' + Number(match[2]);
+}
+function buildIsoDate(year, month, day){
+  if(!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
+  const dt = new Date(year, month - 1, day);
+  if(dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return '';
+  return year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+}
+function parseShortDateInput(value, fallbackIso){
+  const raw = String(value || '').trim();
+  if(!raw) return fallbackIso || todayStr();
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(isoMatch){
+    return buildIsoDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+  }
+
+  const shortMatch = raw.match(/^(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2}|\d{4}))?$/);
+  if(shortMatch){
+    const d = Number(shortMatch[1]);
+    const m = Number(shortMatch[2]);
+    let y = fallbackIso && /^\d{4}-/.test(fallbackIso) ? Number(fallbackIso.slice(0,4)) : Number(todayStr().slice(0,4));
+    if(shortMatch[3]){
+      y = Number(shortMatch[3]);
+      if(y < 100) y += 2000;
+    }
+    return buildIsoDate(y, m, d);
+  }
+
+  return '';
+}
 function km(x){ return (x||0).toFixed(1)+' km'; }
 function mins(ms){ const t=Math.floor(ms/60000), h=Math.floor(t/60), m=t%60; return h>0 ? h+' h '+m+' min' : m+' min'; }
 function clockTime(ts){
@@ -1194,8 +1229,6 @@ function refillSelectKeepingValue(idName, arr, includeBlank, blankLabel){
 function refreshPlaceSelects(){
   refillSelectKeepingValue('newPlace', getFromPlaceValues(), true, '----');
   refillSelectKeepingValue('newDest', getToPlaceValues(), true, '----');
-  refillSelectKeepingValue('queuePlace', getFromPlaceValues());
-  refillSelectKeepingValue('queueDest', getToPlaceValues());
   updateQuickDatalists();
   fillMachineSelects();
 }
@@ -1210,8 +1243,7 @@ function fillSelectKeepingSelections(idName, arr){
 
 function refreshJobTypeSelects(){
   refreshTruckTypesFromState();
-  refillSelectKeepingValue('newType', sortedTruckTypes);
-  refillSelectKeepingValue('queueType', sortedTruckTypes);
+  refillSelectKeepingValue('newType', sortedTruckTypes, true, '----');
   refillSelectKeepingValue('editType', sortedTruckTypes);
   refillSelectKeepingValue('newQuickType', sortedTruckTypes);
   fillSelectKeepingSelections('newManagedPlaceJobType', sortedTruckTypes);
@@ -2103,9 +2135,6 @@ function startManualJob(){
     dest = 'Stena Metall';
   }
   const machine = document.getElementById('newMachine') ? document.getElementById('newMachine').value : '';
-  const seaweedMode = document.getElementById('newSeaweedMode') ? document.getElementById('newSeaweedMode').value : '';
-  const seaweedBeach = document.getElementById('newSeaweedBeach') ? document.getElementById('newSeaweedBeach').value : '';
-
   let comment = baseComment;
 
   if(type === 'Maskintransport' && machine){
@@ -2120,16 +2149,6 @@ function startManualJob(){
   }
 }
 
-
-function addQueuedJob(){
-  const chosenType = document.getElementById('queueType').value;
-  const queuePlaceValue = document.getElementById('queuePlace').value;
-  const queueDestValue = document.getElementById('queueDest').value;
-  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:queuePlaceValue, dest:queueDestValue, placeLabel:getStoredPlaceLabel(queuePlaceValue), destLabel:getStoredPlaceLabel(queueDestValue), comment:document.getElementById('queueComment').value, privateComment:(document.getElementById('queuePrivateComment') ? document.getElementById('queuePrivateComment').value : ''), status:'köad', date:todayStr(), plannedDate:todayStr()});
-  document.getElementById('queueComment').value = '';
-  if(document.getElementById('queuePrivateComment')) document.getElementById('queuePrivateComment').value = '';
-  saveState(); render();
-}
 
 function addManualJobToQueue(){
   let vehicle = 'lastbil';
@@ -2408,7 +2427,13 @@ function renderActive(){
 function setQueuedJobPlannedDate(qid, value){
   const q = state.queue.find(x => x.id === qid);
   if(!q) return;
-  q.plannedDate = value || todayStr();
+  const parsed = parseShortDateInput(value, getQueuedJobDate(q));
+  if(!parsed){
+    alert('Skriv datum som t.ex. 28/4 eller 2026-04-28.');
+    renderQueue();
+    return;
+  }
+  q.plannedDate = parsed;
   saveState();
   renderQueue();
 }
@@ -2449,7 +2474,7 @@ function renderQueue(){
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
-        '<input type="date" value="'+getQueuedJobDate(x)+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
+        '<input type="text" inputmode="numeric" placeholder="28/4" value="'+escapeHtml(formatShortDate(getQueuedJobDate(x)))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
       '</div>'+
       '<div class="queue-actions">'+
         (x.status === 'pausad' ? '<button class="queue-start" onclick="resumePausedJob(\''+x.id+'\')">Fortsätt</button>' : (x.status === 'köad' ? '<button class="queue-start" onclick="startQueuedJob(\''+x.id+'\')">Start</button>' : '<span></span>'))+
@@ -2919,8 +2944,6 @@ function renderQuickGroupCards(target){
 function renderQuickSelections(){
   const mainEl = document.getElementById('quickMainList');
   if(mainEl) mainEl.innerHTML = renderQuickGroupCards('active');
-  const queueEl = document.getElementById('queueQuickList');
-  if(queueEl) queueEl.innerHTML = renderQuickGroupCards('queue');
 }
 
 function startQuickItem(quickId){
@@ -3469,9 +3492,6 @@ function render(){ renderActive(); renderQueue(); renderToday(); renderSummary()
 fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
 fillSelect('newDest', getToPlaceValues(), true, '----');
-fillSelect('queueType', sortedTruckTypes);
-fillSelect('queuePlace', getFromPlaceValues());
-fillSelect('queueDest', getToPlaceValues());
 fillSelect('editType', sortedTruckTypes);
 fillSelect('newManagedPlaceJobType', sortedTruckTypes);
 fillSelect('newQuickType', sortedTruckTypes);
@@ -3494,19 +3514,7 @@ document.getElementById('newDest').addEventListener('change', function(){
   applyLinkedJobType('newType', this.value);
 });
 
-const queuePlaceEl = document.getElementById('queuePlace');
-if(queuePlaceEl){
-  queuePlaceEl.addEventListener('change', function(){
-    applyLinkedJobType('queueType', this.value);
-  });
-}
 
-const queueDestEl = document.getElementById('queueDest');
-if(queueDestEl){
-  queueDestEl.addEventListener('change', function(){
-    applyLinkedJobType('queueType', this.value);
-  });
-}
 
 const newMachineEl = document.getElementById('newMachine');
 if(newMachineEl){
@@ -3515,19 +3523,7 @@ if(newMachineEl){
   });
 }
 
-const newSeaweedModeEl = document.getElementById('newSeaweedMode');
-if(newSeaweedModeEl){
-  newSeaweedModeEl.addEventListener('change', function(){
-    updateNewSeaweedUI();
-  });
-}
 
-const newSeaweedBeachEl = document.getElementById('newSeaweedBeach');
-if(newSeaweedBeachEl){
-  newSeaweedBeachEl.addEventListener('change', function(){
-    updateNewSeaweedRoute();
-  });
-}
 
 
 if(state.active){
