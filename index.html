@@ -61,41 +61,6 @@ button{
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
 .private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
 
-.date-display-btn{
-  width:auto !important;
-  min-width:0 !important;
-  max-width:max-content !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  justify-content:flex-start !important;
-  text-align:left !important;
-  background:#eef2f7 !important;
-  border:1px solid var(--border) !important;
-  border-radius:12px !important;
-  padding:10px 14px !important;
-  white-space:nowrap !important;
-}
-.date-hidden-input{
-  position:absolute !important;
-  left:0 !important;
-  top:0 !important;
-  opacity:0 !important;
-  pointer-events:none !important;
-  width:1px !important;
-  height:1px !important;
-  min-width:1px !important;
-  max-width:1px !important;
-  padding:0 !important;
-  margin:0 !important;
-  border:0 !important;
-}
-.date-picker-wrap{
-  position:relative !important;
-  display:inline-block !important;
-  width:auto !important;
-}
-
-
 #activePills{
   display:flex !important;
   flex-wrap:wrap !important;
@@ -284,29 +249,6 @@ button{
   font-weight:800 !important;
 }
 
-
-.new-job-actions{
-  display:grid !important;
-  grid-template-columns:1fr 1fr !important;
-  gap:12px !important;
-  margin-top:12px !important;
-}
-.new-job-actions .queue-start,
-.new-job-actions .queue-yellow{
-  width:100% !important;
-  min-width:0 !important;
-  justify-content:flex-start !important;
-  padding-right:14px !important;
-  font-size:15px !important;
-}
-@media(max-width:380px){
-  .new-job-actions .queue-start,
-  .new-job-actions .queue-yellow{
-    font-size:14px !important;
-    padding-right:10px !important;
-  }
-}
-
 .app-header{
   display:flex;
   align-items:flex-start;
@@ -491,9 +433,9 @@ button{
       
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
-          <div class="row" id="activeWeightRow" style="gap:10px; align-items:stretch; flex-direction:column">
+          <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
             <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
-            <button class="queue-yellow" onclick="addLoadToCurrent()" style="align-self:flex-start">Ange ny vikt</button>
+            <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
             <input id="activeCommentInput" placeholder="Skriv kommentar" style="max-width:240px">
@@ -522,6 +464,7 @@ button{
 
   <div id="tab-snabb" class="card">
     <h3>Snabbval</h3>
+    <div class="muted" style="margin-bottom:12px">Uppdraget startas direkt.</div>
     <div id="quickMainList" class="grid2"></div>
   </div>
   <div id="tab-nytt" class="card hidden">
@@ -542,16 +485,11 @@ button{
     <select id="newPlace"></select>
     <label style="margin-top:10px">Till</label>
     <select id="newDest"></select>
-    <label style="margin-top:10px">Dag för uppdrag</label>
-    <div class="date-picker-wrap" style="margin-top:0">
-      <button type="button" id="newDateDisplay" class="date-display-btn" onclick="openNewJobDatePicker()">Välj datum</button>
-      <input id="newJobDate" class="date-hidden-input" type="date" onchange="setNewJobDate(this.value)">
-    </div>
     <label style="margin-top:10px">Kommentar</label>
     <textarea id="newComment"></textarea>
     <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
     <textarea id="newPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
-    <div class="new-job-actions">
+    <div class="row" style="margin-top:12px">
       <button class="queue-start" onclick="startManualJob()">Starta jobb</button>
       <button class="queue-yellow" onclick="addManualJobToQueue()">Lägg i kön</button>
     </div>
@@ -1056,6 +994,41 @@ function loadState(){
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function getQueuedJobDate(job){ return (job && job.plannedDate) ? job.plannedDate : todayStr(); }
+function formatShortDate(isoDate){
+  if(!isoDate || typeof isoDate !== 'string') return '';
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!match) return isoDate;
+  return Number(match[3]) + '/' + Number(match[2]);
+}
+function buildIsoDate(year, month, day){
+  if(!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
+  const dt = new Date(year, month - 1, day);
+  if(dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return '';
+  return year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+}
+function parseShortDateInput(value, fallbackIso){
+  const raw = String(value || '').trim();
+  if(!raw) return fallbackIso || todayStr();
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(isoMatch){
+    return buildIsoDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+  }
+
+  const shortMatch = raw.match(/^(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2}|\d{4}))?$/);
+  if(shortMatch){
+    const d = Number(shortMatch[1]);
+    const m = Number(shortMatch[2]);
+    let y = fallbackIso && /^\d{4}-/.test(fallbackIso) ? Number(fallbackIso.slice(0,4)) : Number(todayStr().slice(0,4));
+    if(shortMatch[3]){
+      y = Number(shortMatch[3]);
+      if(y < 100) y += 2000;
+    }
+    return buildIsoDate(y, m, d);
+  }
+
+  return '';
+}
 function km(x){ return (x||0).toFixed(1)+' km'; }
 function mins(ms){ const t=Math.floor(ms/60000), h=Math.floor(t/60), m=t%60; return h>0 ? h+' h '+m+' min' : m+' min'; }
 function clockTime(ts){
@@ -1257,8 +1230,6 @@ function refillSelectKeepingValue(idName, arr, includeBlank, blankLabel){
 function refreshPlaceSelects(){
   refillSelectKeepingValue('newPlace', getFromPlaceValues(), true, '----');
   refillSelectKeepingValue('newDest', getToPlaceValues(), true, '----');
-  refillSelectKeepingValue('queuePlace', getFromPlaceValues());
-  refillSelectKeepingValue('queueDest', getToPlaceValues());
   updateQuickDatalists();
   fillMachineSelects();
 }
@@ -1274,7 +1245,6 @@ function fillSelectKeepingSelections(idName, arr){
 function refreshJobTypeSelects(){
   refreshTruckTypesFromState();
   refillSelectKeepingValue('newType', sortedTruckTypes, true, '----');
-  refillSelectKeepingValue('queueType', sortedTruckTypes);
   refillSelectKeepingValue('editType', sortedTruckTypes);
   refillSelectKeepingValue('newQuickType', sortedTruckTypes);
   fillSelectKeepingSelections('newManagedPlaceJobType', sortedTruckTypes);
@@ -2039,7 +2009,7 @@ function showTab(tab){
   }
 }
 
-function startJob(vehicle, type, place, dest, comment, displayType, privateComment, plannedDate){
+function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
   if(state.active){
     const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
     const nextIsOtherWork = type === 'Övrig verksamhet';
@@ -2059,7 +2029,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
 
   state.active = {
     id:id(),
-    date:plannedDate || todayStr(),
+    date:todayStr(),
     vehicle,
     type,
     displayType: displayType || type,
@@ -2069,7 +2039,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     destLabel:getStoredPlaceLabel(dest),
     comment:comment||'',
     privateComment:privateComment||'',
-    plannedDate: plannedDate || todayStr(),
+    plannedDate: todayStr(),
     start:Date.now(),
     loads:[],
     totalWeight:0,
@@ -2106,43 +2076,6 @@ function startQuickSeaweed(){
   alert('Havstång används nu som vanlig jobbtyp med vanliga Från/Till.');
 }
 
-
-function formatDisplayDateSv(dateStr){
-  if(!dateStr) return '';
-  const parts = String(dateStr).split('-');
-  if(parts.length !== 3) return dateStr;
-  const monthNames = ['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
-  const day = Number(parts[2]);
-  const month = Number(parts[1]);
-  if(!day || !month || month < 1 || month > 12) return dateStr;
-  return day + ' ' + monthNames[month - 1];
-}
-
-function setNewJobDate(value){
-  const dateValue = value || todayStr();
-  const input = document.getElementById('newJobDate');
-  const display = document.getElementById('newDateDisplay');
-  if(input) input.value = dateValue;
-  if(display) display.textContent = formatDisplayDateSv(dateValue);
-}
-
-function openNewJobDatePicker(){
-  const input = document.getElementById('newJobDate');
-  if(!input) return;
-  if(!input.value) input.value = todayStr();
-  if(typeof input.showPicker === 'function'){
-    input.showPicker();
-  } else {
-    input.focus();
-    input.click();
-  }
-}
-
-function getNewJobDate(){
-  const input = document.getElementById('newJobDate');
-  return (input && input.value) ? input.value : todayStr();
-}
-
 function resetNewJobForm(){
   const typeEl = document.getElementById('newType');
   const placeEl = document.getElementById('newPlace');
@@ -2157,7 +2090,6 @@ function resetNewJobForm(){
   if(machineEl) machineEl.value = '';
   if(commentEl) commentEl.value = '';
   if(privateCommentEl) privateCommentEl.value = '';
-  setNewJobDate(todayStr());
 
   updateNewMachineUI();
   updateNewSeaweedUI();
@@ -2186,7 +2118,6 @@ function startManualJob(){
   let place = document.getElementById('newPlace').value;
   let dest = document.getElementById('newDest').value;
   const baseComment = document.getElementById('newComment').value;
-  const plannedDate = getNewJobDate();
   const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
 
   if(!validateNewJobSelection(type, place, dest)) return;
@@ -2205,9 +2136,6 @@ function startManualJob(){
     dest = 'Stena Metall';
   }
   const machine = document.getElementById('newMachine') ? document.getElementById('newMachine').value : '';
-  const seaweedMode = document.getElementById('newSeaweedMode') ? document.getElementById('newSeaweedMode').value : '';
-  const seaweedBeach = document.getElementById('newSeaweedBeach') ? document.getElementById('newSeaweedBeach').value : '';
-
   let comment = baseComment;
 
   if(type === 'Maskintransport' && machine){
@@ -2215,7 +2143,7 @@ function startManualJob(){
   }
 
 
-  startJob(vehicle, type, place, dest, comment, '', privateComment, plannedDate);
+  startJob(vehicle, type, place, dest, comment, '', privateComment);
   if(state.active){
     resetNewJobForm();
     showTab('idag');
@@ -2223,23 +2151,12 @@ function startManualJob(){
 }
 
 
-function addQueuedJob(){
-  const chosenType = document.getElementById('queueType').value;
-  const queuePlaceValue = document.getElementById('queuePlace').value;
-  const queueDestValue = document.getElementById('queueDest').value;
-  state.queue.push({id:id(), vehicle:'lastbil', type:chosenType, displayType:chosenType, place:queuePlaceValue, dest:queueDestValue, placeLabel:getStoredPlaceLabel(queuePlaceValue), destLabel:getStoredPlaceLabel(queueDestValue), comment:document.getElementById('queueComment').value, privateComment:(document.getElementById('queuePrivateComment') ? document.getElementById('queuePrivateComment').value : ''), status:'köad', date:todayStr(), plannedDate:todayStr()});
-  document.getElementById('queueComment').value = '';
-  if(document.getElementById('queuePrivateComment')) document.getElementById('queuePrivateComment').value = '';
-  saveState(); render();
-}
-
 function addManualJobToQueue(){
   let vehicle = 'lastbil';
   let type = document.getElementById('newType').value;
   let place = document.getElementById('newPlace').value;
   let dest = document.getElementById('newDest').value;
   const baseComment = document.getElementById('newComment').value;
-  const plannedDate = getNewJobDate();
   const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
 
   if(!validateNewJobSelection(type, place, dest)) return;
@@ -2277,8 +2194,8 @@ function addManualJobToQueue(){
     comment:comment,
     privateComment:privateComment,
     status:'köad',
-    date:plannedDate,
-    plannedDate:plannedDate
+    date:todayStr(),
+    plannedDate:todayStr()
   });
 
   resetNewJobForm();
@@ -2312,7 +2229,7 @@ function startQueuedJob(qid){
     return;
   }
 
-  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, q.privateComment || '', q.plannedDate || q.date || todayStr());
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, q.privateComment || '');
   if(!started) return;
 
   if(state.active && q.plannedDate){
@@ -2511,21 +2428,15 @@ function renderActive(){
 function setQueuedJobPlannedDate(qid, value){
   const q = state.queue.find(x => x.id === qid);
   if(!q) return;
-  q.plannedDate = value || todayStr();
+  const parsed = parseShortDateInput(value, getQueuedJobDate(q));
+  if(!parsed){
+    alert('Skriv datum som t.ex. 28/4 eller 2026-04-28.');
+    renderQueue();
+    return;
+  }
+  q.plannedDate = parsed;
   saveState();
   renderQueue();
-}
-
-function openQueuedJobDatePicker(qid){
-  const input = document.getElementById('queueDate_' + qid);
-  if(!input) return;
-  if(!input.value) input.value = todayStr();
-  if(typeof input.showPicker === 'function'){
-    input.showPicker();
-  } else {
-    input.focus();
-    input.click();
-  }
 }
 
 function renderQueue(){
@@ -2561,12 +2472,10 @@ function renderQueue(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
-      (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+      '<div style="margin-top:10px">'+
+      (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
+      '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
-        '<div class="date-picker-wrap">'+
-          '<button type="button" class="date-display-btn" onclick="openQueuedJobDatePicker(\''+x.id+'\')">'+formatDisplayDateSv(getQueuedJobDate(x))+'</button>'+
-          '<input id="queueDate_'+x.id+'" class="date-hidden-input" type="date" value="'+getQueuedJobDate(x)+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
-        '</div>'+
+        '<input type="text" inputmode="numeric" placeholder="28/4" value="'+escapeHtml(formatShortDate(getQueuedJobDate(x)))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
       '</div>'+
       '<div class="queue-actions">'+
         (x.status === 'pausad' ? '<button class="queue-start" onclick="resumePausedJob(\''+x.id+'\')">Fortsätt</button>' : (x.status === 'köad' ? '<button class="queue-start" onclick="startQueuedJob(\''+x.id+'\')">Start</button>' : '<span></span>'))+
@@ -3036,8 +2945,6 @@ function renderQuickGroupCards(target){
 function renderQuickSelections(){
   const mainEl = document.getElementById('quickMainList');
   if(mainEl) mainEl.innerHTML = renderQuickGroupCards('active');
-  const queueEl = document.getElementById('queueQuickList');
-  if(queueEl) queueEl.innerHTML = renderQuickGroupCards('queue');
 }
 
 function startQuickItem(quickId){
@@ -3586,9 +3493,6 @@ function render(){ renderActive(); renderQueue(); renderToday(); renderSummary()
 fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
 fillSelect('newDest', getToPlaceValues(), true, '----');
-fillSelect('queueType', sortedTruckTypes);
-fillSelect('queuePlace', getFromPlaceValues());
-fillSelect('queueDest', getToPlaceValues());
 fillSelect('editType', sortedTruckTypes);
 fillSelect('newManagedPlaceJobType', sortedTruckTypes);
 fillSelect('newQuickType', sortedTruckTypes);
@@ -3611,19 +3515,7 @@ document.getElementById('newDest').addEventListener('change', function(){
   applyLinkedJobType('newType', this.value);
 });
 
-const queuePlaceEl = document.getElementById('queuePlace');
-if(queuePlaceEl){
-  queuePlaceEl.addEventListener('change', function(){
-    applyLinkedJobType('queueType', this.value);
-  });
-}
 
-const queueDestEl = document.getElementById('queueDest');
-if(queueDestEl){
-  queueDestEl.addEventListener('change', function(){
-    applyLinkedJobType('queueType', this.value);
-  });
-}
 
 const newMachineEl = document.getElementById('newMachine');
 if(newMachineEl){
@@ -3632,19 +3524,7 @@ if(newMachineEl){
   });
 }
 
-const newSeaweedModeEl = document.getElementById('newSeaweedMode');
-if(newSeaweedModeEl){
-  newSeaweedModeEl.addEventListener('change', function(){
-    updateNewSeaweedUI();
-  });
-}
 
-const newSeaweedBeachEl = document.getElementById('newSeaweedBeach');
-if(newSeaweedBeachEl){
-  newSeaweedBeachEl.addEventListener('change', function(){
-    updateNewSeaweedRoute();
-  });
-}
 
 
 if(state.active){
@@ -3656,7 +3536,6 @@ updateNewSeaweedUI();
 updateFixedRouteRules();
 applySopsandDefaultDestination();
 updateSummaryControls();
-setNewJobDate(todayStr());
 updateGpsEnvironmentInfo();
 showTab('snabb');
 render();
