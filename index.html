@@ -491,9 +491,9 @@ button{
       
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
-          <div class="row" id="activeWeightRow" style="gap:10px; align-items:center">
-            <input id="weightInput" placeholder="Ange vikt i ton" style="max-width:360px; width:100%">
-            <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
+          <div class="row" id="activeWeightRow" style="gap:10px; align-items:stretch; flex-direction:column">
+            <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <button class="queue-yellow" onclick="addLoadToCurrent()" style="align-self:flex-start">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
             <input id="activeCommentInput" placeholder="Skriv kommentar" style="max-width:240px">
@@ -522,7 +522,6 @@ button{
 
   <div id="tab-snabb" class="card">
     <h3>Snabbval</h3>
-    <div class="muted" style="margin-bottom:12px">Uppdraget startas direkt.</div>
     <div id="quickMainList" class="grid2"></div>
   </div>
   <div id="tab-nytt" class="card hidden">
@@ -544,7 +543,7 @@ button{
     <label style="margin-top:10px">Till</label>
     <select id="newDest"></select>
     <label style="margin-top:10px">Dag för uppdrag</label>
-    <div class="date-picker-wrap" style="margin-top:0; display:block; margin-bottom:4px">
+    <div class="date-picker-wrap" style="margin-top:0">
       <button type="button" id="newDateDisplay" class="date-display-btn" onclick="openNewJobDatePicker()">Välj datum</button>
       <input id="newJobDate" class="date-hidden-input" type="date" onchange="setNewJobDate(this.value)">
     </div>
@@ -2752,38 +2751,16 @@ function decimalHours(ms){
   return ((ms || 0) / 3600000);
 }
 
-
-function jobTimeMs(job){
-  if(!job) return 0;
-  return Math.max(0, ((job.end || Date.now()) - (job.start || Date.now())) || 0);
-}
-
-function isMeetingEducationJob(job){
-  const raw = String((job && (job.type || job.displayType)) || '').toLowerCase();
-  const normalized = raw
-    .replace(/ö/g,'o')
-    .replace(/é/g,'e')
-    .replace(/è/g,'e')
-    .replace(/å/g,'a')
-    .replace(/ä/g,'a');
-  return (normalized.includes('mote') && normalized.includes('utbildning')) || normalized === 'mote/utbildning';
-}
-
 function summarizeJobsByDate(jobs){
   const byDate = {};
   jobs.forEach(job => {
     const key = job.date || '';
-    if(!byDate[key]) byDate[key] = {jobs:0, meetingJobs:0, loads:0, weight:0, distance:0, timeMs:0, meetingTimeMs:0};
-    if(isMeetingEducationJob(job)){
-      byDate[key].meetingJobs += 1;
-      byDate[key].meetingTimeMs += jobTimeMs(job);
-      return;
-    }
+    if(!byDate[key]) byDate[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
     byDate[key].jobs += 1;
     byDate[key].loads += (job.loads || []).length;
     byDate[key].weight += (job.totalWeight || 0);
     byDate[key].distance += (job.distanceKm || 0);
-    byDate[key].timeMs += jobTimeMs(job);
+    byDate[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
   });
   return byDate;
 }
@@ -2792,16 +2769,12 @@ function summarizeJobsByType(jobs){
   const byType = {};
   jobs.forEach(job => {
     const key = job.type || '';
-    const isMeeting = isMeetingEducationJob(job);
-    if(!byType[key]) byType[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0, meeting:false};
+    if(!byType[key]) byType[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
     byType[key].jobs += 1;
-    if(!isMeeting){
-      byType[key].loads += (job.loads || []).length;
-      byType[key].weight += (job.totalWeight || 0);
-      byType[key].distance += (job.distanceKm || 0);
-    }
-    byType[key].timeMs += jobTimeMs(job);
-    byType[key].meeting = byType[key].meeting || isMeeting;
+    byType[key].loads += (job.loads || []).length;
+    byType[key].weight += (job.totalWeight || 0);
+    byType[key].distance += (job.distanceKm || 0);
+    byType[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
   });
   return byType;
 }
@@ -2820,17 +2793,11 @@ function xmlRow(values, types){
 
 function buildExcelWorkbookXml(selection, filtered){
   const label = getSummaryLabel(selection);
-  const meetingJobs = filtered.filter(isMeetingEducationJob);
-  const ordinaryJobs = filtered.filter(job => !isMeetingEducationJob(job));
-  const totalJobs = ordinaryJobs.length;
-  const meetingCount = meetingJobs.length;
-  const allJobsCount = filtered.length;
-  const totalLoads = ordinaryJobs.reduce((a,x)=>a+(x.loads||[]).length,0);
-  const totalWeight = ordinaryJobs.reduce((a,x)=>a+(x.totalWeight||0),0);
-  const totalDistance = ordinaryJobs.reduce((a,x)=>a+(x.distanceKm||0),0);
-  const ordinaryTimeMs = ordinaryJobs.reduce((a,x)=>a+jobTimeMs(x),0);
-  const meetingTimeMs = meetingJobs.reduce((a,x)=>a+jobTimeMs(x),0);
-  const totalTimeMs = ordinaryTimeMs + meetingTimeMs;
+  const totalJobs = filtered.length;
+  const totalLoads = filtered.reduce((a,x)=>a+(x.loads||[]).length,0);
+  const totalWeight = filtered.reduce((a,x)=>a+(x.totalWeight||0),0);
+  const totalDistance = filtered.reduce((a,x)=>a+(x.distanceKm||0),0);
+  const totalTimeMs = filtered.reduce((a,x)=>a+(((x.end||Date.now())-x.start)||0),0);
 
   const byDate = summarizeJobsByDate(filtered);
   const byType = summarizeJobsByType(filtered);
@@ -2841,72 +2808,52 @@ function buildExcelWorkbookXml(selection, filtered){
   summaryRows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
   summaryRows += xmlRow(['']);
   summaryRows += xmlRow(['Nyckeltal', 'Värde']);
-  summaryRows += xmlRow(['Antal ordinarie jobb', totalJobs], ['String','Number']);
-  summaryRows += xmlRow(['Antal möte/utbildning', meetingCount], ['String','Number']);
-  summaryRows += xmlRow(['Antal jobb totalt', allJobsCount], ['String','Number']);
-  summaryRows += xmlRow(['Antal last, ordinarie jobb', totalLoads], ['String','Number']);
-  summaryRows += xmlRow(['Total vikt i ton, ordinarie jobb', totalWeight.toFixed(1)], ['String','Number']);
-  summaryRows += xmlRow(['Sträcka km, ordinarie jobb', totalDistance.toFixed(1)], ['String','Number']);
-  summaryRows += xmlRow(['Tid timmar, ordinarie jobb', decimalHours(ordinaryTimeMs).toFixed(2)], ['String','Number']);
-  summaryRows += xmlRow(['Tid timmar, möte/utbildning', decimalHours(meetingTimeMs).toFixed(2)], ['String','Number']);
-  summaryRows += xmlRow(['Tid timmar, totalt', decimalHours(totalTimeMs).toFixed(2)], ['String','Number']);
+  summaryRows += xmlRow(['Antal jobb', totalJobs], ['String','Number']);
+  summaryRows += xmlRow(['Antal last', totalLoads], ['String','Number']);
+  summaryRows += xmlRow(['Total vikt i ton', totalWeight.toFixed(1)], ['String','Number']);
+  summaryRows += xmlRow(['Sträcka km', totalDistance.toFixed(1)], ['String','Number']);
+  summaryRows += xmlRow(['Tid timmar', decimalHours(totalTimeMs).toFixed(2)], ['String','Number']);
 
   let dayRows = '';
-  dayRows += xmlRow(['Datum', 'Ordinarie jobb', 'Möte/utbildning', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid ordinarie timmar', 'Tid möte/utbildning timmar', 'Tid totalt timmar']);
+  dayRows += xmlRow(['Datum', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
   Object.keys(byDate).sort().forEach(date => {
     const row = byDate[date];
-    const totalDayTime = (row.timeMs || 0) + (row.meetingTimeMs || 0);
     dayRows += xmlRow(
-      [date, row.jobs, row.meetingJobs || 0, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2), decimalHours(row.meetingTimeMs || 0).toFixed(2), decimalHours(totalDayTime).toFixed(2)],
-      ['String','Number','Number','Number','Number','Number','Number','Number','Number']
+      [date, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
+      ['String','Number','Number','Number','Number','Number']
     );
   });
 
   let typeRows = '';
-  typeRows += xmlRow(['Jobbtyp', 'Redovisning', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
+  typeRows += xmlRow(['Jobbtyp', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
   Object.keys(byType).sort().forEach(type => {
     const row = byType[type];
-    const redovisning = row.meeting ? 'Möte/utbildning' : 'Ordinarie';
     typeRows += xmlRow(
-      [type, redovisning, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
-      ['String','String','Number','Number','Number','Number','Number']
+      [type, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
+      ['String','Number','Number','Number','Number','Number']
     );
   });
 
-  let meetingRows = '';
-  meetingRows += xmlRow(['Datum', 'Jobbtyp', 'Tid timmar', 'Kommentar']);
-  meetingJobs
-    .slice()
-    .sort((a,b) => (a.date || '').localeCompare(b.date || '') || (a.start || 0) - (b.start || 0))
-    .forEach(job => {
-      meetingRows += xmlRow(
-        [job.date || '', job.type || '', decimalHours(jobTimeMs(job)).toFixed(2), job.comment || ''],
-        ['String','String','Number','String']
-      );
-    });
-
   let detailRows = '';
-  detailRows += xmlRow(['Datum', 'Fordon', 'Jobbtyp', 'Redovisning', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']);
+  detailRows += xmlRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']);
   filtered
     .slice()
     .sort((a,b) => (a.date || '').localeCompare(b.date || '') || (a.start || 0) - (b.start || 0))
     .forEach(job => {
-      const isMeeting = isMeetingEducationJob(job);
       detailRows += xmlRow(
         [
           job.date || '',
           job.vehicle || '',
           job.type || '',
-          isMeeting ? 'Möte/utbildning' : 'Ordinarie',
           job.place || '',
           job.dest || '',
-          isMeeting ? 0 : (job.loads || []).length,
-          isMeeting ? '0.0' : (job.totalWeight || 0).toFixed(1),
-          isMeeting ? '0.0' : (job.distanceKm || 0).toFixed(1),
-          decimalHours(jobTimeMs(job)).toFixed(2),
+          (job.loads || []).length,
+          (job.totalWeight || 0).toFixed(1),
+          (job.distanceKm || 0).toFixed(1),
+          decimalHours((((job.end||Date.now()) - job.start)||0)).toFixed(2),
           job.comment || ''
         ],
-        ['String','String','String','String','String','String','Number','Number','Number','Number','String']
+        ['String','String','String','String','String','Number','Number','Number','Number','String']
       );
     });
 
@@ -2923,7 +2870,6 @@ function buildExcelWorkbookXml(selection, filtered){
     + '<Worksheet ss:Name="Sammanfattning"><Table>' + summaryRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Dag för dag"><Table>' + dayRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Per jobbtyp"><Table>' + typeRows + '</Table></Worksheet>'
-    + '<Worksheet ss:Name="Möte utbildning"><Table>' + meetingRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Detaljer"><Table>' + detailRows + '</Table></Worksheet>'
     + '</Workbook>';
   return xml;
@@ -2951,35 +2897,26 @@ function renderSummary(){
   const selection = getSummarySelection();
   const label = getSummaryLabel(selection);
   const filtered = getFilteredSummaryJobs();
-  const meetingJobs = filtered.filter(isMeetingEducationJob);
-  const ordinaryJobs = filtered.filter(job => !isMeetingEducationJob(job));
-  const ordinaryTimeMs = ordinaryJobs.reduce((a,x)=>a+jobTimeMs(x),0);
-  const meetingTimeMs = meetingJobs.reduce((a,x)=>a+jobTimeMs(x),0);
 
-  document.getElementById('sumJobsLabel').textContent = 'Ordinarie jobb ' + label;
+  document.getElementById('sumJobsLabel').textContent = 'Jobb ' + label;
   document.getElementById('sumLoadsLabel').textContent = 'Antal last ' + label;
   document.getElementById('sumWeightLabel').textContent = 'Total vikt ' + label;
   document.getElementById('sumDistanceLabel').textContent = 'Sträcka ' + label;
-  document.getElementById('sumTimeLabel').textContent = 'Tid ordinarie ' + label;
+  document.getElementById('sumTimeLabel').textContent = 'Tid ' + label;
   document.getElementById('sumByTypeTitle').textContent = 'Per jobbtyp – ' + label;
 
-  document.getElementById('sumJobs').textContent = ordinaryJobs.length;
-  document.getElementById('sumLoads').textContent = ordinaryJobs.reduce((a,x)=>a+(x.loads||[]).length,0);
-  document.getElementById('sumWeight').textContent = ordinaryJobs.reduce((a,x)=>a+(x.totalWeight||0),0).toFixed(1)+' ton';
-  document.getElementById('sumDistance').textContent = km(ordinaryJobs.reduce((a,x)=>a+(x.distanceKm||0),0));
-  document.getElementById('sumTime').textContent = mins(ordinaryTimeMs);
+  document.getElementById('sumJobs').textContent = filtered.length;
+  document.getElementById('sumLoads').textContent = filtered.reduce((a,x)=>a+(x.loads||[]).length,0);
+  document.getElementById('sumWeight').textContent = filtered.reduce((a,x)=>a+(x.totalWeight||0),0).toFixed(1)+' ton';
+  document.getElementById('sumDistance').textContent = km(filtered.reduce((a,x)=>a+(x.distanceKm||0),0));
+  document.getElementById('sumTime').textContent = mins(filtered.reduce((a,x)=>a+(((x.end||Date.now())-x.start)||0),0));
 
   const byType = summarizeJobsByType(filtered);
   const el = document.getElementById('sumByType');
   const keys = Object.keys(byType).sort();
-  const meetingBox = meetingJobs.length ?
-    '<div class="job" style="border-color:#fca5a5;background:#fff5f5"><strong>Möte/utbildning</strong><div style="margin-top:6px">Redovisas separat · Antal: '+meetingJobs.length+' · Tid: '+mins(meetingTimeMs)+' · räknas inte som last/vikt/sträcka.</div></div>' : '';
-  const typeHtml = keys.length ? keys.map(k => {
-    const row = byType[k];
-    const extra = row.meeting ? ' · separat redovisning' : ' · Antal last: '+row.loads+' · Total vikt i ton: '+row.weight.toFixed(1)+' ton';
-    return '<div class="job"><strong>'+k+'</strong><div style="margin-top:6px">Jobb: '+row.jobs+extra+' · Tid: '+mins(row.timeMs)+'</div></div>';
-  }).join('') : '<div class="muted">Ingen data för vald period.</div>';
-  el.innerHTML = meetingBox + typeHtml;
+  el.innerHTML = keys.length ? keys.map(k =>
+    '<div class="job"><strong>'+k+'</strong><div style="margin-top:6px">Jobb: '+byType[k].jobs+' · Antal last: '+byType[k].loads+' · Total vikt i ton: '+byType[k].weight.toFixed(1)+' ton · Tid: '+mins(byType[k].timeMs)+'</div></div>'
+  ).join('') : '<div class="muted">Ingen data för vald period.</div>';
 }
 
 
