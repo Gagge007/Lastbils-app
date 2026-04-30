@@ -60,6 +60,29 @@ button{
 .pill-type{ background:#fff8cc !important; }
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
 .private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
+.date-display-btn{
+  width:auto !important;
+  min-width:0 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  text-align:left !important;
+  background:#fff !important;
+  border:1px solid var(--border) !important;
+  border-radius:12px !important;
+  padding:10px 14px !important;
+  white-space:nowrap !important;
+}
+.date-hidden-input{
+  position:absolute !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  border:0 !important;
+}
+
 
 #activePills{
   display:flex !important;
@@ -434,7 +457,7 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:center">
-            <input id="weightInput" placeholder="Ange vikt i ton" style="max-width:240px">
+            <input id="weightInput" placeholder="Ange vikt i ton" style="max-width:360px; width:100%">
             <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
@@ -484,6 +507,11 @@ button{
     <select id="newPlace"></select>
     <label style="margin-top:10px">Till</label>
     <select id="newDest"></select>
+    <label style="margin-top:10px">Dag för uppdrag</label>
+    <div style="margin-top:0; position:relative">
+      <button type="button" id="newDateDisplay" class="date-display-btn" onclick="openNewJobDatePicker()">Välj datum</button>
+      <input id="newJobDate" class="date-hidden-input" type="date" onchange="setNewJobDate(this.value)">
+    </div>
     <label style="margin-top:10px">Kommentar</label>
     <textarea id="newComment"></textarea>
     <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
@@ -999,6 +1027,72 @@ function formatShortDate(isoDate){
   if(!match) return isoDate;
   return Number(match[3]) + '/' + Number(match[2]);
 }
+function formatReadableDate(isoDate){
+  if(!isoDate || typeof isoDate !== 'string') return 'Välj datum';
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!match) return isoDate;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const months = ['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
+  const text = day + ' ' + (months[month - 1] || '');
+  const currentYear = Number(todayStr().slice(0,4));
+  return year === currentYear ? text : text + ' ' + year;
+}
+function isIsoDate(value){
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function getNewJobDate(){
+  const input = document.getElementById('newJobDate');
+  if(!input) return todayStr();
+  if(!isIsoDate(input.value)){
+    input.value = todayStr();
+  }
+  updateNewJobDateDisplay();
+  return input.value;
+}
+
+function updateNewJobDateDisplay(){
+  const input = document.getElementById('newJobDate');
+  const display = document.getElementById('newDateDisplay');
+  if(!input || !display) return;
+  const value = isIsoDate(input.value) ? input.value : todayStr();
+  input.value = value;
+  display.textContent = formatReadableDate(value);
+}
+
+function setNewJobDate(value){
+  const input = document.getElementById('newJobDate');
+  if(input){
+    input.value = isIsoDate(value) ? value : todayStr();
+  }
+  updateNewJobDateDisplay();
+}
+
+function resetNewJobDate(){
+  const input = document.getElementById('newJobDate');
+  if(input){
+    input.value = todayStr();
+  }
+  updateNewJobDateDisplay();
+}
+
+function openNewJobDatePicker(){
+  const input = document.getElementById('newJobDate');
+  if(!input) return;
+  if(!isIsoDate(input.value)){
+    input.value = todayStr();
+  }
+  if(typeof input.showPicker === 'function'){
+    input.showPicker();
+  } else {
+    input.focus();
+    input.click();
+  }
+  updateNewJobDateDisplay();
+}
+
 function buildIsoDate(year, month, day){
   if(!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
   const dt = new Date(year, month - 1, day);
@@ -2008,7 +2102,7 @@ function showTab(tab){
   }
 }
 
-function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
+function startJob(vehicle, type, place, dest, comment, displayType, privateComment, jobDate){
   if(state.active){
     const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
     const nextIsOtherWork = type === 'Övrig verksamhet';
@@ -2026,9 +2120,11 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     }
   }
 
+  const activeJobDate = isIsoDate(jobDate) ? jobDate : todayStr();
+
   state.active = {
     id:id(),
-    date:todayStr(),
+    date:activeJobDate,
     vehicle,
     type,
     displayType: displayType || type,
@@ -2038,7 +2134,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     destLabel:getStoredPlaceLabel(dest),
     comment:comment||'',
     privateComment:privateComment||'',
-    plannedDate: todayStr(),
+    plannedDate: activeJobDate,
     start:Date.now(),
     loads:[],
     totalWeight:0,
@@ -2089,6 +2185,7 @@ function resetNewJobForm(){
   if(machineEl) machineEl.value = '';
   if(commentEl) commentEl.value = '';
   if(privateCommentEl) privateCommentEl.value = '';
+  resetNewJobDate();
 
   updateNewMachineUI();
   updateNewSeaweedUI();
@@ -2118,6 +2215,7 @@ function startManualJob(){
   let dest = document.getElementById('newDest').value;
   const baseComment = document.getElementById('newComment').value;
   const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
+  const jobDate = getNewJobDate();
 
   if(!validateNewJobSelection(type, place, dest)) return;
 
@@ -2142,7 +2240,7 @@ function startManualJob(){
   }
 
 
-  startJob(vehicle, type, place, dest, comment, '', privateComment);
+  startJob(vehicle, type, place, dest, comment, '', privateComment, jobDate);
   if(state.active){
     resetNewJobForm();
     showTab('idag');
@@ -2157,6 +2255,7 @@ function addManualJobToQueue(){
   let dest = document.getElementById('newDest').value;
   const baseComment = document.getElementById('newComment').value;
   const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
+  const jobDate = getNewJobDate();
 
   if(!validateNewJobSelection(type, place, dest)) return;
 
@@ -2194,7 +2293,7 @@ function addManualJobToQueue(){
     privateComment:privateComment,
     status:'köad',
     date:todayStr(),
-    plannedDate:todayStr()
+    plannedDate:jobDate
   });
 
   resetNewJobForm();
@@ -2228,7 +2327,7 @@ function startQueuedJob(qid){
     return;
   }
 
-  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, q.privateComment || '');
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, q.privateComment || '', getQueuedJobDate(q));
   if(!started) return;
 
   if(state.active && q.plannedDate){
@@ -2438,6 +2537,17 @@ function setQueuedJobPlannedDate(qid, value){
   renderQueue();
 }
 
+function openQueuedDatePicker(qid){
+  const input = document.getElementById('queueDate_' + qid);
+  if(!input) return;
+  if(typeof input.showPicker === 'function'){
+    input.showPicker();
+  } else {
+    input.focus();
+    input.click();
+  }
+}
+
 function renderQueue(){
   const visible = state.queue
     .map((x, index) => ({...x, _queueIndex:index}))
@@ -2472,9 +2582,10 @@ function renderQueue(){
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
-      '<div style="margin-top:10px; max-width:240px">'+
+      '<div style="margin-top:10px; max-width:240px; position:relative">'+
         '<label>Dag för uppdrag</label>'+
-        '<input type="text" inputmode="numeric" placeholder="28/4" value="'+escapeHtml(formatShortDate(getQueuedJobDate(x)))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
+        '<button type="button" class="date-display-btn" onclick="openQueuedDatePicker(\''+x.id+'\')">'+escapeHtml(formatReadableDate(getQueuedJobDate(x)))+'</button>'+
+        '<input id="queueDate_'+escapeHtml(x.id)+'" class="date-hidden-input" type="date" value="'+escapeHtml(getQueuedJobDate(x))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
       '</div>'+
       '<div class="queue-actions">'+
         (x.status === 'pausad' ? '<button class="queue-start" onclick="resumePausedJob(\''+x.id+'\')">Fortsätt</button>' : (x.status === 'köad' ? '<button class="queue-start" onclick="startQueuedJob(\''+x.id+'\')">Start</button>' : '<span></span>'))+
@@ -3530,6 +3641,7 @@ if(state.active){
   startDistanceTracking();
   startActiveTimer();
 }
+resetNewJobDate();
 updateNewMachineUI();
 updateNewSeaweedUI();
 updateFixedRouteRules();
