@@ -457,14 +457,56 @@ button{
 .calendar-weekdays,
 .calendar-grid{
   display:grid;
-  grid-template-columns:repeat(7,1fr);
-  gap:6px;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:5px;
+  width:100%;
+  max-width:100%;
 }
 .calendar-weekdays div{
+  min-width:0;
   text-align:center;
   font-size:12px;
   font-weight:700;
   color:var(--muted);
+}
+#jobDateCalendarModal .modal-card{
+  max-width:520px;
+  overflow:hidden;
+}
+#jobDateCalendarModal .calendar-day{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:54px !important;
+  padding:6px 2px !important;
+  gap:2px !important;
+}
+#jobDateCalendarModal .calendar-day span{
+  display:block;
+  font-size:18px;
+  line-height:1;
+}
+#jobDateCalendarModal .calendar-day small{
+  display:block;
+  width:100%;
+  max-width:100%;
+  overflow-wrap:anywhere;
+  font-size:9px;
+  line-height:1.05;
+}
+@media(max-width:480px){
+  #jobDateCalendarModal{
+    padding:10px;
+  }
+  #jobDateCalendarModal .modal-card{
+    padding:12px;
+  }
+  .calendar-weekdays,
+  .calendar-grid{
+    gap:4px;
+  }
+  #jobDateCalendarModal .calendar-day{
+    min-height:52px !important;
+  }
 }
 .calendar-day.empty{
   visibility:hidden;
@@ -488,6 +530,30 @@ button{
 }
 .legend-red{background:#fee2e2;border-color:#fca5a5;}
 .legend-yellow{background:#fef3c7;border-color:#facc15;}
+
+.new-job-actions{
+  margin-top:12px !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:12px !important;
+  align-items:center !important;
+}
+.new-job-actions .queue-start,
+.new-job-actions .queue-yellow{
+  width:100% !important;
+  min-width:0 !important;
+  justify-content:flex-start !important;
+  font-size:15px !important;
+  gap:8px !important;
+  padding-right:12px !important;
+}
+.new-job-actions .queue-start::before,
+.new-job-actions .queue-yellow::before{
+  width:44px !important;
+  min-width:44px !important;
+  height:44px !important;
+  font-size:22px !important;
+}
 
 </style>
 </head>
@@ -610,7 +676,7 @@ button{
     <textarea id="newComment"></textarea>
     <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
     <textarea id="newPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
-    <div class="row" style="margin-top:12px">
+    <div class="new-job-actions">
       <button class="queue-start" onclick="startManualJob()">Starta jobb</button>
       <button class="queue-yellow" onclick="addManualJobToQueue()">Lägg i kön</button>
     </div>
@@ -2272,64 +2338,66 @@ function updateFixedRouteRules(){
   }
 }
 
+
+function getLinkedDestinationsForJobType(type){
+  if(!type || type === 'Övrig verksamhet') return [];
+  const allTo = getToPlaceValues();
+  return allTo.filter(value => getPlaceJobTypes(value).includes(type));
+}
+
+function getNewJobDefaultDestination(type, place){
+  if(type === 'Sopsand' && (place === 'Säldammen' || place === 'Ringön (BAS)')) return 'Sortera Torslanda';
+  if(type === 'Komprimator' && place === 'Slottskogen') return 'Renova Högsbo';
+  if(type === 'Komprimator' && place === 'Ringön (BAS)') return 'Renova Sävenäs';
+  if(type === 'Kompost' && place === 'Ringön (BAS)') return 'Renova Bioanläggning';
+  if(type === 'Blandat avfall' && place === 'Ringön (BAS)') return 'Renova Skräppekärr';
+  if(type === 'Tryckimpregnerat' && place === 'Ringön (BAS)') return 'Renova Sävenäs';
+  if(type === 'Ris') return 'Ruskvädersgatan (Ristipp)';
+  if(type === 'Metall') return 'Stena Metall';
+  return '';
+}
+
+function getNewJobDestinationOptions(type, place){
+  const allTo = getToPlaceValues();
+  const linkedDests = getLinkedDestinationsForJobType(type);
+
+  if(linkedDests.length){
+    return Array.from(new Set([
+      ...linkedDests,
+      'Annan destination'
+    ])).filter(value => allTo.includes(value));
+  }
+
+  const defaultDest = getNewJobDefaultDestination(type, place);
+  if(!defaultDest) return allTo;
+
+  return Array.from(new Set([
+    defaultDest,
+    'Annan destination'
+  ])).filter(value => allTo.includes(value));
+}
+
 function applySopsandDefaultDestination(){
   const typeEl = document.getElementById('newType');
   const placeEl = document.getElementById('newPlace');
   const destEl = document.getElementById('newDest');
   if(!typeEl || !placeEl || !destEl) return;
 
+  const previousDest = destEl.value;
   const type = typeEl.value;
   const place = placeEl.value;
+  const defaultDest = getNewJobDefaultDestination(type, place);
+  const options = getNewJobDestinationOptions(type, place);
 
-  const isSopsand = type === 'Sopsand';
-  const shouldDefaultToSortera =
-    place === 'Säldammen' ||
-    place === 'Ringön (BAS)';
+  fillSelect('newDest', options, true, '----');
 
-  if(isSopsand && shouldDefaultToSortera){
-    const exists = Array.from(destEl.options).some(o => o.value === 'Sortera Torslanda');
-    if(exists){
-      destEl.value = 'Sortera Torslanda';
-      return;
-    }
+  if(defaultDest && Array.from(destEl.options).some(o => o.value === defaultDest)){
+    destEl.value = previousDest === 'Annan destination' ? 'Annan destination' : defaultDest;
+    return;
   }
 
-  const isKomprimator = type === 'Komprimator';
-
-  if(isKomprimator && place === 'Slottskogen'){
-    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Högsbo');
-    if(exists){
-      destEl.value = 'Renova Högsbo';
-      return;
-    }
-  }
-
-  if(isKomprimator && place === 'Ringön (BAS)'){
-    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Sävenäs');
-    if(exists){
-      destEl.value = 'Renova Sävenäs';
-      return;
-    }
-  }
-
-  const isKompost = type === 'Kompost';
-
-  if(isKompost && place === 'Ringön (BAS)'){
-    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Bioanläggning');
-    if(exists){
-      destEl.value = 'Renova Bioanläggning';
-      return;
-    }
-  }
-
-  const isBlandat = type === 'Blandat avfall';
-
-  if(isBlandat && place === 'Ringön (BAS)'){
-    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Skräppekärr');
-    if(exists){
-      destEl.value = 'Renova Skräppekärr';
-      return;
-    }
+  if(previousDest && Array.from(destEl.options).some(o => o.value === previousDest)){
+    destEl.value = previousDest;
   }
 }
 
@@ -2432,6 +2500,7 @@ function openNewJobPreset(type){
   updateNewMachineUI();
   updateNewSeaweedUI();
   updateFixedRouteRules();
+  applySopsandDefaultDestination();
 }
 function startQuickSeaweed(){
   alert('Havstång används nu som vanlig jobbtyp med vanliga Från/Till.');
@@ -2456,6 +2525,7 @@ function resetNewJobForm(){
   updateNewMachineUI();
   updateNewSeaweedUI();
   updateFixedRouteRules();
+  applySopsandDefaultDestination();
 }
 
 function validateNewJobSelection(type, place, dest){
