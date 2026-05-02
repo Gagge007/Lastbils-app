@@ -293,6 +293,45 @@ button{
   margin-top:6px;
 }
 
+#tab-settings .settings-groups{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  margin-top:10px;
+}
+#tab-settings .settings-group-card{
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:14px;
+  background:#fff;
+}
+#tab-settings .settings-group-card > button{
+  width:100%;
+  justify-content:center;
+}
+#tab-settings .settings-group-card .muted{
+  margin-top:8px;
+}
+#tab-settings .settings-group-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
+}
+#tab-settings .settings-group-actions.hidden{
+  display:none !important;
+}
+.quick-pressed{
+  outline:3px solid #0f172a !important;
+  outline-offset:2px !important;
+  transform:scale(0.98);
+  filter:brightness(0.96);
+}
+button.quick-pressed:disabled{
+  opacity:1 !important;
+  cursor:wait !important;
+}
+
 #tab-settings .place-manager{
   margin-top:18px;
   display:flex;
@@ -377,6 +416,50 @@ button{
 }
 
 
+.new-job-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+.new-job-actions button{
+  width:100% !important;
+  justify-content:center !important;
+}
+@media(max-width:380px){
+  .new-job-actions{
+    grid-template-columns:1fr;
+  }
+}
+.quick-mode-panel{
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:12px;
+  background:#fff;
+  margin-bottom:14px;
+}
+.quick-mode-buttons{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:8px;
+}
+.quick-mode-buttons button{
+  width:100%;
+}
+.quick-mode-buttons button.selected{
+  background:var(--primary) !important;
+  color:#fff !important;
+}
+.quick-mode-date-block{
+  margin-top:12px;
+}
+.quick-mode-date-block.hidden{
+  display:none !important;
+}
+.quick-mode-info{
+  margin-top:10px;
+}
 .new-job-date-block{
   margin-top:10px;
 }
@@ -397,7 +480,7 @@ button{
 }
 .date-choice,
 .calendar-day{
-  min-height:58px !important;
+  min-height:68px !important;
   padding:8px !important;
   border-radius:14px !important;
   background:#fff !important;
@@ -457,56 +540,14 @@ button{
 .calendar-weekdays,
 .calendar-grid{
   display:grid;
-  grid-template-columns:repeat(7,minmax(0,1fr));
-  gap:5px;
-  width:100%;
-  max-width:100%;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
 }
 .calendar-weekdays div{
-  min-width:0;
   text-align:center;
   font-size:12px;
   font-weight:700;
   color:var(--muted);
-}
-#jobDateCalendarModal .modal-card{
-  max-width:520px;
-  overflow:hidden;
-}
-#jobDateCalendarModal .calendar-day{
-  width:100% !important;
-  min-width:0 !important;
-  min-height:54px !important;
-  padding:6px 2px !important;
-  gap:2px !important;
-}
-#jobDateCalendarModal .calendar-day span{
-  display:block;
-  font-size:18px;
-  line-height:1;
-}
-#jobDateCalendarModal .calendar-day small{
-  display:block;
-  width:100%;
-  max-width:100%;
-  overflow-wrap:anywhere;
-  font-size:9px;
-  line-height:1.05;
-}
-@media(max-width:480px){
-  #jobDateCalendarModal{
-    padding:10px;
-  }
-  #jobDateCalendarModal .modal-card{
-    padding:12px;
-  }
-  .calendar-weekdays,
-  .calendar-grid{
-    gap:4px;
-  }
-  #jobDateCalendarModal .calendar-day{
-    min-height:52px !important;
-  }
 }
 .calendar-day.empty{
   visibility:hidden;
@@ -530,30 +571,6 @@ button{
 }
 .legend-red{background:#fee2e2;border-color:#fca5a5;}
 .legend-yellow{background:#fef3c7;border-color:#facc15;}
-
-.new-job-actions{
-  margin-top:12px !important;
-  display:grid !important;
-  grid-template-columns:1fr 1fr !important;
-  gap:12px !important;
-  align-items:center !important;
-}
-.new-job-actions .queue-start,
-.new-job-actions .queue-yellow{
-  width:100% !important;
-  min-width:0 !important;
-  justify-content:flex-start !important;
-  font-size:15px !important;
-  gap:8px !important;
-  padding-right:12px !important;
-}
-.new-job-actions .queue-start::before,
-.new-job-actions .queue-yellow::before{
-  width:44px !important;
-  min-width:44px !important;
-  height:44px !important;
-  font-size:22px !important;
-}
 
 </style>
 </head>
@@ -643,7 +660,23 @@ button{
 
   <div id="tab-snabb" class="card">
     <h3>Snabbval</h3>
-    <div class="muted" style="margin-bottom:12px">Uppdraget startas direkt.</div>
+    <div class="quick-mode-panel">
+      <input id="quickActionMode" type="hidden" value="start">
+      <div class="muted">Välj vad snabbval ska göra.</div>
+      <div class="quick-mode-buttons">
+        <button id="quickModeStartBtn" class="selected" onclick="setQuickMode('start')">Starta direkt</button>
+        <button id="quickModeQueueBtn" onclick="setQuickMode('queue')">Lägg i kö</button>
+      </div>
+      <div id="quickQueueDateBlock" class="quick-mode-date-block hidden">
+        <label>Datum för köuppdrag</label>
+        <input id="quickPlannedDate" type="hidden">
+        <div class="date-selector">
+          <div id="quickDateQuickDays" class="date-quick-grid"></div>
+          <button class="inline" onclick="openQuickDateCalendar()">Öppna kalender</button>
+        </div>
+      </div>
+      <div id="quickModeInfo" class="muted quick-mode-info">Tryck på ett snabbval så startar uppdraget direkt.</div>
+    </div>
     <div id="quickMainList" class="grid2"></div>
   </div>
   <div id="tab-nytt" class="card hidden">
@@ -720,6 +753,30 @@ button{
 </div>
 
 
+
+<div id="quickDateCalendarModal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3>Välj datum för köuppdrag</h3>
+    <div class="calendar-header">
+      <button class="inline" onclick="changeQuickDateCalendarMonth(-1)">‹</button>
+      <strong id="quickDateCalendarTitle">Månad</strong>
+      <button class="inline" onclick="changeQuickDateCalendarMonth(1)">›</button>
+    </div>
+    <div class="calendar-weekdays">
+      <div>Mån</div><div>Tis</div><div>Ons</div><div>Tor</div><div>Fre</div><div>Lör</div><div>Sön</div>
+    </div>
+    <div id="quickDateCalendarGrid" class="calendar-grid" style="margin-top:6px"></div>
+    <div class="calendar-legend">
+      <span><span class="legend-dot legend-red"></span>Röd dag/söndag</span>
+      <span><span class="legend-dot legend-yellow"></span>Afton</span>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary inline" onclick="setQuickPlannedDate(todayStr()); closeQuickDateCalendar();">Idag</button>
+      <button class="inline" onclick="closeQuickDateCalendar()">Stäng</button>
+    </div>
+  </div>
+</div>
+
 <div id="machineTransportModal" class="modal-backdrop">
   <div class="modal-card">
     <h3>Maskintransport</h3>
@@ -748,7 +805,9 @@ button{
   <div class="modal-card">
     <h3>Redigera avslutat jobb</h3>
     <input type="hidden" id="editJobId">
-    <label>Jobbtyp</label>
+    <label>Datum</label>
+    <input id="editDate" type="date">
+    <label style="margin-top:10px">Jobbtyp</label>
     <select id="editType"></select>
     <label style="margin-top:10px">Från</label>
     <input id="editPlace">
@@ -771,14 +830,33 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="settings-actions">
-      <button class="primary" onclick="togglePlaceManager()">Hantera platser</button>
-      <button class="primary" onclick="toggleQuickManager()">Snabbval</button>
-      <button class="primary" onclick="toggleJobTypeManager()">Jobbtyper</button>
-      <button class="primary" onclick="toggleMachineManager()">Maskiner</button>
-      <button class="primary" onclick="toggleBackupManager()">Backup</button>
-      <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
-      <button class="primary" onclick="toggleSettingsSummary()">Sammanställning</button>
+    <div class="settings-groups">
+      <div class="settings-group-card">
+        <button class="primary" onclick="toggleSettingsGroup('settingsGroupWorkflows')">Hantera arbetsflöden</button>
+        <div class="muted">Platser, jobbtyper, maskiner och snabbval som styr hur uppdrag skapas.</div>
+        <div id="settingsGroupWorkflows" class="settings-group-actions hidden">
+          <button class="primary" onclick="togglePlaceManager()">Hantera platser</button>
+          <button class="primary" onclick="toggleQuickManager()">Snabbval</button>
+          <button class="primary" onclick="toggleJobTypeManager()">Jobbtyper</button>
+          <button class="primary" onclick="toggleMachineManager()">Maskiner</button>
+        </div>
+      </div>
+      <div class="settings-group-card">
+        <button class="primary" onclick="toggleSettingsGroup('settingsGroupTransfer')">Överföring & backup</button>
+        <div class="muted">Skicka kö mellan enheter och säkerhetskopiera appdata.</div>
+        <div id="settingsGroupTransfer" class="settings-group-actions hidden">
+          <button class="primary" onclick="toggleQueueTransferManager()">Överför kö</button>
+          <button class="primary" onclick="toggleBackupManager()">Backup</button>
+        </div>
+      </div>
+      <div class="settings-group-card">
+        <button class="primary" onclick="toggleSettingsGroup('settingsGroupControl')">Kontroll & test</button>
+        <div class="muted">GPS-test och sammanställning av utförda jobb.</div>
+        <div id="settingsGroupControl" class="settings-group-actions hidden">
+          <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
+          <button class="primary" onclick="toggleSettingsSummary()">Sammanställning</button>
+        </div>
+      </div>
     </div>
   <div id="settingsSummaryWrap" class="card hidden">
     <h3>Sammanställning</h3>
@@ -854,6 +932,27 @@ button{
         <input id="backupImportFile" type="file" accept=".json,application/json">
         <div class="row">
           <button class="primary inline" onclick="importAppBackup()">Importera backup</button>
+        </div>
+      </div>
+    </div>
+    <div id="queueTransferManagerWrap" class="place-manager hidden">
+      <div class="place-help">Skicka eller ta emot uppdrag i kö mellan telefon och surfplatta. Import lägger bara till uppdrag i befintlig kö och skriver inte över något.</div>
+
+      <div class="place-row">
+        <div class="place-key">Dela kö-fil</div>
+        <div class="multi-help">Skapar en kö-fil med uppdragen som ligger i kö. Interna kommentarer följer med. Filnamn: lastbil-ko-ÅÅÅÅ-MM-DD-HHMM.json.</div>
+        <div id="queueTransferExportInfo" class="multi-help"></div>
+        <div class="row">
+          <button class="primary inline" onclick="shareQueueFile()">Dela kö-fil</button>
+        </div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Importera kö-fil</div>
+        <div class="multi-help">Välj en kö-fil som du har tagit emot via Quick Share. Uppdragen läggs till i befintlig kö och sorteras efter datum. Inget skrivs över.</div>
+        <input id="queueImportFile" type="file" accept=".json,application/json">
+        <div class="row">
+          <button class="primary inline" onclick="importQueueFile()">Importera kö-fil</button>
         </div>
       </div>
     </div>
@@ -1012,6 +1111,7 @@ let gpsTestDistanceKm = 0;
 
 
 let jobDateCalendarMonth = null;
+let quickDateCalendarMonth = null;
 
 function parseIsoLocal(iso){
   const parts = String(iso || '').split('-').map(Number);
@@ -1155,7 +1255,7 @@ function renderNewJobDateSelector(){
     if(info.type === 'red') cls.push('date-red');
     if(info.type === 'yellow') cls.push('date-yellow');
     if(iso === selected) cls.push('selected');
-    days.push('<button class="'+cls.join(' ')+'" onclick="setNewPlannedDate(&quot;'+iso+'&quot;)"><span>'+label+' '+formatDayMonth(iso)+'</span>'+(sub ? '<small>'+escapeHtml(sub)+'</small>' : '')+'</button>');
+    days.push('<button class="'+cls.join(' ')+'" onclick="setNewPlannedDate(&quot;'+iso+'&quot;)"><span>'+label+' '+formatDayMonth(iso)+'</span><small>'+escapeHtml(sub)+'</small></button>');
   }
   el.innerHTML = days.join('');
 }
@@ -1224,6 +1324,133 @@ function initializeNewJobDate(){
   const el = document.getElementById('newPlannedDate');
   if(el && !el.value) el.value = todayStr();
   renderNewJobDateSelector();
+}
+
+
+function getQuickMode(){
+  const el = document.getElementById('quickActionMode');
+  return el && el.value === 'queue' ? 'queue' : 'start';
+}
+
+function setQuickMode(mode){
+  const nextMode = mode === 'queue' ? 'queue' : 'start';
+  const el = document.getElementById('quickActionMode');
+  if(el) el.value = nextMode;
+
+  const startBtn = document.getElementById('quickModeStartBtn');
+  const queueBtn = document.getElementById('quickModeQueueBtn');
+  const dateBlock = document.getElementById('quickQueueDateBlock');
+  const info = document.getElementById('quickModeInfo');
+
+  if(startBtn) startBtn.classList.toggle('selected', nextMode === 'start');
+  if(queueBtn) queueBtn.classList.toggle('selected', nextMode === 'queue');
+  if(dateBlock) dateBlock.classList.toggle('hidden', nextMode !== 'queue');
+  if(info){
+    info.textContent = nextMode === 'queue'
+      ? 'Tryck på ett snabbval så läggs uppdraget i kö på valt datum.'
+      : 'Tryck på ett snabbval så startar uppdraget direkt.';
+  }
+
+  if(nextMode === 'queue') initializeQuickDate();
+  renderQuickSelections();
+}
+
+function getQuickPlannedDate(){
+  const el = document.getElementById('quickPlannedDate');
+  const val = el ? el.value : '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(val) ? val : todayStr();
+}
+
+function setQuickPlannedDate(iso){
+  const el = document.getElementById('quickPlannedDate');
+  if(el) el.value = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : todayStr();
+  renderQuickDateSelector();
+  renderQuickDateCalendar();
+}
+
+function renderQuickDateSelector(){
+  const el = document.getElementById('quickDateQuickDays');
+  if(!el) return;
+  const selected = getQuickPlannedDate();
+  const today = todayStr();
+  const days = [];
+  for(let i=0; i<7; i++){
+    const iso = addDaysIso(today, i);
+    const d = parseIsoLocal(iso);
+    const info = getSwedishDayInfo(iso);
+    const label = i === 0 ? 'Idag' : shortWeekday(d);
+    const sub = info.name || '';
+    const cls = ['date-choice'];
+    if(info.type === 'red') cls.push('date-red');
+    if(info.type === 'yellow') cls.push('date-yellow');
+    if(iso === selected) cls.push('selected');
+    days.push('<button class="'+cls.join(' ')+'" onclick="setQuickPlannedDate(&quot;'+iso+'&quot;)"><span>'+label+' '+formatDayMonth(iso)+'</span>'+(sub ? '<small>'+escapeHtml(sub)+'</small>' : '')+'</button>');
+  }
+  el.innerHTML = days.join('');
+}
+
+function openQuickDateCalendar(){
+  const selectedDate = parseIsoLocal(getQuickPlannedDate());
+  quickDateCalendarMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  renderQuickDateCalendar();
+  const modal = document.getElementById('quickDateCalendarModal');
+  if(modal) modal.classList.add('show');
+}
+
+function closeQuickDateCalendar(){
+  const modal = document.getElementById('quickDateCalendarModal');
+  if(modal) modal.classList.remove('show');
+}
+
+function changeQuickDateCalendarMonth(delta){
+  if(!quickDateCalendarMonth){
+    const selectedDate = parseIsoLocal(getQuickPlannedDate());
+    quickDateCalendarMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  }
+  quickDateCalendarMonth.setMonth(quickDateCalendarMonth.getMonth() + delta);
+  renderQuickDateCalendar();
+}
+
+function renderQuickDateCalendar(){
+  const grid = document.getElementById('quickDateCalendarGrid');
+  const title = document.getElementById('quickDateCalendarTitle');
+  if(!grid || !title) return;
+  if(!quickDateCalendarMonth){
+    const selectedDate = parseIsoLocal(getQuickPlannedDate());
+    quickDateCalendarMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  }
+
+  const year = quickDateCalendarMonth.getFullYear();
+  const month = quickDateCalendarMonth.getMonth();
+  title.textContent = quickDateCalendarMonth.toLocaleDateString('sv-SE', {month:'long', year:'numeric'});
+
+  const first = new Date(year, month, 1);
+  const firstOffset = (first.getDay() + 6) % 7;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const selected = getQuickPlannedDate();
+  const cells = [];
+
+  for(let i=0; i<firstOffset; i++) cells.push('<div class="calendar-day empty"></div>');
+
+  for(let day=1; day<=lastDay; day++){
+    const date = new Date(year, month, day);
+    const iso = toIsoLocal(date);
+    const info = getSwedishDayInfo(iso);
+    const cls = ['calendar-day'];
+    if(info.type === 'red') cls.push('date-red');
+    if(info.type === 'yellow') cls.push('date-yellow');
+    if(iso === selected) cls.push('selected');
+    const sub = info.name || shortWeekday(date);
+    cells.push('<button class="'+cls.join(' ')+'" onclick="setQuickPlannedDate(&quot;'+iso+'&quot;); closeQuickDateCalendar();"><span>'+day+'</span><small>'+escapeHtml(sub)+'</small></button>');
+  }
+
+  grid.innerHTML = cells.join('');
+}
+
+function initializeQuickDate(){
+  const el = document.getElementById('quickPlannedDate');
+  if(el && !el.value) el.value = todayStr();
+  renderQuickDateSelector();
 }
 
 function haversineKm(lat1, lon1, lat2, lon2){
@@ -1463,6 +1690,29 @@ function clockTime(ts){
   const d = new Date(ts);
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
+
+function getJobDateValue(job){
+  if(job && isValidIsoDate(job.date)) return job.date;
+  if(job && job.start){
+    const d = new Date(job.start);
+    if(!Number.isNaN(d.getTime())) return toIsoLocal(d);
+  }
+  return todayStr();
+}
+
+function moveTimestampToDate(timestamp, isoDate){
+  const base = timestamp ? new Date(timestamp) : new Date();
+  const target = parseIsoLocal(isoDate);
+  return new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    target.getDate(),
+    base.getHours(),
+    base.getMinutes(),
+    base.getSeconds(),
+    base.getMilliseconds()
+  ).getTime();
+}
 function id(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
 
 function getJobTypeMeta(type){
@@ -1654,9 +1904,102 @@ function refillSelectKeepingValue(idName, arr, includeBlank, blankLabel){
   }
 }
 
+
+function isUnlockedJobType(type){
+  const t = String(type || '').trim().toLocaleLowerCase('sv-SE');
+  return !t || t === 'äta' || t === 'övriga jobb' || t === 'övrig verksamhet' || t === 'annat';
+}
+
+function getLinkedPlaceValuesForJobType(type, direction){
+  const values = direction === 'from' ? getFromPlaceValues() : getToPlaceValues();
+  if(!type) return [];
+  return values.filter(key => getPlaceJobTypes(key).includes(type));
+}
+
+function appendPlaceIfAvailable(values, key, direction){
+  const all = direction === 'from' ? getFromPlaceValues() : getToPlaceValues();
+  if(key && all.includes(key) && !values.includes(key)) values.push(key);
+}
+
+function getFixedPlaceValuesForJobType(type, direction, selectedPlace){
+  const values = [];
+  if(direction === 'from'){
+    if(['Blandat avfall','Metall','Tryckimpregnerat','Kompost','Ris'].includes(type)){
+      appendPlaceIfAvailable(values, 'Ringön (BAS)', direction);
+    } else if(type === 'Komprimator'){
+      appendPlaceIfAvailable(values, 'Ringön (BAS)', direction);
+      appendPlaceIfAvailable(values, 'Slottskogen', direction);
+    } else if(type === 'Sopsand'){
+      appendPlaceIfAvailable(values, 'Ringön (BAS)', direction);
+      appendPlaceIfAvailable(values, 'Säldammen', direction);
+      appendPlaceIfAvailable(values, 'Slottskogen', direction);
+      appendPlaceIfAvailable(values, 'von Utfallsgatan', direction);
+    }
+    appendPlaceIfAvailable(values, 'Annan plats', direction);
+    return values;
+  }
+
+  if(type === 'Blandat avfall') appendPlaceIfAvailable(values, 'Renova Skräppekärr', direction);
+  if(type === 'Metall') appendPlaceIfAvailable(values, 'Stena Metall', direction);
+  if(type === 'Ris') appendPlaceIfAvailable(values, 'Ruskvädersgatan (Ristipp)', direction);
+  if(type === 'Kompost') appendPlaceIfAvailable(values, 'Renova Bioanläggning', direction);
+  if(type === 'Tryckimpregnerat') appendPlaceIfAvailable(values, 'Renova Sävenäs', direction);
+  if(type === 'Sopsand') appendPlaceIfAvailable(values, 'Sortera Torslanda', direction);
+  if(type === 'Komprimator'){
+    if(selectedPlace === 'Slottskogen'){
+      appendPlaceIfAvailable(values, 'Renova Högsbo', direction);
+    } else if(selectedPlace === 'Ringön (BAS)'){
+      appendPlaceIfAvailable(values, 'Renova Sävenäs', direction);
+    } else {
+      appendPlaceIfAvailable(values, 'Renova Sävenäs', direction);
+      appendPlaceIfAvailable(values, 'Renova Högsbo', direction);
+    }
+  }
+  appendPlaceIfAvailable(values, 'Annan destination', direction);
+  return values;
+}
+
+function getFilteredPlaceValuesForJobType(type, direction, selectedPlace){
+  const all = direction === 'from' ? getFromPlaceValues() : getToPlaceValues();
+  if(isUnlockedJobType(type)) return all;
+
+  const linked = getLinkedPlaceValuesForJobType(type, direction);
+  if(linked.length){
+    const values = linked.slice();
+    appendPlaceIfAvailable(values, direction === 'from' ? 'Annan plats' : 'Annan destination', direction);
+    return sortPlaceValues(Array.from(new Set(values)), 'Ringön (BAS)', direction === 'from' ? 'Annan plats' : 'Annan destination');
+  }
+
+  const fixed = getFixedPlaceValuesForJobType(type, direction, selectedPlace);
+  return fixed.length ? sortPlaceValues(Array.from(new Set(fixed)), 'Ringön (BAS)', direction === 'from' ? 'Annan plats' : 'Annan destination') : all;
+}
+
+function updateNewJobPlaceSelects(preserveValues){
+  const typeEl = document.getElementById('newType');
+  const placeEl = document.getElementById('newPlace');
+  const destEl = document.getElementById('newDest');
+  if(!typeEl || !placeEl || !destEl) return;
+
+  const type = typeEl.value;
+  const previousPlace = preserveValues !== false ? placeEl.value : '';
+  const previousDest = preserveValues !== false ? destEl.value : '';
+
+  const fromValues = getFilteredPlaceValuesForJobType(type, 'from', previousPlace);
+  fillSelect('newPlace', fromValues, true, '----');
+  if(previousPlace && Array.from(placeEl.options).some(o => o.value === previousPlace)){
+    placeEl.value = previousPlace;
+  }
+
+  const selectedPlace = placeEl.value || previousPlace;
+  const toValues = getFilteredPlaceValuesForJobType(type, 'to', selectedPlace);
+  fillSelect('newDest', toValues, true, '----');
+  if(previousDest && Array.from(destEl.options).some(o => o.value === previousDest)){
+    destEl.value = previousDest;
+  }
+}
+
 function refreshPlaceSelects(){
-  refillSelectKeepingValue('newPlace', getFromPlaceValues(), true, '----');
-  refillSelectKeepingValue('newDest', getToPlaceValues(), true, '----');
+  updateNewJobPlaceSelects(true);
   updateQuickDatalists();
   fillMachineSelects();
 }
@@ -1779,11 +2122,28 @@ function renderGpsTestPoint(point, extraStatus){
 
 
 function hideSettingsPanels(exceptId){
-  ['settingsSummaryWrap','gpsTestManagerWrap','backupManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['settingsSummaryWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
   });
+}
+
+function hideSettingsGroups(exceptId){
+  ['settingsGroupWorkflows','settingsGroupTransfer','settingsGroupControl'].forEach(groupId => {
+    if(groupId === exceptId) return;
+    const group = document.getElementById(groupId);
+    if(group) group.classList.add('hidden');
+  });
+}
+
+function toggleSettingsGroup(groupId){
+  const group = document.getElementById(groupId);
+  if(!group) return;
+  const willShow = group.classList.contains('hidden');
+  hideSettingsGroups(groupId);
+  hideSettingsPanels();
+  group.classList.toggle('hidden', !willShow);
 }
 
 function toggleGpsTestManager(){
@@ -1977,6 +2337,222 @@ function importAppBackup(){
     alert('Kunde inte läsa filen.');
   };
 
+  reader.readAsText(file);
+}
+
+
+let lastQueueDownloadUrl = null;
+
+function toggleQueueTransferManager(){
+  const wrap = document.getElementById('queueTransferManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  if(willShow){
+    hideSettingsPanels('queueTransferManagerWrap');
+    wrap.classList.remove('hidden');
+    updateQueueTransferInfo();
+  } else {
+    wrap.classList.add('hidden');
+  }
+}
+
+function updateQueueTransferInfo(){
+  const el = document.getElementById('queueTransferExportInfo');
+  if(!el) return;
+  const count = getQueueTransferItems().length;
+  el.textContent = count === 1 ? '1 uppdrag finns att dela.' : count + ' uppdrag finns att dela.';
+}
+
+function getQueueTransferItems(){
+  return (state.queue || []).filter(item => item && item.status !== 'slutförd');
+}
+
+function getQueueTransferFilename(){
+  const d = new Date();
+  const stamp = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '-' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+  return 'lastbil-ko-' + stamp + '.json';
+}
+
+function sanitizeQueueItemForTransfer(item){
+  return {
+    vehicle: item.vehicle || (item.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil'),
+    type: item.type || '',
+    displayType: item.displayType || item.type || '',
+    place: item.place || '',
+    dest: item.dest || '',
+    placeLabel: item.placeLabel || getStoredPlaceLabel(item.place || ''),
+    destLabel: item.destLabel || getStoredPlaceLabel(item.dest || ''),
+    comment: item.comment || '',
+    privateComment: item.privateComment || '',
+    plannedDate: item.plannedDate || item.date || todayStr(),
+    status: 'köad'
+  };
+}
+
+function buildQueueTransferPayload(){
+  const items = getQueueTransferItems().map(sanitizeQueueItemForTransfer);
+  return {
+    app: 'Lastbil app',
+    transferType: 'queue',
+    transferVersion: 1,
+    exportedAt: new Date().toISOString(),
+    itemCount: items.length,
+    queue: items
+  };
+}
+
+function setQueueDownloadLink(url, filename){
+  const el = document.getElementById('queueTransferExportInfo');
+  if(el){
+    el.innerHTML = 'Kö-fil skapad: <a href="' + url + '" download="' + escapeHtml(filename) + '">Ladda ner ' + escapeHtml(filename) + '</a>';
+  }
+}
+
+function downloadBlobFile(blob, filename){
+  if(lastQueueDownloadUrl){
+    try{ URL.revokeObjectURL(lastQueueDownloadUrl); }catch(e){}
+    lastQueueDownloadUrl = null;
+  }
+  const url = URL.createObjectURL(blob);
+  lastQueueDownloadUrl = url;
+  setQueueDownloadLink(url, filename);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function shareQueueFile(){
+  const payload = buildQueueTransferPayload();
+  if(!payload.queue.length){
+    alert('Det finns inga uppdrag i kö att dela.');
+    updateQueueTransferInfo();
+    return;
+  }
+
+  const filename = getQueueTransferFilename();
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  let shared = false;
+
+  try{
+    if(typeof File !== 'undefined' && navigator.share){
+      const file = new File([blob], filename, {type:'application/json'});
+      const canShareFile = !navigator.canShare || navigator.canShare({files:[file]});
+      if(canShareFile){
+        await navigator.share({title:'Lastbil kö', text:'Kö-fil från Lastbil app', files:[file]});
+        shared = true;
+      }
+    }
+  }catch(e){
+    shared = false;
+  }
+
+  if(!shared){
+    downloadBlobFile(blob, filename);
+    alert('Kö-filen skapades. Om den inte laddas ner automatiskt, tryck på länken som visas under knappen.');
+  }
+}
+
+function getQueueItemsFromTransferPayload(parsed){
+  if(!parsed) return [];
+  if(Array.isArray(parsed)) return parsed;
+  if(parsed.transferType === 'queue' && Array.isArray(parsed.queue)) return parsed.queue;
+  if(parsed.app === 'Lastbil app' && Array.isArray(parsed.queue)) return parsed.queue;
+  if(Array.isArray(parsed.items)) return parsed.items;
+  return [];
+}
+
+function isValidIsoDate(value){
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function normalizeImportedQueueItem(item){
+  if(!item || typeof item !== 'object') return null;
+  const type = String(item.type || '').trim();
+  if(!type) return null;
+
+  const plannedDate = isValidIsoDate(item.plannedDate)
+    ? item.plannedDate
+    : (isValidIsoDate(item.date) ? item.date : todayStr());
+  const place = String(item.place || '');
+  const dest = String(item.dest || '');
+
+  return {
+    id:id(),
+    vehicle:String(item.vehicle || (type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil')),
+    type:type,
+    displayType:String(item.displayType || type),
+    place:place,
+    dest:dest,
+    placeLabel:String(item.placeLabel || getStoredPlaceLabel(place) || ''),
+    destLabel:String(item.destLabel || getStoredPlaceLabel(dest) || ''),
+    comment:String(item.comment || ''),
+    privateComment:String(item.privateComment || ''),
+    status:'köad',
+    date:todayStr(),
+    plannedDate:plannedDate
+  };
+}
+
+function sortQueueByPlannedDate(){
+  state.queue = (state.queue || [])
+    .map((item, index) => ({...item, _sortIndex:index}))
+    .sort((a,b) => {
+      const rank = item => item.status === 'pausad' ? 0 : (item.status === 'slutförd' ? 2 : 1);
+      const rankCompare = rank(a) - rank(b);
+      if(rankCompare !== 0) return rankCompare;
+      const dateCompare = getQueuedJobDate(a).localeCompare(getQueuedJobDate(b));
+      if(dateCompare !== 0) return dateCompare;
+      return a._sortIndex - b._sortIndex;
+    })
+    .map(item => {
+      const clean = {...item};
+      delete clean._sortIndex;
+      return clean;
+    });
+}
+
+function importQueueFile(){
+  const input = document.getElementById('queueImportFile');
+  if(!input || !input.files || !input.files[0]){
+    alert('Välj en kö-fil först.');
+    return;
+  }
+
+  const file = input.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function(){
+    try{
+      const parsed = JSON.parse(String(reader.result || ''));
+      const rawItems = getQueueItemsFromTransferPayload(parsed);
+      const imported = rawItems.map(normalizeImportedQueueItem).filter(Boolean);
+
+      if(!imported.length){
+        alert('Filen innehåller inga giltiga köuppdrag.');
+        return;
+      }
+
+      if(!confirm('Lägg till ' + imported.length + ' uppdrag i befintlig kö? Inga befintliga uppdrag skrivs över eller tas bort.')) return;
+
+      state.queue.push(...imported);
+      sortQueueByPlannedDate();
+      saveState();
+      render();
+      updateQueueTransferInfo();
+      input.value = '';
+      showTab('ko');
+      alert(imported.length + ' uppdrag lades till i kön.');
+    }catch(e){
+      alert('Kunde inte läsa kö-filen.');
+    }
+  };
+
+  reader.onerror = function(){ alert('Kunde inte läsa filen.'); };
   reader.readAsText(file);
 }
 
@@ -2338,66 +2914,64 @@ function updateFixedRouteRules(){
   }
 }
 
-
-function getLinkedDestinationsForJobType(type){
-  if(!type || type === 'Övrig verksamhet') return [];
-  const allTo = getToPlaceValues();
-  return allTo.filter(value => getPlaceJobTypes(value).includes(type));
-}
-
-function getNewJobDefaultDestination(type, place){
-  if(type === 'Sopsand' && (place === 'Säldammen' || place === 'Ringön (BAS)')) return 'Sortera Torslanda';
-  if(type === 'Komprimator' && place === 'Slottskogen') return 'Renova Högsbo';
-  if(type === 'Komprimator' && place === 'Ringön (BAS)') return 'Renova Sävenäs';
-  if(type === 'Kompost' && place === 'Ringön (BAS)') return 'Renova Bioanläggning';
-  if(type === 'Blandat avfall' && place === 'Ringön (BAS)') return 'Renova Skräppekärr';
-  if(type === 'Tryckimpregnerat' && place === 'Ringön (BAS)') return 'Renova Sävenäs';
-  if(type === 'Ris') return 'Ruskvädersgatan (Ristipp)';
-  if(type === 'Metall') return 'Stena Metall';
-  return '';
-}
-
-function getNewJobDestinationOptions(type, place){
-  const allTo = getToPlaceValues();
-  const linkedDests = getLinkedDestinationsForJobType(type);
-
-  if(linkedDests.length){
-    return Array.from(new Set([
-      ...linkedDests,
-      'Annan destination'
-    ])).filter(value => allTo.includes(value));
-  }
-
-  const defaultDest = getNewJobDefaultDestination(type, place);
-  if(!defaultDest) return allTo;
-
-  return Array.from(new Set([
-    defaultDest,
-    'Annan destination'
-  ])).filter(value => allTo.includes(value));
-}
-
 function applySopsandDefaultDestination(){
   const typeEl = document.getElementById('newType');
   const placeEl = document.getElementById('newPlace');
   const destEl = document.getElementById('newDest');
   if(!typeEl || !placeEl || !destEl) return;
 
-  const previousDest = destEl.value;
   const type = typeEl.value;
   const place = placeEl.value;
-  const defaultDest = getNewJobDefaultDestination(type, place);
-  const options = getNewJobDestinationOptions(type, place);
 
-  fillSelect('newDest', options, true, '----');
+  const isSopsand = type === 'Sopsand';
+  const shouldDefaultToSortera =
+    place === 'Säldammen' ||
+    place === 'Ringön (BAS)';
 
-  if(defaultDest && Array.from(destEl.options).some(o => o.value === defaultDest)){
-    destEl.value = previousDest === 'Annan destination' ? 'Annan destination' : defaultDest;
-    return;
+  if(isSopsand && shouldDefaultToSortera){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Sortera Torslanda');
+    if(exists){
+      destEl.value = 'Sortera Torslanda';
+      return;
+    }
   }
 
-  if(previousDest && Array.from(destEl.options).some(o => o.value === previousDest)){
-    destEl.value = previousDest;
+  const isKomprimator = type === 'Komprimator';
+
+  if(isKomprimator && place === 'Slottskogen'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Högsbo');
+    if(exists){
+      destEl.value = 'Renova Högsbo';
+      return;
+    }
+  }
+
+  if(isKomprimator && place === 'Ringön (BAS)'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Sävenäs');
+    if(exists){
+      destEl.value = 'Renova Sävenäs';
+      return;
+    }
+  }
+
+  const isKompost = type === 'Kompost';
+
+  if(isKompost && place === 'Ringön (BAS)'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Bioanläggning');
+    if(exists){
+      destEl.value = 'Renova Bioanläggning';
+      return;
+    }
+  }
+
+  const isBlandat = type === 'Blandat avfall';
+
+  if(isBlandat && place === 'Ringön (BAS)'){
+    const exists = Array.from(destEl.options).some(o => o.value === 'Renova Skräppekärr');
+    if(exists){
+      destEl.value = 'Renova Skräppekärr';
+      return;
+    }
   }
 }
 
@@ -2429,12 +3003,8 @@ function showTab(tab){
   }
 
   if(isSettings){
-    const placeManager = document.getElementById('placeManagerWrap');
-    const summaryWrap = document.getElementById('settingsSummaryWrap');
-    const quickManager = document.getElementById('quickManagerWrap');
-    if(placeManager) placeManager.classList.add('hidden');
-    if(summaryWrap) summaryWrap.classList.add('hidden');
-    if(quickManager) quickManager.classList.add('hidden');
+    hideSettingsPanels();
+    hideSettingsGroups();
   }
 }
 
@@ -2500,7 +3070,6 @@ function openNewJobPreset(type){
   updateNewMachineUI();
   updateNewSeaweedUI();
   updateFixedRouteRules();
-  applySopsandDefaultDestination();
 }
 function startQuickSeaweed(){
   alert('Havstång används nu som vanlig jobbtyp med vanliga Från/Till.');
@@ -2525,7 +3094,6 @@ function resetNewJobForm(){
   updateNewMachineUI();
   updateNewSeaweedUI();
   updateFixedRouteRules();
-  applySopsandDefaultDestination();
 }
 
 function validateNewJobSelection(type, place, dest){
@@ -2927,6 +3495,7 @@ function openEditJob(jobId){
   const totalMinutes = Math.max(0, Math.round(((job.end || Date.now()) - (job.start || Date.now())) / 60000));
 
   document.getElementById('editJobId').value = job.id;
+  document.getElementById('editDate').value = getJobDateValue(job);
   document.getElementById('editType').value = job.type || '';
   document.getElementById('editPlace').value = job.place || '';
   document.getElementById('editDest').value = job.dest || '';
@@ -2960,12 +3529,18 @@ function saveEditedJob(){
     return;
   }
 
+  const editDateEl = document.getElementById('editDate');
+  const editedDate = editDateEl && isValidIsoDate(editDateEl.value) ? editDateEl.value : getJobDateValue(job);
+
   job.type = document.getElementById('editType').value;
   job.place = document.getElementById('editPlace').value;
   job.dest = document.getElementById('editDest').value;
   job.comment = document.getElementById('editComment').value;
   job.privateComment = document.getElementById('editPrivateComment').value;
-  job.end = (job.start || Date.now()) + Math.round(minutes) * 60000;
+  job.date = editedDate;
+  job.plannedDate = editedDate;
+  job.start = moveTimestampToDate(job.start || Date.now(), editedDate);
+  job.end = job.start + Math.round(minutes) * 60000;
   job.totalWeight = weight;
   job.loads = weight > 0 ? [weight] : [];
   saveState();
@@ -3369,7 +3944,7 @@ function renderQuickGroupCards(target){
     '<div class="card">'+
       '<h3>' + escapeHtml(target === 'queue' ? ('Snabbval ' + group.name + ' (kö)') : group.name) + '</h3>'+
       '<div class="btn-grid">'+
-        group.items.map(item => '<button onclick="'+fn+'(\''+escapeJsSingle(item.id)+'\')">'+escapeHtml(item.label || item.type || 'Snabbval')+'</button>').join('')+
+        group.items.map(item => '<button onclick="'+fn+'(\''+escapeJsSingle(item.id)+'\', this)">'+escapeHtml(item.label || item.type || 'Snabbval')+'</button>').join('')+
       '</div>'+
     '</div>'
   ).join('');
@@ -3380,21 +3955,81 @@ function renderQuickSelections(){
   if(mainEl) mainEl.innerHTML = renderQuickGroupCards('active');
 }
 
-function startQuickItem(quickId){
+function runQuickButtonFeedback(button, message, action){
+  if(button && button.dataset.quickBusy === '1') return;
+
+  if(!button){
+    action();
+    return;
+  }
+
+  const originalText = button.textContent;
+  button.dataset.quickBusy = '1';
+  button.disabled = true;
+  button.classList.add('quick-pressed');
+  button.textContent = message;
+
+  setTimeout(() => {
+    try{
+      action();
+    } finally {
+      button.textContent = originalText;
+      button.disabled = false;
+      button.classList.remove('quick-pressed');
+      delete button.dataset.quickBusy;
+    }
+  }, 550);
+}
+
+function startQuickItem(quickId, button){
+  const mode = getQuickMode();
+  const message = mode === 'queue' ? 'Lägger i kö...' : 'Startar...';
+  runQuickButtonFeedback(button, message, () => executeStartQuickItem(quickId, mode));
+}
+
+function executeStartQuickItem(quickId, mode){
   const item = getQuickItemById(quickId);
   if(!item) return;
+  const selectedMode = mode === 'queue' ? 'queue' : 'start';
   if(item.action === 'machineTransport'){
-    openMachineTransport('active');
+    openMachineTransport(selectedMode === 'queue' ? 'queue' : 'active');
     return;
   }
   if(!item.type){
     alert('Snabbvalet saknar jobbtyp.');
     return;
   }
-  quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '');
+
+  if(selectedMode === 'queue'){
+    state.queue.push({
+      id:id(),
+      vehicle:getQuickVehicle(item),
+      type:item.type,
+      displayType:item.displayType || item.type,
+      place:item.place || '',
+      dest:item.dest || '',
+      placeLabel:getStoredPlaceLabel(item.place || ''),
+      destLabel:getStoredPlaceLabel(item.dest || ''),
+      comment:item.comment || '',
+      privateComment:item.privateComment || '',
+      status:'köad',
+      date:todayStr(),
+      plannedDate:getQuickPlannedDate()
+    });
+    sortQueueByPlannedDate();
+    saveState();
+    render();
+    return;
+  }
+
+  quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '');
 }
 
-function queueQuickItem(quickId){
+function queueQuickItem(quickId, button){
+  runQuickButtonFeedback(button, 'Lägger i kö...', () => executeQueueQuickItem(quickId));
+}
+
+function executeQueueQuickItem(quickId){
   const item = getQuickItemById(quickId);
   if(!item) return;
   if(item.action === 'machineTransport'){
@@ -3415,10 +4050,12 @@ function queueQuickItem(quickId){
     placeLabel:getStoredPlaceLabel(item.place || ''),
     destLabel:getStoredPlaceLabel(item.dest || ''),
     comment:item.comment || '',
+    privateComment:item.privateComment || '',
     status:'köad',
     date:todayStr(),
-    plannedDate:todayStr()
+    plannedDate:getQuickPlannedDate ? getQuickPlannedDate() : todayStr()
   });
+  sortQueueByPlannedDate();
   saveState();
   render();
 }
@@ -3933,6 +4570,7 @@ fillMachineSelects();
 refreshPlaceSelects();
 
 document.getElementById('newType').addEventListener('change', function(){
+  updateNewJobPlaceSelects(false);
   updateNewMachineUI();
   updateNewSeaweedUI();
   updateFixedRouteRules();
@@ -3941,11 +4579,14 @@ document.getElementById('newType').addEventListener('change', function(){
 
 document.getElementById('newPlace').addEventListener('change', function(){
   applyLinkedJobType('newType', this.value);
+  updateNewJobPlaceSelects(true);
   applySopsandDefaultDestination();
 });
 
 document.getElementById('newDest').addEventListener('change', function(){
   applyLinkedJobType('newType', this.value);
+  updateNewJobPlaceSelects(true);
+  applySopsandDefaultDestination();
 });
 
 
@@ -3964,6 +4605,7 @@ if(state.active){
   startDistanceTracking();
   startActiveTimer();
 }
+updateNewJobPlaceSelects(true);
 updateNewMachineUI();
 updateNewSeaweedUI();
 updateFixedRouteRules();
@@ -3971,6 +4613,8 @@ applySopsandDefaultDestination();
 updateSummaryControls();
 updateGpsEnvironmentInfo();
 initializeNewJobDate();
+initializeQuickDate();
+setQuickMode('start');
 showTab('snabb');
 render();
 
