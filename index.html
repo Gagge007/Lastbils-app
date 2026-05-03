@@ -541,7 +541,7 @@ button{
 }
 @media(min-width:800px){
   #tab-settings .settings-groups{
-    grid-template-columns:repeat(3,1fr);
+    grid-template-columns:repeat(4,1fr);
   }
 }
 #tab-settings .settings-group{
@@ -573,6 +573,33 @@ button{
   transform:scale(.98);
   opacity:.92;
 }
+
+.history-calendar-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
+  margin-top:8px;
+}
+.history-calendar-day{
+  min-height:74px !important;
+  padding:8px !important;
+  border-radius:14px !important;
+  background:#fff !important;
+  border:1px solid var(--border) !important;
+  color:var(--text) !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:3px !important;
+  text-align:center !important;
+  font-weight:700 !important;
+}
+.history-calendar-day.empty{visibility:hidden;}
+.history-calendar-day.selected{outline:3px solid #0f172a !important; outline-offset:1px !important;}
+.history-calendar-day.has-jobs{border-width:2px !important;}
+.history-calendar-day small{font-size:11px;color:var(--muted);font-weight:700;line-height:1.1;}
+.trash-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;}
 .btn-grid button.quick-feedback:disabled{
   cursor:wait !important;
 }
@@ -856,8 +883,16 @@ button{
         </div>
       </div>
       <div class="settings-group">
+        <h4>Historik</h4>
+        <div class="muted">Historik kalender, sök/filter och papperskorg för borttagna uppdrag.</div>
+        <div class="settings-group-actions">
+          <button class="primary" onclick="toggleHistoryManager()">Historik kalender</button>
+          <button class="primary" onclick="toggleTrashManager()">Papperskorg</button>
+        </div>
+      </div>
+      <div class="settings-group">
         <h4>Kontroll & test</h4>
-        <div class="muted">Testfunktioner som inte används varje dag.</div>
+        <div class="muted">Kontrollera tekniska funktioner i appen.</div>
         <div class="settings-group-actions">
           <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
         </div>
@@ -895,6 +930,43 @@ button{
       <div id="sumByType"></div>
     </div>
   </div>
+    <div id="historyManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kan du söka bland avslutade jobb och välja historik via kalender. Sökningen gäller vald månad.</div>
+
+      <div class="place-row">
+        <div class="place-key">Historik kalender</div>
+        <div class="row" style="align-items:flex-end; gap:10px">
+          <div style="min-width:180px; flex:1">
+            <label>Månad</label>
+            <input id="historyMonth" type="month" onchange="renderHistoryManager()">
+          </div>
+          <div style="min-width:220px; flex:2">
+            <label>Sök/filter</label>
+            <input id="historySearch" placeholder="Jobbtyp, plats eller kommentar" oninput="renderHistoryManager()">
+          </div>
+          <button class="inline" onclick="setHistoryToday()">Idag</button>
+        </div>
+        <div class="calendar-weekdays" style="margin-top:10px">
+          <div>Mån</div><div>Tis</div><div>Ons</div><div>Tor</div><div>Fre</div><div>Lör</div><div>Sön</div>
+        </div>
+        <div id="historyCalendarGrid" class="history-calendar-grid"></div>
+        <div id="historySelectedInfo" class="multi-help"></div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+
+    <div id="trashManagerWrap" class="place-manager hidden">
+      <div class="place-help">Borttagna köuppdrag och avslutade jobb hamnar här. Du kan återställa dem eller ta bort dem permanent.</div>
+
+      <div class="place-row">
+        <div class="place-key">Papperskorg</div>
+        <div id="trashInfo" class="multi-help"></div>
+        <div id="trashList"></div>
+        <div class="trash-actions">
+          <button class="danger inline" onclick="emptyTrash()">Töm papperskorg</button>
+        </div>
+      </div>
+    </div>
     <div id="gpsTestManagerWrap" class="place-manager hidden">
       <div class="place-help">Här kan du testa om telefonen och webbläsaren ger appen GPS-position. Testet påverkar inte aktivt jobb.</div>
 
@@ -1068,6 +1140,8 @@ button{
       </div>
     </div>
   </div>
+
+</div>
 
 <script>
 
@@ -1586,6 +1660,7 @@ function normalizeVehicleState(){
   if(!('placeConfigs' in state)) state.placeConfigs = {};
   if(!('placeUsage' in state)) state.placeUsage = {};
   if(!('placeAddresses' in state)) state.placeAddresses = {};
+  if(!Array.isArray(state.trash)) state.trash = [];
   if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
   if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)) state.jobTypeMeta = {};
@@ -1638,6 +1713,7 @@ function loadState(){
       if(!('placeConfigs' in parsed)) parsed.placeConfigs = {};
       if(!('placeUsage' in parsed)) parsed.placeUsage = {};
       if(!('placeAddresses' in parsed)) parsed.placeAddresses = {};
+      if(!Array.isArray(parsed.trash)) parsed.trash = [];
       if(!Array.isArray(parsed.jobTypes)) parsed.jobTypes = cloneDefaultJobTypes();
       parsed.jobTypes = normalizeJobTypesList(parsed.jobTypes);
       if(!parsed.jobTypeMeta || typeof parsed.jobTypeMeta !== 'object' || Array.isArray(parsed.jobTypeMeta)) parsed.jobTypeMeta = {};
@@ -1646,7 +1722,7 @@ function loadState(){
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[]};
+  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[], trash:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -2102,11 +2178,243 @@ function renderGpsTestPoint(point, extraStatus){
 
 
 function hideSettingsPanels(exceptId){
-  ['settingsSummaryWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
   });
+}
+
+
+function getCurrentMonthInputValue(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+let historySelectedDate = todayStr();
+
+function toggleHistoryManager(){
+  const wrap = document.getElementById('historyManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  if(willShow){
+    hideSettingsPanels('historyManagerWrap');
+    wrap.classList.remove('hidden');
+    initializeHistoryControls();
+    renderHistoryManager();
+  } else {
+    wrap.classList.add('hidden');
+  }
+}
+
+function initializeHistoryControls(){
+  const monthEl = document.getElementById('historyMonth');
+  if(monthEl && !monthEl.value) monthEl.value = getCurrentMonthInputValue();
+  if(!historySelectedDate) historySelectedDate = todayStr();
+}
+
+function setHistoryToday(){
+  const today = todayStr();
+  historySelectedDate = today;
+  const monthEl = document.getElementById('historyMonth');
+  if(monthEl) monthEl.value = today.slice(0,7);
+  const searchEl = document.getElementById('historySearch');
+  if(searchEl) searchEl.value = '';
+  renderHistoryManager();
+}
+
+function selectHistoryDate(iso){
+  historySelectedDate = iso;
+  const searchEl = document.getElementById('historySearch');
+  if(searchEl) searchEl.value = '';
+  renderHistoryManager();
+}
+
+function jobSearchText(job){
+  return [
+    job.type || '', job.displayType || '',
+    getItemPlaceLabel(job, 'place') || job.place || '',
+    getItemPlaceLabel(job, 'dest') || job.dest || '',
+    job.comment || '', job.privateComment || '', job.date || ''
+  ].join(' ').toLocaleLowerCase('sv-SE');
+}
+
+function renderHistoryManager(){
+  const grid = document.getElementById('historyCalendarGrid');
+  const list = document.getElementById('historyList');
+  const info = document.getElementById('historySelectedInfo');
+  const monthEl = document.getElementById('historyMonth');
+  const searchEl = document.getElementById('historySearch');
+  if(!grid || !list || !info || !monthEl) return;
+
+  if(!monthEl.value) monthEl.value = getCurrentMonthInputValue();
+  const monthValue = monthEl.value;
+  if(!/^\d{4}-\d{2}$/.test(monthValue)) return;
+
+  if(!historySelectedDate || historySelectedDate.slice(0,7) !== monthValue){
+    const today = todayStr();
+    historySelectedDate = today.slice(0,7) === monthValue ? today : monthValue + '-01';
+  }
+
+  const year = Number(monthValue.slice(0,4));
+  const month = Number(monthValue.slice(5,7));
+  const first = new Date(year, month - 1, 1);
+  const firstOffset = (first.getDay() + 6) % 7;
+  const lastDay = new Date(year, month, 0).getDate();
+
+  const jobsByDate = {};
+  (state.jobs || []).forEach(job => {
+    if(!job || !job.date || job.date.slice(0,7) !== monthValue) return;
+    if(!jobsByDate[job.date]) jobsByDate[job.date] = [];
+    jobsByDate[job.date].push(job);
+  });
+
+  const cells = [];
+  for(let i=0; i<firstOffset; i++) cells.push('<div class="history-calendar-day empty"></div>');
+  for(let day=1; day<=lastDay; day++){
+    const iso = buildIsoDate(year, month, day);
+    const dayInfo = getSwedishDayInfo(iso);
+    const count = (jobsByDate[iso] || []).length;
+    const cls = ['history-calendar-day'];
+    if(dayInfo.type === 'red') cls.push('date-red');
+    if(dayInfo.type === 'yellow') cls.push('date-yellow');
+    if(iso === historySelectedDate) cls.push('selected');
+    if(count) cls.push('has-jobs');
+    const sub = count ? (count + ' jobb') : (dayInfo.name || shortWeekday(parseIsoLocal(iso)));
+    cells.push('<button class="'+cls.join(' ')+'" onclick="selectHistoryDate(&quot;'+iso+'&quot;)"><span>'+day+'</span><small>'+escapeHtml(sub)+'</small></button>');
+  }
+  grid.innerHTML = cells.join('');
+
+  const query = String(searchEl ? searchEl.value : '').trim().toLocaleLowerCase('sv-SE');
+  let shownJobs = [];
+  if(query){
+    shownJobs = (state.jobs || []).filter(job => job && job.date && job.date.slice(0,7) === monthValue && jobSearchText(job).includes(query));
+    info.textContent = 'Sökresultat i ' + monthValue + ': ' + shownJobs.length + ' jobb.';
+  } else {
+    shownJobs = (jobsByDate[historySelectedDate] || []).slice();
+    info.textContent = 'Valt datum: ' + formatShortDate(historySelectedDate) + ' · ' + shownJobs.length + ' jobb.';
+  }
+
+  shownJobs.sort((a,b) => (a.start || 0) - (b.start || 0));
+  if(!shownJobs.length){
+    list.innerHTML = '<div class="muted" style="margin-top:10px">Inga avslutade jobb att visa.</div>';
+    return;
+  }
+
+  list.innerHTML = shownJobs.map(job =>
+    '<div class="job">'+
+      '<div><span class="pill pill-type">'+escapeHtml(job.type || '')+'</span><span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(job, 'place'))+'</span>'+(job.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(job, 'dest'))+'</span>' : '')+'</div>'+ 
+      '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Start: '+clockTime(job.start)+' · Slut: '+clockTime(job.end)+'</div>'+ 
+      '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
+      (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment)+'</div>' : '')+
+      (job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment)+'</div>' : '')+
+      '<div class="row" style="margin-top:8px">'+
+        '<button onclick="openEditJob(\''+escapeJsSingle(job.id)+'\')">Redigera</button>'+ 
+        '<button class="danger" onclick="deleteFinishedJob(\''+escapeJsSingle(job.id)+'\')">Ta bort</button>'+ 
+      '</div>'+ 
+    '</div>'
+  ).join('');
+}
+
+function ensureTrash(){
+  if(!Array.isArray(state.trash)) state.trash = [];
+}
+
+function moveToTrash(source, item){
+  ensureTrash();
+  state.trash.unshift({
+    trashId:id(),
+    deletedAt:new Date().toISOString(),
+    source:source,
+    item:JSON.parse(JSON.stringify(item || {}))
+  });
+}
+
+function toggleTrashManager(){
+  const wrap = document.getElementById('trashManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  if(willShow){
+    hideSettingsPanels('trashManagerWrap');
+    wrap.classList.remove('hidden');
+    renderTrashManager();
+  } else {
+    wrap.classList.add('hidden');
+  }
+}
+
+function getTrashLabel(entry){
+  if(!entry) return 'Borttaget';
+  if(entry.source === 'queue') return 'Köuppdrag';
+  if(entry.source === 'finished') return 'Avslutat jobb';
+  return 'Borttaget';
+}
+
+function restoreTrashItem(trashId){
+  ensureTrash();
+  const entry = state.trash.find(x => x.trashId === trashId);
+  if(!entry || !entry.item) return;
+  const restored = JSON.parse(JSON.stringify(entry.item));
+  if(!restored.id) restored.id = id();
+
+  const idExists = (state.jobs || []).some(job => job.id === restored.id) || (state.queue || []).some(job => job.id === restored.id);
+  if(idExists) restored.id = id();
+
+  if(entry.source === 'queue'){
+    restored.status = restored.status || 'köad';
+    restored.plannedDate = restored.plannedDate || todayStr();
+    state.queue.push(restored);
+    sortQueueByPlannedDate();
+  } else {
+    state.jobs.unshift(restored);
+  }
+
+  state.trash = state.trash.filter(x => x.trashId !== trashId);
+  saveState();
+  render();
+  renderTrashManager();
+}
+
+function permanentlyDeleteTrashItem(trashId){
+  if(!confirm('Ta bort permanent?')) return;
+  ensureTrash();
+  state.trash = state.trash.filter(x => x.trashId !== trashId);
+  saveState();
+  renderTrashManager();
+}
+
+function emptyTrash(){
+  ensureTrash();
+  if(!state.trash.length){ alert('Papperskorgen är redan tom.'); return; }
+  if(!confirm('Töm papperskorgen permanent?')) return;
+  state.trash = [];
+  saveState();
+  renderTrashManager();
+}
+
+function renderTrashManager(){
+  const info = document.getElementById('trashInfo');
+  const list = document.getElementById('trashList');
+  if(!info || !list) return;
+  ensureTrash();
+  info.textContent = state.trash.length === 1 ? '1 borttaget uppdrag finns i papperskorgen.' : state.trash.length + ' borttagna uppdrag finns i papperskorgen.';
+  if(!state.trash.length){
+    list.innerHTML = '<div class="muted" style="margin-top:10px">Papperskorgen är tom.</div>';
+    return;
+  }
+  list.innerHTML = state.trash.map(entry => {
+    const item = entry.item || {};
+    return '<div class="job">'+
+      '<div><span class="pill">'+escapeHtml(getTrashLabel(entry))+'</span><span class="pill pill-type">'+escapeHtml(item.type || '')+'</span>'+(item.place ? '<span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(item, 'place'))+'</span>' : '')+(item.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(item, 'dest'))+'</span>' : '')+'</div>'+ 
+      '<div style="margin-top:6px">Raderad: '+escapeHtml(new Date(entry.deletedAt || Date.now()).toLocaleString('sv-SE'))+(item.date ? ' · Datum: '+escapeHtml(formatShortDate(item.date)) : '')+(item.plannedDate ? ' · Planerad: '+escapeHtml(formatShortDate(item.plannedDate)) : '')+'</div>'+ 
+      (item.comment ? '<div style="margin-top:6px">'+escapeHtml(item.comment)+'</div>' : '')+
+      (item.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(item.privateComment)+'</div>' : '')+
+      '<div class="row" style="margin-top:8px">'+
+        '<button class="primary inline" onclick="restoreTrashItem(\''+escapeJsSingle(entry.trashId)+'\')">Återställ</button>'+ 
+        '<button class="danger inline" onclick="permanentlyDeleteTrashItem(\''+escapeJsSingle(entry.trashId)+'\')">Ta bort permanent</button>'+ 
+      '</div>'+ 
+    '</div>';
+  }).join('');
 }
 
 function toggleGpsTestManager(){
@@ -2938,6 +3246,13 @@ function applySopsandDefaultDestination(){
   }
 }
 
+function updateNewSeaweedUI(){
+  return;
+}
+
+function updateNewSeaweedRoute(){
+  return;
+}
 
 function showTab(tab){
   ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
@@ -3012,6 +3327,24 @@ function quickJob(vehicle, type, place, dest, comment, displayType, privateComme
 }
 
 
+function openNewJobPreset(type){
+  showTab('nytt');
+
+  const typeEl = document.getElementById('newType');
+  const vehicleEl = document.getElementById('newVehicle');
+  if(vehicleEl) vehicleEl.value = 'lastbil';
+  if(typeEl){
+    typeEl.value = type;
+  }
+
+  updateNewMachineUI();
+  updateNewSeaweedUI();
+  updateFixedRouteRules();
+}
+function startQuickSeaweed(){
+  alert('Havstång används nu som vanlig jobbtyp med vanliga Från/Till.');
+}
+
 function resetNewJobForm(){
   const typeEl = document.getElementById('newType');
   const placeEl = document.getElementById('newPlace');
@@ -3029,6 +3362,7 @@ function resetNewJobForm(){
   setNewPlannedDate(todayStr());
 
   updateNewMachineUI();
+  updateNewSeaweedUI();
   updateFixedRouteRules();
 }
 
@@ -3141,6 +3475,22 @@ function addManualJobToQueue(){
   showTab('ko');
 }
 
+function quickQueue(type, place, dest, displayType){
+  const vehicle = type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  saveState(); render();
+}
+
+function quickQueueCustom(vehicle, type, place, dest, comment, displayType){
+  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  saveState(); render();
+}
+
+function quickQueueMachine(type, place, dest, displayType){
+  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  saveState(); render();
+}
+
 function startQueuedJob(qid){
   const q = state.queue.find(x => x.id === qid);
   if(!q) return;
@@ -3244,6 +3594,8 @@ function completeQueuedJob(qid){
 }
 
 function removeQueuedJob(qid){
+  const q = state.queue.find(x => x.id === qid);
+  if(q) moveToTrash('queue', q);
   state.queue = state.queue.filter(x => x.id !== qid);
   saveState(); render();
 }
@@ -3255,6 +3607,19 @@ function addLoadToCurrent(){
   if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
+  document.getElementById('weightInput').value = '';
+  saveState(); render();
+}
+
+function addLoadToLatest(){
+  const raw = document.getElementById('weightInput').value.replace(',', '.');
+  const n = Number(raw);
+  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
+  const latest = state.active || state.jobs[0];
+  if(!latest){ alert('Det finns inget jobb att lägga vikt på.'); return; }
+  latest.loads = latest.loads || [];
+  latest.loads.push(n);
+  latest.totalWeight = latest.loads.reduce((a,b)=>a+b,0);
   document.getElementById('weightInput').value = '';
   saveState(); render();
 }
@@ -3280,6 +3645,11 @@ function stopJob(){
 
   saveState();
   render();
+}
+
+function switchJob(){
+  if(state.active) stopJob();
+  showTab('snabb');
 }
 
 function renderActive(){
@@ -3457,7 +3827,9 @@ function saveEditedJob(){
 }
 
 function deleteFinishedJob(jobId){
-  if(!confirm('Ta bort avslutat jobb?')) return;
+  if(!confirm('Flytta avslutat jobb till papperskorgen?')) return;
+  const job = state.jobs.find(x => x.id === jobId);
+  if(job) moveToTrash('finished', job);
   state.jobs = state.jobs.filter(x => x.id !== jobId);
   saveState();
   render();
@@ -3842,15 +4214,15 @@ function groupedQuickItems(){
   return groups;
 }
 
-
-function renderQuickGroupCards(){
+function renderQuickGroupCards(target){
   const groups = groupedQuickItems();
   if(!groups.length){
     return '<div class="muted">Inga snabbval finns inlagda.</div>';
   }
+  const fn = target === 'queue' ? 'queueQuickItem' : 'startQuickItem';
   return groups.map(group =>
     '<div class="card">'+
-      '<h3>' + escapeHtml(group.name) + '</h3>'+
+      '<h3>' + escapeHtml(target === 'queue' ? ('Snabbval ' + group.name + ' (kö)') : group.name) + '</h3>'+
       '<div class="btn-grid">'+
         group.items.map(item => '<button data-quick-button="'+escapeHtml(item.id)+'" onclick="handleQuickButtonPress(event, \''+escapeJsSingle(item.id)+'\')">'+escapeHtml(item.label || item.type || 'Snabbval')+'</button>').join('')+
       '</div>'+
@@ -3860,7 +4232,7 @@ function renderQuickGroupCards(){
 
 function renderQuickSelections(){
   const mainEl = document.getElementById('quickMainList');
-  if(mainEl) mainEl.innerHTML = renderQuickGroupCards();
+  if(mainEl) mainEl.innerHTML = renderQuickGroupCards('active');
 }
 
 function handleQuickButtonPress(event, quickId){
@@ -3920,6 +4292,36 @@ function startQuickItem(quickId){
   }
 
   quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '');
+}
+
+function queueQuickItem(quickId){
+  const item = getQuickItemById(quickId);
+  if(!item) return;
+  if(item.action === 'machineTransport'){
+    openMachineTransport('queue');
+    return;
+  }
+  if(!item.type){
+    alert('Snabbvalet saknar jobbtyp.');
+    return;
+  }
+  state.queue.push({
+    id:id(),
+    vehicle:getQuickVehicle(item),
+    type:item.type,
+    displayType:item.displayType || item.type,
+    place:item.place || '',
+    dest:item.dest || '',
+    placeLabel:getStoredPlaceLabel(item.place || ''),
+    destLabel:getStoredPlaceLabel(item.dest || ''),
+    comment:item.comment || '',
+    privateComment:item.privateComment || '',
+    status:'köad',
+    date:todayStr(),
+    plannedDate:getQuickPlannedDate ? getQuickPlannedDate() : todayStr()
+  });
+  saveState();
+  render();
 }
 
 function getQuickGroupValues(extraValues = []){
@@ -4420,7 +4822,7 @@ function saveManagedPlaces(){
   alert('Platser sparade.');
 }
 
-function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); saveState(); }
+function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); saveState(); }
 
 fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
@@ -4434,6 +4836,7 @@ refreshPlaceSelects();
 document.getElementById('newType').addEventListener('change', function(){
   updateNewJobPlaceSelects(false);
   updateNewMachineUI();
+  updateNewSeaweedUI();
   updateFixedRouteRules();
   applySopsandDefaultDestination();
 });
@@ -4468,12 +4871,14 @@ if(state.active){
 }
 updateNewJobPlaceSelects(true);
 updateNewMachineUI();
+updateNewSeaweedUI();
 updateFixedRouteRules();
 applySopsandDefaultDestination();
 updateSummaryControls();
 updateGpsEnvironmentInfo();
 initializeNewJobDate();
 initializeQuickDate();
+initializeHistoryControls();
 setQuickMode('start');
 showTab('snabb');
 render();
