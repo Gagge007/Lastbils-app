@@ -3976,6 +3976,46 @@ function summarizeJobsByType(jobs){
   return byType;
 }
 
+function summarizeJobsByMonth(jobs){
+  const byMonth = {};
+  jobs.forEach(job => {
+    if(!job || !job.date || job.date.length < 7) return;
+    const key = job.date.slice(0, 7);
+    if(!byMonth[key]) byMonth[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
+    byMonth[key].jobs += 1;
+    byMonth[key].loads += (job.loads || []).length;
+    byMonth[key].weight += (job.totalWeight || 0);
+    byMonth[key].distance += (job.distanceKm || 0);
+    byMonth[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
+  });
+  return byMonth;
+}
+
+function buildMonthlyJobDiagramRows(jobs, label){
+  const byMonth = summarizeJobsByMonth(jobs);
+  const months = Object.keys(byMonth).sort();
+  let rows = '';
+  rows += xmlRow(['Diagram – uppdrag per månad', 'Lastbil app']);
+  rows += xmlRow(['Period', label]);
+  rows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
+  rows += xmlRow(['']);
+  rows += xmlRow(['Månad', 'Antal uppdrag', 'Diagram']);
+
+  if(!months.length){
+    rows += xmlRow(['Ingen data för vald period', 0, ''], ['String','Number','String']);
+    return rows;
+  }
+
+  const maxJobs = Math.max(...months.map(month => byMonth[month].jobs), 1);
+  months.forEach(month => {
+    const count = byMonth[month].jobs;
+    const barLength = Math.max(1, Math.round((count / maxJobs) * 30));
+    rows += xmlRow([month, count, '█'.repeat(barLength)], ['String','Number','String']);
+  });
+
+  return rows;
+}
+
 function xmlCell(value, type){
   const t = type || 'String';
   if(t === 'Number'){
@@ -3998,6 +4038,7 @@ function buildExcelWorkbookXml(selection, filtered){
 
   const byDate = summarizeJobsByDate(filtered);
   const byType = summarizeJobsByType(filtered);
+  const monthlyDiagramRows = buildMonthlyJobDiagramRows(filtered, label);
 
   let summaryRows = '';
   summaryRows += xmlRow(['Sammanställning', 'Lastbil app']);
@@ -4065,6 +4106,7 @@ function buildExcelWorkbookXml(selection, filtered){
     +   '<Style ss:ID="Header"><Font ss:Bold="1"/></Style>'
     + '</Styles>'
     + '<Worksheet ss:Name="Sammanfattning"><Table>' + summaryRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Diagram månad"><Table>' + monthlyDiagramRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Dag för dag"><Table>' + dayRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Per jobbtyp"><Table>' + typeRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Detaljer"><Table>' + detailRows + '</Table></Worksheet>'
