@@ -287,30 +287,10 @@ button{
   background:#fafcff;
 }
 #tab-settings .settings-actions{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:12px;
-  margin-top:6px;
-}
-#tab-settings .settings-group{
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:14px;
-  background:#fff;
-}
-#tab-settings .settings-group h4{
-  margin:0 0 4px;
-  font-size:17px;
-}
-#tab-settings .settings-group-desc{
-  color:var(--muted);
-  font-size:14px;
-  margin-bottom:12px;
-}
-#tab-settings .settings-group-buttons{
   display:flex;
   flex-wrap:wrap;
   gap:12px;
+  margin-top:6px;
 }
 
 #tab-settings .place-manager{
@@ -441,13 +421,6 @@ button{
 .quick-mode-info{
   margin-top:10px;
 }
-.quick-feedback-active{
-  background:#0f172a !important;
-  color:#fff !important;
-  opacity:.88 !important;
-  transform:scale(.98);
-  cursor:wait !important;
-}
 .new-job-date-block{
   margin-top:10px;
 }
@@ -559,6 +532,50 @@ button{
 }
 .legend-red{background:#fee2e2;border-color:#fca5a5;}
 .legend-yellow{background:#fef3c7;border-color:#facc15;}
+
+#tab-settings .settings-groups{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  margin-top:10px;
+}
+@media(min-width:800px){
+  #tab-settings .settings-groups{
+    grid-template-columns:repeat(3,1fr);
+  }
+}
+#tab-settings .settings-group{
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:14px;
+  background:#fff;
+}
+#tab-settings .settings-group h4{
+  margin:0 0 6px;
+  font-size:17px;
+}
+#tab-settings .settings-group .muted{
+  min-height:38px;
+  margin-bottom:10px;
+}
+#tab-settings .settings-group-actions{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+#tab-settings .settings-group-actions button{
+  width:100%;
+  justify-content:center;
+}
+.btn-grid button.quick-feedback{
+  background:var(--primary) !important;
+  color:#fff !important;
+  transform:scale(.98);
+  opacity:.92;
+}
+.btn-grid button.quick-feedback:disabled{
+  cursor:wait !important;
+}
 
 </style>
 </head>
@@ -793,7 +810,9 @@ button{
   <div class="modal-card">
     <h3>Redigera avslutat jobb</h3>
     <input type="hidden" id="editJobId">
-    <label>Jobbtyp</label>
+    <label>Datum</label>
+    <input id="editDate" type="date">
+    <label style="margin-top:10px">Jobbtyp</label>
     <select id="editType"></select>
     <label style="margin-top:10px">Från</label>
     <input id="editPlace">
@@ -803,8 +822,6 @@ button{
     <textarea id="editComment"></textarea>
     <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
     <textarea id="editPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
-    <label style="margin-top:10px">Datum</label>
-    <input id="editDate" type="date">
     <label style="margin-top:10px">Tid i minuter</label>
     <input id="editMinutes" type="number" min="0" step="1" placeholder="Ange tid i minuter">
     <label style="margin-top:10px">Total vikt i ton</label>
@@ -818,32 +835,30 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="settings-actions">
+    <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
-        <div class="settings-group-desc">Platser, jobbtyper, maskiner och snabbval som styr hur uppdrag skapas.</div>
-        <div class="settings-group-buttons">
+        <div class="muted">Platser, jobbtyper, maskiner och snabbval som styr hur uppdrag skapas.</div>
+        <div class="settings-group-actions">
           <button class="primary" onclick="togglePlaceManager()">Hantera platser</button>
           <button class="primary" onclick="toggleQuickManager()">Snabbval</button>
           <button class="primary" onclick="toggleJobTypeManager()">Jobbtyper</button>
           <button class="primary" onclick="toggleMachineManager()">Maskiner</button>
         </div>
       </div>
-
       <div class="settings-group">
         <h4>Överföring & backup</h4>
-        <div class="settings-group-desc">Skicka kö mellan enheter, säkerhetskopiera appdata och exportera sammanställning.</div>
-        <div class="settings-group-buttons">
+        <div class="muted">Skicka kö mellan enheter, säkerhetskopiera appdata och exportera sammanställning.</div>
+        <div class="settings-group-actions">
           <button class="primary" onclick="toggleQueueTransferManager()">Överför kö</button>
           <button class="primary" onclick="toggleBackupManager()">Backup</button>
           <button class="primary" onclick="toggleSettingsSummary()">Sammanställning</button>
         </div>
       </div>
-
       <div class="settings-group">
         <h4>Kontroll & test</h4>
-        <div class="settings-group-desc">Kontrollera tekniska funktioner i appen.</div>
-        <div class="settings-group-buttons">
+        <div class="muted">Testfunktioner som inte används varje dag.</div>
+        <div class="settings-group-actions">
           <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
         </div>
       </div>
@@ -1053,8 +1068,6 @@ button{
       </div>
     </div>
   </div>
-
-</div>
 
 <script>
 
@@ -2925,13 +2938,6 @@ function applySopsandDefaultDestination(){
   }
 }
 
-function updateNewSeaweedUI(){
-  return;
-}
-
-function updateNewSeaweedRoute(){
-  return;
-}
 
 function showTab(tab){
   ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
@@ -2953,7 +2959,7 @@ function showTab(tab){
   }
 
   if(isSettings){
-    hideSettingsPanels();
+    hideSettingsPanels('');
   }
 }
 
@@ -3006,24 +3012,6 @@ function quickJob(vehicle, type, place, dest, comment, displayType, privateComme
 }
 
 
-function openNewJobPreset(type){
-  showTab('nytt');
-
-  const typeEl = document.getElementById('newType');
-  const vehicleEl = document.getElementById('newVehicle');
-  if(vehicleEl) vehicleEl.value = 'lastbil';
-  if(typeEl){
-    typeEl.value = type;
-  }
-
-  updateNewMachineUI();
-  updateNewSeaweedUI();
-  updateFixedRouteRules();
-}
-function startQuickSeaweed(){
-  alert('Havstång används nu som vanlig jobbtyp med vanliga Från/Till.');
-}
-
 function resetNewJobForm(){
   const typeEl = document.getElementById('newType');
   const placeEl = document.getElementById('newPlace');
@@ -3041,7 +3029,6 @@ function resetNewJobForm(){
   setNewPlannedDate(todayStr());
 
   updateNewMachineUI();
-  updateNewSeaweedUI();
   updateFixedRouteRules();
 }
 
@@ -3152,22 +3139,6 @@ function addManualJobToQueue(){
   saveState();
   render();
   showTab('ko');
-}
-
-function quickQueue(type, place, dest, displayType){
-  const vehicle = type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
-  saveState(); render();
-}
-
-function quickQueueCustom(vehicle, type, place, dest, comment, displayType){
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
-  saveState(); render();
-}
-
-function quickQueueMachine(type, place, dest, displayType){
-  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
-  saveState(); render();
 }
 
 function startQueuedJob(qid){
@@ -3288,19 +3259,6 @@ function addLoadToCurrent(){
   saveState(); render();
 }
 
-function addLoadToLatest(){
-  const raw = document.getElementById('weightInput').value.replace(',', '.');
-  const n = Number(raw);
-  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
-  const latest = state.active || state.jobs[0];
-  if(!latest){ alert('Det finns inget jobb att lägga vikt på.'); return; }
-  latest.loads = latest.loads || [];
-  latest.loads.push(n);
-  latest.totalWeight = latest.loads.reduce((a,b)=>a+b,0);
-  document.getElementById('weightInput').value = '';
-  saveState(); render();
-}
-
 function stopJob(){
   if(!state.active) return;
 
@@ -3322,11 +3280,6 @@ function stopJob(){
 
   saveState();
   render();
-}
-
-function switchJob(){
-  if(state.active) stopJob();
-  showTab('snabb');
 }
 
 function renderActive(){
@@ -3444,12 +3397,12 @@ function openEditJob(jobId){
   const totalMinutes = Math.max(0, Math.round(((job.end || Date.now()) - (job.start || Date.now())) / 60000));
 
   document.getElementById('editJobId').value = job.id;
+  document.getElementById('editDate').value = job.date || todayStr();
   document.getElementById('editType').value = job.type || '';
   document.getElementById('editPlace').value = job.place || '';
   document.getElementById('editDest').value = job.dest || '';
   document.getElementById('editComment').value = job.comment || '';
   document.getElementById('editPrivateComment').value = job.privateComment || '';
-  document.getElementById('editDate').value = job.date || todayStr();
   document.getElementById('editMinutes').value = totalMinutes;
   document.getElementById('editWeight').value = Number(job.totalWeight || 0).toFixed(1).replace('.', ',');
   document.getElementById('editJobModal').classList.add('show');
@@ -3478,24 +3431,23 @@ function saveEditedJob(){
     return;
   }
 
-  const editedDate = document.getElementById('editDate').value || job.date || todayStr();
-  if(!isValidIsoDate(editedDate)){
+  const editDate = document.getElementById('editDate') ? document.getElementById('editDate').value : (job.date || todayStr());
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(editDate)){
     alert('Välj ett giltigt datum.');
     return;
   }
 
   const oldStart = new Date(job.start || Date.now());
-  const newStart = parseIsoLocal(editedDate);
+  const newStart = parseIsoLocal(editDate);
   newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), oldStart.getSeconds(), oldStart.getMilliseconds());
 
+  job.date = editDate;
+  job.start = newStart.getTime();
   job.type = document.getElementById('editType').value;
   job.place = document.getElementById('editPlace').value;
   job.dest = document.getElementById('editDest').value;
   job.comment = document.getElementById('editComment').value;
   job.privateComment = document.getElementById('editPrivateComment').value;
-  job.date = editedDate;
-  job.plannedDate = editedDate;
-  job.start = newStart.getTime();
   job.end = job.start + Math.round(minutes) * 60000;
   job.totalWeight = weight;
   job.loads = weight > 0 ? [weight] : [];
@@ -3890,17 +3842,17 @@ function groupedQuickItems(){
   return groups;
 }
 
-function renderQuickGroupCards(target){
+
+function renderQuickGroupCards(){
   const groups = groupedQuickItems();
   if(!groups.length){
     return '<div class="muted">Inga snabbval finns inlagda.</div>';
   }
-  const fn = target === 'queue' ? 'queueQuickItem' : 'startQuickItem';
   return groups.map(group =>
     '<div class="card">'+
-      '<h3>' + escapeHtml(target === 'queue' ? ('Snabbval ' + group.name + ' (kö)') : group.name) + '</h3>'+
+      '<h3>' + escapeHtml(group.name) + '</h3>'+
       '<div class="btn-grid">'+
-        group.items.map(item => '<button onclick="'+fn+'(\''+escapeJsSingle(item.id)+'\', this)">'+escapeHtml(item.label || item.type || 'Snabbval')+'</button>').join('')+
+        group.items.map(item => '<button data-quick-button="'+escapeHtml(item.id)+'" onclick="handleQuickButtonPress(event, \''+escapeJsSingle(item.id)+'\')">'+escapeHtml(item.label || item.type || 'Snabbval')+'</button>').join('')+
       '</div>'+
     '</div>'
   ).join('');
@@ -3908,107 +3860,66 @@ function renderQuickGroupCards(target){
 
 function renderQuickSelections(){
   const mainEl = document.getElementById('quickMainList');
-  if(mainEl) mainEl.innerHTML = renderQuickGroupCards('active');
+  if(mainEl) mainEl.innerHTML = renderQuickGroupCards();
 }
 
-let quickFeedbackLocked = false;
-
-function runQuickButtonFeedback(button, feedbackText, action){
-  if(quickFeedbackLocked) return;
-  quickFeedbackLocked = true;
-
-  const originalText = button ? button.textContent : '';
-  if(button){
-    button.disabled = true;
-    button.classList.add('quick-feedback-active');
-    button.textContent = feedbackText;
+function handleQuickButtonPress(event, quickId){
+  const btn = event && event.currentTarget ? event.currentTarget : null;
+  if(btn){
+    if(btn.disabled) return;
+    const originalText = btn.getAttribute('data-original-text') || btn.textContent;
+    btn.setAttribute('data-original-text', originalText);
+    btn.disabled = true;
+    btn.classList.add('quick-feedback');
+    btn.textContent = getQuickMode() === 'queue' ? 'Lägger i kö...' : 'Startar...';
   }
 
-  setTimeout(() => {
-    try{
-      action();
-    } finally {
-      if(button && document.body.contains(button)){
-        button.disabled = false;
-        button.classList.remove('quick-feedback-active');
-        button.textContent = originalText;
-      }
-      quickFeedbackLocked = false;
+  window.setTimeout(() => {
+    startQuickItem(quickId);
+    if(btn){
+      btn.disabled = false;
+      btn.classList.remove('quick-feedback');
+      btn.textContent = btn.getAttribute('data-original-text') || btn.textContent;
     }
   }, 550);
 }
 
-function startQuickItem(quickId, button){
-  const mode = getQuickMode();
-  const feedbackText = mode === 'queue' ? 'Lägger i kö...' : 'Startar...';
-
-  runQuickButtonFeedback(button, feedbackText, () => {
-    const item = getQuickItemById(quickId);
-    if(!item) return;
-
-    if(item.action === 'machineTransport'){
-      openMachineTransport(mode === 'queue' ? 'queue' : 'active');
-      return;
-    }
-    if(!item.type){
-      alert('Snabbvalet saknar jobbtyp.');
-      return;
-    }
-
-    if(mode === 'queue'){
-      state.queue.push({
-        id:id(),
-        vehicle:getQuickVehicle(item),
-        type:item.type,
-        displayType:item.displayType || item.type,
-        place:item.place || '',
-        dest:item.dest || '',
-        placeLabel:getStoredPlaceLabel(item.place || ''),
-        destLabel:getStoredPlaceLabel(item.dest || ''),
-        comment:item.comment || '',
-        privateComment:item.privateComment || '',
-        status:'köad',
-        date:todayStr(),
-        plannedDate:getQuickPlannedDate()
-      });
-      sortQueueByPlannedDate();
-      saveState();
-      render();
-      return;
-    }
-
-    quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '');
-  });
-}
-
-function queueQuickItem(quickId, button){
+function startQuickItem(quickId){
   const item = getQuickItemById(quickId);
   if(!item) return;
+  const mode = getQuickMode();
   if(item.action === 'machineTransport'){
-    openMachineTransport('queue');
+    openMachineTransport(mode === 'queue' ? 'queue' : 'active');
     return;
   }
   if(!item.type){
     alert('Snabbvalet saknar jobbtyp.');
     return;
   }
-  state.queue.push({
-    id:id(),
-    vehicle:getQuickVehicle(item),
-    type:item.type,
-    displayType:item.displayType || item.type,
-    place:item.place || '',
-    dest:item.dest || '',
-    placeLabel:getStoredPlaceLabel(item.place || ''),
-    destLabel:getStoredPlaceLabel(item.dest || ''),
-    comment:item.comment || '',
-    privateComment:item.privateComment || '',
-    status:'köad',
-    date:todayStr(),
-    plannedDate:getQuickPlannedDate ? getQuickPlannedDate() : todayStr()
-  });
-  saveState();
-  render();
+
+  if(mode === 'queue'){
+    state.queue.push({
+      id:id(),
+      vehicle:getQuickVehicle(item),
+      type:item.type,
+      displayType:item.displayType || item.type,
+      place:item.place || '',
+      dest:item.dest || '',
+      placeLabel:getStoredPlaceLabel(item.place || ''),
+      destLabel:getStoredPlaceLabel(item.dest || ''),
+      comment:item.comment || '',
+      privateComment:item.privateComment || '',
+      status:'köad',
+      date:todayStr(),
+      plannedDate:getQuickPlannedDate()
+    });
+    sortQueueByPlannedDate();
+    saveState();
+    render();
+    return;
+  }
+
+  quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '');
 }
 
 function getQuickGroupValues(extraValues = []){
@@ -4523,7 +4434,6 @@ refreshPlaceSelects();
 document.getElementById('newType').addEventListener('change', function(){
   updateNewJobPlaceSelects(false);
   updateNewMachineUI();
-  updateNewSeaweedUI();
   updateFixedRouteRules();
   applySopsandDefaultDestination();
 });
@@ -4558,7 +4468,6 @@ if(state.active){
 }
 updateNewJobPlaceSelects(true);
 updateNewMachineUI();
-updateNewSeaweedUI();
 updateFixedRouteRules();
 applySopsandDefaultDestination();
 updateSummaryControls();
