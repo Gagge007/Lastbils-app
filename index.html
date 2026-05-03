@@ -287,49 +287,30 @@ button{
   background:#fafcff;
 }
 #tab-settings .settings-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px;
-  margin-top:6px;
-}
-
-#tab-settings .settings-groups{
   display:grid;
   grid-template-columns:1fr;
   gap:12px;
-  margin-top:10px;
+  margin-top:6px;
 }
-#tab-settings .settings-group-card{
+#tab-settings .settings-group{
   border:1px solid var(--border);
   border-radius:18px;
   padding:14px;
   background:#fff;
 }
-#tab-settings .settings-group-card > button{
-  width:100%;
-  justify-content:center;
+#tab-settings .settings-group h4{
+  margin:0 0 4px;
+  font-size:17px;
 }
-#tab-settings .settings-group-card .muted{
-  margin-top:8px;
+#tab-settings .settings-group-desc{
+  color:var(--muted);
+  font-size:14px;
+  margin-bottom:12px;
 }
-#tab-settings .settings-group-actions{
+#tab-settings .settings-group-buttons{
   display:flex;
   flex-wrap:wrap;
-  gap:10px;
-  margin-top:12px;
-}
-#tab-settings .settings-group-actions.hidden{
-  display:none !important;
-}
-.quick-pressed{
-  outline:3px solid #0f172a !important;
-  outline-offset:2px !important;
-  transform:scale(0.98);
-  filter:brightness(0.96);
-}
-button.quick-pressed:disabled{
-  opacity:1 !important;
-  cursor:wait !important;
+  gap:12px;
 }
 
 #tab-settings .place-manager{
@@ -459,6 +440,13 @@ button.quick-pressed:disabled{
 }
 .quick-mode-info{
   margin-top:10px;
+}
+.quick-feedback-active{
+  background:#0f172a !important;
+  color:#fff !important;
+  opacity:.88 !important;
+  transform:scale(.98);
+  cursor:wait !important;
 }
 .new-job-date-block{
   margin-top:10px;
@@ -805,9 +793,7 @@ button.quick-pressed:disabled{
   <div class="modal-card">
     <h3>Redigera avslutat jobb</h3>
     <input type="hidden" id="editJobId">
-    <label>Datum</label>
-    <input id="editDate" type="date">
-    <label style="margin-top:10px">Jobbtyp</label>
+    <label>Jobbtyp</label>
     <select id="editType"></select>
     <label style="margin-top:10px">Från</label>
     <input id="editPlace">
@@ -817,6 +803,8 @@ button.quick-pressed:disabled{
     <textarea id="editComment"></textarea>
     <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
     <textarea id="editPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
+    <label style="margin-top:10px">Datum</label>
+    <input id="editDate" type="date">
     <label style="margin-top:10px">Tid i minuter</label>
     <input id="editMinutes" type="number" min="0" step="1" placeholder="Ange tid i minuter">
     <label style="margin-top:10px">Total vikt i ton</label>
@@ -830,31 +818,33 @@ button.quick-pressed:disabled{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="settings-groups">
-      <div class="settings-group-card">
-        <button class="primary" onclick="toggleSettingsGroup('settingsGroupWorkflows')">Hantera arbetsflöden</button>
-        <div class="muted">Platser, jobbtyper, maskiner och snabbval som styr hur uppdrag skapas.</div>
-        <div id="settingsGroupWorkflows" class="settings-group-actions hidden">
+    <div class="settings-actions">
+      <div class="settings-group">
+        <h4>Hantera arbetsflöden</h4>
+        <div class="settings-group-desc">Platser, jobbtyper, maskiner och snabbval som styr hur uppdrag skapas.</div>
+        <div class="settings-group-buttons">
           <button class="primary" onclick="togglePlaceManager()">Hantera platser</button>
           <button class="primary" onclick="toggleQuickManager()">Snabbval</button>
           <button class="primary" onclick="toggleJobTypeManager()">Jobbtyper</button>
           <button class="primary" onclick="toggleMachineManager()">Maskiner</button>
         </div>
       </div>
-      <div class="settings-group-card">
-        <button class="primary" onclick="toggleSettingsGroup('settingsGroupTransfer')">Överföring & backup</button>
-        <div class="muted">Skicka kö mellan enheter och säkerhetskopiera appdata.</div>
-        <div id="settingsGroupTransfer" class="settings-group-actions hidden">
+
+      <div class="settings-group">
+        <h4>Överföring & backup</h4>
+        <div class="settings-group-desc">Skicka kö mellan enheter, säkerhetskopiera appdata och exportera sammanställning.</div>
+        <div class="settings-group-buttons">
           <button class="primary" onclick="toggleQueueTransferManager()">Överför kö</button>
           <button class="primary" onclick="toggleBackupManager()">Backup</button>
+          <button class="primary" onclick="toggleSettingsSummary()">Sammanställning</button>
         </div>
       </div>
-      <div class="settings-group-card">
-        <button class="primary" onclick="toggleSettingsGroup('settingsGroupControl')">Kontroll & test</button>
-        <div class="muted">GPS-test och sammanställning av utförda jobb.</div>
-        <div id="settingsGroupControl" class="settings-group-actions hidden">
+
+      <div class="settings-group">
+        <h4>Kontroll & test</h4>
+        <div class="settings-group-desc">Kontrollera tekniska funktioner i appen.</div>
+        <div class="settings-group-buttons">
           <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
-          <button class="primary" onclick="toggleSettingsSummary()">Sammanställning</button>
         </div>
       </div>
     </div>
@@ -1690,29 +1680,6 @@ function clockTime(ts){
   const d = new Date(ts);
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
-
-function getJobDateValue(job){
-  if(job && isValidIsoDate(job.date)) return job.date;
-  if(job && job.start){
-    const d = new Date(job.start);
-    if(!Number.isNaN(d.getTime())) return toIsoLocal(d);
-  }
-  return todayStr();
-}
-
-function moveTimestampToDate(timestamp, isoDate){
-  const base = timestamp ? new Date(timestamp) : new Date();
-  const target = parseIsoLocal(isoDate);
-  return new Date(
-    target.getFullYear(),
-    target.getMonth(),
-    target.getDate(),
-    base.getHours(),
-    base.getMinutes(),
-    base.getSeconds(),
-    base.getMilliseconds()
-  ).getTime();
-}
 function id(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
 
 function getJobTypeMeta(type){
@@ -2127,23 +2094,6 @@ function hideSettingsPanels(exceptId){
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
   });
-}
-
-function hideSettingsGroups(exceptId){
-  ['settingsGroupWorkflows','settingsGroupTransfer','settingsGroupControl'].forEach(groupId => {
-    if(groupId === exceptId) return;
-    const group = document.getElementById(groupId);
-    if(group) group.classList.add('hidden');
-  });
-}
-
-function toggleSettingsGroup(groupId){
-  const group = document.getElementById(groupId);
-  if(!group) return;
-  const willShow = group.classList.contains('hidden');
-  hideSettingsGroups(groupId);
-  hideSettingsPanels();
-  group.classList.toggle('hidden', !willShow);
 }
 
 function toggleGpsTestManager(){
@@ -3004,7 +2954,6 @@ function showTab(tab){
 
   if(isSettings){
     hideSettingsPanels();
-    hideSettingsGroups();
   }
 }
 
@@ -3495,12 +3444,12 @@ function openEditJob(jobId){
   const totalMinutes = Math.max(0, Math.round(((job.end || Date.now()) - (job.start || Date.now())) / 60000));
 
   document.getElementById('editJobId').value = job.id;
-  document.getElementById('editDate').value = getJobDateValue(job);
   document.getElementById('editType').value = job.type || '';
   document.getElementById('editPlace').value = job.place || '';
   document.getElementById('editDest').value = job.dest || '';
   document.getElementById('editComment').value = job.comment || '';
   document.getElementById('editPrivateComment').value = job.privateComment || '';
+  document.getElementById('editDate').value = job.date || todayStr();
   document.getElementById('editMinutes').value = totalMinutes;
   document.getElementById('editWeight').value = Number(job.totalWeight || 0).toFixed(1).replace('.', ',');
   document.getElementById('editJobModal').classList.add('show');
@@ -3529,8 +3478,15 @@ function saveEditedJob(){
     return;
   }
 
-  const editDateEl = document.getElementById('editDate');
-  const editedDate = editDateEl && isValidIsoDate(editDateEl.value) ? editDateEl.value : getJobDateValue(job);
+  const editedDate = document.getElementById('editDate').value || job.date || todayStr();
+  if(!isValidIsoDate(editedDate)){
+    alert('Välj ett giltigt datum.');
+    return;
+  }
+
+  const oldStart = new Date(job.start || Date.now());
+  const newStart = parseIsoLocal(editedDate);
+  newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), oldStart.getSeconds(), oldStart.getMilliseconds());
 
   job.type = document.getElementById('editType').value;
   job.place = document.getElementById('editPlace').value;
@@ -3539,7 +3495,7 @@ function saveEditedJob(){
   job.privateComment = document.getElementById('editPrivateComment').value;
   job.date = editedDate;
   job.plannedDate = editedDate;
-  job.start = moveTimestampToDate(job.start || Date.now(), editedDate);
+  job.start = newStart.getTime();
   job.end = job.start + Math.round(minutes) * 60000;
   job.totalWeight = weight;
   job.loads = weight > 0 ? [weight] : [];
@@ -3955,81 +3911,77 @@ function renderQuickSelections(){
   if(mainEl) mainEl.innerHTML = renderQuickGroupCards('active');
 }
 
-function runQuickButtonFeedback(button, message, action){
-  if(button && button.dataset.quickBusy === '1') return;
+let quickFeedbackLocked = false;
 
-  if(!button){
-    action();
-    return;
+function runQuickButtonFeedback(button, feedbackText, action){
+  if(quickFeedbackLocked) return;
+  quickFeedbackLocked = true;
+
+  const originalText = button ? button.textContent : '';
+  if(button){
+    button.disabled = true;
+    button.classList.add('quick-feedback-active');
+    button.textContent = feedbackText;
   }
-
-  const originalText = button.textContent;
-  button.dataset.quickBusy = '1';
-  button.disabled = true;
-  button.classList.add('quick-pressed');
-  button.textContent = message;
 
   setTimeout(() => {
     try{
       action();
     } finally {
-      button.textContent = originalText;
-      button.disabled = false;
-      button.classList.remove('quick-pressed');
-      delete button.dataset.quickBusy;
+      if(button && document.body.contains(button)){
+        button.disabled = false;
+        button.classList.remove('quick-feedback-active');
+        button.textContent = originalText;
+      }
+      quickFeedbackLocked = false;
     }
   }, 550);
 }
 
 function startQuickItem(quickId, button){
   const mode = getQuickMode();
-  const message = mode === 'queue' ? 'Lägger i kö...' : 'Startar...';
-  runQuickButtonFeedback(button, message, () => executeStartQuickItem(quickId, mode));
-}
+  const feedbackText = mode === 'queue' ? 'Lägger i kö...' : 'Startar...';
 
-function executeStartQuickItem(quickId, mode){
-  const item = getQuickItemById(quickId);
-  if(!item) return;
-  const selectedMode = mode === 'queue' ? 'queue' : 'start';
-  if(item.action === 'machineTransport'){
-    openMachineTransport(selectedMode === 'queue' ? 'queue' : 'active');
-    return;
-  }
-  if(!item.type){
-    alert('Snabbvalet saknar jobbtyp.');
-    return;
-  }
+  runQuickButtonFeedback(button, feedbackText, () => {
+    const item = getQuickItemById(quickId);
+    if(!item) return;
 
-  if(selectedMode === 'queue'){
-    state.queue.push({
-      id:id(),
-      vehicle:getQuickVehicle(item),
-      type:item.type,
-      displayType:item.displayType || item.type,
-      place:item.place || '',
-      dest:item.dest || '',
-      placeLabel:getStoredPlaceLabel(item.place || ''),
-      destLabel:getStoredPlaceLabel(item.dest || ''),
-      comment:item.comment || '',
-      privateComment:item.privateComment || '',
-      status:'köad',
-      date:todayStr(),
-      plannedDate:getQuickPlannedDate()
-    });
-    sortQueueByPlannedDate();
-    saveState();
-    render();
-    return;
-  }
+    if(item.action === 'machineTransport'){
+      openMachineTransport(mode === 'queue' ? 'queue' : 'active');
+      return;
+    }
+    if(!item.type){
+      alert('Snabbvalet saknar jobbtyp.');
+      return;
+    }
 
-  quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '');
+    if(mode === 'queue'){
+      state.queue.push({
+        id:id(),
+        vehicle:getQuickVehicle(item),
+        type:item.type,
+        displayType:item.displayType || item.type,
+        place:item.place || '',
+        dest:item.dest || '',
+        placeLabel:getStoredPlaceLabel(item.place || ''),
+        destLabel:getStoredPlaceLabel(item.dest || ''),
+        comment:item.comment || '',
+        privateComment:item.privateComment || '',
+        status:'köad',
+        date:todayStr(),
+        plannedDate:getQuickPlannedDate()
+      });
+      sortQueueByPlannedDate();
+      saveState();
+      render();
+      return;
+    }
+
+    quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '');
+  });
 }
 
 function queueQuickItem(quickId, button){
-  runQuickButtonFeedback(button, 'Lägger i kö...', () => executeQueueQuickItem(quickId));
-}
-
-function executeQueueQuickItem(quickId){
   const item = getQuickItemById(quickId);
   if(!item) return;
   if(item.action === 'machineTransport'){
@@ -4055,7 +4007,6 @@ function executeQueueQuickItem(quickId){
     date:todayStr(),
     plannedDate:getQuickPlannedDate ? getQuickPlannedDate() : todayStr()
   });
-  sortQueueByPlannedDate();
   saveState();
   render();
 }
