@@ -533,91 +533,6 @@ button{
 .legend-red{background:#fee2e2;border-color:#fca5a5;}
 .legend-yellow{background:#fef3c7;border-color:#facc15;}
 
-/* Mobilfix för kalender i Nytt jobb och Snabbval */
-.modal-card{
-  max-width:min(520px, calc(100vw - 24px)) !important;
-  overflow:hidden;
-}
-.calendar-weekdays,
-.calendar-grid{
-  grid-template-columns:repeat(7,minmax(0,1fr)) !important;
-  width:100%;
-  max-width:100%;
-}
-.calendar-day{
-  min-width:0 !important;
-  width:100% !important;
-  max-width:100% !important;
-  overflow:hidden !important;
-}
-.calendar-day span,
-.calendar-day small{
-  max-width:100%;
-  overflow-wrap:anywhere;
-  word-break:normal;
-}
-@media(max-width:700px){
-  .modal-backdrop{
-    padding:10px !important;
-    align-items:flex-start !important;
-    overflow:auto !important;
-  }
-  .modal-card{
-    width:calc(100vw - 20px) !important;
-    max-width:calc(100vw - 20px) !important;
-    max-height:calc(100vh - 20px);
-    overflow:auto;
-    padding:14px !important;
-  }
-  .calendar-weekdays,
-  .calendar-grid{
-    gap:4px !important;
-  }
-  .calendar-weekdays div{
-    min-width:0;
-    font-size:11px;
-  }
-  .calendar-day{
-    min-height:58px !important;
-    padding:5px 2px !important;
-    border-radius:13px !important;
-    font-size:18px !important;
-  }
-  .calendar-day small{
-    font-size:10px !important;
-    line-height:1.05 !important;
-  }
-  .calendar-header button.inline{
-    width:52px !important;
-    min-width:52px !important;
-    padding-left:0 !important;
-    padding-right:0 !important;
-  }
-  .calendar-header strong{
-    font-size:17px !important;
-  }
-  .calendar-legend{
-    font-size:12px;
-  }
-}
-@media(max-width:390px){
-  .modal-card{
-    padding:12px !important;
-  }
-  .calendar-weekdays,
-  .calendar-grid{
-    gap:3px !important;
-  }
-  .calendar-day{
-    min-height:54px !important;
-    font-size:16px !important;
-    border-radius:12px !important;
-  }
-  .calendar-day small{
-    font-size:9px !important;
-  }
-}
-
 #tab-settings .settings-groups{
   display:grid;
   grid-template-columns:1fr;
@@ -687,6 +602,58 @@ button{
 .trash-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;}
 .btn-grid button.quick-feedback:disabled{
   cursor:wait !important;
+}
+
+
+/* Mobilfix för datumkalendrar och historikkalender */
+.modal-card{
+  max-width:min(520px, calc(100vw - 28px)) !important;
+  overflow-x:hidden !important;
+}
+.calendar-weekdays,
+.calendar-grid,
+.history-calendar-grid{
+  width:100% !important;
+  max-width:100% !important;
+  grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+  gap:5px !important;
+}
+.calendar-weekdays div{
+  min-width:0 !important;
+}
+.calendar-day,
+.history-calendar-day{
+  min-width:0 !important;
+  width:100% !important;
+  overflow:hidden !important;
+  word-break:break-word !important;
+}
+.calendar-day span,
+.history-calendar-day span,
+.calendar-day small,
+.history-calendar-day small{
+  max-width:100% !important;
+  overflow-wrap:anywhere !important;
+}
+@media(max-width:520px){
+  .modal-card{padding:12px !important;}
+  .calendar-grid,
+  .calendar-weekdays,
+  .history-calendar-grid{gap:4px !important;}
+  .calendar-weekdays div{font-size:11px !important;}
+  .calendar-day,
+  .history-calendar-day{
+    min-height:58px !important;
+    padding:5px 2px !important;
+    border-radius:12px !important;
+    font-size:15px !important;
+  }
+  .calendar-day small,
+  .history-calendar-day small{
+    font-size:9px !important;
+    line-height:1.05 !important;
+  }
+  .history-calendar-grid{margin-top:6px !important;}
 }
 
 </style>
@@ -958,9 +925,10 @@ button{
       </div>
       <div class="settings-group">
         <h4>Överföring & backup</h4>
-        <div class="muted">Skicka kö mellan enheter, säkerhetskopiera appdata och exportera sammanställning.</div>
+        <div class="muted">Skicka kö och avslutade jobb mellan enheter, säkerhetskopiera appdata och exportera sammanställning.</div>
         <div class="settings-group-actions">
           <button class="primary" onclick="toggleQueueTransferManager()">Överför kö</button>
+          <button class="primary" onclick="toggleFinishedTransferManager()">Överför avslutade jobb</button>
           <button class="primary" onclick="toggleBackupManager()">Backup</button>
           <button class="primary" onclick="toggleSettingsSummary()">Sammanställning</button>
         </div>
@@ -1150,6 +1118,27 @@ button{
         <input id="queueImportFile" type="file" accept=".json,application/json">
         <div class="row">
           <button class="primary inline" onclick="importQueueFile()">Importera kö-fil</button>
+        </div>
+      </div>
+    </div>
+    <div id="finishedTransferManagerWrap" class="place-manager hidden">
+      <div class="place-help">Skicka eller ta emot avslutade jobb mellan telefon och surfplatta. Import lägger till jobben i historiken så de kommer med i samma Excel-export senare.</div>
+
+      <div class="place-row">
+        <div class="place-key">Dela avslutade jobb</div>
+        <div class="multi-help">Skapar en historikfil med avslutade jobb. Interna kommentarer följer med. Filnamn: lastbil-avslutade-ÅÅÅÅ-MM-DD-HHMM.json.</div>
+        <div id="finishedTransferExportInfo" class="multi-help"></div>
+        <div class="row">
+          <button class="primary inline" onclick="shareFinishedJobsFile()">Dela avslutade jobb</button>
+        </div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Importera avslutade jobb</div>
+        <div class="multi-help">Välj en historikfil som du har tagit emot via Quick Share. Jobben läggs till i surfplattans historik. Befintliga jobb skrivs inte över och dubbletter hoppas över.</div>
+        <input id="finishedImportFile" type="file" accept=".json,application/json">
+        <div class="row">
+          <button class="primary inline" onclick="importFinishedJobsFile()">Importera avslutade jobb</button>
         </div>
       </div>
     </div>
@@ -2298,7 +2287,7 @@ function renderGpsTestPoint(point, extraStatus){
 
 
 function hideSettingsPanels(exceptId){
-  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
@@ -2313,7 +2302,7 @@ function scrollToSettingsPanel(wrap){
     }catch(e){
       try{ wrap.scrollIntoView(true); }catch(err){}
     }
-  }, 120);
+  }, 80);
 }
 
 function toggleSettingsPanel(panelId, onShow){
@@ -2550,10 +2539,17 @@ function renderTrashManager(){
 
 
 function toggleCleanupManager(){
-  toggleSettingsPanel('cleanupManagerWrap', () => {
+  const wrap = document.getElementById('cleanupManagerWrap');
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  if(willShow){
+    hideSettingsPanels('cleanupManagerWrap');
+    wrap.classList.remove('hidden');
     initializeCleanupControls();
     renderCleanupPreview();
-  });
+  } else {
+    wrap.classList.add('hidden');
+  }
 }
 
 function initializeCleanupControls(){
@@ -3083,6 +3079,225 @@ function importQueueFile(){
   reader.readAsText(file);
 }
 
+
+
+let lastFinishedDownloadUrl = null;
+
+function toggleFinishedTransferManager(){
+  toggleSettingsPanel('finishedTransferManagerWrap', () => {
+    updateFinishedTransferInfo();
+  });
+}
+
+function updateFinishedTransferInfo(){
+  const el = document.getElementById('finishedTransferExportInfo');
+  if(!el) return;
+  const count = (state.jobs || []).length;
+  el.textContent = count === 1 ? '1 avslutat jobb finns att dela.' : count + ' avslutade jobb finns att dela.';
+}
+
+function getFinishedTransferFilename(){
+  const d = new Date();
+  const stamp = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '-' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+  return 'lastbil-avslutade-' + stamp + '.json';
+}
+
+function getFinishedJobTransferKey(job){
+  if(!job) return '';
+  const sourceId = String(job.sourceJobId || job.originalJobId || job.id || '').trim();
+  if(sourceId) return 'id:' + sourceId;
+  return ['job', job.date || '', job.type || '', job.place || '', job.dest || '', job.start || '', job.end || '', job.totalWeight || '', job.comment || ''].join('|');
+}
+
+function sanitizeFinishedJobForTransfer(job){
+  const copy = JSON.parse(JSON.stringify(job || {}));
+  copy.sourceJobId = String(job.sourceJobId || job.originalJobId || job.id || '').trim();
+  copy.transferKey = getFinishedJobTransferKey(copy);
+  return copy;
+}
+
+function buildFinishedTransferPayload(){
+  const jobs = (state.jobs || []).map(sanitizeFinishedJobForTransfer);
+  return {
+    app: 'Lastbil app',
+    transferType: 'finished_jobs',
+    transferVersion: 1,
+    exportedAt: new Date().toISOString(),
+    itemCount: jobs.length,
+    jobs: jobs
+  };
+}
+
+function setFinishedDownloadLink(url, filename){
+  const el = document.getElementById('finishedTransferExportInfo');
+  if(el){
+    el.innerHTML = 'Historikfil skapad: <a href="' + url + '" download="' + escapeHtml(filename) + '">Ladda ner ' + escapeHtml(filename) + '</a>';
+  }
+}
+
+function downloadFinishedJobsBlob(blob, filename){
+  if(lastFinishedDownloadUrl){
+    try{ URL.revokeObjectURL(lastFinishedDownloadUrl); }catch(e){}
+    lastFinishedDownloadUrl = null;
+  }
+  const url = URL.createObjectURL(blob);
+  lastFinishedDownloadUrl = url;
+  setFinishedDownloadLink(url, filename);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function shareFinishedJobsFile(){
+  const payload = buildFinishedTransferPayload();
+  if(!payload.jobs.length){
+    alert('Det finns inga avslutade jobb att dela.');
+    updateFinishedTransferInfo();
+    return;
+  }
+
+  const filename = getFinishedTransferFilename();
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  let shared = false;
+
+  try{
+    if(typeof File !== 'undefined' && navigator.share){
+      const file = new File([blob], filename, {type:'application/json'});
+      const canShareFile = !navigator.canShare || navigator.canShare({files:[file]});
+      if(canShareFile){
+        await navigator.share({title:'Lastbil avslutade jobb', text:'Avslutade jobb från Lastbil app', files:[file]});
+        shared = true;
+      }
+    }
+  }catch(e){
+    shared = false;
+  }
+
+  if(!shared){
+    downloadFinishedJobsBlob(blob, filename);
+    alert('Historikfilen skapades. Om den inte laddas ner automatiskt, tryck på länken som visas under knappen.');
+  }
+}
+
+function getFinishedJobsFromTransferPayload(parsed){
+  if(!parsed) return [];
+  if(Array.isArray(parsed)) return parsed;
+  if(parsed.transferType === 'finished_jobs' && Array.isArray(parsed.jobs)) return parsed.jobs;
+  if(parsed.app === 'Lastbil app' && Array.isArray(parsed.jobs)) return parsed.jobs;
+  if(Array.isArray(parsed.finishedJobs)) return parsed.finishedJobs;
+  return [];
+}
+
+function normalizeImportedFinishedJob(item){
+  if(!item || typeof item !== 'object') return null;
+  const type = String(item.type || '').trim();
+  if(!type) return null;
+
+  const date = isValidIsoDate(item.date) ? item.date : todayStr();
+  const start = Number(item.start || 0);
+  const end = Number(item.end || 0);
+  const loads = Array.isArray(item.loads) ? item.loads.map(n => Number(n)).filter(n => Number.isFinite(n) && n > 0) : [];
+  const totalWeight = Number.isFinite(Number(item.totalWeight)) ? Number(item.totalWeight) : loads.reduce((a,b)=>a+b,0);
+  const sourceJobId = String(item.sourceJobId || item.originalJobId || item.id || '').trim();
+
+  const normalized = {
+    id:String(item.id || id()),
+    sourceJobId:sourceJobId,
+    vehicle:String(item.vehicle || (type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil')),
+    type:type,
+    displayType:String(item.displayType || type),
+    place:String(item.place || ''),
+    dest:String(item.dest || ''),
+    placeLabel:String(item.placeLabel || getStoredPlaceLabel(item.place || '') || ''),
+    destLabel:String(item.destLabel || getStoredPlaceLabel(item.dest || '') || ''),
+    comment:String(item.comment || ''),
+    privateComment:String(item.privateComment || ''),
+    date:date,
+    plannedDate:isValidIsoDate(item.plannedDate) ? item.plannedDate : date,
+    start:Number.isFinite(start) && start > 0 ? start : Date.parse(date + 'T00:00:00'),
+    end:Number.isFinite(end) && end > 0 ? end : Date.parse(date + 'T00:00:00'),
+    loads:loads,
+    totalWeight:totalWeight,
+    distanceKm:Number.isFinite(Number(item.distanceKm)) ? Number(item.distanceKm) : 0
+  };
+
+  if(normalized.end < normalized.start) normalized.end = normalized.start;
+  normalized.transferKey = item.transferKey || getFinishedJobTransferKey(normalized);
+  return normalized;
+}
+
+function importFinishedJobsFile(){
+  const input = document.getElementById('finishedImportFile');
+  if(!input || !input.files || !input.files[0]){
+    alert('Välj en historikfil först.');
+    return;
+  }
+
+  const file = input.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function(){
+    try{
+      const parsed = JSON.parse(String(reader.result || ''));
+      const rawItems = getFinishedJobsFromTransferPayload(parsed);
+      const normalized = rawItems.map(normalizeImportedFinishedJob).filter(Boolean);
+
+      if(!normalized.length){
+        alert('Filen innehåller inga giltiga avslutade jobb.');
+        return;
+      }
+
+      const existingKeys = new Set((state.jobs || []).map(getFinishedJobTransferKey).filter(Boolean));
+      const existingIds = new Set((state.jobs || []).map(job => String(job.id || '')).filter(Boolean));
+      const toImport = [];
+      let skippedDuplicates = 0;
+
+      normalized.forEach(job => {
+        const key = job.transferKey || getFinishedJobTransferKey(job);
+        if(key && existingKeys.has(key)){
+          skippedDuplicates++;
+          return;
+        }
+        if(existingIds.has(String(job.id || ''))){
+          job.id = id();
+        }
+        if(key) existingKeys.add(key);
+        existingIds.add(String(job.id || ''));
+        delete job.transferKey;
+        toImport.push(job);
+      });
+
+      if(!toImport.length){
+        alert('Alla avslutade jobb i filen verkar redan finnas i appen. Inget importerades.');
+        input.value = '';
+        return;
+      }
+
+      const message = 'Lägg till ' + toImport.length + ' avslutade jobb i historiken?' +
+        (skippedDuplicates ? '\n\n' + skippedDuplicates + ' dubbletter hoppas över.' : '') +
+        '\n\nBefintliga jobb skrivs inte över.';
+      if(!confirm(message)) return;
+
+      state.jobs.push(...toImport);
+      state.jobs.sort((a,b) => (b.start || 0) - (a.start || 0));
+      saveState();
+      render();
+      updateFinishedTransferInfo();
+      input.value = '';
+      alert(toImport.length + ' avslutade jobb importerades.' + (skippedDuplicates ? ' ' + skippedDuplicates + ' dubbletter hoppades över.' : ''));
+    }catch(e){
+      alert('Kunde inte läsa historikfilen.');
+    }
+  };
+
+  reader.onerror = function(){ alert('Kunde inte läsa filen.'); };
+  reader.readAsText(file);
+}
 function toggleJobTypeManager(){
   toggleSettingsPanel('jobTypeManagerWrap', () => {
     renderJobTypeManager();
