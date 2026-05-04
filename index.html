@@ -533,6 +533,91 @@ button{
 .legend-red{background:#fee2e2;border-color:#fca5a5;}
 .legend-yellow{background:#fef3c7;border-color:#facc15;}
 
+/* Mobilfix för kalender i Nytt jobb och Snabbval */
+.modal-card{
+  max-width:min(520px, calc(100vw - 24px)) !important;
+  overflow:hidden;
+}
+.calendar-weekdays,
+.calendar-grid{
+  grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+  width:100%;
+  max-width:100%;
+}
+.calendar-day{
+  min-width:0 !important;
+  width:100% !important;
+  max-width:100% !important;
+  overflow:hidden !important;
+}
+.calendar-day span,
+.calendar-day small{
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+@media(max-width:700px){
+  .modal-backdrop{
+    padding:10px !important;
+    align-items:flex-start !important;
+    overflow:auto !important;
+  }
+  .modal-card{
+    width:calc(100vw - 20px) !important;
+    max-width:calc(100vw - 20px) !important;
+    max-height:calc(100vh - 20px);
+    overflow:auto;
+    padding:14px !important;
+  }
+  .calendar-weekdays,
+  .calendar-grid{
+    gap:4px !important;
+  }
+  .calendar-weekdays div{
+    min-width:0;
+    font-size:11px;
+  }
+  .calendar-day{
+    min-height:58px !important;
+    padding:5px 2px !important;
+    border-radius:13px !important;
+    font-size:18px !important;
+  }
+  .calendar-day small{
+    font-size:10px !important;
+    line-height:1.05 !important;
+  }
+  .calendar-header button.inline{
+    width:52px !important;
+    min-width:52px !important;
+    padding-left:0 !important;
+    padding-right:0 !important;
+  }
+  .calendar-header strong{
+    font-size:17px !important;
+  }
+  .calendar-legend{
+    font-size:12px;
+  }
+}
+@media(max-width:390px){
+  .modal-card{
+    padding:12px !important;
+  }
+  .calendar-weekdays,
+  .calendar-grid{
+    gap:3px !important;
+  }
+  .calendar-day{
+    min-height:54px !important;
+    font-size:16px !important;
+    border-radius:12px !important;
+  }
+  .calendar-day small{
+    font-size:9px !important;
+  }
+}
+
 #tab-settings .settings-groups{
   display:grid;
   grid-template-columns:1fr;
@@ -758,8 +843,6 @@ button{
     <div id="todayList"></div>
   </div>
 
-</div>
-
 
 <div id="jobDateCalendarModal" class="modal-backdrop">
   <div class="modal-card">
@@ -888,6 +971,7 @@ button{
         <div class="settings-group-actions">
           <button class="primary" onclick="toggleHistoryManager()">Historik kalender</button>
           <button class="primary" onclick="toggleTrashManager()">Papperskorg</button>
+          <button class="primary" onclick="toggleCleanupManager()">Rensa arbetsdata</button>
         </div>
       </div>
       <div class="settings-group">
@@ -964,6 +1048,42 @@ button{
         <div id="trashList"></div>
         <div class="trash-actions">
           <button class="danger inline" onclick="emptyTrash()">Töm papperskorg</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="cleanupManagerWrap" class="place-manager hidden">
+      <div class="place-help">Rensa gammal arbetsdata utan att radera appens upplägg. Platser, jobbtyper, maskiner, snabbval och Mtrl koder behålls.</div>
+
+      <div class="place-row">
+        <div class="place-key">Rensa arbetsdata</div>
+        <div class="multi-help">Rekommendation: exportera backup innan du rensar. Rensning här tar bort vald arbetsdata permanent och skickar den inte till papperskorgen.</div>
+
+        <label>Ta bort data som är äldre än</label>
+        <select id="cleanupAge" onchange="renderCleanupPreview()">
+          <option value="30">30 dagar</option>
+          <option value="90">90 dagar</option>
+          <option value="180">180 dagar</option>
+          <option value="365" selected>1 år</option>
+          <option value="all">All vald arbetsdata</option>
+          <option value="custom">Eget datum</option>
+        </select>
+
+        <div id="cleanupCustomDateWrap" class="hidden">
+          <label>Ta bort data före detta datum</label>
+          <input id="cleanupCustomDate" type="date" onchange="renderCleanupPreview()">
+        </div>
+
+        <div class="row" style="gap:12px; align-items:center; margin-top:8px">
+          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="cleanupFinishedJobs" type="checkbox" checked onchange="renderCleanupPreview()"> Avslutade jobb</label>
+          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="cleanupTrash" type="checkbox" checked onchange="renderCleanupPreview()"> Papperskorg</label>
+          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="cleanupQueue" type="checkbox" onchange="renderCleanupPreview()"> Köuppdrag och pausade jobb</label>
+        </div>
+
+        <div id="cleanupPreview" class="multi-help" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="inline" onclick="renderCleanupPreview()">Beräkna</button>
+          <button class="danger inline" onclick="performCleanupData()">Rensa vald arbetsdata</button>
         </div>
       </div>
     </div>
@@ -2178,11 +2298,36 @@ function renderGpsTestPoint(point, extraStatus){
 
 
 function hideSettingsPanels(exceptId){
-  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
   });
+}
+
+function scrollToSettingsPanel(wrap){
+  if(!wrap) return;
+  setTimeout(() => {
+    try{
+      wrap.scrollIntoView({behavior:'smooth', block:'start'});
+    }catch(e){
+      try{ wrap.scrollIntoView(true); }catch(err){}
+    }
+  }, 120);
+}
+
+function toggleSettingsPanel(panelId, onShow){
+  const wrap = document.getElementById(panelId);
+  if(!wrap) return;
+  const willShow = wrap.classList.contains('hidden');
+  if(willShow){
+    hideSettingsPanels(panelId);
+    wrap.classList.remove('hidden');
+    if(typeof onShow === 'function') onShow();
+    scrollToSettingsPanel(wrap);
+  } else {
+    wrap.classList.add('hidden');
+  }
 }
 
 
@@ -2194,17 +2339,10 @@ function getCurrentMonthInputValue(){
 let historySelectedDate = todayStr();
 
 function toggleHistoryManager(){
-  const wrap = document.getElementById('historyManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('historyManagerWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('historyManagerWrap', () => {
     initializeHistoryControls();
     renderHistoryManager();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function initializeHistoryControls(){
@@ -2331,16 +2469,9 @@ function moveToTrash(source, item){
 }
 
 function toggleTrashManager(){
-  const wrap = document.getElementById('trashManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('trashManagerWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('trashManagerWrap', () => {
     renderTrashManager();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function getTrashLabel(entry){
@@ -2417,17 +2548,157 @@ function renderTrashManager(){
   }).join('');
 }
 
-function toggleGpsTestManager(){
-  const wrap = document.getElementById('gpsTestManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('gpsTestManagerWrap');
-    wrap.classList.remove('hidden');
-    updateGpsEnvironmentInfo();
-  } else {
-    wrap.classList.add('hidden');
+
+function toggleCleanupManager(){
+  toggleSettingsPanel('cleanupManagerWrap', () => {
+    initializeCleanupControls();
+    renderCleanupPreview();
+  });
+}
+
+function initializeCleanupControls(){
+  const customDate = document.getElementById('cleanupCustomDate');
+  if(customDate && !customDate.value){
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 1);
+    customDate.value = toIsoLocal(d);
   }
+}
+
+function getCleanupCutoffIso(){
+  const ageEl = document.getElementById('cleanupAge');
+  const customWrap = document.getElementById('cleanupCustomDateWrap');
+  const mode = ageEl ? ageEl.value : '365';
+
+  if(customWrap) customWrap.classList.toggle('hidden', mode !== 'custom');
+  if(mode === 'all') return '';
+  if(mode === 'custom'){
+    const customDate = document.getElementById('cleanupCustomDate');
+    const value = customDate ? customDate.value : '';
+    return isValidIsoDate(value) ? value : '';
+  }
+
+  const days = Number(mode);
+  if(!Number.isFinite(days) || days <= 0) return '';
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return toIsoLocal(d);
+}
+
+function getCleanupCutoffLabel(cutoffIso){
+  const ageEl = document.getElementById('cleanupAge');
+  const mode = ageEl ? ageEl.value : '365';
+  if(mode === 'all') return 'all vald arbetsdata';
+  if(!cutoffIso) return 'inget giltigt datum valt';
+  return 'data före ' + formatShortDate(cutoffIso);
+}
+
+function getFinishedJobCleanupDate(job){
+  return (job && isValidIsoDate(job.date)) ? job.date : getIsoDateFromTimestamp(job && job.start);
+}
+
+function getQueueCleanupDate(item){
+  if(item && isValidIsoDate(item.plannedDate)) return item.plannedDate;
+  if(item && isValidIsoDate(item.date)) return item.date;
+  return todayStr();
+}
+
+function getTrashCleanupDate(entry){
+  const item = entry && entry.item ? entry.item : {};
+  if(isValidIsoDate(item.date)) return item.date;
+  if(isValidIsoDate(item.plannedDate)) return item.plannedDate;
+  if(entry && entry.deletedAt){
+    const ts = new Date(entry.deletedAt).getTime();
+    if(Number.isFinite(ts)) return getIsoDateFromTimestamp(ts);
+  }
+  return todayStr();
+}
+
+function isOlderThanCleanupCutoff(isoDate, cutoffIso){
+  if(!cutoffIso) return true;
+  if(!isValidIsoDate(isoDate)) return false;
+  return isoDate < cutoffIso;
+}
+
+function getCleanupSelection(){
+  ensureTrash();
+  const cutoffIso = getCleanupCutoffIso();
+  const includeFinished = !!(document.getElementById('cleanupFinishedJobs') && document.getElementById('cleanupFinishedJobs').checked);
+  const includeTrash = !!(document.getElementById('cleanupTrash') && document.getElementById('cleanupTrash').checked);
+  const includeQueue = !!(document.getElementById('cleanupQueue') && document.getElementById('cleanupQueue').checked);
+
+  const finishedJobs = includeFinished ? (state.jobs || []).filter(job => isOlderThanCleanupCutoff(getFinishedJobCleanupDate(job), cutoffIso)) : [];
+  const trashItems = includeTrash ? (state.trash || []).filter(entry => isOlderThanCleanupCutoff(getTrashCleanupDate(entry), cutoffIso)) : [];
+  const queueItems = includeQueue ? (state.queue || []).filter(item => isOlderThanCleanupCutoff(getQueueCleanupDate(item), cutoffIso)) : [];
+
+  return {cutoffIso, includeFinished, includeTrash, includeQueue, finishedJobs, trashItems, queueItems};
+}
+
+function renderCleanupPreview(){
+  const preview = document.getElementById('cleanupPreview');
+  const customWrap = document.getElementById('cleanupCustomDateWrap');
+  const ageEl = document.getElementById('cleanupAge');
+  if(!preview) return;
+
+  const selection = getCleanupSelection();
+  const mode = ageEl ? ageEl.value : '365';
+  if(customWrap) customWrap.classList.toggle('hidden', mode !== 'custom');
+
+  if(mode === 'custom' && !selection.cutoffIso){
+    preview.innerHTML = '<strong>Välj ett giltigt datum först.</strong>';
+    return;
+  }
+
+  const total = selection.finishedJobs.length + selection.trashItems.length + selection.queueItems.length;
+  preview.innerHTML =
+    '<strong>Beräkning: '+escapeHtml(getCleanupCutoffLabel(selection.cutoffIso))+'</strong><br>'+ 
+    'Avslutade jobb som tas bort: '+selection.finishedJobs.length+'<br>'+ 
+    'Papperskorgsposter som tas bort: '+selection.trashItems.length+'<br>'+ 
+    'Köuppdrag/pausade jobb som tas bort: '+selection.queueItems.length+'<br>'+ 
+    '<strong>Totalt: '+total+'</strong><br>'+ 
+    '<span class="queue-alert">Rensningen är permanent. Exportera backup först om du vill kunna återställa.</span>';
+}
+
+function performCleanupData(){
+  const selection = getCleanupSelection();
+  const total = selection.finishedJobs.length + selection.trashItems.length + selection.queueItems.length;
+  if(!total){
+    alert('Det finns ingen vald arbetsdata att rensa med de här inställningarna.');
+    renderCleanupPreview();
+    return;
+  }
+
+  const parts = [];
+  if(selection.finishedJobs.length) parts.push(selection.finishedJobs.length + ' avslutade jobb');
+  if(selection.trashItems.length) parts.push(selection.trashItems.length + ' poster i papperskorgen');
+  if(selection.queueItems.length) parts.push(selection.queueItems.length + ' köuppdrag/pausade jobb');
+
+  const message = 'Rensa permanent: ' + parts.join(', ') + '?\n\n' +
+    'Gäller: ' + getCleanupCutoffLabel(selection.cutoffIso) + '.\n\n' +
+    'Platser, jobbtyper, maskiner, snabbval och Mtrl koder behålls.';
+
+  if(!confirm(message)) return;
+
+  const finishedIds = new Set(selection.finishedJobs.map(job => job.id));
+  const queueIds = new Set(selection.queueItems.map(item => item.id));
+  const trashIds = new Set(selection.trashItems.map(entry => entry.trashId));
+
+  state.jobs = (state.jobs || []).filter(job => !finishedIds.has(job.id));
+  state.queue = (state.queue || []).filter(item => !queueIds.has(item.id));
+  state.trash = (state.trash || []).filter(entry => !trashIds.has(entry.trashId));
+
+  saveState();
+  render();
+  renderHistoryManager();
+  renderTrashManager();
+  renderCleanupPreview();
+  alert('Arbetsdata rensad. Appens upplägg och funktioner är kvar.');
+}
+
+function toggleGpsTestManager(){
+  toggleSettingsPanel('gpsTestManagerWrap', () => {
+    updateGpsEnvironmentInfo();
+  });
 }
 
 function startGpsTest(){
@@ -2508,15 +2779,7 @@ function clearGpsTest(){
 }
 
 function toggleBackupManager(){
-  const wrap = document.getElementById('backupManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('backupManagerWrap');
-    wrap.classList.remove('hidden');
-  } else {
-    wrap.classList.add('hidden');
-  }
+  toggleSettingsPanel('backupManagerWrap');
 }
 
 function getBackupFilename(){
@@ -2615,16 +2878,9 @@ function importAppBackup(){
 let lastQueueDownloadUrl = null;
 
 function toggleQueueTransferManager(){
-  const wrap = document.getElementById('queueTransferManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('queueTransferManagerWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('queueTransferManagerWrap', () => {
     updateQueueTransferInfo();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function updateQueueTransferInfo(){
@@ -2828,16 +3084,9 @@ function importQueueFile(){
 }
 
 function toggleJobTypeManager(){
-  const wrap = document.getElementById('jobTypeManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('jobTypeManagerWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('jobTypeManagerWrap', () => {
     renderJobTypeManager();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function addManagedJobType(){
@@ -2987,17 +3236,10 @@ function renderJobTypeManager(){
 }
 
 function toggleMachineManager(){
-  const wrap = document.getElementById('machineManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('machineManagerWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('machineManagerWrap', () => {
     fillMachineSelects();
     renderMachineManager();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function addManagedMachine(){
@@ -3597,7 +3839,10 @@ function removeQueuedJob(qid){
   const q = state.queue.find(x => x.id === qid);
   if(q) moveToTrash('queue', q);
   state.queue = state.queue.filter(x => x.id !== qid);
-  saveState(); render();
+  saveState();
+  render();
+  renderTrashManager();
+  renderCleanupPreview();
 }
 
 function addLoadToCurrent(){
@@ -3833,6 +4078,8 @@ function deleteFinishedJob(jobId){
   state.jobs = state.jobs.filter(x => x.id !== jobId);
   saveState();
   render();
+  renderTrashManager();
+  renderCleanupPreview();
 }
 
 function renderToday(){
@@ -3976,6 +4223,46 @@ function summarizeJobsByType(jobs){
   return byType;
 }
 
+function summarizeJobsByMonth(jobs){
+  const byMonth = {};
+  jobs.forEach(job => {
+    if(!job || !job.date || job.date.length < 7) return;
+    const key = job.date.slice(0, 7);
+    if(!byMonth[key]) byMonth[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
+    byMonth[key].jobs += 1;
+    byMonth[key].loads += (job.loads || []).length;
+    byMonth[key].weight += (job.totalWeight || 0);
+    byMonth[key].distance += (job.distanceKm || 0);
+    byMonth[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
+  });
+  return byMonth;
+}
+
+function buildMonthlyJobDiagramRows(jobs, label){
+  const byMonth = summarizeJobsByMonth(jobs);
+  const months = Object.keys(byMonth).sort();
+  let rows = '';
+  rows += xmlRow(['Diagram – uppdrag per månad', 'Lastbil app']);
+  rows += xmlRow(['Period', label]);
+  rows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
+  rows += xmlRow(['']);
+  rows += xmlRow(['Månad', 'Antal uppdrag', 'Diagram']);
+
+  if(!months.length){
+    rows += xmlRow(['Ingen data för vald period', 0, ''], ['String','Number','String']);
+    return rows;
+  }
+
+  const maxJobs = Math.max(...months.map(month => byMonth[month].jobs), 1);
+  months.forEach(month => {
+    const count = byMonth[month].jobs;
+    const barLength = Math.max(1, Math.round((count / maxJobs) * 30));
+    rows += xmlRow([month, count, '█'.repeat(barLength)], ['String','Number','String']);
+  });
+
+  return rows;
+}
+
 function xmlCell(value, type){
   const t = type || 'String';
   if(t === 'Number'){
@@ -3998,6 +4285,7 @@ function buildExcelWorkbookXml(selection, filtered){
 
   const byDate = summarizeJobsByDate(filtered);
   const byType = summarizeJobsByType(filtered);
+  const monthlyDiagramRows = buildMonthlyJobDiagramRows(filtered, label);
 
   let summaryRows = '';
   summaryRows += xmlRow(['Sammanställning', 'Lastbil app']);
@@ -4065,6 +4353,7 @@ function buildExcelWorkbookXml(selection, filtered){
     +   '<Style ss:ID="Header"><Font ss:Bold="1"/></Style>'
     + '</Styles>'
     + '<Worksheet ss:Name="Sammanfattning"><Table>' + summaryRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Diagram månad"><Table>' + monthlyDiagramRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Dag för dag"><Table>' + dayRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Per jobbtyp"><Table>' + typeRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Detaljer"><Table>' + detailRows + '</Table></Worksheet>'
@@ -4389,17 +4678,10 @@ function quickTypeOptions(selected){
 }
 
 function toggleQuickManager(){
-  const wrap = document.getElementById('quickManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('quickManagerWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('quickManagerWrap', () => {
     updateQuickDatalists();
     renderQuickManager();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function addQuickItem(){
@@ -4577,30 +4859,16 @@ function saveQuickItems(){
   alert('Snabbval sparade.');
 }
 function toggleSettingsSummary(){
-  const wrap = document.getElementById('settingsSummaryWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('settingsSummaryWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('settingsSummaryWrap', () => {
     updateSummaryControls();
     renderSummary();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function togglePlaceManager(){
-  const wrap = document.getElementById('placeManagerWrap');
-  if(!wrap) return;
-  const willShow = wrap.classList.contains('hidden');
-  if(willShow){
-    hideSettingsPanels('placeManagerWrap');
-    wrap.classList.remove('hidden');
+  toggleSettingsPanel('placeManagerWrap', () => {
     renderPlaceManager();
-  } else {
-    wrap.classList.add('hidden');
-  }
+  });
 }
 
 function addManagedPlace(){
