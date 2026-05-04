@@ -260,58 +260,6 @@ button{
   margin:0;
 }
 
-.app-title-block{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  min-width:0;
-}
-
-.online-status{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  width:max-content;
-  max-width:100%;
-  padding:6px 12px;
-  border:1px solid var(--border);
-  border-radius:999px;
-  background:#fff;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:800;
-  line-height:1.2;
-}
-
-.online-status::before{
-  content:'';
-  width:10px;
-  height:10px;
-  min-width:10px;
-  border-radius:999px;
-  background:#94a3b8;
-}
-
-.online-status-online{
-  border-color:#86efac;
-  background:#dcfce7;
-  color:#14532d;
-}
-
-.online-status-online::before{
-  background:#16a34a;
-}
-
-.online-status-offline{
-  border-color:#fca5a5;
-  background:#fee2e2;
-  color:#7f1d1d;
-}
-
-.online-status-offline::before{
-  background:#dc2626;
-}
-
 .settings-btn{
   width:72px !important;
   min-width:72px !important;
@@ -709,20 +657,11 @@ button{
 }
 
 </style>
-
-<meta name="theme-color" content="#0f172a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Lastbil app">
-<link rel="manifest" href="./manifest.json">
 </head>
 <body>
 <div class="wrap">
   <div class="app-header">
-    <div class="app-title-block">
-      <h1>Lastbil app</h1>
-      <div id="onlineStatus" class="online-status" aria-live="polite">Kontrollerar anslutning</div>
-    </div>
+    <h1>Lastbil app</h1>
     <button class="settings-btn" onclick="showTab('settings')" aria-label="Inställningar" title="Inställningar">
       <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
@@ -5366,22 +5305,7 @@ function saveManagedPlaces(){
   alert('Platser sparade.');
 }
 
-function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); updateOnlineStatus(); saveState(); }
-
-function updateOnlineStatus(){
-  const el = document.getElementById('onlineStatus');
-  if(!el) return;
-  const isOnline = navigator.onLine !== false;
-  el.classList.toggle('online-status-online', isOnline);
-  el.classList.toggle('online-status-offline', !isOnline);
-  el.textContent = isOnline ? 'Online' : 'Offline – lokalt läge';
-  el.title = isOnline
-    ? 'Webbläsaren uppger att appen har nätanslutning.'
-    : 'Webbläsaren uppger att appen är offline. Arbetsdata ligger kvar lokalt på enheten.';
-}
-
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
+function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); saveState(); }
 
 fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
@@ -5435,7 +5359,6 @@ updateFixedRouteRules();
 applySopsandDefaultDestination();
 updateSummaryControls();
 updateGpsEnvironmentInfo();
-updateOnlineStatus();
 initializeNewJobDate();
 initializeQuickDate();
 initializeHistoryControls();
@@ -5459,18 +5382,18 @@ function saveActivePrivateComment(){
   renderActive();
 }
 
-</script>
 
-<script>
-if ('serviceWorker' in navigator) {
+
+function registerServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  if(!(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./sw.js').then(function(registration){
-      registration.update();
-    }).catch(function(error){
-      console.log('Service worker kunde inte registreras:', error);
+    navigator.serviceWorker.register('./sw.js').catch(function(err){
+      console.log('Service worker kunde inte registreras:', err);
     });
   });
 }
+registerServiceWorker();
 </script>
 </body>
 </html>
