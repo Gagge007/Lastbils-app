@@ -60,6 +60,7 @@ button{
 .pill-type{ background:#fff8cc !important; }
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
 .private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
+.github-import-note{ color:#15803d; font-size:14px; font-weight:700; margin-top:6px; }
 
 #activePills{
   display:flex !important;
@@ -1102,6 +1103,22 @@ button{
     </div>
     <div id="queueTransferManagerWrap" class="place-manager hidden">
       <div class="place-help">Skicka eller ta emot uppdrag i kö mellan telefon och surfplatta. Import lägger bara till uppdrag i befintlig kö och skriver inte över något.</div>
+
+      <div class="place-row">
+        <div class="place-key">GitHub-kö</div>
+        <div class="multi-help">Skapa en köfil för GitHub på mobilen eller hämta köfiler från GitHub på surfplattan. Interna kommentarer följer inte med i GitHub-köfilen.</div>
+        <label>Filnamn vid export</label>
+        <select id="githubQueueExportName">
+          <option value="queue.json">queue.json</option>
+          <option value="queue-extra.json">queue-extra.json</option>
+          <option value="queue-extra-2.json">queue-extra-2.json</option>
+        </select>
+        <div id="githubQueueInfo" class="multi-help"></div>
+        <div class="row">
+          <button class="primary inline" onclick="shareGithubQueueFile()">Skapa GitHub-köfil</button>
+          <button class="primary inline" onclick="fetchGithubQueueFiles()">Hämta GitHub-kö</button>
+        </div>
+      </div>
 
       <div class="place-row">
         <div class="place-key">Dela kö-fil</div>
@@ -2872,10 +2889,13 @@ function importAppBackup(){
 
 
 let lastQueueDownloadUrl = null;
+let lastGithubQueueDownloadUrl = null;
+const GITHUB_QUEUE_FILES = ['queue.json','queue-extra.json','queue-extra-2.json'];
 
 function toggleQueueTransferManager(){
   toggleSettingsPanel('queueTransferManagerWrap', () => {
     updateQueueTransferInfo();
+    updateGithubQueueInfo();
   });
 }
 
@@ -2922,6 +2942,154 @@ function buildQueueTransferPayload(){
     itemCount: items.length,
     queue: items
   };
+}
+
+
+function updateGithubQueueInfo(message){
+  const el = document.getElementById('githubQueueInfo');
+  if(!el) return;
+  if(message){ el.textContent = message; return; }
+  const count = getQueueTransferItems().length;
+  el.textContent = count === 1 ? '1 uppdrag finns att skapa GitHub-köfil av.' : count + ' uppdrag finns att skapa GitHub-köfil av.';
+}
+
+function getQueueFingerprint(item){
+  return [
+    item && item.type || '',
+    item && item.displayType || '',
+    item && item.place || '',
+    item && item.dest || '',
+    item && item.comment || '',
+    item && (item.plannedDate || item.date) || ''
+  ].map(value => String(value || '').trim().toLocaleLowerCase('sv-SE')).join('|');
+}
+
+function getQueueImportKeys(item){
+  const keys = [];
+  const sourceId = String(item && (item.sourceQueueId || item.originalQueueId || '') || '').trim();
+  const githubKey = String(item && item.githubQueueKey || '').trim();
+  const fingerprint = getQueueFingerprint(item);
+  if(sourceId) keys.push('source:' + sourceId);
+  if(githubKey) keys.push('github:' + githubKey);
+  if(fingerprint.split('|').join('').trim()) keys.push('fingerprint:' + fingerprint);
+  return keys;
+}
+
+function buildExistingQueueKeySet(){
+  const keySet = new Set();
+  (state.queue || []).forEach(item => getQueueImportKeys(item).forEach(key => keySet.add(key)));
+  return keySet;
+}
+
+function addQueueImportKeysToSet(keySet, item){
+  getQueueImportKeys(item).forEach(key => keySet.add(key));
+}
+
+function hasQueueImportDuplicate(keySet, item){
+  return getQueueImportKeys(item).some(key => keySet.has(key));
+}
+
+function sanitizeQueueItemForGithub(item){
+  const clean = sanitizeQueueItemForTransfer(item);
+  delete clean.privateComment;
+  clean.sourceQueueId = String(item && (item.sourceQueueId || item.id) || '').trim();
+  clean.githubQueueKey = getQueueFingerprint(clean);
+  return clean;
+}
+
+function getGithubQueueExportFilename(){
+  const el = document.getElementById('githubQueueExportName');
+  const value = el ? el.value : 'queue.json';
+  return GITHUB_QUEUE_FILES.includes(value) ? value : 'queue.json';
+}
+
+function buildGithubQueuePayload(filename){
+  const items = getQueueTransferItems().map(sanitizeQueueItemForGithub);
+  return {
+    app: 'Lastbil app', transferType: 'github_queue', transferVersion: 1,
+    exportedAt: new Date().toISOString(), fileName: filename,
+    itemCount: items.length, queue: items
+  };
+}
+
+function setGithubQueueDownloadLink(url, filename){
+  const el = document.getElementById('githubQueueInfo');
+  if(el){
+    el.innerHTML = 'GitHub-köfil skapad: <a href="' + url + '" download="' + escapeHtml(filename) + '">Ladda ner ' + escapeHtml(filename) + '</a>';
+  }
+}
+
+function downloadGithubQueueBlob(blob, filename){
+  if(lastGithubQueueDownloadUrl){ try{ URL.revokeObjectURL(lastGithubQueueDownloadUrl); }catch(e){} lastGithubQueueDownloadUrl = null; }
+  const url = URL.createObjectURL(blob);
+  lastGithubQueueDownloadUrl = url;
+  setGithubQueueDownloadLink(url, filename);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.style.display = 'none';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+async function shareGithubQueueFile(){
+  const filename = getGithubQueueExportFilename();
+  const payload = buildGithubQueuePayload(filename);
+  if(!payload.queue.length){ alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.'); updateGithubQueueInfo(); return; }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  let shared = false;
+  try{
+    if(typeof File !== 'undefined' && navigator.share){
+      const file = new File([blob], filename, {type:'application/json'});
+      const canShareFile = !navigator.canShare || navigator.canShare({files:[file]});
+      if(canShareFile){ await navigator.share({title:'Lastbil GitHub-kö', text:'GitHub-köfil från Lastbil app', files:[file]}); shared = true; }
+    }
+  }catch(e){ shared = false; }
+  if(!shared){ downloadGithubQueueBlob(blob, filename); alert('GitHub-köfilen skapades. Ladda upp filen till GitHub bredvid index.html.'); }
+}
+
+function normalizeImportedGithubQueueItem(item, filename){
+  if(!item || typeof item !== 'object') return null;
+  const type = String(item.type || '').trim();
+  if(!type) return null;
+  const plannedDate = isValidIsoDate(item.plannedDate) ? item.plannedDate : (isValidIsoDate(item.date) ? item.date : todayStr());
+  const place = String(item.place || '');
+  const dest = String(item.dest || '');
+  const normalized = {
+    id:id(), sourceQueueId:String(item.sourceQueueId || item.originalQueueId || item.id || '').trim(),
+    githubQueueKey:String(item.githubQueueKey || '').trim(), githubQueueImported:true, githubQueueSource:String(filename || ''),
+    vehicle:String(item.vehicle || (type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil')), type:type,
+    displayType:String(item.displayType || type), place:place, dest:dest,
+    placeLabel:String(item.placeLabel || getStoredPlaceLabel(place) || ''), destLabel:String(item.destLabel || getStoredPlaceLabel(dest) || ''),
+    comment:String(item.comment || ''), privateComment:'', status:'köad', date:todayStr(), plannedDate:plannedDate
+  };
+  if(!normalized.githubQueueKey) normalized.githubQueueKey = getQueueFingerprint(normalized);
+  return normalized;
+}
+
+async function fetchGithubQueueFiles(){
+  updateGithubQueueInfo('Hämtar GitHub-kö...');
+  const fetchedItems = [];
+  const stamp = Date.now();
+  for(const filename of GITHUB_QUEUE_FILES){
+    try{
+      const response = await fetch('./' + filename + '?githubQueueTs=' + stamp, {cache:'no-store'});
+      if(!response || !response.ok) continue;
+      const parsed = await response.json();
+      getQueueItemsFromTransferPayload(parsed)
+        .map(item => normalizeImportedGithubQueueItem(item, filename))
+        .filter(Boolean)
+        .forEach(item => fetchedItems.push(item));
+    }catch(e){}
+  }
+  const keySet = buildExistingQueueKeySet();
+  const toImport = [];
+  fetchedItems.forEach(item => {
+    if(hasQueueImportDuplicate(keySet, item)) return;
+    toImport.push(item); addQueueImportKeysToSet(keySet, item);
+  });
+  if(toImport.length){
+    state.queue.push(...toImport); sortQueueByPlannedDate(); saveState(); render(); showTab('ko');
+  }
+  updateGithubQueueInfo(toImport.length + ' uppdrag hämtades från GitHub-kö.');
+  alert(toImport.length + ' uppdrag hämtades från GitHub-kö.');
 }
 
 function setQueueDownloadLink(url, filename){
@@ -3735,30 +3903,10 @@ function showTab(tab){
   }
 }
 
-function isOtherWorkJob(jobOrType, vehicle, displayType){
-  const item = (jobOrType && typeof jobOrType === 'object')
-    ? jobOrType
-    : {type:jobOrType, vehicle:vehicle, displayType:displayType};
-  const type = String(item.type || '').trim().toLocaleLowerCase('sv-SE');
-  const shown = String(item.displayType || '').trim().toLocaleLowerCase('sv-SE');
-  const veh = String(item.vehicle || '').trim().toLocaleLowerCase('sv-SE');
-  return veh === 'övrigt arbete' || type === 'övrig verksamhet' || shown === 'övrig verksamhet';
-}
-
-function scrollToPageTop(){
-  setTimeout(() => {
-    try{
-      window.scrollTo({top:0, left:0, behavior:'smooth'});
-    }catch(e){
-      window.scrollTo(0, 0);
-    }
-  }, 60);
-}
-
 function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
   if(state.active){
-    const activeIsOtherWork = isOtherWorkJob(state.active);
-    const nextIsOtherWork = isOtherWorkJob(type, vehicle, displayType);
+    const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
+    const nextIsOtherWork = type === 'Övrig verksamhet';
 
     if(activeIsOtherWork && !nextIsOtherWork){
       const paused = {...state.active};
@@ -3992,7 +4140,6 @@ function startQueuedJob(qid){
   saveState();
   render();
   showTab('idag');
-  scrollToPageTop();
 }
 
 function pauseActiveJob(){
@@ -4046,7 +4193,6 @@ function resumePausedJob(qid){
   startActiveTimer();
   render();
   showTab('idag');
-  scrollToPageTop();
 }
 
 function completeQueuedJob(qid){
@@ -4127,8 +4273,6 @@ function stopJob(){
 
   saveState();
   render();
-  showTab('ko');
-  scrollToPageTop();
 }
 
 function switchJob(){
@@ -4142,7 +4286,7 @@ function renderActive(){
   if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
 
-  const isOtherWork = isOtherWorkJob(state.active);
+  const isOtherWork = state.active.type === 'Övrig verksamhet';
 
   const materialCode = getMaterialCode(state.active.type);
   const activeTypeLabel = state.active.displayType || state.active.type;
@@ -4228,6 +4372,7 @@ function renderQueue(){
     '<div class="job">'+
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
+      (x.githubQueueImported ? '<div class="github-import-note">Hämtad från GitHub</div>' : '')+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
