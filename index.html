@@ -4,11 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lastbil app4</title>
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#0f172a">
-
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#cbd5e1;--btn:#e2e8f0;--primary:#0f172a;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -662,22 +657,27 @@ button{
 }
 
 
-.github-imported-note{
-  color:#15803d !important;
-  font-weight:700 !important;
-  font-size:14px !important;
-  margin-top:6px !important;
+
+/* Startskärm med lastbilsbild */
+#appSplashScreen{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  background:#0f172a url('./splash-bg.jpg') center center / cover no-repeat;
+  opacity:1;
+  visibility:visible;
+  transition:opacity .35s ease, visibility .35s ease;
+  pointer-events:none;
 }
-.queue-github-shortcut{
-  margin:12px 0 10px !important;
-}
-.queue-github-shortcut button{
-  width:auto !important;
+#appSplashScreen.splash-hide{
+  opacity:0;
+  visibility:hidden;
 }
 
 </style>
 </head>
 <body>
+<div id="appSplashScreen" aria-hidden="true"></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Lastbil app</h1>
@@ -820,10 +820,7 @@ button{
 
   <div id="tab-ko" class="card hidden">
       <h3>Uppdrag i kö</h3>
-      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Snabbval eller Nytt jobb.</div>
-      <div class="queue-github-shortcut">
-        <button class="primary inline" onclick="openQueueTransferFromQueue()">Till/från GitHub</button>
-      </div>
+      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Nytt jobb.</div>
       <div id="queueList"></div>
 </div>
 
@@ -1124,22 +1121,6 @@ button{
     </div>
     <div id="queueTransferManagerWrap" class="place-manager hidden">
       <div class="place-help">Skicka eller ta emot uppdrag i kö mellan telefon och surfplatta. Import lägger bara till uppdrag i befintlig kö och skriver inte över något.</div>
-
-      <div class="place-row">
-        <div class="place-key">GitHub-kö</div>
-        <div class="multi-help">Skapa köfil för uppladdning till GitHub eller hämta köfiler från GitHub. Interna kommentarer följer inte med i GitHub-köfilen.</div>
-        <label>Filnamn för export</label>
-        <select id="githubQueueFilename">
-          <option value="queue.json">queue.json</option>
-          <option value="queue-extra.json">queue-extra.json</option>
-          <option value="queue-extra-2.json">queue-extra-2.json</option>
-        </select>
-        <div id="githubQueueInfo" class="multi-help"></div>
-        <div class="row" style="margin-top:10px">
-          <button class="primary inline" onclick="exportGithubQueueFile()">Skapa GitHub-köfil</button>
-          <button class="primary inline" onclick="fetchGithubQueueFiles()">Hämta GitHub-kö</button>
-        </div>
-      </div>
 
       <div class="place-row">
         <div class="place-key">Dela kö-fil</div>
@@ -2911,23 +2892,9 @@ function importAppBackup(){
 
 let lastQueueDownloadUrl = null;
 
-
-function openQueueTransferFromQueue(){
-  showTab('settings');
-  hideSettingsPanels('queueTransferManagerWrap');
-  const wrap = document.getElementById('queueTransferManagerWrap');
-  if(wrap){
-    wrap.classList.remove('hidden');
-    if(typeof updateQueueTransferInfo === 'function') updateQueueTransferInfo();
-    if(typeof updateGithubQueueInfo === 'function') updateGithubQueueInfo();
-    scrollToSettingsPanel(wrap);
-  }
-}
-
 function toggleQueueTransferManager(){
   toggleSettingsPanel('queueTransferManagerWrap', () => {
     updateQueueTransferInfo();
-    if(typeof updateGithubQueueInfo === 'function') updateGithubQueueInfo();
   });
 }
 
@@ -3131,153 +3098,6 @@ function importQueueFile(){
   reader.readAsText(file);
 }
 
-
-
-
-const GITHUB_QUEUE_FILES = ['queue.json','queue-extra.json','queue-extra-2.json'];
-
-function getQueueItemTransferKey(item){
-  if(!item) return '';
-  const sourceId = String(item.sourceQueueId || item.sourceJobId || item.originalJobId || '').trim();
-  if(sourceId) return 'source:' + sourceId;
-  return [
-    item.type || '',
-    item.displayType || '',
-    item.place || '',
-    item.dest || '',
-    item.comment || '',
-    item.plannedDate || item.date || ''
-  ].join('|').toLocaleLowerCase('sv-SE');
-}
-
-function updateGithubQueueInfo(){
-  const el = document.getElementById('githubQueueInfo');
-  if(!el) return;
-  const count = getQueueTransferItems().length;
-  el.textContent = count === 1 ? '1 uppdrag finns att skapa GitHub-köfil av.' : count + ' uppdrag finns att skapa GitHub-köfil av.';
-}
-
-function getGithubQueueFilename(){
-  const el = document.getElementById('githubQueueFilename');
-  return el && GITHUB_QUEUE_FILES.includes(el.value) ? el.value : 'queue.json';
-}
-
-function sanitizeGithubQueueItemForTransfer(item){
-  return {
-    sourceQueueId: String(item.sourceQueueId || item.id || '').trim(),
-    vehicle: item.vehicle || (item.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil'),
-    type: item.type || '',
-    displayType: item.displayType || item.type || '',
-    place: item.place || '',
-    dest: item.dest || '',
-    placeLabel: item.placeLabel || getStoredPlaceLabel(item.place || ''),
-    destLabel: item.destLabel || getStoredPlaceLabel(item.dest || ''),
-    comment: item.comment || '',
-    plannedDate: item.plannedDate || item.date || todayStr(),
-    status: 'köad'
-  };
-}
-
-function buildGithubQueuePayload(){
-  const items = getQueueTransferItems().map(sanitizeGithubQueueItemForTransfer);
-  return {
-    app: 'Lastbil app',
-    transferType: 'github_queue',
-    transferVersion: 1,
-    exportedAt: new Date().toISOString(),
-    itemCount: items.length,
-    queue: items
-  };
-}
-
-function setGithubQueueInfo(message){
-  const el = document.getElementById('githubQueueInfo');
-  if(el) el.textContent = message || '';
-}
-
-function exportGithubQueueFile(){
-  const payload = buildGithubQueuePayload();
-  if(!payload.queue.length){
-    alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.');
-    updateGithubQueueInfo();
-    return;
-  }
-
-  const filename = getGithubQueueFilename();
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setGithubQueueInfo('GitHub-köfil skapad: ' + filename);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function getGithubQueueItemsFromPayload(parsed){
-  if(!parsed) return [];
-  if(Array.isArray(parsed)) return parsed;
-  if(Array.isArray(parsed.queue)) return parsed.queue;
-  if(Array.isArray(parsed.items)) return parsed.items;
-  return [];
-}
-
-function normalizeImportedGithubQueueItem(item){
-  const normalized = normalizeImportedQueueItem(item);
-  if(!normalized) return null;
-  normalized.privateComment = '';
-  normalized.githubImported = true;
-  normalized.githubImportedAt = new Date().toISOString();
-  normalized.sourceQueueId = String(item.sourceQueueId || item.sourceJobId || item.originalJobId || item.id || '').trim();
-  if(item.placeLabel) normalized.placeLabel = String(item.placeLabel || '');
-  if(item.destLabel) normalized.destLabel = String(item.destLabel || '');
-  return normalized;
-}
-
-async function fetchGithubQueueFiles(){
-  if(!navigator.onLine){
-    alert('Ingen internetanslutning. GitHub-kö kan bara hämtas när appen är online.');
-    return;
-  }
-
-  const existingKeys = new Set((state.queue || []).map(getQueueItemTransferKey).filter(Boolean));
-  const imported = [];
-  let totalImported = 0;
-
-  for(const filename of GITHUB_QUEUE_FILES){
-    try{
-      const response = await fetch(filename + '?t=' + Date.now(), {cache:'no-store'});
-      if(!response || !response.ok) continue;
-      const parsed = await response.json();
-      const items = getGithubQueueItemsFromPayload(parsed)
-        .map(normalizeImportedGithubQueueItem)
-        .filter(Boolean);
-
-      items.forEach(item => {
-        const key = getQueueItemTransferKey(item);
-        if(key && existingKeys.has(key)) return;
-        if(key) existingKeys.add(key);
-        imported.push(item);
-        totalImported++;
-      });
-    }catch(e){
-      // Saknade eller ogiltiga filer hoppas över.
-    }
-  }
-
-  if(imported.length){
-    state.queue.push(...imported);
-    sortQueueByPlannedDate();
-    saveState();
-    render();
-  }
-
-  alert(totalImported + ' uppdrag hämtades från GitHub.');
-  setGithubQueueInfo(totalImported + ' uppdrag hämtades från GitHub.');
-}
 
 
 let lastFinishedDownloadUrl = null;
@@ -4404,7 +4224,6 @@ function renderQueue(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
-      (x.githubImported ? '<div class="github-imported-note">Hämtad från GitHub</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
@@ -5583,16 +5402,21 @@ function saveActivePrivateComment(){
 }
 
 
-function registerLastbilServiceWorker(){
-  if(!('serviceWorker' in navigator)) return;
-  if(!window.location || !/^https?:$/.test(window.location.protocol)) return;
-  navigator.serviceWorker.register('./sw.js').catch(function(err){
-    console.log('Service worker kunde inte registreras:', err);
-  });
+
+function hideAppSplashScreen(){
+  const splash = document.getElementById('appSplashScreen');
+  if(!splash) return;
+  window.setTimeout(() => {
+    splash.classList.add('splash-hide');
+    window.setTimeout(() => {
+      if(splash && splash.parentNode){
+        splash.parentNode.removeChild(splash);
+      }
+    }, 450);
+  }, 2000);
 }
-window.addEventListener('load', registerLastbilServiceWorker);
+hideAppSplashScreen();
 
 </script>
 </body>
 </html>
-<!-- force pages deploy -->
