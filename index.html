@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lastbil app4</title>
 <link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0f172a">
 <link rel="icon" type="image/png" href="./favicon.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
-<meta name="theme-color" content="#0f172a">
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#cbd5e1;--btn:#e2e8f0;--primary:#0f172a;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -262,58 +262,6 @@ button{
 
 .app-header h1{
   margin:0;
-}
-
-.app-title-block{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  min-width:0;
-}
-
-.online-status{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  width:max-content;
-  max-width:100%;
-  padding:6px 12px;
-  border:1px solid var(--border);
-  border-radius:999px;
-  background:#fff;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:800;
-  line-height:1.2;
-}
-
-.online-status::before{
-  content:'';
-  width:10px;
-  height:10px;
-  min-width:10px;
-  border-radius:999px;
-  background:#94a3b8;
-}
-
-.online-status-online{
-  border-color:#86efac;
-  background:#dcfce7;
-  color:#14532d;
-}
-
-.online-status-online::before{
-  background:#16a34a;
-}
-
-.online-status-offline{
-  border-color:#fca5a5;
-  background:#fee2e2;
-  color:#7f1d1d;
-}
-
-.online-status-offline::before{
-  background:#dc2626;
 }
 
 .settings-btn{
@@ -712,15 +660,52 @@ button{
   .history-calendar-grid{margin-top:6px !important;}
 }
 
+
+/* Startskärm med bildbakgrund */
+#appSplashScreen{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  min-height:100vh;
+  background:#0f172a url('./splash-bg.jpg') center center / cover no-repeat;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:0 24px 54px;
+  opacity:1;
+  transition:opacity .35s ease;
+}
+#appSplashScreen.splash-hide{
+  opacity:0;
+  pointer-events:none;
+}
+#appSplashScreen .splash-title{
+  background:rgba(15,23,42,.68);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:22px;
+  padding:14px 22px;
+  font-size:26px;
+  font-weight:800;
+  letter-spacing:.2px;
+  box-shadow:0 10px 35px rgba(0,0,0,.28);
+  backdrop-filter:blur(4px);
+}
+@media(max-width:520px){
+  #appSplashScreen{padding-bottom:40px;}
+  #appSplashScreen .splash-title{font-size:22px;}
+}
+
 </style>
 </head>
 <body>
+<div id="appSplashScreen" aria-label="Startskärm">
+  <div class="splash-title">Lastbil app</div>
+</div>
+
 <div class="wrap">
   <div class="app-header">
-    <div class="app-title-block">
-      <h1>Lastbil app</h1>
-      <div id="onlineStatus" class="online-status" aria-live="polite">Kontrollerar anslutning</div>
-    </div>
+    <h1>Lastbil app</h1>
     <button class="settings-btn" onclick="showTab('settings')" aria-label="Inställningar" title="Inställningar">
       <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
@@ -860,10 +845,7 @@ button{
 
   <div id="tab-ko" class="card hidden">
       <h3>Uppdrag i kö</h3>
-      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Snabbval eller Nytt jobb.</div>
-      <div class="row" style="margin-top:12px; margin-bottom:12px">
-        <button class="primary inline" onclick="openQueueTransferFromQueue()">Till/från GitHub</button>
-      </div>
+      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Nytt jobb.</div>
       <div id="queueList"></div>
 </div>
 
@@ -2941,16 +2923,6 @@ function toggleQueueTransferManager(){
   });
 }
 
-function openQueueTransferFromQueue(){
-  showTab('settings');
-  const wrap = document.getElementById('queueTransferManagerWrap');
-  if(!wrap) return;
-  hideSettingsPanels('queueTransferManagerWrap');
-  wrap.classList.remove('hidden');
-  updateQueueTransferInfo();
-  scrollToSettingsPanel(wrap);
-}
-
 function updateQueueTransferInfo(){
   const el = document.getElementById('queueTransferExportInfo');
   if(!el) return;
@@ -4525,58 +4497,18 @@ function summarizeJobsByMonth(jobs){
   return byMonth;
 }
 
-function excelRow(values, types){
-  return { values: values || [], types: types || null };
-}
-
-function calculateExcelColumnWidths(rowData){
-  const maxCols = rowData.reduce((max, row) => Math.max(max, (row.values || []).length), 0);
-  const maxLengths = new Array(maxCols).fill(0);
-
-  rowData.forEach(row => {
-    (row.values || []).forEach((value, index) => {
-      const text = String(value ?? '');
-      const longestLine = text.split(/\r?\n/).reduce((max, line) => Math.max(max, line.length), 0);
-      maxLengths[index] = Math.max(maxLengths[index], longestLine);
-    });
-  });
-
-  return maxLengths.map(length => {
-    const width = Math.round(length * 7 + 22);
-    return Math.max(55, Math.min(420, width));
-  });
-}
-
-function xmlColumnsFromRows(rowData){
-  return calculateExcelColumnWidths(rowData)
-    .map(width => '<Column ss:AutoFitWidth="1" ss:Width="' + width + '"/>')
-    .join('');
-}
-
-function xmlRowsFromData(rowData){
-  return rowData.map(row => xmlRow(row.values, row.types)).join('');
-}
-
-function xmlWorksheet(name, rowData){
-  return '<Worksheet ss:Name="' + escapeXml(name) + '"><Table>' +
-    xmlColumnsFromRows(rowData) +
-    xmlRowsFromData(rowData) +
-    '</Table></Worksheet>';
-}
-
-function buildMonthlyJobDiagramData(jobs, label){
+function buildMonthlyJobDiagramRows(jobs, label){
   const byMonth = summarizeJobsByMonth(jobs);
   const months = Object.keys(byMonth).sort();
-  const rows = [];
-
-  rows.push(excelRow(['Diagram – uppdrag per månad', 'Lastbil app']));
-  rows.push(excelRow(['Period', label]));
-  rows.push(excelRow(['Exporterad', new Date().toLocaleString('sv-SE')]));
-  rows.push(excelRow(['']));
-  rows.push(excelRow(['Månad', 'Antal uppdrag', 'Diagram']));
+  let rows = '';
+  rows += xmlRow(['Diagram – uppdrag per månad', 'Lastbil app']);
+  rows += xmlRow(['Period', label]);
+  rows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
+  rows += xmlRow(['']);
+  rows += xmlRow(['Månad', 'Antal uppdrag', 'Diagram']);
 
   if(!months.length){
-    rows.push(excelRow(['Ingen data för vald period', 0, ''], ['String','Number','String']));
+    rows += xmlRow(['Ingen data för vald period', 0, ''], ['String','Number','String']);
     return rows;
   }
 
@@ -4584,7 +4516,7 @@ function buildMonthlyJobDiagramData(jobs, label){
   months.forEach(month => {
     const count = byMonth[month].jobs;
     const barLength = Math.max(1, Math.round((count / maxJobs) * 30));
-    rows.push(excelRow([month, count, '█'.repeat(barLength)], ['String','Number','String']));
+    rows += xmlRow([month, count, '█'.repeat(barLength)], ['String','Number','String']);
   });
 
   return rows;
@@ -4612,53 +4544,53 @@ function buildExcelWorkbookXml(selection, filtered){
 
   const byDate = summarizeJobsByDate(filtered);
   const byType = summarizeJobsByType(filtered);
-  const monthlyDiagramData = buildMonthlyJobDiagramData(filtered, label);
+  const monthlyDiagramRows = buildMonthlyJobDiagramRows(filtered, label);
 
-  const summaryData = [];
-  summaryData.push(excelRow(['Sammanställning', 'Lastbil app']));
-  summaryData.push(excelRow(['Period', label]));
-  summaryData.push(excelRow(['Exporterad', new Date().toLocaleString('sv-SE')]));
-  summaryData.push(excelRow(['']));
-  summaryData.push(excelRow(['Nyckeltal', 'Värde']));
-  summaryData.push(excelRow(['Antal jobb', totalJobs], ['String','Number']));
-  summaryData.push(excelRow(['Antal last', totalLoads], ['String','Number']));
-  summaryData.push(excelRow(['Total vikt i ton', totalWeight.toFixed(1)], ['String','Number']));
-  summaryData.push(excelRow(['Sträcka km', totalDistance.toFixed(1)], ['String','Number']));
-  summaryData.push(excelRow(['Tid timmar', decimalHours(totalTimeMs).toFixed(2)], ['String','Number']));
+  let summaryRows = '';
+  summaryRows += xmlRow(['Sammanställning', 'Lastbil app']);
+  summaryRows += xmlRow(['Period', label]);
+  summaryRows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
+  summaryRows += xmlRow(['']);
+  summaryRows += xmlRow(['Nyckeltal', 'Värde']);
+  summaryRows += xmlRow(['Antal jobb', totalJobs], ['String','Number']);
+  summaryRows += xmlRow(['Antal last', totalLoads], ['String','Number']);
+  summaryRows += xmlRow(['Total vikt i ton', totalWeight.toFixed(1)], ['String','Number']);
+  summaryRows += xmlRow(['Sträcka km', totalDistance.toFixed(1)], ['String','Number']);
+  summaryRows += xmlRow(['Tid timmar', decimalHours(totalTimeMs).toFixed(2)], ['String','Number']);
 
-  const dayData = [];
-  dayData.push(excelRow(['Datum', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']));
+  let dayRows = '';
+  dayRows += xmlRow(['Datum', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
   Object.keys(byDate).sort().forEach(date => {
     const row = byDate[date];
-    dayData.push(excelRow(
+    dayRows += xmlRow(
       [date, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
       ['String','Number','Number','Number','Number','Number']
-    ));
+    );
   });
 
-  const typeData = [];
-  typeData.push(excelRow(['Jobbtyp', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']));
+  let typeRows = '';
+  typeRows += xmlRow(['Jobbtyp', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
   Object.keys(byType).sort().forEach(type => {
     const row = byType[type];
-    typeData.push(excelRow(
+    typeRows += xmlRow(
       [type, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
       ['String','Number','Number','Number','Number','Number']
-    ));
+    );
   });
 
-  const detailData = [];
-  detailData.push(excelRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']));
+  let detailRows = '';
+  detailRows += xmlRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']);
   filtered
     .slice()
     .sort((a,b) => (a.date || '').localeCompare(b.date || '') || (a.start || 0) - (b.start || 0))
     .forEach(job => {
-      detailData.push(excelRow(
+      detailRows += xmlRow(
         [
           job.date || '',
           job.vehicle || '',
           job.type || '',
-          getItemPlaceLabel(job, 'place') || job.place || '',
-          getItemPlaceLabel(job, 'dest') || job.dest || '',
+          job.place || '',
+          job.dest || '',
           (job.loads || []).length,
           (job.totalWeight || 0).toFixed(1),
           (job.distanceKm || 0).toFixed(1),
@@ -4666,7 +4598,7 @@ function buildExcelWorkbookXml(selection, filtered){
           job.comment || ''
         ],
         ['String','String','String','String','String','Number','Number','Number','Number','String']
-      ));
+      );
     });
 
   const xml = '<?xml version="1.0"?>'
@@ -4679,11 +4611,11 @@ function buildExcelWorkbookXml(selection, filtered){
     + '<Styles>'
     +   '<Style ss:ID="Header"><Font ss:Bold="1"/></Style>'
     + '</Styles>'
-    + xmlWorksheet('Sammanfattning', summaryData)
-    + xmlWorksheet('Diagram månad', monthlyDiagramData)
-    + xmlWorksheet('Dag för dag', dayData)
-    + xmlWorksheet('Per jobbtyp', typeData)
-    + xmlWorksheet('Detaljer', detailData)
+    + '<Worksheet ss:Name="Sammanfattning"><Table>' + summaryRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Diagram månad"><Table>' + monthlyDiagramRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Dag för dag"><Table>' + dayRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Per jobbtyp"><Table>' + typeRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Detaljer"><Table>' + detailRows + '</Table></Worksheet>'
     + '</Workbook>';
   return xml;
 }
@@ -5417,22 +5349,7 @@ function saveManagedPlaces(){
   alert('Platser sparade.');
 }
 
-function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); updateOnlineStatus(); saveState(); }
-
-function updateOnlineStatus(){
-  const el = document.getElementById('onlineStatus');
-  if(!el) return;
-  const isOnline = navigator.onLine !== false;
-  el.classList.toggle('online-status-online', isOnline);
-  el.classList.toggle('online-status-offline', !isOnline);
-  el.textContent = isOnline ? 'Online' : 'Offline – lokalt läge';
-  el.title = isOnline
-    ? 'Webbläsaren uppger att appen har nätanslutning.'
-    : 'Webbläsaren uppger att appen är offline. Arbetsdata ligger kvar lokalt på enheten.';
-}
-
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
+function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); saveState(); }
 
 fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
@@ -5486,7 +5403,6 @@ updateFixedRouteRules();
 applySopsandDefaultDestination();
 updateSummaryControls();
 updateGpsEnvironmentInfo();
-updateOnlineStatus();
 initializeNewJobDate();
 initializeQuickDate();
 initializeHistoryControls();
@@ -5510,16 +5426,26 @@ function saveActivePrivateComment(){
   renderActive();
 }
 
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./sw.js').catch(function(error){
-      console.log('Service worker kunde inte registreras:', error);
-    });
-  });
-}
-</script>
 
+function hideAppSplashScreen(){
+  const splash = document.getElementById('appSplashScreen');
+  if(!splash) return;
+  splash.classList.add('splash-hide');
+  setTimeout(() => {
+    if(splash && splash.parentNode) splash.parentNode.removeChild(splash);
+  }, 450);
+}
+
+window.addEventListener('load', () => {
+  setTimeout(hideAppSplashScreen, 2000);
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.log('Service worker kunde inte registreras:', err);
+    });
+  }
+});
+
+</script>
 </body>
 </html>

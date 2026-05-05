@@ -1,8 +1,14 @@
-const CACHE_NAME = 'lastbil-app-cache-v2026-05-04-1';
+const CACHE_NAME = 'lastbil-app-cache-v2026-05-05-splash-1';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './sw.js',
+  './splash-bg.jpg',
+  './lastbil-icon-192.png',
+  './lastbil-icon-512.png',
+  './apple-touch-icon.png',
+  './favicon.png'
 ];
 
 self.addEventListener('install', event => {
