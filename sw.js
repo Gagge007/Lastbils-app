@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lastbil-app-cache-v2026-05-05-splash-1';
+const CACHE_NAME = 'lastbil-app-cache-v2026-05-05-stadslass-1';
 const CORE_ASSETS = [
   './',
   './index.html',
