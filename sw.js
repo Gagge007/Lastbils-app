@@ -1,14 +1,13 @@
-const CACHE_NAME = 'lastbil-app-cache-v2026-05-05-splash-1';
+const CACHE_NAME = 'lastbil-app-cache-v2026-05-05-queue-button-1';
 const CORE_ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './sw.js',
-  './splash-bg.jpg',
   './lastbil-icon-192.png',
   './lastbil-icon-512.png',
   './apple-touch-icon.png',
-  './favicon.png'
+  './favicon.png',
+  './splash-bg.jpg'
 ];
 
 self.addEventListener('install', event => {
@@ -22,7 +21,7 @@ self.addEventListener('install', event => {
             await cache.put(asset, response);
           }
         } catch (error) {
-          // Appen kan ändå fungera om minst index.html redan finns i cache.
+          // Hoppa över filer som saknas. Appen kan ändå fungera med index.html.
         }
       }));
     })
@@ -43,7 +42,6 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const request = event.request;
-
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
@@ -51,14 +49,12 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).then(response => {
+      fetch(request, { cache: 'reload' }).then(response => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put('./index.html', copy));
         return response;
       }).catch(() => {
-        return caches.match(request).then(cached => {
-          return cached || caches.match('./index.html') || caches.match('./');
-        });
+        return caches.match('./index.html') || caches.match('./') || caches.match(request);
       })
     );
     return;
@@ -66,15 +62,14 @@ self.addEventListener('fetch', event => {
 
   event.respondWith(
     caches.match(request).then(cached => {
-      if (cached) return cached;
-
-      return fetch(request).then(response => {
+      const networkFetch = fetch(request).then(response => {
         if (response && response.ok) {
           const copy = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
         }
         return response;
       }).catch(() => cached);
+      return cached || networkFetch;
     })
   );
 });
