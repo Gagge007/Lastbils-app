@@ -714,7 +714,7 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" type="text" inputmode="decimal" pattern="[0-9]*[,.]?[0-9]*" autocomplete="off" enterkeyhint="done" oninput="this.value=this.value.replace(/[^0-9,.]/g,'')" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
             <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
@@ -3735,10 +3735,30 @@ function showTab(tab){
   }
 }
 
+function isOtherWorkJob(jobOrType, vehicle, displayType){
+  const item = (jobOrType && typeof jobOrType === 'object')
+    ? jobOrType
+    : {type:jobOrType, vehicle:vehicle, displayType:displayType};
+  const type = String(item.type || '').trim().toLocaleLowerCase('sv-SE');
+  const shown = String(item.displayType || '').trim().toLocaleLowerCase('sv-SE');
+  const veh = String(item.vehicle || '').trim().toLocaleLowerCase('sv-SE');
+  return veh === 'övrigt arbete' || type === 'övrig verksamhet' || shown === 'övrig verksamhet';
+}
+
+function scrollToPageTop(){
+  setTimeout(() => {
+    try{
+      window.scrollTo({top:0, left:0, behavior:'smooth'});
+    }catch(e){
+      window.scrollTo(0, 0);
+    }
+  }, 60);
+}
+
 function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
   if(state.active){
-    const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
-    const nextIsOtherWork = type === 'Övrig verksamhet';
+    const activeIsOtherWork = isOtherWorkJob(state.active);
+    const nextIsOtherWork = isOtherWorkJob(type, vehicle, displayType);
 
     if(activeIsOtherWork && !nextIsOtherWork){
       const paused = {...state.active};
@@ -3972,6 +3992,7 @@ function startQueuedJob(qid){
   saveState();
   render();
   showTab('idag');
+  scrollToPageTop();
 }
 
 function pauseActiveJob(){
@@ -4025,6 +4046,7 @@ function resumePausedJob(qid){
   startActiveTimer();
   render();
   showTab('idag');
+  scrollToPageTop();
 }
 
 function completeQueuedJob(qid){
@@ -4105,6 +4127,8 @@ function stopJob(){
 
   saveState();
   render();
+  showTab('ko');
+  scrollToPageTop();
 }
 
 function switchJob(){
@@ -4118,7 +4142,7 @@ function renderActive(){
   if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
 
-  const isOtherWork = state.active.type === 'Övrig verksamhet';
+  const isOtherWork = isOtherWorkJob(state.active);
 
   const materialCode = getMaterialCode(state.active.type);
   const activeTypeLabel = state.active.displayType || state.active.type;
@@ -5382,18 +5406,6 @@ function saveActivePrivateComment(){
   renderActive();
 }
 
-
-
-function registerServiceWorker(){
-  if(!('serviceWorker' in navigator)) return;
-  if(!(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
-  window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./sw.js').catch(function(err){
-      console.log('Service worker kunde inte registreras:', err);
-    });
-  });
-}
-registerServiceWorker();
 </script>
 </body>
 </html>
