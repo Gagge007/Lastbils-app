@@ -824,7 +824,10 @@ button{
 
   <div id="tab-ko" class="card hidden">
       <h3>Uppdrag i kö</h3>
-      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Nytt jobb.</div>
+      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Snabbval eller Nytt jobb.</div>
+      <div class="row" style="margin-top:12px; margin-bottom:12px">
+        <button class="primary inline" onclick="openQueueTransferFromQueue()">Till/från GitHub</button>
+      </div>
       <div id="queueList"></div>
 </div>
 
@@ -1141,6 +1144,22 @@ button{
         <input id="queueImportFile" type="file" accept=".json,application/json">
         <div class="row">
           <button class="primary inline" onclick="importQueueFile()">Importera kö-fil</button>
+        </div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">GitHub-kö</div>
+        <div class="multi-help">Skapa en köfil för uppladdning till GitHub, eller hämta kö från GitHub till den här enheten. Interna kommentarer följer inte med i GitHub-köfilen.</div>
+        <label>Filnamn när du skapar GitHub-köfil</label>
+        <select id="githubQueueFileName">
+          <option value="queue.json">queue.json</option>
+          <option value="queue-extra.json">queue-extra.json</option>
+          <option value="queue-extra-2.json">queue-extra-2.json</option>
+        </select>
+        <div id="githubQueueInfo" class="multi-help" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="primary inline" onclick="createGithubQueueFile()">Skapa GitHub-köfil</button>
+          <button class="primary inline" onclick="importGithubQueueFiles()">Hämta GitHub-kö</button>
         </div>
       </div>
     </div>
@@ -2896,6 +2915,19 @@ function importAppBackup(){
 
 let lastQueueDownloadUrl = null;
 
+
+function openQueueTransferFromQueue(){
+  showTab('settings');
+  setTimeout(() => {
+    const wrap = document.getElementById('queueTransferManagerWrap');
+    if(wrap && wrap.classList.contains('hidden')){
+      toggleQueueTransferManager();
+    } else if(wrap){
+      scrollToSettingsPanel(wrap);
+    }
+  }, 0);
+}
+
 function toggleQueueTransferManager(){
   toggleSettingsPanel('queueTransferManagerWrap', () => {
     updateQueueTransferInfo();
@@ -3007,7 +3039,7 @@ function getQueueItemsFromTransferPayload(parsed){
   if(!parsed) return [];
   if(Array.isArray(parsed)) return parsed;
   if(parsed.transferType === 'queue' && Array.isArray(parsed.queue)) return parsed.queue;
-  if(parsed.app === 'Lastbil app' && Array.isArray(parsed.queue)) return parsed.queue;
+  if((parsed.app === 'Lastbil app' || parsed.app === 'Stadslass') && Array.isArray(parsed.queue)) return parsed.queue;
   if(Array.isArray(parsed.items)) return parsed.items;
   return [];
 }
@@ -3102,6 +3134,115 @@ function importQueueFile(){
   reader.readAsText(file);
 }
 
+
+
+const GITHUB_QUEUE_FILES = ['queue.json','queue-extra.json','queue-extra-2.json'];
+
+function getGithubQueueFileName(){
+  const el = document.getElementById('githubQueueFileName');
+  return el && GITHUB_QUEUE_FILES.includes(el.value) ? el.value : 'queue.json';
+}
+
+function setGithubQueueInfo(text){
+  const el = document.getElementById('githubQueueInfo');
+  if(el) el.textContent = text || '';
+}
+
+function queueDedupeKey(item){
+  if(!item) return '';
+  return [
+    item.type || '',
+    item.displayType || '',
+    item.place || '',
+    item.dest || '',
+    item.comment || '',
+    item.plannedDate || item.date || ''
+  ].join('|').toLocaleLowerCase('sv-SE');
+}
+
+function sanitizeQueueItemForGithub(item){
+  const clean = sanitizeQueueItemForTransfer(item);
+  delete clean.privateComment;
+  clean.githubSource = true;
+  clean.githubKey = queueDedupeKey(clean);
+  return clean;
+}
+
+function buildGithubQueuePayload(){
+  const items = getQueueTransferItems().map(sanitizeQueueItemForGithub);
+  return {
+    app: 'Stadslass',
+    transferType: 'queue',
+    transferVersion: 1,
+    githubQueue: true,
+    exportedAt: new Date().toISOString(),
+    itemCount: items.length,
+    queue: items
+  };
+}
+
+function createGithubQueueFile(){
+  const payload = buildGithubQueuePayload();
+  if(!payload.queue.length){
+    alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.');
+    setGithubQueueInfo('Inga uppdrag finns att skapa GitHub-köfil av.');
+    return;
+  }
+
+  const filename = getGithubQueueFileName();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  downloadBlobFile(blob, filename);
+  setGithubQueueInfo('GitHub-köfil skapad: ' + filename + '. Ladda upp filen bredvid index.html på GitHub.');
+}
+
+function normalizeImportedGithubQueueItem(item){
+  const normalized = normalizeImportedQueueItem(item);
+  if(!normalized) return null;
+  normalized.privateComment = '';
+  normalized.githubSource = true;
+  normalized.githubKey = item.githubKey || queueDedupeKey(normalized);
+  return normalized;
+}
+
+async function fetchGithubQueueFile(filename){
+  const url = './' + filename + '?t=' + Date.now();
+  try{
+    const response = await fetch(url, {cache:'no-store'});
+    if(!response || !response.ok) return [];
+    const parsed = await response.json();
+    return getQueueItemsFromTransferPayload(parsed);
+  }catch(e){
+    return [];
+  }
+}
+
+async function importGithubQueueFiles(){
+  setGithubQueueInfo('Hämtar GitHub-kö...');
+
+  const existingKeys = new Set((state.queue || []).map(queueDedupeKey).filter(Boolean));
+  const imported = [];
+
+  for(const filename of GITHUB_QUEUE_FILES){
+    const rawItems = await fetchGithubQueueFile(filename);
+    rawItems.map(normalizeImportedGithubQueueItem).filter(Boolean).forEach(item => {
+      const key = item.githubKey || queueDedupeKey(item);
+      if(key && existingKeys.has(key)) return;
+      if(key) existingKeys.add(key);
+      imported.push(item);
+    });
+  }
+
+  if(imported.length){
+    state.queue.push(...imported);
+    sortQueueByPlannedDate();
+    saveState();
+    render();
+  }
+
+  const message = imported.length + ' uppdrag hämtades från GitHub.';
+  setGithubQueueInfo(message);
+  alert(message);
+}
 
 
 let lastFinishedDownloadUrl = null;
@@ -4228,6 +4369,7 @@ function renderQueue(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
+      (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
