@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lastbil app4</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" href="./favicon.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="theme-color" content="#0f172a">
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#cbd5e1;--btn:#e2e8f0;--primary:#0f172a;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -60,7 +64,6 @@ button{
 .pill-type{ background:#fff8cc !important; }
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
 .private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
-.github-import-note{ color:#15803d; font-size:14px; font-weight:700; margin-top:6px; }
 
 #activePills{
   display:flex !important;
@@ -259,6 +262,58 @@ button{
 
 .app-header h1{
   margin:0;
+}
+
+.app-title-block{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+}
+
+.online-status{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  max-width:100%;
+  padding:6px 12px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:#fff;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:800;
+  line-height:1.2;
+}
+
+.online-status::before{
+  content:'';
+  width:10px;
+  height:10px;
+  min-width:10px;
+  border-radius:999px;
+  background:#94a3b8;
+}
+
+.online-status-online{
+  border-color:#86efac;
+  background:#dcfce7;
+  color:#14532d;
+}
+
+.online-status-online::before{
+  background:#16a34a;
+}
+
+.online-status-offline{
+  border-color:#fca5a5;
+  background:#fee2e2;
+  color:#7f1d1d;
+}
+
+.online-status-offline::before{
+  background:#dc2626;
 }
 
 .settings-btn{
@@ -662,7 +717,10 @@ button{
 <body>
 <div class="wrap">
   <div class="app-header">
-    <h1>Lastbil app</h1>
+    <div class="app-title-block">
+      <h1>Lastbil app</h1>
+      <div id="onlineStatus" class="online-status" aria-live="polite">Kontrollerar anslutning</div>
+    </div>
     <button class="settings-btn" onclick="showTab('settings')" aria-label="Inställningar" title="Inställningar">
       <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
@@ -802,7 +860,10 @@ button{
 
   <div id="tab-ko" class="card hidden">
       <h3>Uppdrag i kö</h3>
-      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Nytt jobb.</div>
+      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Snabbval eller Nytt jobb.</div>
+      <div class="row" style="margin-top:12px; margin-bottom:12px">
+        <button class="primary inline" onclick="openQueueTransferFromQueue()">Till/från GitHub</button>
+      </div>
       <div id="queueList"></div>
 </div>
 
@@ -1103,22 +1164,6 @@ button{
     </div>
     <div id="queueTransferManagerWrap" class="place-manager hidden">
       <div class="place-help">Skicka eller ta emot uppdrag i kö mellan telefon och surfplatta. Import lägger bara till uppdrag i befintlig kö och skriver inte över något.</div>
-
-      <div class="place-row">
-        <div class="place-key">GitHub-kö</div>
-        <div class="multi-help">Skapa en köfil för GitHub på mobilen eller hämta köfiler från GitHub på surfplattan. Interna kommentarer följer inte med i GitHub-köfilen.</div>
-        <label>Filnamn vid export</label>
-        <select id="githubQueueExportName">
-          <option value="queue.json">queue.json</option>
-          <option value="queue-extra.json">queue-extra.json</option>
-          <option value="queue-extra-2.json">queue-extra-2.json</option>
-        </select>
-        <div id="githubQueueInfo" class="multi-help"></div>
-        <div class="row">
-          <button class="primary inline" onclick="shareGithubQueueFile()">Skapa GitHub-köfil</button>
-          <button class="primary inline" onclick="fetchGithubQueueFiles()">Hämta GitHub-kö</button>
-        </div>
-      </div>
 
       <div class="place-row">
         <div class="place-key">Dela kö-fil</div>
@@ -2889,14 +2934,21 @@ function importAppBackup(){
 
 
 let lastQueueDownloadUrl = null;
-let lastGithubQueueDownloadUrl = null;
-const GITHUB_QUEUE_FILES = ['queue.json','queue-extra.json','queue-extra-2.json'];
 
 function toggleQueueTransferManager(){
   toggleSettingsPanel('queueTransferManagerWrap', () => {
     updateQueueTransferInfo();
-    updateGithubQueueInfo();
   });
+}
+
+function openQueueTransferFromQueue(){
+  showTab('settings');
+  const wrap = document.getElementById('queueTransferManagerWrap');
+  if(!wrap) return;
+  hideSettingsPanels('queueTransferManagerWrap');
+  wrap.classList.remove('hidden');
+  updateQueueTransferInfo();
+  scrollToSettingsPanel(wrap);
 }
 
 function updateQueueTransferInfo(){
@@ -2942,154 +2994,6 @@ function buildQueueTransferPayload(){
     itemCount: items.length,
     queue: items
   };
-}
-
-
-function updateGithubQueueInfo(message){
-  const el = document.getElementById('githubQueueInfo');
-  if(!el) return;
-  if(message){ el.textContent = message; return; }
-  const count = getQueueTransferItems().length;
-  el.textContent = count === 1 ? '1 uppdrag finns att skapa GitHub-köfil av.' : count + ' uppdrag finns att skapa GitHub-köfil av.';
-}
-
-function getQueueFingerprint(item){
-  return [
-    item && item.type || '',
-    item && item.displayType || '',
-    item && item.place || '',
-    item && item.dest || '',
-    item && item.comment || '',
-    item && (item.plannedDate || item.date) || ''
-  ].map(value => String(value || '').trim().toLocaleLowerCase('sv-SE')).join('|');
-}
-
-function getQueueImportKeys(item){
-  const keys = [];
-  const sourceId = String(item && (item.sourceQueueId || item.originalQueueId || '') || '').trim();
-  const githubKey = String(item && item.githubQueueKey || '').trim();
-  const fingerprint = getQueueFingerprint(item);
-  if(sourceId) keys.push('source:' + sourceId);
-  if(githubKey) keys.push('github:' + githubKey);
-  if(fingerprint.split('|').join('').trim()) keys.push('fingerprint:' + fingerprint);
-  return keys;
-}
-
-function buildExistingQueueKeySet(){
-  const keySet = new Set();
-  (state.queue || []).forEach(item => getQueueImportKeys(item).forEach(key => keySet.add(key)));
-  return keySet;
-}
-
-function addQueueImportKeysToSet(keySet, item){
-  getQueueImportKeys(item).forEach(key => keySet.add(key));
-}
-
-function hasQueueImportDuplicate(keySet, item){
-  return getQueueImportKeys(item).some(key => keySet.has(key));
-}
-
-function sanitizeQueueItemForGithub(item){
-  const clean = sanitizeQueueItemForTransfer(item);
-  delete clean.privateComment;
-  clean.sourceQueueId = String(item && (item.sourceQueueId || item.id) || '').trim();
-  clean.githubQueueKey = getQueueFingerprint(clean);
-  return clean;
-}
-
-function getGithubQueueExportFilename(){
-  const el = document.getElementById('githubQueueExportName');
-  const value = el ? el.value : 'queue.json';
-  return GITHUB_QUEUE_FILES.includes(value) ? value : 'queue.json';
-}
-
-function buildGithubQueuePayload(filename){
-  const items = getQueueTransferItems().map(sanitizeQueueItemForGithub);
-  return {
-    app: 'Lastbil app', transferType: 'github_queue', transferVersion: 1,
-    exportedAt: new Date().toISOString(), fileName: filename,
-    itemCount: items.length, queue: items
-  };
-}
-
-function setGithubQueueDownloadLink(url, filename){
-  const el = document.getElementById('githubQueueInfo');
-  if(el){
-    el.innerHTML = 'GitHub-köfil skapad: <a href="' + url + '" download="' + escapeHtml(filename) + '">Ladda ner ' + escapeHtml(filename) + '</a>';
-  }
-}
-
-function downloadGithubQueueBlob(blob, filename){
-  if(lastGithubQueueDownloadUrl){ try{ URL.revokeObjectURL(lastGithubQueueDownloadUrl); }catch(e){} lastGithubQueueDownloadUrl = null; }
-  const url = URL.createObjectURL(blob);
-  lastGithubQueueDownloadUrl = url;
-  setGithubQueueDownloadLink(url, filename);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.style.display = 'none';
-  document.body.appendChild(a); a.click(); a.remove();
-}
-
-async function shareGithubQueueFile(){
-  const filename = getGithubQueueExportFilename();
-  const payload = buildGithubQueuePayload(filename);
-  if(!payload.queue.length){ alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.'); updateGithubQueueInfo(); return; }
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  let shared = false;
-  try{
-    if(typeof File !== 'undefined' && navigator.share){
-      const file = new File([blob], filename, {type:'application/json'});
-      const canShareFile = !navigator.canShare || navigator.canShare({files:[file]});
-      if(canShareFile){ await navigator.share({title:'Lastbil GitHub-kö', text:'GitHub-köfil från Lastbil app', files:[file]}); shared = true; }
-    }
-  }catch(e){ shared = false; }
-  if(!shared){ downloadGithubQueueBlob(blob, filename); alert('GitHub-köfilen skapades. Ladda upp filen till GitHub bredvid index.html.'); }
-}
-
-function normalizeImportedGithubQueueItem(item, filename){
-  if(!item || typeof item !== 'object') return null;
-  const type = String(item.type || '').trim();
-  if(!type) return null;
-  const plannedDate = isValidIsoDate(item.plannedDate) ? item.plannedDate : (isValidIsoDate(item.date) ? item.date : todayStr());
-  const place = String(item.place || '');
-  const dest = String(item.dest || '');
-  const normalized = {
-    id:id(), sourceQueueId:String(item.sourceQueueId || item.originalQueueId || item.id || '').trim(),
-    githubQueueKey:String(item.githubQueueKey || '').trim(), githubQueueImported:true, githubQueueSource:String(filename || ''),
-    vehicle:String(item.vehicle || (type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil')), type:type,
-    displayType:String(item.displayType || type), place:place, dest:dest,
-    placeLabel:String(item.placeLabel || getStoredPlaceLabel(place) || ''), destLabel:String(item.destLabel || getStoredPlaceLabel(dest) || ''),
-    comment:String(item.comment || ''), privateComment:'', status:'köad', date:todayStr(), plannedDate:plannedDate
-  };
-  if(!normalized.githubQueueKey) normalized.githubQueueKey = getQueueFingerprint(normalized);
-  return normalized;
-}
-
-async function fetchGithubQueueFiles(){
-  updateGithubQueueInfo('Hämtar GitHub-kö...');
-  const fetchedItems = [];
-  const stamp = Date.now();
-  for(const filename of GITHUB_QUEUE_FILES){
-    try{
-      const response = await fetch('./' + filename + '?githubQueueTs=' + stamp, {cache:'no-store'});
-      if(!response || !response.ok) continue;
-      const parsed = await response.json();
-      getQueueItemsFromTransferPayload(parsed)
-        .map(item => normalizeImportedGithubQueueItem(item, filename))
-        .filter(Boolean)
-        .forEach(item => fetchedItems.push(item));
-    }catch(e){}
-  }
-  const keySet = buildExistingQueueKeySet();
-  const toImport = [];
-  fetchedItems.forEach(item => {
-    if(hasQueueImportDuplicate(keySet, item)) return;
-    toImport.push(item); addQueueImportKeysToSet(keySet, item);
-  });
-  if(toImport.length){
-    state.queue.push(...toImport); sortQueueByPlannedDate(); saveState(); render(); showTab('ko');
-  }
-  updateGithubQueueInfo(toImport.length + ' uppdrag hämtades från GitHub-kö.');
-  alert(toImport.length + ' uppdrag hämtades från GitHub-kö.');
 }
 
 function setQueueDownloadLink(url, filename){
@@ -4372,7 +4276,6 @@ function renderQueue(){
     '<div class="job">'+
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
-      (x.githubQueueImported ? '<div class="github-import-note">Hämtad från GitHub</div>' : '')+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
@@ -4622,18 +4525,58 @@ function summarizeJobsByMonth(jobs){
   return byMonth;
 }
 
-function buildMonthlyJobDiagramRows(jobs, label){
+function excelRow(values, types){
+  return { values: values || [], types: types || null };
+}
+
+function calculateExcelColumnWidths(rowData){
+  const maxCols = rowData.reduce((max, row) => Math.max(max, (row.values || []).length), 0);
+  const maxLengths = new Array(maxCols).fill(0);
+
+  rowData.forEach(row => {
+    (row.values || []).forEach((value, index) => {
+      const text = String(value ?? '');
+      const longestLine = text.split(/\r?\n/).reduce((max, line) => Math.max(max, line.length), 0);
+      maxLengths[index] = Math.max(maxLengths[index], longestLine);
+    });
+  });
+
+  return maxLengths.map(length => {
+    const width = Math.round(length * 7 + 22);
+    return Math.max(55, Math.min(420, width));
+  });
+}
+
+function xmlColumnsFromRows(rowData){
+  return calculateExcelColumnWidths(rowData)
+    .map(width => '<Column ss:AutoFitWidth="1" ss:Width="' + width + '"/>')
+    .join('');
+}
+
+function xmlRowsFromData(rowData){
+  return rowData.map(row => xmlRow(row.values, row.types)).join('');
+}
+
+function xmlWorksheet(name, rowData){
+  return '<Worksheet ss:Name="' + escapeXml(name) + '"><Table>' +
+    xmlColumnsFromRows(rowData) +
+    xmlRowsFromData(rowData) +
+    '</Table></Worksheet>';
+}
+
+function buildMonthlyJobDiagramData(jobs, label){
   const byMonth = summarizeJobsByMonth(jobs);
   const months = Object.keys(byMonth).sort();
-  let rows = '';
-  rows += xmlRow(['Diagram – uppdrag per månad', 'Lastbil app']);
-  rows += xmlRow(['Period', label]);
-  rows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
-  rows += xmlRow(['']);
-  rows += xmlRow(['Månad', 'Antal uppdrag', 'Diagram']);
+  const rows = [];
+
+  rows.push(excelRow(['Diagram – uppdrag per månad', 'Lastbil app']));
+  rows.push(excelRow(['Period', label]));
+  rows.push(excelRow(['Exporterad', new Date().toLocaleString('sv-SE')]));
+  rows.push(excelRow(['']));
+  rows.push(excelRow(['Månad', 'Antal uppdrag', 'Diagram']));
 
   if(!months.length){
-    rows += xmlRow(['Ingen data för vald period', 0, ''], ['String','Number','String']);
+    rows.push(excelRow(['Ingen data för vald period', 0, ''], ['String','Number','String']));
     return rows;
   }
 
@@ -4641,7 +4584,7 @@ function buildMonthlyJobDiagramRows(jobs, label){
   months.forEach(month => {
     const count = byMonth[month].jobs;
     const barLength = Math.max(1, Math.round((count / maxJobs) * 30));
-    rows += xmlRow([month, count, '█'.repeat(barLength)], ['String','Number','String']);
+    rows.push(excelRow([month, count, '█'.repeat(barLength)], ['String','Number','String']));
   });
 
   return rows;
@@ -4669,53 +4612,53 @@ function buildExcelWorkbookXml(selection, filtered){
 
   const byDate = summarizeJobsByDate(filtered);
   const byType = summarizeJobsByType(filtered);
-  const monthlyDiagramRows = buildMonthlyJobDiagramRows(filtered, label);
+  const monthlyDiagramData = buildMonthlyJobDiagramData(filtered, label);
 
-  let summaryRows = '';
-  summaryRows += xmlRow(['Sammanställning', 'Lastbil app']);
-  summaryRows += xmlRow(['Period', label]);
-  summaryRows += xmlRow(['Exporterad', new Date().toLocaleString('sv-SE')]);
-  summaryRows += xmlRow(['']);
-  summaryRows += xmlRow(['Nyckeltal', 'Värde']);
-  summaryRows += xmlRow(['Antal jobb', totalJobs], ['String','Number']);
-  summaryRows += xmlRow(['Antal last', totalLoads], ['String','Number']);
-  summaryRows += xmlRow(['Total vikt i ton', totalWeight.toFixed(1)], ['String','Number']);
-  summaryRows += xmlRow(['Sträcka km', totalDistance.toFixed(1)], ['String','Number']);
-  summaryRows += xmlRow(['Tid timmar', decimalHours(totalTimeMs).toFixed(2)], ['String','Number']);
+  const summaryData = [];
+  summaryData.push(excelRow(['Sammanställning', 'Lastbil app']));
+  summaryData.push(excelRow(['Period', label]));
+  summaryData.push(excelRow(['Exporterad', new Date().toLocaleString('sv-SE')]));
+  summaryData.push(excelRow(['']));
+  summaryData.push(excelRow(['Nyckeltal', 'Värde']));
+  summaryData.push(excelRow(['Antal jobb', totalJobs], ['String','Number']));
+  summaryData.push(excelRow(['Antal last', totalLoads], ['String','Number']));
+  summaryData.push(excelRow(['Total vikt i ton', totalWeight.toFixed(1)], ['String','Number']));
+  summaryData.push(excelRow(['Sträcka km', totalDistance.toFixed(1)], ['String','Number']));
+  summaryData.push(excelRow(['Tid timmar', decimalHours(totalTimeMs).toFixed(2)], ['String','Number']));
 
-  let dayRows = '';
-  dayRows += xmlRow(['Datum', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
+  const dayData = [];
+  dayData.push(excelRow(['Datum', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']));
   Object.keys(byDate).sort().forEach(date => {
     const row = byDate[date];
-    dayRows += xmlRow(
+    dayData.push(excelRow(
       [date, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
       ['String','Number','Number','Number','Number','Number']
-    );
+    ));
   });
 
-  let typeRows = '';
-  typeRows += xmlRow(['Jobbtyp', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']);
+  const typeData = [];
+  typeData.push(excelRow(['Jobbtyp', 'Jobb', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar']));
   Object.keys(byType).sort().forEach(type => {
     const row = byType[type];
-    typeRows += xmlRow(
+    typeData.push(excelRow(
       [type, row.jobs, row.loads, row.weight.toFixed(1), row.distance.toFixed(1), decimalHours(row.timeMs).toFixed(2)],
       ['String','Number','Number','Number','Number','Number']
-    );
+    ));
   });
 
-  let detailRows = '';
-  detailRows += xmlRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']);
+  const detailData = [];
+  detailData.push(excelRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']));
   filtered
     .slice()
     .sort((a,b) => (a.date || '').localeCompare(b.date || '') || (a.start || 0) - (b.start || 0))
     .forEach(job => {
-      detailRows += xmlRow(
+      detailData.push(excelRow(
         [
           job.date || '',
           job.vehicle || '',
           job.type || '',
-          job.place || '',
-          job.dest || '',
+          getItemPlaceLabel(job, 'place') || job.place || '',
+          getItemPlaceLabel(job, 'dest') || job.dest || '',
           (job.loads || []).length,
           (job.totalWeight || 0).toFixed(1),
           (job.distanceKm || 0).toFixed(1),
@@ -4723,7 +4666,7 @@ function buildExcelWorkbookXml(selection, filtered){
           job.comment || ''
         ],
         ['String','String','String','String','String','Number','Number','Number','Number','String']
-      );
+      ));
     });
 
   const xml = '<?xml version="1.0"?>'
@@ -4736,11 +4679,11 @@ function buildExcelWorkbookXml(selection, filtered){
     + '<Styles>'
     +   '<Style ss:ID="Header"><Font ss:Bold="1"/></Style>'
     + '</Styles>'
-    + '<Worksheet ss:Name="Sammanfattning"><Table>' + summaryRows + '</Table></Worksheet>'
-    + '<Worksheet ss:Name="Diagram månad"><Table>' + monthlyDiagramRows + '</Table></Worksheet>'
-    + '<Worksheet ss:Name="Dag för dag"><Table>' + dayRows + '</Table></Worksheet>'
-    + '<Worksheet ss:Name="Per jobbtyp"><Table>' + typeRows + '</Table></Worksheet>'
-    + '<Worksheet ss:Name="Detaljer"><Table>' + detailRows + '</Table></Worksheet>'
+    + xmlWorksheet('Sammanfattning', summaryData)
+    + xmlWorksheet('Diagram månad', monthlyDiagramData)
+    + xmlWorksheet('Dag för dag', dayData)
+    + xmlWorksheet('Per jobbtyp', typeData)
+    + xmlWorksheet('Detaljer', detailData)
     + '</Workbook>';
   return xml;
 }
@@ -5474,7 +5417,22 @@ function saveManagedPlaces(){
   alert('Platser sparade.');
 }
 
-function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); saveState(); }
+function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); updateOnlineStatus(); saveState(); }
+
+function updateOnlineStatus(){
+  const el = document.getElementById('onlineStatus');
+  if(!el) return;
+  const isOnline = navigator.onLine !== false;
+  el.classList.toggle('online-status-online', isOnline);
+  el.classList.toggle('online-status-offline', !isOnline);
+  el.textContent = isOnline ? 'Online' : 'Offline – lokalt läge';
+  el.title = isOnline
+    ? 'Webbläsaren uppger att appen har nätanslutning.'
+    : 'Webbläsaren uppger att appen är offline. Arbetsdata ligger kvar lokalt på enheten.';
+}
+
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
 
 fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
@@ -5528,6 +5486,7 @@ updateFixedRouteRules();
 applySopsandDefaultDestination();
 updateSummaryControls();
 updateGpsEnvironmentInfo();
+updateOnlineStatus();
 initializeNewJobDate();
 initializeQuickDate();
 initializeHistoryControls();
@@ -5552,5 +5511,15 @@ function saveActivePrivateComment(){
 }
 
 </script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(error){
+      console.log('Service worker kunde inte registreras:', error);
+    });
+  });
+}
+</script>
+
 </body>
 </html>
