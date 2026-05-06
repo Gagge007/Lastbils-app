@@ -21,13 +21,6 @@ h1,h2,h3{margin:0 0 10px}
 @media(min-width:800px){.grid2{grid-template-columns:1fr 1fr}}
 button,select,input,textarea{font-size:16px;padding:12px;border:1px solid var(--border);border-radius:12px}
 button{background:var(--btn);cursor:pointer}
-
-.restart-yellow{
-  background:#facc15 !important;
-  color:#713f12 !important;
-  border-color:#d8c16a !important;
-  font-weight:700 !important;
-}
 button.primary{background:var(--primary);color:#fff}
 button.danger{background:var(--danger);color:#fff}
 button.inline{width:auto}
@@ -350,7 +343,8 @@ button{
 }
 
 #tab-settings select[multiple]{
-  min-height:150px;
+  min-height:96px;
+  height:96px;
 }
 
 #tab-settings .multi-help{
@@ -744,7 +738,7 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" placeholder="Ange vikt i ton" oninput="sanitizeWeightInput()" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <input id="weightInput" placeholder="Ange vikt i ton" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" oninput="sanitizeWeightInput(this)" style="width:100%; max-width:none; min-height:64px; font-size:18px">
             <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
@@ -1278,18 +1272,14 @@ button{
         <input id="newManagedPlaceName" placeholder="Namn på ny plats">
         <input id="newManagedPlaceAddress" placeholder="Adress eller Plus Code">
         <div class="multi-help">Du kan skriva vanlig adress eller Plus Code för framtida Google Maps-koppling.</div>
-        <div class="row" style="gap:12px; align-items:center">
-          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="newManagedPlaceFrom" type="checkbox" checked> Från</label>
-          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="newManagedPlaceTo" type="checkbox" checked> Till</label>
-        </div>
         <div>
           <label>Koppla jobbtyper Från (valfritt)</label>
-          <select id="newManagedPlaceFromJobType" multiple size="6"></select>
+          <select id="newManagedPlaceFromJobType" multiple size="4"></select>
           <div class="multi-help">Välj vilka jobbtyper som får hämtas/starta från platsen.</div>
         </div>
         <div>
           <label>Koppla jobbtyper Till (valfritt)</label>
-          <select id="newManagedPlaceToJobType" multiple size="6"></select>
+          <select id="newManagedPlaceToJobType" multiple size="4"></select>
           <div class="multi-help">Välj vilka jobbtyper som får köras/lämnas till platsen.</div>
         </div>
         <div class="row">
@@ -1702,58 +1692,57 @@ function haversineKm(lat1, lon1, lat2, lon2){
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-function ensureActiveMotionFields(){
-  if(!state.active) return;
-  if(!Number.isFinite(Number(state.active.motionDrivingMs))) state.active.motionDrivingMs = 0;
-  if(!Number.isFinite(Number(state.active.motionStillMs))) state.active.motionStillMs = 0;
-  if(!Number.isFinite(Number(state.active.motionStartedAt))) state.active.motionStartedAt = state.active.start || Date.now();
-  if(!Number.isFinite(Number(state.active.motionLastTs))) state.active.motionLastTs = state.active.motionStartedAt;
-  if(state.active.motionLastMode !== 'driving' && state.active.motionLastMode !== 'still') state.active.motionLastMode = 'still';
-}
-
-function addActiveMotionTime(mode, ms){
-  if(!state.active) return;
-  const amount = Number(ms);
-  if(!Number.isFinite(amount) || amount <= 0) return;
-  ensureActiveMotionFields();
-  if(mode === 'driving'){
-    state.active.motionDrivingMs = Number(state.active.motionDrivingMs || 0) + amount;
-  } else {
-    state.active.motionStillMs = Number(state.active.motionStillMs || 0) + amount;
+function ensureMotionTiming(job){
+  if(!job) return null;
+  if(!job.motionTiming || typeof job.motionTiming !== 'object'){
+    job.motionTiming = {drivingMs:0, stationaryMs:0, lastTs:Date.now(), lastMoving:false};
   }
+  if(!Number.isFinite(Number(job.motionTiming.drivingMs))) job.motionTiming.drivingMs = 0;
+  if(!Number.isFinite(Number(job.motionTiming.stationaryMs))) job.motionTiming.stationaryMs = 0;
+  if(!Number.isFinite(Number(job.motionTiming.lastTs))) job.motionTiming.lastTs = Date.now();
+  job.motionTiming.lastMoving = !!job.motionTiming.lastMoving;
+  return job.motionTiming;
 }
 
-function finalizeActiveMotion(){
-  if(!state.active) return;
-  ensureActiveMotionFields();
-  const now = Date.now();
-  const lastTs = Number(state.active.motionLastTs || state.active.start || now);
-  if(!Number.isFinite(lastTs) || lastTs >= now) return;
-
-  let mode = state.active.motionLastMode === 'driving' ? 'driving' : 'still';
-  if(mode === 'driving' && lastGpsPoint && (now - lastGpsPoint.ts) > 120000){
-    mode = 'still';
+function addMotionElapsed(job, now){
+  const timing = ensureMotionTiming(job);
+  if(!timing) return;
+  const currentTs = Number(now || Date.now());
+  const lastTs = Number(timing.lastTs || currentTs);
+  const elapsed = Math.max(0, Math.min(currentTs - lastTs, 60 * 60 * 1000));
+  if(elapsed > 0){
+    if(timing.lastMoving){
+      timing.drivingMs += elapsed;
+    } else {
+      timing.stationaryMs += elapsed;
+    }
   }
-
-  addActiveMotionTime(mode, now - lastTs);
-  state.active.motionLastTs = now;
+  timing.lastTs = currentTs;
 }
 
-function getMotionSplitHtml(job){
-  if(!job) return '';
-  const driving = Number(job.motionDrivingMs || 0);
-  const still = Number(job.motionStillMs || 0);
-  if((!Number.isFinite(driving) || driving <= 0) && (!Number.isFinite(still) || still <= 0)) return '';
-  return '<div style="margin-top:6px">Körning ca: '+mins(driving)+' · Stillasående ca: '+mins(still)+'</div>';
+function updateMotionTimingFromGps(job, isMoving, now){
+  const timing = ensureMotionTiming(job);
+  if(!timing) return;
+  addMotionElapsed(job, now);
+  timing.lastMoving = !!isMoving;
 }
 
-function stripMotionFields(item){
-  if(!item || typeof item !== 'object') return;
-  delete item.motionDrivingMs;
-  delete item.motionStillMs;
-  delete item.motionStartedAt;
-  delete item.motionLastTs;
-  delete item.motionLastMode;
+function finalizeMotionTiming(job){
+  if(!job || !job.motionTiming) return;
+  addMotionElapsed(job, Date.now());
+  job.motionTiming.lastTs = Date.now();
+}
+
+function formatMotionTime(ms){
+  return mins(Math.max(0, Number(ms || 0)));
+}
+
+function getMotionSplitText(job){
+  if(!job || !job.motionTiming) return '';
+  const driving = Number(job.motionTiming.drivingMs || 0);
+  const stationary = Number(job.motionTiming.stationaryMs || 0);
+  if(driving <= 0 && stationary <= 0) return '';
+  return 'Körning ca: ' + formatMotionTime(driving) + ' · Stillasående ca: ' + formatMotionTime(stationary);
 }
 
 
@@ -1775,7 +1764,6 @@ function stopActiveTimer(){
 function startDistanceTracking(){
   stopDistanceTracking();
   if(!navigator.geolocation || !state.active) return;
-  ensureActiveMotionFields();
 
   gpsWatchId = navigator.geolocation.watchPosition(
     pos => {
@@ -1792,33 +1780,21 @@ function startDistanceTracking(){
         return;
       }
 
-      ensureActiveMotionFields();
+      let isMoving = false;
 
       if(lastGpsPoint){
         const delta = haversineKm(lastGpsPoint.lat, lastGpsPoint.lon, point.lat, point.lon);
-        const elapsedMs = Math.max(0, point.ts - lastGpsPoint.ts);
-        const hours = elapsedMs / 3600000;
-        const speedKmh = hours > 0 ? delta / hours : 0;
-        const isDriving = Number.isFinite(delta) && delta >= 0.01 && delta < 3 && speedKmh >= 5;
-
-        addActiveMotionTime(isDriving ? 'driving' : 'still', elapsedMs);
-        state.active.motionLastMode = isDriving ? 'driving' : 'still';
-        state.active.motionLastTs = point.ts;
 
         if(Number.isFinite(delta) && delta > 0.005 && delta < 3){
+          isMoving = true;
           state.active.distanceKm = Number((state.active.distanceKm || 0) + delta);
         }
-
-        saveState();
-        renderActive();
-        renderSummary();
-      } else {
-        addActiveMotionTime('still', point.ts - Number(state.active.motionLastTs || state.active.start || point.ts));
-        state.active.motionLastMode = 'still';
-        state.active.motionLastTs = point.ts;
-        saveState();
       }
 
+      updateMotionTimingFromGps(state.active, isMoving, point.ts);
+      saveState();
+      renderActive();
+      renderSummary();
       lastGpsPoint = point;
     },
     err => {
@@ -2094,23 +2070,14 @@ function normalizeJobTypesConfig(config, direction){
   if(!config) return [];
   let raw = [];
 
-  if(direction === 'from'){
-    raw = Array.isArray(config.fromJobTypes) ? config.fromJobTypes : [];
-  } else if(direction === 'to'){
-    raw = Array.isArray(config.toJobTypes) ? config.toJobTypes : [];
-  }
-
-  if(!raw.length){
-    raw = Array.isArray(config.jobTypes) ? config.jobTypes : (config.jobType ? [config.jobType] : []);
-  }
-
-  if(!direction){
-    raw = [
-      ...(Array.isArray(config.fromJobTypes) ? config.fromJobTypes : []),
-      ...(Array.isArray(config.toJobTypes) ? config.toJobTypes : []),
-      ...(Array.isArray(config.jobTypes) ? config.jobTypes : []),
-      ...(config.jobType ? [config.jobType] : [])
-    ];
+  if(direction === 'from' && Array.isArray(config.fromJobTypes)){
+    raw = config.fromJobTypes;
+  } else if(direction === 'to' && Array.isArray(config.toJobTypes)){
+    raw = config.toJobTypes;
+  } else if(Array.isArray(config.jobTypes)){
+    raw = config.jobTypes;
+  } else if(config.jobType){
+    raw = [config.jobType];
   }
 
   return Array.from(new Set(raw.filter(type => truckTypes.includes(type))));
@@ -2118,6 +2085,16 @@ function normalizeJobTypesConfig(config, direction){
 
 function getPlaceJobTypes(value, direction){
   return normalizeJobTypesConfig(getPlaceConfig(value), direction);
+}
+
+function getPlaceDirectionalUsageFromConfig(value){
+  const cfg = getPlaceConfig(value);
+  const hasDirectionalConfig = !!(cfg && (Array.isArray(cfg.fromJobTypes) || Array.isArray(cfg.toJobTypes)));
+  if(!hasDirectionalConfig) return null;
+  return {
+    from: getPlaceJobTypes(value, 'from').length > 0,
+    to: getPlaceJobTypes(value, 'to').length > 0
+  };
 }
 
 function getSelectedValues(select){
@@ -2138,6 +2115,11 @@ function getDefaultPlaceUsage(value){
 }
 
 function getPlaceUsage(value){
+  const directional = getPlaceDirectionalUsageFromConfig(value);
+  if(directional){
+    return { from: !!directional.from, to: !!directional.to };
+  }
+
   const custom = getCustomPlaceByKey(value);
   if(custom){
     return { from: !!custom.from, to: !!custom.to };
@@ -2942,7 +2924,9 @@ function sanitizeStateForExport(source){
       delete item.privateComment;
       delete item.internalComment;
       delete item.sensitiveComment;
-      stripMotionFields(item);
+      delete item.motionTiming;
+      delete item.drivingMs;
+      delete item.stationaryMs;
     }
   };
   strip(clean.active);
@@ -3273,9 +3257,8 @@ function sanitizeQueueItemForGithub(item){
   return clean;
 }
 
-function buildGithubQueuePayload(queueItems){
-  const sourceItems = Array.isArray(queueItems) ? queueItems : getQueueTransferItems();
-  const items = sourceItems.map(sanitizeQueueItemForGithub);
+function buildGithubQueuePayload(){
+  const items = getQueueTransferItems().map(sanitizeQueueItemForGithub);
   return {
     app: 'Stadslass',
     transferType: 'queue',
@@ -3287,27 +3270,8 @@ function buildGithubQueuePayload(queueItems){
   };
 }
 
-function markQueueItemsExportedToGithub(exportedItems, filename){
-  const exportedIds = new Set((exportedItems || []).map(item => item && item.id).filter(Boolean));
-  if(!exportedIds.size) return;
-
-  const exportedAt = new Date().toISOString();
-  (state.queue || []).forEach(item => {
-    if(item && exportedIds.has(item.id)){
-      item.githubExported = true;
-      item.githubExportedAt = exportedAt;
-      item.githubExportedFile = filename || '';
-    }
-  });
-
-  saveState();
-  renderQueue();
-  updateQueueTransferInfo();
-}
-
 function createGithubQueueFile(){
-  const exportedItems = getQueueTransferItems();
-  const payload = buildGithubQueuePayload(exportedItems);
+  const payload = buildGithubQueuePayload();
   if(!payload.queue.length){
     alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.');
     setGithubQueueInfo('Inga uppdrag finns att skapa GitHub-köfil av.');
@@ -3316,8 +3280,19 @@ function createGithubQueueFile(){
 
   const filename = getGithubQueueFileName();
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+
+  const exportedKeys = new Set(payload.queue.map(item => item.githubKey || queueDedupeKey(item)).filter(Boolean));
+  (state.queue || []).forEach(item => {
+    const key = item.githubKey || queueDedupeKey(item);
+    if(key && exportedKeys.has(key)){
+      item.githubExported = true;
+      item.githubExportedAt = new Date().toISOString();
+    }
+  });
+  saveState();
+  renderQueue();
+
   downloadBlobFile(blob, filename);
-  markQueueItemsExportedToGithub(exportedItems, filename);
   setGithubQueueInfo('GitHub-köfil skapad: ' + filename + '. Ladda upp filen bredvid index.html på GitHub.');
 }
 
@@ -3401,7 +3376,9 @@ function getFinishedJobTransferKey(job){
 
 function sanitizeFinishedJobForTransfer(job){
   const copy = JSON.parse(JSON.stringify(job || {}));
-  stripMotionFields(copy);
+  delete copy.motionTiming;
+  delete copy.drivingMs;
+  delete copy.stationaryMs;
   copy.sourceJobId = String(job.sourceJobId || job.originalJobId || job.id || '').trim();
   copy.transferKey = getFinishedJobTransferKey(copy);
   return copy;
@@ -4058,14 +4035,10 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     privateComment:privateComment||'',
     plannedDate: todayStr(),
     start:Date.now(),
+    motionTiming:{drivingMs:0, stationaryMs:0, lastTs:Date.now(), lastMoving:false},
     loads:[],
     totalWeight:0,
-    distanceKm:0,
-    motionDrivingMs:0,
-    motionStillMs:0,
-    motionStartedAt:Date.now(),
-    motionLastTs:Date.now(),
-    motionLastMode:'still'
+    distanceKm:0
   };
   saveState();
   startDistanceTracking();
@@ -4272,8 +4245,7 @@ function startQueuedJob(qid){
 
 function pauseActiveJob(){
   if(!state.active) return;
-
-  finalizeActiveMotion();
+  finalizeMotionTiming(state.active);
 
   const commentInput = document.getElementById('activeCommentInput');
   if(commentInput){
@@ -4315,10 +4287,9 @@ function resumePausedJob(qid){
   resumed.loads = resumed.loads || [];
   resumed.totalWeight = resumed.totalWeight || resumed.loads.reduce((a,b)=>a+b,0);
   resumed.distanceKm = resumed.distanceKm || 0;
-  resumed.motionDrivingMs = Number.isFinite(Number(resumed.motionDrivingMs)) ? Number(resumed.motionDrivingMs) : 0;
-  resumed.motionStillMs = Number.isFinite(Number(resumed.motionStillMs)) ? Number(resumed.motionStillMs) : 0;
-  resumed.motionLastTs = Date.now();
-  resumed.motionLastMode = 'still';
+  if(resumed.motionTiming){
+    resumed.motionTiming.lastTs = Date.now();
+  }
 
   state.active = resumed;
   state.queue = state.queue.filter(x => x.id !== qid);
@@ -4362,30 +4333,21 @@ function removeQueuedJob(qid){
   renderCleanupPreview();
 }
 
-let weightInputArmed = false;
-
-function sanitizeWeightInput(){
-  const input = document.getElementById('weightInput');
-  if(!input) return '';
-
+function sanitizeWeightInput(input){
+  if(!input) return;
   let value = String(input.value || '').replace(/\./g, ',').replace(/[^0-9,]/g, '');
   const commaIndex = value.indexOf(',');
   if(commaIndex !== -1){
     value = value.slice(0, commaIndex + 1) + value.slice(commaIndex + 1).replace(/,/g, '');
   }
-
-  if(input.value !== value){
-    input.value = value;
-  }
-
-  return value;
+  input.value = value;
 }
 
 function focusWeightInput(){
   const input = document.getElementById('weightInput');
   if(!input) return;
-  weightInputArmed = true;
   input.focus();
+  try{ input.select(); }catch(e){}
 }
 
 function addLoadToCurrent(){
@@ -4393,24 +4355,19 @@ function addLoadToCurrent(){
   const input = document.getElementById('weightInput');
   if(!input) return;
 
-  const value = sanitizeWeightInput().trim();
-  if(!value){
+  sanitizeWeightInput(input);
+  const rawText = String(input.value || '').trim();
+  if(!rawText){
     focusWeightInput();
     return;
   }
 
-  const raw = value.replace(',', '.');
+  const raw = rawText.replace(',', '.');
   const n = Number(raw);
-  if(!Number.isFinite(n) || n <= 0){
-    alert('Skriv en giltig vikt.');
-    focusWeightInput();
-    return;
-  }
-
+  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); focusWeightInput(); return; }
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
   input.value = '';
-  weightInputArmed = false;
   saveState(); render();
 }
 
@@ -4429,8 +4386,8 @@ function addLoadToLatest(){
 
 function stopJob(){
   if(!state.active) return;
+  finalizeMotionTiming(state.active);
 
-  finalizeActiveMotion();
   state.jobs.unshift({...state.active, end:Date.now()});
   state.active = null;
   stopDistanceTracking();
@@ -4441,10 +4398,6 @@ function stopJob(){
     const pausedElapsedMs = resumed.pausedElapsedMs || 0;
     delete resumed.pausedElapsedMs;
     resumed.start = Date.now() - pausedElapsedMs;
-    resumed.motionDrivingMs = Number.isFinite(Number(resumed.motionDrivingMs)) ? Number(resumed.motionDrivingMs) : 0;
-    resumed.motionStillMs = Number.isFinite(Number(resumed.motionStillMs)) ? Number(resumed.motionStillMs) : 0;
-    resumed.motionLastTs = Date.now();
-    resumed.motionLastMode = 'still';
     state.active = resumed;
     state.pausedOtherWork = null;
     startDistanceTracking();
@@ -4554,8 +4507,8 @@ function renderQueue(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
-      (x.githubExported ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:13px">Överförd till GitHub</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
+      (x.githubExported ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:13px">Överförd till GitHub</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
@@ -4649,35 +4602,20 @@ function deleteFinishedJob(jobId){
 }
 
 function restartFinishedJob(jobId){
-  const job = state.jobs.find(x => x.id === jobId);
+  const job = (state.jobs || []).find(x => x.id === jobId);
   if(!job) return;
-
   if(state.active){
-    alert('Du har redan ett aktivt jobb. Avsluta eller pausa det innan du återstartar ett uppdrag.');
+    alert('Du har redan ett aktivt jobb. Avsluta eller pausa det först.');
     return;
   }
-
   const restarted = {...job};
   delete restarted.end;
-  delete restarted.status;
   delete restarted._queueIndex;
-
-  restarted.date = restarted.date || todayStr();
-  restarted.plannedDate = restarted.plannedDate || restarted.date || todayStr();
-  restarted.loads = Array.isArray(restarted.loads) ? restarted.loads : [];
-  restarted.totalWeight = Number.isFinite(Number(restarted.totalWeight))
-    ? Number(restarted.totalWeight)
-    : restarted.loads.reduce((a,b)=>a+b,0);
-  restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
-  restarted.motionDrivingMs = Number.isFinite(Number(restarted.motionDrivingMs)) ? Number(restarted.motionDrivingMs) : 0;
-  restarted.motionStillMs = Number.isFinite(Number(restarted.motionStillMs)) ? Number(restarted.motionStillMs) : 0;
-  restarted.start = restarted.start || Date.now();
-  restarted.motionLastTs = Date.now();
-  restarted.motionLastMode = 'still';
-
+  if(restarted.motionTiming){
+    restarted.motionTiming.lastTs = Date.now();
+  }
   state.active = restarted;
-  state.jobs = state.jobs.filter(x => x.id !== jobId);
-
+  state.jobs = (state.jobs || []).filter(x => x.id !== jobId);
   saveState();
   startDistanceTracking();
   startActiveTimer();
@@ -4698,11 +4636,11 @@ function renderToday(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
-      getMotionSplitHtml(x)+
+      (getMotionSplitText(x) ? '<div style="margin-top:6px">'+escapeHtml(getMotionSplitText(x))+'</div>' : '')+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
-        '<button class="restart-yellow" onclick="restartFinishedJob(\''+x.id+'\')">Återstarta</button>'+
+        '<button class="queue-yellow" onclick="restartFinishedJob(\''+x.id+'\')">Återstarta</button>'+
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
       '</div>'+
@@ -5479,8 +5417,6 @@ function togglePlaceManager(){
 function addManagedPlace(){
   const nameEl = document.getElementById('newManagedPlaceName');
   const addressEl = document.getElementById('newManagedPlaceAddress');
-  const fromEl = document.getElementById('newManagedPlaceFrom');
-  const toEl = document.getElementById('newManagedPlaceTo');
   const fromJobEl = document.getElementById('newManagedPlaceFromJobType');
   const toJobEl = document.getElementById('newManagedPlaceToJobType');
 
@@ -5490,8 +5426,11 @@ function addManagedPlace(){
     alert('Skriv namn på platsen.');
     return;
   }
-  if(!fromEl.checked && !toEl.checked){
-    alert('Välj Från, Till eller båda.');
+
+  const fromJobTypes = getSelectedValues(fromJobEl);
+  const toJobTypes = getSelectedValues(toJobEl);
+  if(!fromJobTypes.length && !toJobTypes.length){
+    alert('Välj minst en jobbtyp under Från eller Till.');
     return;
   }
 
@@ -5499,15 +5438,11 @@ function addManagedPlace(){
   state.customPlaces.push({
     key,
     label,
-    from: fromEl.checked,
-    to: toEl.checked
+    from: fromJobTypes.length > 0,
+    to: toJobTypes.length > 0
   });
 
-  const fromJobTypes = getSelectedValues(fromJobEl);
-  const toJobTypes = getSelectedValues(toJobEl);
-  if(fromJobTypes.length || toJobTypes.length){
-    state.placeConfigs[key] = { fromJobTypes, toJobTypes };
-  }
+  state.placeConfigs[key] = { fromJobTypes, toJobTypes };
   if(!state.placeAddresses) state.placeAddresses = {};
   if(address){
     state.placeAddresses[key] = address;
@@ -5515,8 +5450,6 @@ function addManagedPlace(){
 
   nameEl.value = '';
   if(addressEl) addressEl.value = '';
-  fromEl.checked = true;
-  toEl.checked = true;
   clearSelectedValues(fromJobEl);
   clearSelectedValues(toJobEl);
   saveState();
@@ -5524,7 +5457,6 @@ function addManagedPlace(){
   renderPlaceManager();
   render();
 }
-
 function removeManagedPlace(key){
   if(!confirm('Ta bort platsen?')) return;
   state.customPlaces = (state.customPlaces || []).filter(p => p.key !== key);
@@ -5573,7 +5505,7 @@ function renderPlaceManager(){
       const jobSelect = document.createElement('select');
       jobSelect.setAttribute(dataAttr, entry.key);
       jobSelect.multiple = true;
-      jobSelect.size = 6;
+      jobSelect.size = 4;
 
       const linkedJobTypes = getPlaceJobTypes(entry.key, direction);
       sortedTruckTypes.forEach(type => {
@@ -5595,16 +5527,13 @@ function renderPlaceManager(){
     meta.appendChild(buildJobTypeSelect('Jobbtyper från', 'Välj vilka jobbtyper som får hämtas/starta från platsen.', 'data-place-from-job-key', 'from'));
     meta.appendChild(buildJobTypeSelect('Jobbtyper till', 'Välj vilka jobbtyper som får köras/lämnas till platsen.', 'data-place-to-job-key', 'to'));
 
-    const usage = getPlaceUsage(entry.key);
-    const toggles = document.createElement('div');
-    toggles.className = 'row';
-    toggles.style.gap = '12px';
-    toggles.style.alignItems = 'center';
-    toggles.innerHTML =
-      '<label style="display:flex; align-items:center; gap:8px; width:auto"><input type="checkbox" data-place-from-key="'+entry.key+'" '+(usage.from ? 'checked' : '')+'> Från</label>' +
-      '<label style="display:flex; align-items:center; gap:8px; width:auto"><input type="checkbox" data-place-to-key="'+entry.key+'" '+(usage.to ? 'checked' : '')+'> Till</label>' +
-      (entry.custom ? '<button class="danger inline" onclick="removeManagedPlace(\''+entry.key+'\')">Ta bort</button>' : '');
-    meta.appendChild(toggles);
+    if(entry.custom){
+      const actions = document.createElement('div');
+      actions.className = 'row';
+      actions.style.marginTop = '8px';
+      actions.innerHTML = '<button class="danger inline" onclick="removeManagedPlace(\''+entry.key+'\')">Ta bort</button>';
+      meta.appendChild(actions);
+    }
 
     row.appendChild(label);
     row.appendChild(input);
@@ -5613,12 +5542,12 @@ function renderPlaceManager(){
     listEl.appendChild(row);
   });
 }
-
 function saveManagedPlaces(){
   const labelInputs = document.querySelectorAll('#placeManagerList input[data-place-key]');
   const nextLabels = {};
   const nextConfigs = {};
   const nextAddresses = {};
+  const nextUsage = {};
   const updatedCustomPlaces = (state.customPlaces || []).map(p => ({...p}));
 
   labelInputs.forEach(input => {
@@ -5647,70 +5576,41 @@ function saveManagedPlaces(){
     return nextConfigs[key];
   };
 
+  const touchedKeys = new Set();
+
   const fromJobSelects = document.querySelectorAll('#placeManagerList select[data-place-from-job-key]');
   fromJobSelects.forEach(select => {
     const key = select.getAttribute('data-place-from-job-key');
     const jobTypes = getSelectedValues(select);
-    if(jobTypes.length){
-      ensureConfig(key).fromJobTypes = jobTypes;
-    }
+    touchedKeys.add(key);
+    ensureConfig(key).fromJobTypes = jobTypes;
   });
 
   const toJobSelects = document.querySelectorAll('#placeManagerList select[data-place-to-job-key]');
   toJobSelects.forEach(select => {
     const key = select.getAttribute('data-place-to-job-key');
     const jobTypes = getSelectedValues(select);
-    if(jobTypes.length){
-      ensureConfig(key).toJobTypes = jobTypes;
-    }
+    touchedKeys.add(key);
+    ensureConfig(key).toJobTypes = jobTypes;
   });
 
   Object.keys(nextConfigs).forEach(key => {
     const cfg = nextConfigs[key];
-    if(!(cfg.fromJobTypes || []).length && !(cfg.toJobTypes || []).length){
+    const fromCount = (cfg.fromJobTypes || []).length;
+    const toCount = (cfg.toJobTypes || []).length;
+    const custom = updatedCustomPlaces.find(p => p.key === key);
+
+    if(fromCount || toCount){
+      if(custom){
+        custom.from = fromCount > 0;
+        custom.to = toCount > 0;
+      } else {
+        nextUsage[key] = { from: fromCount > 0, to: toCount > 0 };
+      }
+    } else {
       delete nextConfigs[key];
     }
   });
-
-  const nextUsage = {};
-  const ensureUsage = key => {
-    if(!nextUsage[key]) nextUsage[key] = getPlaceUsage(key);
-    return nextUsage[key];
-  };
-
-  const fromChecks = document.querySelectorAll('#placeManagerList input[data-place-from-key]');
-  fromChecks.forEach(cb => {
-    const key = cb.getAttribute('data-place-from-key');
-    const custom = updatedCustomPlaces.find(p => p.key === key);
-    if(custom){
-      custom.from = cb.checked;
-    } else {
-      ensureUsage(key).from = cb.checked;
-    }
-  });
-
-  const toChecks = document.querySelectorAll('#placeManagerList input[data-place-to-key]');
-  toChecks.forEach(cb => {
-    const key = cb.getAttribute('data-place-to-key');
-    const custom = updatedCustomPlaces.find(p => p.key === key);
-    if(custom){
-      custom.to = cb.checked;
-    } else {
-      ensureUsage(key).to = cb.checked;
-    }
-  });
-
-  const allKeys = Array.from(new Set([...(places || []), ...(dests || []), ...updatedCustomPlaces.map(p => p.key)]));
-  const hasHiddenPlace = allKeys.some(key => {
-    const custom = updatedCustomPlaces.find(p => p.key === key);
-    const usage = custom ? { from: !!custom.from, to: !!custom.to } : (nextUsage[key] || getPlaceUsage(key));
-    return !usage.from && !usage.to;
-  });
-
-  if(hasHiddenPlace){
-    alert('En plats måste vara valbar som Från, Till eller båda.');
-    return;
-  }
 
   state.placeLabels = nextLabels;
   state.placeAddresses = nextAddresses;
@@ -5723,7 +5623,6 @@ function saveManagedPlaces(){
   render();
   alert('Platser sparade.');
 }
-
 function render(){ renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); saveState(); }
 
 fillSelect('newType', sortedTruckTypes, true, '----');
