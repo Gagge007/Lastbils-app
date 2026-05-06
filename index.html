@@ -737,7 +737,7 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" placeholder="Ange vikt i ton" oninput="sanitizeWeightInput()" style="width:100%; max-width:none; min-height:64px; font-size:18px">
             <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
@@ -4245,14 +4245,55 @@ function removeQueuedJob(qid){
   renderCleanupPreview();
 }
 
+let weightInputArmed = false;
+
+function sanitizeWeightInput(){
+  const input = document.getElementById('weightInput');
+  if(!input) return '';
+
+  let value = String(input.value || '').replace(/\./g, ',').replace(/[^0-9,]/g, '');
+  const commaIndex = value.indexOf(',');
+  if(commaIndex !== -1){
+    value = value.slice(0, commaIndex + 1) + value.slice(commaIndex + 1).replace(/,/g, '');
+  }
+
+  if(input.value !== value){
+    input.value = value;
+  }
+
+  return value;
+}
+
+function focusWeightInput(){
+  const input = document.getElementById('weightInput');
+  if(!input) return;
+  weightInputArmed = true;
+  input.focus();
+}
+
 function addLoadToCurrent(){
   if(!state.active) return;
-  const raw = document.getElementById('weightInput').value.replace(',', '.');
+  const input = document.getElementById('weightInput');
+  if(!input) return;
+
+  const value = sanitizeWeightInput().trim();
+  if(!value){
+    focusWeightInput();
+    return;
+  }
+
+  const raw = value.replace(',', '.');
   const n = Number(raw);
-  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
+  if(!Number.isFinite(n) || n <= 0){
+    alert('Skriv en giltig vikt.');
+    focusWeightInput();
+    return;
+  }
+
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
-  document.getElementById('weightInput').value = '';
+  input.value = '';
+  weightInputArmed = false;
   saveState(); render();
 }
 
