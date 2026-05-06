@@ -21,6 +21,13 @@ h1,h2,h3{margin:0 0 10px}
 @media(min-width:800px){.grid2{grid-template-columns:1fr 1fr}}
 button,select,input,textarea{font-size:16px;padding:12px;border:1px solid var(--border);border-radius:12px}
 button{background:var(--btn);cursor:pointer}
+
+.restart-yellow{
+  background:#facc15 !important;
+  color:#713f12 !important;
+  border-color:#d8c16a !important;
+  font-weight:700 !important;
+}
 button.primary{background:var(--primary);color:#fff}
 button.danger{background:var(--danger);color:#fff}
 button.inline{width:auto}
@@ -4525,6 +4532,39 @@ function deleteFinishedJob(jobId){
   renderCleanupPreview();
 }
 
+function restartFinishedJob(jobId){
+  const job = state.jobs.find(x => x.id === jobId);
+  if(!job) return;
+
+  if(state.active){
+    alert('Du har redan ett aktivt jobb. Avsluta eller pausa det innan du återstartar ett uppdrag.');
+    return;
+  }
+
+  const restarted = {...job};
+  delete restarted.end;
+  delete restarted.status;
+  delete restarted._queueIndex;
+
+  restarted.date = restarted.date || todayStr();
+  restarted.plannedDate = restarted.plannedDate || restarted.date || todayStr();
+  restarted.loads = Array.isArray(restarted.loads) ? restarted.loads : [];
+  restarted.totalWeight = Number.isFinite(Number(restarted.totalWeight))
+    ? Number(restarted.totalWeight)
+    : restarted.loads.reduce((a,b)=>a+b,0);
+  restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
+  restarted.start = restarted.start || Date.now();
+
+  state.active = restarted;
+  state.jobs = state.jobs.filter(x => x.id !== jobId);
+
+  saveState();
+  startDistanceTracking();
+  startActiveTimer();
+  render();
+  showTab('idag');
+}
+
 function renderToday(){
   const today = todayStr();
   const todays = state.jobs.filter(x => x.date === today);
@@ -4541,6 +4581,7 @@ function renderToday(){
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
+        '<button class="restart-yellow" onclick="restartFinishedJob(\''+x.id+'\')">Återstarta</button>'+
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
       '</div>'+
