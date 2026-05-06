@@ -1697,6 +1697,60 @@ function haversineKm(lat1, lon1, lat2, lon2){
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+function ensureActiveMotionFields(){
+  if(!state.active) return;
+  if(!Number.isFinite(Number(state.active.motionDrivingMs))) state.active.motionDrivingMs = 0;
+  if(!Number.isFinite(Number(state.active.motionStillMs))) state.active.motionStillMs = 0;
+  if(!Number.isFinite(Number(state.active.motionStartedAt))) state.active.motionStartedAt = state.active.start || Date.now();
+  if(!Number.isFinite(Number(state.active.motionLastTs))) state.active.motionLastTs = state.active.motionStartedAt;
+  if(state.active.motionLastMode !== 'driving' && state.active.motionLastMode !== 'still') state.active.motionLastMode = 'still';
+}
+
+function addActiveMotionTime(mode, ms){
+  if(!state.active) return;
+  const amount = Number(ms);
+  if(!Number.isFinite(amount) || amount <= 0) return;
+  ensureActiveMotionFields();
+  if(mode === 'driving'){
+    state.active.motionDrivingMs = Number(state.active.motionDrivingMs || 0) + amount;
+  } else {
+    state.active.motionStillMs = Number(state.active.motionStillMs || 0) + amount;
+  }
+}
+
+function finalizeActiveMotion(){
+  if(!state.active) return;
+  ensureActiveMotionFields();
+  const now = Date.now();
+  const lastTs = Number(state.active.motionLastTs || state.active.start || now);
+  if(!Number.isFinite(lastTs) || lastTs >= now) return;
+
+  let mode = state.active.motionLastMode === 'driving' ? 'driving' : 'still';
+  if(mode === 'driving' && lastGpsPoint && (now - lastGpsPoint.ts) > 120000){
+    mode = 'still';
+  }
+
+  addActiveMotionTime(mode, now - lastTs);
+  state.active.motionLastTs = now;
+}
+
+function getMotionSplitHtml(job){
+  if(!job) return '';
+  const driving = Number(job.motionDrivingMs || 0);
+  const still = Number(job.motionStillMs || 0);
+  if((!Number.isFinite(driving) || driving <= 0) && (!Number.isFinite(still) || still <= 0)) return '';
+  return '<div style="margin-top:6px">Körning ca: '+mins(driving)+' · Stillasående ca: '+mins(still)+'</div>';
+}
+
+function stripMotionFields(item){
+  if(!item || typeof item !== 'object') return;
+  delete item.motionDrivingMs;
+  delete item.motionStillMs;
+  delete item.motionStartedAt;
+  delete item.motionLastTs;
+  delete item.motionLastMode;
+}
+
 
 function startActiveTimer(){
   stopActiveTimer();
@@ -1716,6 +1770,7 @@ function stopActiveTimer(){
 function startDistanceTracking(){
   stopDistanceTracking();
   if(!navigator.geolocation || !state.active) return;
+  ensureActiveMotionFields();
 
   gpsWatchId = navigator.geolocation.watchPosition(
     pos => {
@@ -1732,15 +1787,31 @@ function startDistanceTracking(){
         return;
       }
 
+      ensureActiveMotionFields();
+
       if(lastGpsPoint){
         const delta = haversineKm(lastGpsPoint.lat, lastGpsPoint.lon, point.lat, point.lon);
+        const elapsedMs = Math.max(0, point.ts - lastGpsPoint.ts);
+        const hours = elapsedMs / 3600000;
+        const speedKmh = hours > 0 ? delta / hours : 0;
+        const isDriving = Number.isFinite(delta) && delta >= 0.01 && delta < 3 && speedKmh >= 5;
+
+        addActiveMotionTime(isDriving ? 'driving' : 'still', elapsedMs);
+        state.active.motionLastMode = isDriving ? 'driving' : 'still';
+        state.active.motionLastTs = point.ts;
 
         if(Number.isFinite(delta) && delta > 0.005 && delta < 3){
           state.active.distanceKm = Number((state.active.distanceKm || 0) + delta);
-          saveState();
-          renderActive();
-          renderSummary();
         }
+
+        saveState();
+        renderActive();
+        renderSummary();
+      } else {
+        addActiveMotionTime('still', point.ts - Number(state.active.motionLastTs || state.active.start || point.ts));
+        state.active.motionLastMode = 'still';
+        state.active.motionLastTs = point.ts;
+        saveState();
       }
 
       lastGpsPoint = point;
@@ -2845,6 +2916,7 @@ function sanitizeStateForExport(source){
       delete item.privateComment;
       delete item.internalComment;
       delete item.sensitiveComment;
+      stripMotionFields(item);
     }
   };
   strip(clean.active);
@@ -3303,6 +3375,7 @@ function getFinishedJobTransferKey(job){
 
 function sanitizeFinishedJobForTransfer(job){
   const copy = JSON.parse(JSON.stringify(job || {}));
+  stripMotionFields(copy);
   copy.sourceJobId = String(job.sourceJobId || job.originalJobId || job.id || '').trim();
   copy.transferKey = getFinishedJobTransferKey(copy);
   return copy;
@@ -3961,7 +4034,12 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     start:Date.now(),
     loads:[],
     totalWeight:0,
-    distanceKm:0
+    distanceKm:0,
+    motionDrivingMs:0,
+    motionStillMs:0,
+    motionStartedAt:Date.now(),
+    motionLastTs:Date.now(),
+    motionLastMode:'still'
   };
   saveState();
   startDistanceTracking();
@@ -4169,6 +4247,8 @@ function startQueuedJob(qid){
 function pauseActiveJob(){
   if(!state.active) return;
 
+  finalizeActiveMotion();
+
   const commentInput = document.getElementById('activeCommentInput');
   if(commentInput){
     state.active.comment = commentInput.value || '';
@@ -4209,6 +4289,10 @@ function resumePausedJob(qid){
   resumed.loads = resumed.loads || [];
   resumed.totalWeight = resumed.totalWeight || resumed.loads.reduce((a,b)=>a+b,0);
   resumed.distanceKm = resumed.distanceKm || 0;
+  resumed.motionDrivingMs = Number.isFinite(Number(resumed.motionDrivingMs)) ? Number(resumed.motionDrivingMs) : 0;
+  resumed.motionStillMs = Number.isFinite(Number(resumed.motionStillMs)) ? Number(resumed.motionStillMs) : 0;
+  resumed.motionLastTs = Date.now();
+  resumed.motionLastMode = 'still';
 
   state.active = resumed;
   state.queue = state.queue.filter(x => x.id !== qid);
@@ -4320,6 +4404,7 @@ function addLoadToLatest(){
 function stopJob(){
   if(!state.active) return;
 
+  finalizeActiveMotion();
   state.jobs.unshift({...state.active, end:Date.now()});
   state.active = null;
   stopDistanceTracking();
@@ -4330,6 +4415,10 @@ function stopJob(){
     const pausedElapsedMs = resumed.pausedElapsedMs || 0;
     delete resumed.pausedElapsedMs;
     resumed.start = Date.now() - pausedElapsedMs;
+    resumed.motionDrivingMs = Number.isFinite(Number(resumed.motionDrivingMs)) ? Number(resumed.motionDrivingMs) : 0;
+    resumed.motionStillMs = Number.isFinite(Number(resumed.motionStillMs)) ? Number(resumed.motionStillMs) : 0;
+    resumed.motionLastTs = Date.now();
+    resumed.motionLastMode = 'still';
     state.active = resumed;
     state.pausedOtherWork = null;
     startDistanceTracking();
@@ -4553,7 +4642,11 @@ function restartFinishedJob(jobId){
     ? Number(restarted.totalWeight)
     : restarted.loads.reduce((a,b)=>a+b,0);
   restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
+  restarted.motionDrivingMs = Number.isFinite(Number(restarted.motionDrivingMs)) ? Number(restarted.motionDrivingMs) : 0;
+  restarted.motionStillMs = Number.isFinite(Number(restarted.motionStillMs)) ? Number(restarted.motionStillMs) : 0;
   restarted.start = restarted.start || Date.now();
+  restarted.motionLastTs = Date.now();
+  restarted.motionLastMode = 'still';
 
   state.active = restarted;
   state.jobs = state.jobs.filter(x => x.id !== jobId);
@@ -4578,6 +4671,7 @@ function renderToday(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
+      getMotionSplitHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
