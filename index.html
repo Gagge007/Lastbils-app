@@ -737,8 +737,8 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
-            <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
+            <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" enterkeyhint="done" placeholder="Ange vikt i ton" oninput="normalizeWeightInput(this)" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <button class="queue-yellow" onclick="addLoadToCurrent(event)">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
             <input id="activeCommentInput" placeholder="Skriv kommentar" style="max-width:240px">
@@ -3899,6 +3899,17 @@ function showTab(tab){
   }
 }
 
+function forceQueueTab(){
+  showTab('ko');
+  setTimeout(() => {
+    renderQueue();
+    showTab('ko');
+  }, 50);
+  setTimeout(() => {
+    showTab('ko');
+  }, 250);
+}
+
 function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
   if(state.active){
     const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
@@ -4160,8 +4171,8 @@ function pauseActiveJob(){
   stopDistanceTracking();
   stopActiveTimer();
   saveState();
-  showTab('ko');
   render();
+  forceQueueTab();
 }
 
 function resumePausedJob(qid){
@@ -4224,15 +4235,52 @@ function removeQueuedJob(qid){
   renderCleanupPreview();
 }
 
-function addLoadToCurrent(){
+function normalizeWeightInput(input){
+  if(!input) return '';
+  let value = String(input.value || '').replace(/\./g, ',').replace(/[^0-9,]/g, '');
+  const firstComma = value.indexOf(',');
+  if(firstComma !== -1){
+    value = value.slice(0, firstComma + 1) + value.slice(firstComma + 1).replace(/,/g, '');
+  }
+  if(input.value !== value) input.value = value;
+  return value;
+}
+
+function focusWeightInput(){
+  const input = document.getElementById('weightInput');
+  if(!input) return;
+  input.focus({preventScroll:true});
+  try{ input.click(); }catch(e){}
+  try{
+    const len = input.value.length;
+    input.setSelectionRange(len, len);
+  }catch(e){}
+}
+
+function addLoadToCurrent(event){
+  if(event && event.preventDefault) event.preventDefault();
   if(!state.active) return;
-  const raw = document.getElementById('weightInput').value.replace(',', '.');
-  const n = Number(raw);
-  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
+  const input = document.getElementById('weightInput');
+  if(!input) return;
+
+  const cleaned = normalizeWeightInput(input).trim();
+  if(!cleaned){
+    focusWeightInput();
+    return;
+  }
+
+  const n = Number(cleaned.replace(',', '.'));
+  if(!Number.isFinite(n) || n <= 0){
+    alert('Skriv en giltig vikt.');
+    focusWeightInput();
+    return;
+  }
+
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
-  document.getElementById('weightInput').value = '';
-  saveState(); render();
+  input.value = '';
+  saveState();
+  render();
 }
 
 function addLoadToLatest(){
@@ -4268,8 +4316,8 @@ function stopJob(){
   }
 
   saveState();
-  showTab('ko');
   render();
+  forceQueueTab();
 }
 
 function switchJob(){
