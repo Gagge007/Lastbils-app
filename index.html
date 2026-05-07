@@ -253,8 +253,46 @@ button{
   font-weight:800 !important;
 }
 
-.queue-yellow.no-emptying-btn::before{
+
+.jobtype-select-compact{
+  min-height:78px !important;
+  height:78px !important;
+}
+
+.queue-no-empty::before{
   content:'–' !important;
+}
+
+.restart-yellow{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  border-radius:999px !important;
+  min-height:52px !important;
+  padding:0 22px 0 0 !important;
+  font-size:16px !important;
+  font-weight:700 !important;
+  border:1px solid #d8c16a !important;
+  box-shadow:0 1px 0 rgba(0,0,0,.04) inset !important;
+  background:linear-gradient(90deg,#f2c94c 0,#f8e7a6 100%) !important;
+  color:#5c4800 !important;
+}
+
+.restart-yellow::before{
+  content:'↻' !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:48px !important;
+  min-width:48px !important;
+  height:48px !important;
+  margin:2px 4px 2px 2px !important;
+  border-radius:999px !important;
+  background:#e4b52d !important;
+  color:#fff !important;
+  font-size:24px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
 }
 
 .app-header{
@@ -744,7 +782,7 @@ button{
             <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" placeholder="Ange vikt i ton" oninput="sanitizeWeightInput(this)" style="width:100%; max-width:none; min-height:64px; font-size:18px">
             <div class="row" style="gap:10px; align-items:center">
               <button class="queue-yellow" onclick="addLoadToCurrent()">Ange vikt</button>
-              <button class="queue-yellow no-emptying-btn" onclick="markNoEmptying()">Ingen tömning</button>
+              <button class="queue-yellow queue-no-empty" onclick="markNoEmptying()">Ingen tömning</button>
             </div>
           </div>
           <div class="row" style="gap:10px; align-items:center">
@@ -1282,14 +1320,15 @@ button{
         <input id="newManagedPlaceName" placeholder="Namn på ny plats">
         <input id="newManagedPlaceAddress" placeholder="Adress eller Plus Code">
         <div class="multi-help">Du kan skriva vanlig adress eller Plus Code för framtida Google Maps-koppling.</div>
-        <div class="row" style="gap:12px; align-items:center">
-          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="newManagedPlaceFrom" type="checkbox" checked> Från</label>
-          <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="newManagedPlaceTo" type="checkbox" checked> Till</label>
+        <div>
+          <label>Jobbtyper från</label>
+          <select id="newManagedPlaceFromJobType" class="jobtype-select-compact" multiple size="3"></select>
+          <div class="multi-help">Välj vilka jobbtyper som får hämtas/starta från platsen.</div>
         </div>
         <div>
-          <label>Koppla jobbtyper (valfritt)</label>
-          <select id="newManagedPlaceJobType" multiple size="6"></select>
-          <div class="multi-help">Välj en eller flera jobbtyper.</div>
+          <label>Jobbtyper till</label>
+          <select id="newManagedPlaceToJobType" class="jobtype-select-compact" multiple size="3"></select>
+          <div class="multi-help">Välj vilka jobbtyper som får köras/lämnas till platsen.</div>
         </div>
         <div class="row">
           <button class="primary inline" onclick="addManagedPlace()">Lägg till plats</button>
@@ -1702,6 +1741,87 @@ function haversineKm(lat1, lon1, lat2, lon2){
 }
 
 
+
+function ensureActiveMotionFields(){
+  if(!state.active) return;
+  if(!Number.isFinite(Number(state.active.motionDrivingMs))) state.active.motionDrivingMs = 0;
+  if(!Number.isFinite(Number(state.active.motionStillMs))) state.active.motionStillMs = 0;
+  if(!Number.isFinite(Number(state.active.motionStartedAt))) state.active.motionStartedAt = state.active.start || Date.now();
+  if(!Number.isFinite(Number(state.active.motionLastTs))) state.active.motionLastTs = state.active.motionStartedAt;
+  if(state.active.motionLastMode !== 'driving' && state.active.motionLastMode !== 'still') state.active.motionLastMode = 'still';
+}
+
+function addActiveMotionTime(mode, ms){
+  if(!state.active) return;
+  const amount = Number(ms);
+  if(!Number.isFinite(amount) || amount <= 0) return;
+  ensureActiveMotionFields();
+  if(mode === 'driving'){
+    state.active.motionDrivingMs = Number(state.active.motionDrivingMs || 0) + amount;
+  } else {
+    state.active.motionStillMs = Number(state.active.motionStillMs || 0) + amount;
+  }
+}
+
+function finalizeActiveMotion(){
+  if(!state.active) return;
+  ensureActiveMotionFields();
+  const now = Date.now();
+  const lastTs = Number(state.active.motionLastTs || state.active.start || now);
+  if(!Number.isFinite(lastTs) || lastTs >= now) return;
+
+  let mode = state.active.motionLastMode === 'driving' ? 'driving' : 'still';
+  if(mode === 'driving' && lastGpsPoint && (now - lastGpsPoint.ts) > 120000){
+    mode = 'still';
+  }
+
+  addActiveMotionTime(mode, now - lastTs);
+  state.active.motionLastTs = now;
+}
+
+function getMotionSplitHtml(job){
+  if(!job) return '';
+
+  const totalMs = Math.max(0, Number((job.end || Date.now()) - (job.start || Date.now())));
+  let driving = Number(job.motionDrivingMs || 0);
+  let still = Number(job.motionStillMs || 0);
+  let sourceLabel = '';
+
+  if((!Number.isFinite(driving) || driving <= 0) && (!Number.isFinite(still) || still <= 0)){
+    const distance = Number(job.distanceKm || 0);
+    if(totalMs > 0 && Number.isFinite(distance) && distance > 0){
+      const assumedCitySpeedKmh = 30;
+      driving = Math.min(totalMs, (distance / assumedCitySpeedKmh) * 3600000);
+      still = Math.max(0, totalMs - driving);
+      sourceLabel = ' <span class="muted">(uppskattat från sträcka)</span>';
+    } else if(totalMs > 0){
+      driving = 0;
+      still = totalMs;
+      sourceLabel = ' <span class="muted">(ingen rörelse uppmätt)</span>';
+    } else {
+      return '';
+    }
+  } else {
+    driving = Math.max(0, Number.isFinite(driving) ? driving : 0);
+    still = Math.max(0, Number.isFinite(still) ? still : 0);
+    if(totalMs > 0 && (driving + still) < totalMs * 0.75){
+      still += Math.max(0, totalMs - driving - still);
+    }
+  }
+
+  return '<div style="margin-top:6px">Körning ca: '+mins(driving)+' · Stillasående ca: '+mins(still)+sourceLabel+'</div>';
+}
+
+function stripMotionFields(item){
+  if(!item || typeof item !== 'object') return;
+  delete item.motionDrivingMs;
+  delete item.motionStillMs;
+  delete item.motionStartedAt;
+  delete item.motionLastTs;
+  delete item.motionLastMode;
+  delete item.motionTiming;
+}
+
 function startActiveTimer(){
   stopActiveTimer();
   if(!state.active) return;
@@ -1720,6 +1840,7 @@ function stopActiveTimer(){
 function startDistanceTracking(){
   stopDistanceTracking();
   if(!navigator.geolocation || !state.active) return;
+  ensureActiveMotionFields();
 
   gpsWatchId = navigator.geolocation.watchPosition(
     pos => {
@@ -1736,15 +1857,30 @@ function startDistanceTracking(){
         return;
       }
 
+      ensureActiveMotionFields();
+
       if(lastGpsPoint){
         const delta = haversineKm(lastGpsPoint.lat, lastGpsPoint.lon, point.lat, point.lon);
+        const elapsedMs = Math.max(0, point.ts - lastGpsPoint.ts);
+        const hours = elapsedMs / 3600000;
+        const speedKmh = hours > 0 ? delta / hours : 0;
+        const isDriving = Number.isFinite(delta) && delta >= 0.01 && delta < 3 && speedKmh >= 5;
+
+        addActiveMotionTime(isDriving ? 'driving' : 'still', elapsedMs);
+        state.active.motionLastMode = isDriving ? 'driving' : 'still';
+        state.active.motionLastTs = point.ts;
 
         if(Number.isFinite(delta) && delta > 0.005 && delta < 3){
           state.active.distanceKm = Number((state.active.distanceKm || 0) + delta);
-          saveState();
-          renderActive();
-          renderSummary();
         }
+        saveState();
+        renderActive();
+        renderSummary();
+      } else {
+        addActiveMotionTime('still', point.ts - Number(state.active.motionLastTs || state.active.start || point.ts));
+        state.active.motionLastMode = 'still';
+        state.active.motionLastTs = point.ts;
+        saveState();
       }
 
       lastGpsPoint = point;
@@ -2062,17 +2198,34 @@ function getPlaceAddress(value){
 }
 
 function getPlaceConfig(value){
-  return (state.placeConfigs && state.placeConfigs[value]) ? state.placeConfigs[value] : { jobType:'', jobTypes:[] };
+  return (state.placeConfigs && state.placeConfigs[value]) ? state.placeConfigs[value] : { jobType:'', jobTypes:[], fromJobTypes:[], toJobTypes:[] };
+}
+
+function normalizeJobTypesArray(raw){
+  const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  return Array.from(new Set(arr.filter(type => truckTypes.includes(type))));
 }
 
 function normalizeJobTypesConfig(config){
   if(!config) return [];
-  const raw = Array.isArray(config.jobTypes) ? config.jobTypes : (config.jobType ? [config.jobType] : []);
-  return Array.from(new Set(raw.filter(type => truckTypes.includes(type))));
+  return normalizeJobTypesArray(config.jobTypes || config.jobType || []);
+}
+
+function getPlaceJobTypesForDirection(value, direction){
+  const config = getPlaceConfig(value);
+  if(direction === 'from'){
+    return normalizeJobTypesArray(config.fromJobTypes || config.jobTypes || config.jobType || []);
+  }
+  if(direction === 'to'){
+    return normalizeJobTypesArray(config.toJobTypes || config.jobTypes || config.jobType || []);
+  }
+  return normalizeJobTypesConfig(config);
 }
 
 function getPlaceJobTypes(value){
-  return normalizeJobTypesConfig(getPlaceConfig(value));
+  const fromTypes = getPlaceJobTypesForDirection(value, 'from');
+  const toTypes = getPlaceJobTypesForDirection(value, 'to');
+  return Array.from(new Set([...fromTypes, ...toTypes, ...normalizeJobTypesConfig(getPlaceConfig(value))]));
 }
 
 function getSelectedValues(select){
@@ -2178,7 +2331,7 @@ function isUnlockedJobType(type){
 function getLinkedPlaceValuesForJobType(type, direction){
   const values = direction === 'from' ? getFromPlaceValues() : getToPlaceValues();
   if(!type) return [];
-  return values.filter(key => getPlaceJobTypes(key).includes(type));
+  return values.filter(key => getPlaceJobTypesForDirection(key, direction).includes(type));
 }
 
 function appendPlaceIfAvailable(values, key, direction){
@@ -2282,7 +2435,8 @@ function refreshJobTypeSelects(){
   refillSelectKeepingValue('newType', sortedTruckTypes, true, '----');
   refillSelectKeepingValue('editType', sortedTruckTypes);
   refillSelectKeepingValue('newQuickType', sortedTruckTypes);
-  fillSelectKeepingSelections('newManagedPlaceJobType', sortedTruckTypes);
+  fillSelectKeepingSelections('newManagedPlaceFromJobType', sortedTruckTypes);
+  fillSelectKeepingSelections('newManagedPlaceToJobType', sortedTruckTypes);
   updateQuickDatalists();
 }
 
@@ -2896,6 +3050,7 @@ function sanitizeStateForExport(source){
       delete item.privateComment;
       delete item.internalComment;
       delete item.sensitiveComment;
+      if(typeof stripMotionFields === 'function') stripMotionFields(item);
     }
   };
   strip(clean.active);
@@ -3250,6 +3405,20 @@ function createGithubQueueFile(){
   const filename = getGithubQueueFileName();
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   downloadBlobFile(blob, filename);
+
+  const exportedAt = new Date().toISOString();
+  const exportedKeys = new Set((payload.queue || []).map(item => item.githubKey || queueDedupeKey(item)).filter(Boolean));
+  (state.queue || []).forEach(item => {
+    const key = queueDedupeKey(item);
+    if(key && exportedKeys.has(key)){
+      item.githubExported = true;
+      item.githubExportedAt = exportedAt;
+      item.githubExportedFile = filename;
+    }
+  });
+  saveState();
+  renderQueue();
+
   setGithubQueueInfo('GitHub-köfil skapad: ' + filename + '. Ladda upp filen bredvid index.html på GitHub.');
 }
 
@@ -3333,6 +3502,7 @@ function getFinishedJobTransferKey(job){
 
 function sanitizeFinishedJobForTransfer(job){
   const copy = JSON.parse(JSON.stringify(job || {}));
+  if(typeof stripMotionFields === 'function') stripMotionFields(copy);
   copy.sourceJobId = String(job.sourceJobId || job.originalJobId || job.id || '').trim();
   copy.transferKey = getFinishedJobTransferKey(copy);
   return copy;
@@ -3991,7 +4161,12 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     start:Date.now(),
     loads:[],
     totalWeight:0,
-    distanceKm:0
+    distanceKm:0,
+    motionDrivingMs:0,
+    motionStillMs:0,
+    motionStartedAt:Date.now(),
+    motionLastTs:Date.now(),
+    motionLastMode:'still'
   };
   saveState();
   startDistanceTracking();
@@ -4201,6 +4376,8 @@ function startQueuedJob(qid){
 function pauseActiveJob(){
   if(!state.active) return;
 
+  finalizeActiveMotion();
+
   const commentInput = document.getElementById('activeCommentInput');
   if(commentInput){
     state.active.comment = commentInput.value || '';
@@ -4223,7 +4400,8 @@ function pauseActiveJob(){
   stopActiveTimer();
   saveState();
   render();
-  showTab('snabb');
+  showTab('ko');
+  setTimeout(() => showTab('ko'), 80);
 }
 
 function resumePausedJob(qid){
@@ -4243,6 +4421,10 @@ function resumePausedJob(qid){
   resumed.loads = resumed.loads || [];
   resumed.totalWeight = resumed.totalWeight || resumed.loads.reduce((a,b)=>a+b,0);
   resumed.distanceKm = resumed.distanceKm || 0;
+  resumed.motionDrivingMs = Number.isFinite(Number(resumed.motionDrivingMs)) ? Number(resumed.motionDrivingMs) : 0;
+  resumed.motionStillMs = Number.isFinite(Number(resumed.motionStillMs)) ? Number(resumed.motionStillMs) : 0;
+  resumed.motionLastTs = Date.now();
+  resumed.motionLastMode = 'still';
 
   state.active = resumed;
   state.queue = state.queue.filter(x => x.id !== qid);
@@ -4367,6 +4549,7 @@ function addLoadToLatest(){
 function stopJob(){
   if(!state.active) return;
 
+  finalizeActiveMotion();
   state.jobs.unshift({...state.active, end:Date.now()});
   state.active = null;
   stopDistanceTracking();
@@ -4385,6 +4568,8 @@ function stopJob(){
 
   saveState();
   render();
+  showTab('ko');
+  setTimeout(() => showTab('ko'), 80);
 }
 
 function switchJob(){
@@ -4487,6 +4672,7 @@ function renderQueue(){
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
+      (x.githubExported ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:13px">Överförd till GitHub</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
@@ -4580,6 +4766,35 @@ function deleteFinishedJob(jobId){
   renderCleanupPreview();
 }
 
+
+function restartFinishedJob(jobId){
+  const job = state.jobs.find(x => x.id === jobId);
+  if(!job) return;
+  if(state.active){
+    alert('Du har redan ett aktivt jobb.');
+    return;
+  }
+
+  const restarted = {...job};
+  delete restarted.end;
+  restarted.start = Date.now();
+  restarted.loads = restarted.loads || [];
+  restarted.totalWeight = restarted.totalWeight || restarted.loads.reduce((a,b)=>a+b,0);
+  restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
+  restarted.motionDrivingMs = Number.isFinite(Number(restarted.motionDrivingMs)) ? Number(restarted.motionDrivingMs) : 0;
+  restarted.motionStillMs = Number.isFinite(Number(restarted.motionStillMs)) ? Number(restarted.motionStillMs) : 0;
+  restarted.motionLastTs = Date.now();
+  restarted.motionLastMode = 'still';
+
+  state.active = restarted;
+  state.jobs = state.jobs.filter(x => x.id !== jobId);
+  saveState();
+  startDistanceTracking();
+  startActiveTimer();
+  render();
+  showTab('idag');
+}
+
 function renderToday(){
   const today = todayStr();
   const todays = state.jobs.filter(x => x.date === today);
@@ -4593,9 +4808,11 @@ function renderToday(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
+      getMotionSplitHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
+        '<button class="restart-yellow" onclick="restartFinishedJob(\''+x.id+'\')">Återstarta</button>'+ 
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
       '</div>'+
@@ -5372,9 +5589,8 @@ function togglePlaceManager(){
 function addManagedPlace(){
   const nameEl = document.getElementById('newManagedPlaceName');
   const addressEl = document.getElementById('newManagedPlaceAddress');
-  const fromEl = document.getElementById('newManagedPlaceFrom');
-  const toEl = document.getElementById('newManagedPlaceTo');
-  const jobEl = document.getElementById('newManagedPlaceJobType');
+  const fromJobEl = document.getElementById('newManagedPlaceFromJobType');
+  const toJobEl = document.getElementById('newManagedPlaceToJobType');
 
   const label = (nameEl.value || '').trim();
   const address = addressEl ? (addressEl.value || '').trim() : '';
@@ -5382,22 +5598,19 @@ function addManagedPlace(){
     alert('Skriv namn på platsen.');
     return;
   }
-  if(!fromEl.checked && !toEl.checked){
-    alert('Välj Från, Till eller båda.');
-    return;
-  }
 
+  const fromJobTypes = getSelectedValues(fromJobEl);
+  const toJobTypes = getSelectedValues(toJobEl);
   const key = 'custom_' + id();
   state.customPlaces.push({
     key,
     label,
-    from: fromEl.checked,
-    to: toEl.checked
+    from:true,
+    to:true
   });
 
-  const jobTypes = getSelectedValues(jobEl);
-  if(jobTypes.length){
-    state.placeConfigs[key] = { jobTypes };
+  if(fromJobTypes.length || toJobTypes.length){
+    state.placeConfigs[key] = { fromJobTypes, toJobTypes };
   }
   if(!state.placeAddresses) state.placeAddresses = {};
   if(address){
@@ -5406,9 +5619,8 @@ function addManagedPlace(){
 
   nameEl.value = '';
   if(addressEl) addressEl.value = '';
-  fromEl.checked = true;
-  toEl.checked = true;
-  clearSelectedValues(jobEl);
+  clearSelectedValues(fromJobEl);
+  clearSelectedValues(toJobEl);
   saveState();
   refreshPlaceSelects();
   renderPlaceManager();
@@ -5456,40 +5668,42 @@ function renderPlaceManager(){
     const meta = document.createElement('div');
     meta.className = 'place-meta';
 
-    const jobWrap = document.createElement('div');
-    const jobLabel = document.createElement('label');
-    jobLabel.textContent = 'Kopplade jobbtyper';
-    const jobSelect = document.createElement('select');
-    jobSelect.setAttribute('data-place-job-key', entry.key);
-    jobSelect.multiple = true;
-    jobSelect.size = 6;
+    const buildJobTypeSelect = (labelText, dataAttr, selectedTypes, helpText) => {
+      const wrap = document.createElement('div');
+      const labelEl = document.createElement('label');
+      labelEl.textContent = labelText;
+      const select = document.createElement('select');
+      select.setAttribute(dataAttr, entry.key);
+      select.className = 'jobtype-select-compact';
+      select.multiple = true;
+      select.size = 3;
+      sortedTruckTypes.forEach(type => {
+        const opt = document.createElement('option');
+        opt.value = type;
+        opt.textContent = type;
+        opt.selected = selectedTypes.includes(type);
+        select.appendChild(opt);
+      });
+      const help = document.createElement('div');
+      help.className = 'multi-help';
+      help.textContent = helpText;
+      wrap.appendChild(labelEl);
+      wrap.appendChild(select);
+      wrap.appendChild(help);
+      return wrap;
+    };
 
-    const linkedJobTypes = getPlaceJobTypes(entry.key);
-    sortedTruckTypes.forEach(type => {
-      const opt = document.createElement('option');
-      opt.value = type;
-      opt.textContent = type;
-      opt.selected = linkedJobTypes.includes(type);
-      jobSelect.appendChild(opt);
-    });
-    const help = document.createElement('div');
-    help.className = 'multi-help';
-    help.textContent = 'Välj en eller flera jobbtyper.';
-    jobWrap.appendChild(jobLabel);
-    jobWrap.appendChild(jobSelect);
-    jobWrap.appendChild(help);
-    meta.appendChild(jobWrap);
+    meta.appendChild(buildJobTypeSelect('Jobbtyper från', 'data-place-from-job-key', getPlaceJobTypesForDirection(entry.key, 'from'), 'Välj vilka jobbtyper som får hämtas/starta från platsen.'));
+    meta.appendChild(buildJobTypeSelect('Jobbtyper till', 'data-place-to-job-key', getPlaceJobTypesForDirection(entry.key, 'to'), 'Välj vilka jobbtyper som får köras/lämnas till platsen.'));
 
-    const usage = getPlaceUsage(entry.key);
-    const toggles = document.createElement('div');
-    toggles.className = 'row';
-    toggles.style.gap = '12px';
-    toggles.style.alignItems = 'center';
-    toggles.innerHTML =
-      '<label style="display:flex; align-items:center; gap:8px; width:auto"><input type="checkbox" data-place-from-key="'+entry.key+'" '+(usage.from ? 'checked' : '')+'> Från</label>' +
-      '<label style="display:flex; align-items:center; gap:8px; width:auto"><input type="checkbox" data-place-to-key="'+entry.key+'" '+(usage.to ? 'checked' : '')+'> Till</label>' +
-      (entry.custom ? '<button class="danger inline" onclick="removeManagedPlace(\''+entry.key+'\')">Ta bort</button>' : '');
-    meta.appendChild(toggles);
+    if(entry.custom){
+      const actions = document.createElement('div');
+      actions.className = 'row';
+      actions.style.gap = '12px';
+      actions.style.alignItems = 'center';
+      actions.innerHTML = '<button class="danger inline" onclick="removeManagedPlace(\''+entry.key+'\')">Ta bort</button>';
+      meta.appendChild(actions);
+    }
 
     row.appendChild(label);
     row.appendChild(input);
@@ -5527,54 +5741,30 @@ function saveManagedPlaces(){
     }
   });
 
-  const jobSelects = document.querySelectorAll('#placeManagerList select[data-place-job-key]');
-  jobSelects.forEach(select => {
-    const key = select.getAttribute('data-place-job-key');
-    const jobTypes = getSelectedValues(select);
-    if(jobTypes.length){
-      nextConfigs[key] = { jobTypes };
+  const fromJobSelects = document.querySelectorAll('#placeManagerList select[data-place-from-job-key]');
+  fromJobSelects.forEach(select => {
+    const key = select.getAttribute('data-place-from-job-key');
+    const fromJobTypes = getSelectedValues(select);
+    if(!nextConfigs[key]) nextConfigs[key] = { fromJobTypes:[], toJobTypes:[] };
+    nextConfigs[key].fromJobTypes = fromJobTypes;
+  });
+
+  const toJobSelects = document.querySelectorAll('#placeManagerList select[data-place-to-job-key]');
+  toJobSelects.forEach(select => {
+    const key = select.getAttribute('data-place-to-job-key');
+    const toJobTypes = getSelectedValues(select);
+    if(!nextConfigs[key]) nextConfigs[key] = { fromJobTypes:[], toJobTypes:[] };
+    nextConfigs[key].toJobTypes = toJobTypes;
+  });
+
+  Object.keys(nextConfigs).forEach(key => {
+    const config = nextConfigs[key];
+    if(!(config.fromJobTypes || []).length && !(config.toJobTypes || []).length){
+      delete nextConfigs[key];
     }
   });
 
   const nextUsage = {};
-  const ensureUsage = key => {
-    if(!nextUsage[key]) nextUsage[key] = getPlaceUsage(key);
-    return nextUsage[key];
-  };
-
-  const fromChecks = document.querySelectorAll('#placeManagerList input[data-place-from-key]');
-  fromChecks.forEach(cb => {
-    const key = cb.getAttribute('data-place-from-key');
-    const custom = updatedCustomPlaces.find(p => p.key === key);
-    if(custom){
-      custom.from = cb.checked;
-    } else {
-      ensureUsage(key).from = cb.checked;
-    }
-  });
-
-  const toChecks = document.querySelectorAll('#placeManagerList input[data-place-to-key]');
-  toChecks.forEach(cb => {
-    const key = cb.getAttribute('data-place-to-key');
-    const custom = updatedCustomPlaces.find(p => p.key === key);
-    if(custom){
-      custom.to = cb.checked;
-    } else {
-      ensureUsage(key).to = cb.checked;
-    }
-  });
-
-  const allKeys = Array.from(new Set([...(places || []), ...(dests || []), ...updatedCustomPlaces.map(p => p.key)]));
-  const hasHiddenPlace = allKeys.some(key => {
-    const custom = updatedCustomPlaces.find(p => p.key === key);
-    const usage = custom ? { from: !!custom.from, to: !!custom.to } : (nextUsage[key] || getPlaceUsage(key));
-    return !usage.from && !usage.to;
-  });
-
-  if(hasHiddenPlace){
-    alert('En plats måste vara valbar som Från, Till eller båda.');
-    return;
-  }
 
   state.placeLabels = nextLabels;
   state.placeAddresses = nextAddresses;
@@ -5594,7 +5784,8 @@ fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
 fillSelect('newDest', getToPlaceValues(), true, '----');
 fillSelect('editType', sortedTruckTypes);
-fillSelect('newManagedPlaceJobType', sortedTruckTypes);
+fillSelect('newManagedPlaceFromJobType', sortedTruckTypes);
+fillSelect('newManagedPlaceToJobType', sortedTruckTypes);
 fillSelect('newQuickType', sortedTruckTypes);
 fillMachineSelects();
 refreshPlaceSelects();
