@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-01
+- Nuvarande version: Stadslass v2026-05-07-01-02
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -14,6 +14,7 @@ Stadslass versionskontroll
   - Idag: visar Körning ca / Stillasående ca på avslutade jobb
   - Intern kommentar: bara för Äta, Övriga jobb och Övrig verksamhet
   - Hantera platser: separata jobbtyper Från och Till
+  - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
 -->
 <html lang="sv">
 <head>
@@ -736,6 +737,30 @@ button{
   visibility:hidden;
 }
 
+.connection-status{
+  display:inline-flex;
+  align-items:center;
+  width:auto;
+  max-width:100%;
+  margin-top:10px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  font-size:14px;
+  font-weight:700;
+  line-height:1.25;
+}
+.connection-status.online{
+  background:#dcfce7;
+  color:#166534;
+  border-color:#86efac;
+}
+.connection-status.offline{
+  background:#fee2e2;
+  color:#7f1d1d;
+  border-color:#fca5a5;
+}
+
 </style>
 </head>
 <body>
@@ -778,6 +803,7 @@ button{
       </svg>
     </button>
   </div>
+  <div id="connectionStatus" class="connection-status online">Online</div>
   
 
   <div id="activeJobCard" class="card">
@@ -1003,7 +1029,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-01</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-02</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -5875,6 +5901,21 @@ if(editTypeEl){
 
 
 
+function updateConnectionStatus(){
+  const el = document.getElementById('connectionStatus');
+  if(!el) return;
+
+  const isOnline = navigator.onLine !== false;
+  el.classList.toggle('online', isOnline);
+  el.classList.toggle('offline', !isOnline);
+  el.textContent = isOnline
+    ? 'Online'
+    : 'Offline – använd appen som vanligt. Uppdrag sparas på den här enheten.';
+}
+
+window.addEventListener('online', updateConnectionStatus);
+window.addEventListener('offline', updateConnectionStatus);
+
 if(state.active){
   startDistanceTracking();
   startActiveTimer();
@@ -5887,6 +5928,7 @@ applySopsandDefaultDestination();
 updateNewPrivateCommentVisibility();
 updateSummaryControls();
 updateGpsEnvironmentInfo();
+updateConnectionStatus();
 initializeNewJobDate();
 initializeQuickDate();
 initializeHistoryControls();
