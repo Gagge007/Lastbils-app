@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-04
+- Nuvarande version: Stadslass v2026-05-07-01-05
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -16,6 +16,8 @@ Stadslass versionskontroll
   - Hantera platser: separata jobbtyper Från och Till
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
   - Uppskattad tid i kö: ren visning, baserad på minst 3 jämförbara avslutade jobb
+  - Startpunkt: adress visas i aktivt jobb och Idag om GPS/adresstjänst fungerar
+  - Aktivt jobb: Uppdrag i kö visas som underflik vid start/fortsätt/klart
 -->
 <html lang="sv">
 <head>
@@ -82,7 +84,6 @@ button{
 .pill-type{ background:#fff8cc !important; }
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
 .private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
-.start-point-note{ margin-top:8px; color:#334155; font-size:14px; font-weight:700; }
 
 #activePills{
   display:flex !important;
@@ -813,7 +814,7 @@ button{
     <div id="activeNone" class="muted">Inget aktivt jobb.</div>
     <div id="activeBox" class="hidden">
       <div id="activePills"></div>
-      <div id="activeStartPoint" class="start-point-note hidden"></div>
+      <div id="activeStartPoint" class="muted hidden" style="margin-top:8px"></div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
         <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
@@ -1032,7 +1033,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-04</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-05</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -4149,6 +4150,196 @@ function updateNewSeaweedRoute(){
   return;
 }
 
+
+function normalizeLocationText(value){
+  return String(value || '')
+    .trim()
+    .toLocaleLowerCase('sv-SE')
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeEstimateText(value){
+  return normalizeLocationText(value);
+}
+
+function estimateComparableValue(job, field){
+  if(!job) return '';
+  const direct = job[field] || '';
+  const label = job[field + 'Label'] || '';
+  return normalizeEstimateText(direct || label);
+}
+
+function estimateDisplayValue(job){
+  return normalizeEstimateText((job && (job.displayType || job.type)) || '');
+}
+
+function shouldExcludeFromTimeEstimate(job){
+  if(!job) return true;
+  if(job.excludeFromTimeEstimate) return true;
+
+  const type = normalizeEstimateText(job.type);
+  const displayType = normalizeEstimateText(job.displayType);
+  const comment = normalizeEstimateText(job.comment);
+  const place = normalizeEstimateText((job.place || '') + ' ' + (job.placeLabel || ''));
+  const dest = normalizeEstimateText((job.dest || '') + ' ' + (job.destLabel || ''));
+  const combined = [type, displayType, comment, place, dest].join(' ');
+
+  const excludedTypes = [
+    'äta',
+    'äta/ övriga jobb',
+    'äta/övriga jobb',
+    'övriga jobb',
+    'övrig verksamhet',
+    'möte/utbildning',
+    'möte utbildning'
+  ];
+
+  if(excludedTypes.some(x => type === x || type.includes(x) || displayType === x || displayType.includes(x))) return true;
+  if(place.includes('von utfall') || dest.includes('von utfall')) return true;
+
+  const excludedTerms = [
+    'ingen tömning',
+    'ej behov av tömning',
+    'ej tömd',
+    'kontroll',
+    'endast vägning',
+    'låg vikt',
+    'bara koll',
+    'ingen körning'
+  ];
+
+  return excludedTerms.some(term => combined.includes(term));
+}
+
+function isComparableForTimeEstimate(queueJob, finishedJob){
+  if(!queueJob || !finishedJob) return false;
+  if(shouldExcludeFromTimeEstimate(queueJob) || shouldExcludeFromTimeEstimate(finishedJob)) return false;
+  if(!finishedJob.start || !finishedJob.end) return false;
+
+  const durationMs = finishedJob.end - finishedJob.start;
+  if(!Number.isFinite(durationMs) || durationMs < 60000) return false;
+
+  if(normalizeEstimateText(queueJob.type) !== normalizeEstimateText(finishedJob.type)) return false;
+  if(estimateComparableValue(queueJob, 'place') !== estimateComparableValue(finishedJob, 'place')) return false;
+  if(estimateComparableValue(queueJob, 'dest') !== estimateComparableValue(finishedJob, 'dest')) return false;
+  if(estimateDisplayValue(queueJob) !== estimateDisplayValue(finishedJob)) return false;
+  return true;
+}
+
+function getEstimatedMinutesForQueueJob(queueJob){
+  if(!queueJob || queueJob.status === 'pausad') return null;
+  if(shouldExcludeFromTimeEstimate(queueJob)) return null;
+
+  const durations = (state.jobs || [])
+    .filter(job => isComparableForTimeEstimate(queueJob, job))
+    .map(job => job.end - job.start)
+    .sort((a,b) => a-b);
+
+  if(durations.length < 3) return null;
+
+  const mid = Math.floor(durations.length / 2);
+  const medianMs = durations.length % 2
+    ? durations[mid]
+    : (durations[mid - 1] + durations[mid]) / 2;
+
+  return Math.max(1, Math.round(medianMs / 60000));
+}
+
+function getQueueEstimateHtml(queueJob){
+  const minutes = getEstimatedMinutesForQueueJob(queueJob);
+  if(minutes === null) return '';
+  return '<div style="margin-top:6px; font-weight:700">Uppskattad tid: '+minutes+' min</div>';
+}
+
+function formatReverseGeocodeAddress(data){
+  if(!data) return '';
+  const address = data.address || {};
+  const road = address.road || address.pedestrian || address.footway || address.cycleway || address.path || address.residential || address.neighbourhood || '';
+  const house = address.house_number || '';
+  const city = address.city || address.town || address.village || address.municipality || address.county || '';
+  const street = [road, house].filter(Boolean).join(' ').trim();
+  if(street && city) return street + ', ' + city;
+  if(street) return street;
+  if(city) return city;
+  const display = String(data.display_name || '').trim();
+  if(!display) return '';
+  return display.split(',').map(x => x.trim()).filter(Boolean).slice(0, 3).join(', ');
+}
+
+function getActiveStartPointText(job){
+  if(!job) return '';
+  if(job.startPointAddress) return 'Startpunkt: ' + job.startPointAddress;
+  if(job.startPointStatus === 'hämtar') return 'Startpunkt: hämtar...';
+  if(job.startPointStatus === 'saknas') return 'Startpunkt: saknas';
+  return '';
+}
+
+function getStartPointHtml(job){
+  const text = getActiveStartPointText(job);
+  if(!text) return '';
+  return '<div style="margin-top:6px">'+escapeHtml(text)+'</div>';
+}
+
+function updateActiveStartPointView(){
+  const el = document.getElementById('activeStartPoint');
+  if(!el) return;
+  const text = getActiveStartPointText(state.active);
+  if(!text){
+    el.textContent = '';
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = text;
+  el.classList.remove('hidden');
+}
+
+async function captureStartPointForActive(activeId){
+  if(!activeId) return;
+  if(!navigator.geolocation){
+    if(state.active && state.active.id === activeId){
+      state.active.startPointStatus = 'saknas';
+      saveState();
+      renderActive();
+    }
+    return;
+  }
+
+  try{
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 30000
+      });
+    });
+
+    const lat = pos && pos.coords ? pos.coords.latitude : null;
+    const lon = pos && pos.coords ? pos.coords.longitude : null;
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('GPS saknas');
+
+    const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
+    const response = await fetch(url, {headers:{'Accept':'application/json'}});
+    if(!response.ok) throw new Error('Adresstjänst svarade inte');
+    const data = await response.json();
+    const address = formatReverseGeocodeAddress(data);
+    if(!address) throw new Error('Adress saknas');
+
+    if(state.active && state.active.id === activeId){
+      state.active.startPointAddress = address;
+      state.active.startPointStatus = 'klar';
+      saveState();
+      renderActive();
+    }
+  } catch(err){
+    if(state.active && state.active.id === activeId){
+      state.active.startPointAddress = '';
+      state.active.startPointStatus = 'saknas';
+      saveState();
+      renderActive();
+    }
+  }
+}
+
 function showTab(tab){
   ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
   document.getElementById('tab-'+tab).classList.remove('hidden');
@@ -4171,113 +4362,6 @@ function showTab(tab){
   if(isSettings){
     hideSettingsPanels('');
   }
-}
-
-
-function getStartPointText(job){
-  if(!job) return '';
-  if(job.startPointAddress) return String(job.startPointAddress || '').trim();
-  if(job.startPointStatus === 'fetching') return 'hämtar...';
-  if(job.startPointStatus === 'missing') return 'saknas';
-  return '';
-}
-
-function getStartPointHtml(job){
-  const text = getStartPointText(job);
-  return text ? '<div class="start-point-note">Startpunkt: '+escapeHtml(text)+'</div>' : '';
-}
-
-function setStartPointForJob(jobId, status, address){
-  if(!jobId) return;
-  let updated = false;
-  const apply = job => {
-    if(!job || job.id !== jobId) return;
-    job.startPointStatus = status;
-    if(address){
-      job.startPointAddress = String(address || '').trim();
-    } else if(status === 'missing'){
-      delete job.startPointAddress;
-    }
-    job.startPointFetchedAt = new Date().toISOString();
-    updated = true;
-  };
-
-  apply(state.active);
-  apply(state.pausedOtherWork);
-  (state.jobs || []).forEach(apply);
-  (state.queue || []).forEach(apply);
-
-  if(updated){
-    saveState();
-    renderActive();
-    renderToday();
-  }
-}
-
-function compactReverseGeocodeAddress(data){
-  if(!data || typeof data !== 'object') return '';
-  const a = data.address || {};
-  const road = a.road || a.pedestrian || a.footway || a.cycleway || a.path || a.residential || a.industrial || '';
-  const houseNumber = a.house_number || '';
-  const namedPlace = a.amenity || a.shop || a.office || a.building || a.neighbourhood || a.suburb || '';
-  const city = a.city || a.town || a.village || a.municipality || a.county || '';
-
-  let firstPart = '';
-  if(road){
-    firstPart = (road + (houseNumber ? ' ' + houseNumber : '')).trim();
-  } else if(namedPlace){
-    firstPart = String(namedPlace).trim();
-  }
-
-  if(firstPart && city) return firstPart + ', ' + city;
-  if(firstPart) return firstPart;
-
-  const displayName = String(data.display_name || '').trim();
-  if(!displayName) return '';
-  return displayName.split(',').map(part => part.trim()).filter(Boolean).slice(0, 3).join(', ');
-}
-
-async function reverseGeocodeStartAddress(position){
-  if(!position || !position.coords) return '';
-  if(navigator.onLine === false) return '';
-
-  const lat = position.coords.latitude;
-  const lon = position.coords.longitude;
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
-
-  const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&zoom=18&addressdetails=1&accept-language=sv';
-  const response = await fetch(url, {cache:'no-store'});
-  if(!response || !response.ok) return '';
-  const data = await response.json();
-  return compactReverseGeocodeAddress(data);
-}
-
-function captureStartPointForActiveJob(jobId){
-  if(!jobId) return;
-  if(!navigator.geolocation){
-    setStartPointForJob(jobId, 'missing', '');
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      reverseGeocodeStartAddress(pos)
-        .then(address => {
-          setStartPointForJob(jobId, address ? 'ready' : 'missing', address || '');
-        })
-        .catch(() => {
-          setStartPointForJob(jobId, 'missing', '');
-        });
-    },
-    () => {
-      setStartPointForJob(jobId, 'missing', '');
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 60000,
-      timeout: 15000
-    }
-  );
 }
 
 function isOtherWorkJob(job){
@@ -4335,9 +4419,6 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     privateComment:getAllowedPrivateComment(type, privateComment),
     plannedDate: todayStr(),
     start:Date.now(),
-    startPointStatus:'fetching',
-    startPointAddress:'',
-    startPointFetchedAt:'',
     loads:[],
     totalWeight:0,
     distanceKm:0,
@@ -4345,19 +4426,21 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     motionStillMs:0,
     motionStartedAt:Date.now(),
     motionLastTs:Date.now(),
-    motionLastMode:'still'
+    motionLastMode:'still',
+    startPointAddress:'',
+    startPointStatus:'hämtar'
   };
   saveState();
   startDistanceTracking();
   startActiveTimer();
   render();
-  captureStartPointForActiveJob(state.active.id);
+  captureStartPointForActive(state.active.id);
   return true;
 }
 
 function quickJob(vehicle, type, place, dest, comment, displayType, privateComment){
   const started = startJob(vehicle, type, place, dest, comment, displayType, privateComment || '');
-  if(started && state.active) showTab('idag');
+  if(started && state.active) showTab('ko');
 }
 
 
@@ -4452,7 +4535,7 @@ function startManualJob(){
   startJob(vehicle, type, place, dest, comment, '', privateComment);
   if(state.active){
     resetNewJobForm();
-    showTab('idag');
+    showTab('ko');
   }
 }
 
@@ -4550,7 +4633,7 @@ function startQueuedJob(qid){
   state.queue = state.queue.filter(x => x.id !== qid);
   saveState();
   render();
-  showTab('idag');
+  showTab('ko');
 }
 
 function pauseActiveJob(){
@@ -4619,7 +4702,7 @@ function resumePausedJob(qid){
   startDistanceTracking();
   startActiveTimer();
   render();
-  showTab('idag');
+  showTab('ko');
 }
 
 function completeQueuedJob(qid){
@@ -4782,13 +4865,7 @@ function renderActive(){
     (state.active.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(state.active, 'dest')+'</span>' : '')+
     (materialCode ? '<span class="pill pill-code">Mtrl kod '+escapeHtml(materialCode)+'</span>' : '');
 
-  const activeStartPoint = document.getElementById('activeStartPoint');
-  if(activeStartPoint){
-    const startPointText = getStartPointText(state.active);
-    activeStartPoint.textContent = startPointText ? 'Startpunkt: ' + startPointText : '';
-    activeStartPoint.classList.toggle('hidden', !startPointText);
-  }
-
+  updateActiveStartPointView();
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
   document.getElementById('activeLoads').textContent = String((state.active.loads||[]).length);
@@ -4830,108 +4907,6 @@ function setQueuedJobPlannedDate(qid, value){
   renderQueue();
 }
 
-
-function normalizeEstimateText(value){
-  return String(value || '')
-    .trim()
-    .toLocaleLowerCase('sv-SE')
-    .replace(/\s+/g, ' ');
-}
-
-function estimateComparableValue(job, field){
-  if(!job) return '';
-  const shownLabel = (field === 'place' || field === 'dest') ? getItemPlaceLabel(job, field) : '';
-  return normalizeEstimateText(shownLabel || job[field] || '');
-}
-
-function estimateDisplayValue(job){
-  return normalizeEstimateText((job && (job.displayType || job.type)) || '');
-}
-
-function isExcludedTypeForTimeEstimate(type){
-  const text = normalizeEstimateText(type);
-  const compact = text.replace(/\s+/g, '');
-  if(!text) return true;
-  return text === 'äta' ||
-    text === 'övriga jobb' ||
-    text === 'övrig verksamhet' ||
-    text === 'möte/utbildning' ||
-    text === 'möte utbildning' ||
-    compact === 'möte/utbildning' ||
-    compact === 'möteutbildning' ||
-    compact === 'äta/övrigajobb' ||
-    compact === 'äta/övrigtjobb';
-}
-
-function hasExcludedPlaceForTimeEstimate(job){
-  const values = [
-    job && job.place,
-    job && job.dest,
-    job && job.placeLabel,
-    job && job.destLabel
-  ].map(normalizeEstimateText);
-  return values.some(value => value.includes('von utfall'));
-}
-
-function hasExcludedCommentForTimeEstimate(job){
-  const text = normalizeEstimateText((job && job.comment) || '');
-  if(!text) return false;
-  return [
-    'ingen tömning',
-    'ej behov av tömning',
-    'ej tömd',
-    'kontroll',
-    'endast vägning',
-    'låg vikt',
-    'bara koll',
-    'ingen körning'
-  ].some(keyword => text.includes(keyword));
-}
-
-function shouldExcludeFromTimeEstimate(job){
-  if(!job) return true;
-  if(job.excludeFromTimeEstimate === true) return true;
-  if(isExcludedTypeForTimeEstimate(job.type)) return true;
-  if(hasExcludedPlaceForTimeEstimate(job)) return true;
-  if(hasExcludedCommentForTimeEstimate(job)) return true;
-  return false;
-}
-
-function isComparableForTimeEstimate(queueJob, finishedJob){
-  if(!queueJob || !finishedJob) return false;
-  if(shouldExcludeFromTimeEstimate(queueJob) || shouldExcludeFromTimeEstimate(finishedJob)) return false;
-  if(normalizeEstimateText(queueJob.type) !== normalizeEstimateText(finishedJob.type)) return false;
-  if(estimateComparableValue(queueJob, 'place') !== estimateComparableValue(finishedJob, 'place')) return false;
-  if(estimateComparableValue(queueJob, 'dest') !== estimateComparableValue(finishedJob, 'dest')) return false;
-  if(estimateDisplayValue(queueJob) !== estimateDisplayValue(finishedJob)) return false;
-  return true;
-}
-
-function getEstimatedMinutesForQueueJob(queueJob){
-  if(!queueJob || queueJob.status === 'pausad') return null;
-  if(shouldExcludeFromTimeEstimate(queueJob)) return null;
-
-  const times = (state.jobs || [])
-    .filter(job => isComparableForTimeEstimate(queueJob, job))
-    .map(job => {
-      const durationMs = Number((job.end || 0) - (job.start || 0));
-      return Math.round(durationMs / 60000);
-    })
-    .filter(minutes => Number.isFinite(minutes) && minutes >= 2);
-
-  if(times.length < 3) return null;
-  times.sort((a, b) => a - b);
-  const middle = Math.floor(times.length / 2);
-  const median = times.length % 2 ? times[middle] : Math.round((times[middle - 1] + times[middle]) / 2);
-  return Number.isFinite(median) && median > 0 ? median : null;
-}
-
-function getQueueEstimateHtml(queueJob){
-  const minutes = getEstimatedMinutesForQueueJob(queueJob);
-  if(!minutes) return '';
-  return '<div style="margin-top:6px; font-weight:700">Uppskattad tid: '+minutes+' min</div>';
-}
-
 function renderQueue(){
   const visible = state.queue
     .map((x, index) => ({...x, _queueIndex:index}))
@@ -4964,11 +4939,11 @@ function renderQueue(){
     '<div class="job">'+
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
-      getQueueEstimateHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
       (x.githubExported ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:13px">Överförd till GitHub</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
+      getQueueEstimateHtml(x)+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
         '<input type="text" inputmode="numeric" placeholder="28/4" value="'+escapeHtml(formatShortDate(getQueuedJobDate(x)))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
@@ -5073,6 +5048,8 @@ function restartFinishedJob(jobId){
   const restarted = {...job};
   delete restarted.end;
   restarted.start = Date.now();
+  restarted.startPointAddress = '';
+  restarted.startPointStatus = 'hämtar';
   restarted.loads = restarted.loads || [];
   restarted.totalWeight = restarted.totalWeight || restarted.loads.reduce((a,b)=>a+b,0);
   restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
@@ -5080,9 +5057,6 @@ function restartFinishedJob(jobId){
   restarted.motionStillMs = Number.isFinite(Number(restarted.motionStillMs)) ? Number(restarted.motionStillMs) : 0;
   restarted.motionLastTs = Date.now();
   restarted.motionLastMode = 'still';
-  restarted.startPointStatus = 'fetching';
-  restarted.startPointAddress = '';
-  restarted.startPointFetchedAt = '';
 
   state.active = restarted;
   state.jobs = state.jobs.filter(x => x.id !== jobId);
@@ -5090,8 +5064,8 @@ function restartFinishedJob(jobId){
   startDistanceTracking();
   startActiveTimer();
   render();
-  captureStartPointForActiveJob(state.active.id);
-  showTab('idag');
+  captureStartPointForActive(state.active.id);
+  showTab('ko');
 }
 
 function renderToday(){
@@ -5106,9 +5080,9 @@ function renderToday(){
     '<div class="job">'+
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
-      getStartPointHtml(x)+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
       getMotionSplitHtml(x)+
+      getStartPointHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
@@ -6148,9 +6122,6 @@ window.addEventListener('offline', updateConnectionStatus);
 if(state.active){
   startDistanceTracking();
   startActiveTimer();
-  if(state.active.startPointStatus === 'fetching' && !state.active.startPointAddress){
-    captureStartPointForActiveJob(state.active.id);
-  }
 }
 updateNewJobPlaceSelects(true);
 updateNewMachineUI();
