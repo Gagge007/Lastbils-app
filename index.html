@@ -21,13 +21,6 @@ h1,h2,h3{margin:0 0 10px}
 @media(min-width:800px){.grid2{grid-template-columns:1fr 1fr}}
 button,select,input,textarea{font-size:16px;padding:12px;border:1px solid var(--border);border-radius:12px}
 button{background:var(--btn);cursor:pointer}
-
-.restart-yellow{
-  background:#facc15 !important;
-  color:#713f12 !important;
-  border-color:#d8c16a !important;
-  font-weight:700 !important;
-}
 button.primary{background:var(--primary);color:#fff}
 button.danger{background:var(--danger);color:#fff}
 button.inline{width:auto}
@@ -744,7 +737,7 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" placeholder="Ange vikt i ton" oninput="sanitizeWeightInput()" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
             <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
@@ -1283,14 +1276,9 @@ button{
           <label style="display:flex; align-items:center; gap:8px; width:auto"><input id="newManagedPlaceTo" type="checkbox" checked> Till</label>
         </div>
         <div>
-          <label>Koppla jobbtyper Från (valfritt)</label>
-          <select id="newManagedPlaceFromJobType" multiple size="6"></select>
-          <div class="multi-help">Välj vilka jobbtyper som får hämtas/starta från platsen.</div>
-        </div>
-        <div>
-          <label>Koppla jobbtyper Till (valfritt)</label>
-          <select id="newManagedPlaceToJobType" multiple size="6"></select>
-          <div class="multi-help">Välj vilka jobbtyper som får köras/lämnas till platsen.</div>
+          <label>Koppla jobbtyper (valfritt)</label>
+          <select id="newManagedPlaceJobType" multiple size="6"></select>
+          <div class="multi-help">Välj en eller flera jobbtyper.</div>
         </div>
         <div class="row">
           <button class="primary inline" onclick="addManagedPlace()">Lägg till plats</button>
@@ -1702,60 +1690,6 @@ function haversineKm(lat1, lon1, lat2, lon2){
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-function ensureActiveMotionFields(){
-  if(!state.active) return;
-  if(!Number.isFinite(Number(state.active.motionDrivingMs))) state.active.motionDrivingMs = 0;
-  if(!Number.isFinite(Number(state.active.motionStillMs))) state.active.motionStillMs = 0;
-  if(!Number.isFinite(Number(state.active.motionStartedAt))) state.active.motionStartedAt = state.active.start || Date.now();
-  if(!Number.isFinite(Number(state.active.motionLastTs))) state.active.motionLastTs = state.active.motionStartedAt;
-  if(state.active.motionLastMode !== 'driving' && state.active.motionLastMode !== 'still') state.active.motionLastMode = 'still';
-}
-
-function addActiveMotionTime(mode, ms){
-  if(!state.active) return;
-  const amount = Number(ms);
-  if(!Number.isFinite(amount) || amount <= 0) return;
-  ensureActiveMotionFields();
-  if(mode === 'driving'){
-    state.active.motionDrivingMs = Number(state.active.motionDrivingMs || 0) + amount;
-  } else {
-    state.active.motionStillMs = Number(state.active.motionStillMs || 0) + amount;
-  }
-}
-
-function finalizeActiveMotion(){
-  if(!state.active) return;
-  ensureActiveMotionFields();
-  const now = Date.now();
-  const lastTs = Number(state.active.motionLastTs || state.active.start || now);
-  if(!Number.isFinite(lastTs) || lastTs >= now) return;
-
-  let mode = state.active.motionLastMode === 'driving' ? 'driving' : 'still';
-  if(mode === 'driving' && lastGpsPoint && (now - lastGpsPoint.ts) > 120000){
-    mode = 'still';
-  }
-
-  addActiveMotionTime(mode, now - lastTs);
-  state.active.motionLastTs = now;
-}
-
-function getMotionSplitHtml(job){
-  if(!job) return '';
-  const driving = Number(job.motionDrivingMs || 0);
-  const still = Number(job.motionStillMs || 0);
-  if((!Number.isFinite(driving) || driving <= 0) && (!Number.isFinite(still) || still <= 0)) return '';
-  return '<div style="margin-top:6px">Körning ca: '+mins(driving)+' · Stillasående ca: '+mins(still)+'</div>';
-}
-
-function stripMotionFields(item){
-  if(!item || typeof item !== 'object') return;
-  delete item.motionDrivingMs;
-  delete item.motionStillMs;
-  delete item.motionStartedAt;
-  delete item.motionLastTs;
-  delete item.motionLastMode;
-}
-
 
 function startActiveTimer(){
   stopActiveTimer();
@@ -1775,7 +1709,6 @@ function stopActiveTimer(){
 function startDistanceTracking(){
   stopDistanceTracking();
   if(!navigator.geolocation || !state.active) return;
-  ensureActiveMotionFields();
 
   gpsWatchId = navigator.geolocation.watchPosition(
     pos => {
@@ -1792,31 +1725,15 @@ function startDistanceTracking(){
         return;
       }
 
-      ensureActiveMotionFields();
-
       if(lastGpsPoint){
         const delta = haversineKm(lastGpsPoint.lat, lastGpsPoint.lon, point.lat, point.lon);
-        const elapsedMs = Math.max(0, point.ts - lastGpsPoint.ts);
-        const hours = elapsedMs / 3600000;
-        const speedKmh = hours > 0 ? delta / hours : 0;
-        const isDriving = Number.isFinite(delta) && delta >= 0.01 && delta < 3 && speedKmh >= 5;
-
-        addActiveMotionTime(isDriving ? 'driving' : 'still', elapsedMs);
-        state.active.motionLastMode = isDriving ? 'driving' : 'still';
-        state.active.motionLastTs = point.ts;
 
         if(Number.isFinite(delta) && delta > 0.005 && delta < 3){
           state.active.distanceKm = Number((state.active.distanceKm || 0) + delta);
+          saveState();
+          renderActive();
+          renderSummary();
         }
-
-        saveState();
-        renderActive();
-        renderSummary();
-      } else {
-        addActiveMotionTime('still', point.ts - Number(state.active.motionLastTs || state.active.start || point.ts));
-        state.active.motionLastMode = 'still';
-        state.active.motionLastTs = point.ts;
-        saveState();
       }
 
       lastGpsPoint = point;
@@ -2090,34 +2007,14 @@ function getPlaceConfig(value){
   return (state.placeConfigs && state.placeConfigs[value]) ? state.placeConfigs[value] : { jobType:'', jobTypes:[] };
 }
 
-function normalizeJobTypesConfig(config, direction){
+function normalizeJobTypesConfig(config){
   if(!config) return [];
-  let raw = [];
-
-  if(direction === 'from'){
-    raw = Array.isArray(config.fromJobTypes) ? config.fromJobTypes : [];
-  } else if(direction === 'to'){
-    raw = Array.isArray(config.toJobTypes) ? config.toJobTypes : [];
-  }
-
-  if(!raw.length){
-    raw = Array.isArray(config.jobTypes) ? config.jobTypes : (config.jobType ? [config.jobType] : []);
-  }
-
-  if(!direction){
-    raw = [
-      ...(Array.isArray(config.fromJobTypes) ? config.fromJobTypes : []),
-      ...(Array.isArray(config.toJobTypes) ? config.toJobTypes : []),
-      ...(Array.isArray(config.jobTypes) ? config.jobTypes : []),
-      ...(config.jobType ? [config.jobType] : [])
-    ];
-  }
-
+  const raw = Array.isArray(config.jobTypes) ? config.jobTypes : (config.jobType ? [config.jobType] : []);
   return Array.from(new Set(raw.filter(type => truckTypes.includes(type))));
 }
 
-function getPlaceJobTypes(value, direction){
-  return normalizeJobTypesConfig(getPlaceConfig(value), direction);
+function getPlaceJobTypes(value){
+  return normalizeJobTypesConfig(getPlaceConfig(value));
 }
 
 function getSelectedValues(select){
@@ -2223,7 +2120,7 @@ function isUnlockedJobType(type){
 function getLinkedPlaceValuesForJobType(type, direction){
   const values = direction === 'from' ? getFromPlaceValues() : getToPlaceValues();
   if(!type) return [];
-  return values.filter(key => getPlaceJobTypes(key, direction).includes(type));
+  return values.filter(key => getPlaceJobTypes(key).includes(type));
 }
 
 function appendPlaceIfAvailable(values, key, direction){
@@ -2327,17 +2224,16 @@ function refreshJobTypeSelects(){
   refillSelectKeepingValue('newType', sortedTruckTypes, true, '----');
   refillSelectKeepingValue('editType', sortedTruckTypes);
   refillSelectKeepingValue('newQuickType', sortedTruckTypes);
-  fillSelectKeepingSelections('newManagedPlaceFromJobType', sortedTruckTypes);
-  fillSelectKeepingSelections('newManagedPlaceToJobType', sortedTruckTypes);
+  fillSelectKeepingSelections('newManagedPlaceJobType', sortedTruckTypes);
   updateQuickDatalists();
 }
 
 
-function applyLinkedJobType(typeSelectId, placeKey, direction){
+function applyLinkedJobType(typeSelectId, placeKey){
   if(!placeKey) return;
   const select = document.getElementById(typeSelectId);
   if(!select) return;
-  const linkedTypes = getPlaceJobTypes(placeKey, direction);
+  const linkedTypes = getPlaceJobTypes(placeKey);
   if(!linkedTypes.length) return;
   if(linkedTypes.includes(select.value)) return;
 
@@ -2942,7 +2838,6 @@ function sanitizeStateForExport(source){
       delete item.privateComment;
       delete item.internalComment;
       delete item.sensitiveComment;
-      stripMotionFields(item);
     }
   };
   strip(clean.active);
@@ -3273,9 +3168,8 @@ function sanitizeQueueItemForGithub(item){
   return clean;
 }
 
-function buildGithubQueuePayload(queueItems){
-  const sourceItems = Array.isArray(queueItems) ? queueItems : getQueueTransferItems();
-  const items = sourceItems.map(sanitizeQueueItemForGithub);
+function buildGithubQueuePayload(){
+  const items = getQueueTransferItems().map(sanitizeQueueItemForGithub);
   return {
     app: 'Stadslass',
     transferType: 'queue',
@@ -3287,27 +3181,8 @@ function buildGithubQueuePayload(queueItems){
   };
 }
 
-function markQueueItemsExportedToGithub(exportedItems, filename){
-  const exportedIds = new Set((exportedItems || []).map(item => item && item.id).filter(Boolean));
-  if(!exportedIds.size) return;
-
-  const exportedAt = new Date().toISOString();
-  (state.queue || []).forEach(item => {
-    if(item && exportedIds.has(item.id)){
-      item.githubExported = true;
-      item.githubExportedAt = exportedAt;
-      item.githubExportedFile = filename || '';
-    }
-  });
-
-  saveState();
-  renderQueue();
-  updateQueueTransferInfo();
-}
-
 function createGithubQueueFile(){
-  const exportedItems = getQueueTransferItems();
-  const payload = buildGithubQueuePayload(exportedItems);
+  const payload = buildGithubQueuePayload();
   if(!payload.queue.length){
     alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.');
     setGithubQueueInfo('Inga uppdrag finns att skapa GitHub-köfil av.');
@@ -3317,7 +3192,6 @@ function createGithubQueueFile(){
   const filename = getGithubQueueFileName();
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   downloadBlobFile(blob, filename);
-  markQueueItemsExportedToGithub(exportedItems, filename);
   setGithubQueueInfo('GitHub-köfil skapad: ' + filename + '. Ladda upp filen bredvid index.html på GitHub.');
 }
 
@@ -3401,7 +3275,6 @@ function getFinishedJobTransferKey(job){
 
 function sanitizeFinishedJobForTransfer(job){
   const copy = JSON.parse(JSON.stringify(job || {}));
-  stripMotionFields(copy);
   copy.sourceJobId = String(job.sourceJobId || job.originalJobId || job.id || '').trim();
   copy.transferKey = getFinishedJobTransferKey(copy);
   return copy;
@@ -4060,12 +3933,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     start:Date.now(),
     loads:[],
     totalWeight:0,
-    distanceKm:0,
-    motionDrivingMs:0,
-    motionStillMs:0,
-    motionStartedAt:Date.now(),
-    motionLastTs:Date.now(),
-    motionLastMode:'still'
+    distanceKm:0
   };
   saveState();
   startDistanceTracking();
@@ -4273,8 +4141,6 @@ function startQueuedJob(qid){
 function pauseActiveJob(){
   if(!state.active) return;
 
-  finalizeActiveMotion();
-
   const commentInput = document.getElementById('activeCommentInput');
   if(commentInput){
     state.active.comment = commentInput.value || '';
@@ -4294,8 +4160,8 @@ function pauseActiveJob(){
   stopDistanceTracking();
   stopActiveTimer();
   saveState();
-  render();
   showTab('ko');
+  render();
 }
 
 function resumePausedJob(qid){
@@ -4315,10 +4181,6 @@ function resumePausedJob(qid){
   resumed.loads = resumed.loads || [];
   resumed.totalWeight = resumed.totalWeight || resumed.loads.reduce((a,b)=>a+b,0);
   resumed.distanceKm = resumed.distanceKm || 0;
-  resumed.motionDrivingMs = Number.isFinite(Number(resumed.motionDrivingMs)) ? Number(resumed.motionDrivingMs) : 0;
-  resumed.motionStillMs = Number.isFinite(Number(resumed.motionStillMs)) ? Number(resumed.motionStillMs) : 0;
-  resumed.motionLastTs = Date.now();
-  resumed.motionLastMode = 'still';
 
   state.active = resumed;
   state.queue = state.queue.filter(x => x.id !== qid);
@@ -4362,55 +4224,14 @@ function removeQueuedJob(qid){
   renderCleanupPreview();
 }
 
-let weightInputArmed = false;
-
-function sanitizeWeightInput(){
-  const input = document.getElementById('weightInput');
-  if(!input) return '';
-
-  let value = String(input.value || '').replace(/\./g, ',').replace(/[^0-9,]/g, '');
-  const commaIndex = value.indexOf(',');
-  if(commaIndex !== -1){
-    value = value.slice(0, commaIndex + 1) + value.slice(commaIndex + 1).replace(/,/g, '');
-  }
-
-  if(input.value !== value){
-    input.value = value;
-  }
-
-  return value;
-}
-
-function focusWeightInput(){
-  const input = document.getElementById('weightInput');
-  if(!input) return;
-  weightInputArmed = true;
-  input.focus();
-}
-
 function addLoadToCurrent(){
   if(!state.active) return;
-  const input = document.getElementById('weightInput');
-  if(!input) return;
-
-  const value = sanitizeWeightInput().trim();
-  if(!value){
-    focusWeightInput();
-    return;
-  }
-
-  const raw = value.replace(',', '.');
+  const raw = document.getElementById('weightInput').value.replace(',', '.');
   const n = Number(raw);
-  if(!Number.isFinite(n) || n <= 0){
-    alert('Skriv en giltig vikt.');
-    focusWeightInput();
-    return;
-  }
-
+  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
-  input.value = '';
-  weightInputArmed = false;
+  document.getElementById('weightInput').value = '';
   saveState(); render();
 }
 
@@ -4430,7 +4251,6 @@ function addLoadToLatest(){
 function stopJob(){
   if(!state.active) return;
 
-  finalizeActiveMotion();
   state.jobs.unshift({...state.active, end:Date.now()});
   state.active = null;
   stopDistanceTracking();
@@ -4441,10 +4261,6 @@ function stopJob(){
     const pausedElapsedMs = resumed.pausedElapsedMs || 0;
     delete resumed.pausedElapsedMs;
     resumed.start = Date.now() - pausedElapsedMs;
-    resumed.motionDrivingMs = Number.isFinite(Number(resumed.motionDrivingMs)) ? Number(resumed.motionDrivingMs) : 0;
-    resumed.motionStillMs = Number.isFinite(Number(resumed.motionStillMs)) ? Number(resumed.motionStillMs) : 0;
-    resumed.motionLastTs = Date.now();
-    resumed.motionLastMode = 'still';
     state.active = resumed;
     state.pausedOtherWork = null;
     startDistanceTracking();
@@ -4452,6 +4268,7 @@ function stopJob(){
   }
 
   saveState();
+  showTab('ko');
   render();
 }
 
@@ -4553,7 +4370,6 @@ function renderQueue(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
-      (x.githubExported ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:13px">Överförd till GitHub</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
@@ -4647,43 +4463,6 @@ function deleteFinishedJob(jobId){
   renderCleanupPreview();
 }
 
-function restartFinishedJob(jobId){
-  const job = state.jobs.find(x => x.id === jobId);
-  if(!job) return;
-
-  if(state.active){
-    alert('Du har redan ett aktivt jobb. Avsluta eller pausa det innan du återstartar ett uppdrag.');
-    return;
-  }
-
-  const restarted = {...job};
-  delete restarted.end;
-  delete restarted.status;
-  delete restarted._queueIndex;
-
-  restarted.date = restarted.date || todayStr();
-  restarted.plannedDate = restarted.plannedDate || restarted.date || todayStr();
-  restarted.loads = Array.isArray(restarted.loads) ? restarted.loads : [];
-  restarted.totalWeight = Number.isFinite(Number(restarted.totalWeight))
-    ? Number(restarted.totalWeight)
-    : restarted.loads.reduce((a,b)=>a+b,0);
-  restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
-  restarted.motionDrivingMs = Number.isFinite(Number(restarted.motionDrivingMs)) ? Number(restarted.motionDrivingMs) : 0;
-  restarted.motionStillMs = Number.isFinite(Number(restarted.motionStillMs)) ? Number(restarted.motionStillMs) : 0;
-  restarted.start = restarted.start || Date.now();
-  restarted.motionLastTs = Date.now();
-  restarted.motionLastMode = 'still';
-
-  state.active = restarted;
-  state.jobs = state.jobs.filter(x => x.id !== jobId);
-
-  saveState();
-  startDistanceTracking();
-  startActiveTimer();
-  render();
-  showTab('idag');
-}
-
 function renderToday(){
   const today = todayStr();
   const todays = state.jobs.filter(x => x.date === today);
@@ -4697,11 +4476,9 @@ function renderToday(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
-      getMotionSplitHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
-        '<button class="restart-yellow" onclick="restartFinishedJob(\''+x.id+'\')">Återstarta</button>'+
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
       '</div>'+
@@ -5480,8 +5257,7 @@ function addManagedPlace(){
   const addressEl = document.getElementById('newManagedPlaceAddress');
   const fromEl = document.getElementById('newManagedPlaceFrom');
   const toEl = document.getElementById('newManagedPlaceTo');
-  const fromJobEl = document.getElementById('newManagedPlaceFromJobType');
-  const toJobEl = document.getElementById('newManagedPlaceToJobType');
+  const jobEl = document.getElementById('newManagedPlaceJobType');
 
   const label = (nameEl.value || '').trim();
   const address = addressEl ? (addressEl.value || '').trim() : '';
@@ -5502,10 +5278,9 @@ function addManagedPlace(){
     to: toEl.checked
   });
 
-  const fromJobTypes = getSelectedValues(fromJobEl);
-  const toJobTypes = getSelectedValues(toJobEl);
-  if(fromJobTypes.length || toJobTypes.length){
-    state.placeConfigs[key] = { fromJobTypes, toJobTypes };
+  const jobTypes = getSelectedValues(jobEl);
+  if(jobTypes.length){
+    state.placeConfigs[key] = { jobTypes };
   }
   if(!state.placeAddresses) state.placeAddresses = {};
   if(address){
@@ -5516,8 +5291,7 @@ function addManagedPlace(){
   if(addressEl) addressEl.value = '';
   fromEl.checked = true;
   toEl.checked = true;
-  clearSelectedValues(fromJobEl);
-  clearSelectedValues(toJobEl);
+  clearSelectedValues(jobEl);
   saveState();
   refreshPlaceSelects();
   renderPlaceManager();
@@ -5565,34 +5339,29 @@ function renderPlaceManager(){
     const meta = document.createElement('div');
     meta.className = 'place-meta';
 
-    const buildJobTypeSelect = (labelText, helpText, dataAttr, direction) => {
-      const jobWrap = document.createElement('div');
-      const jobLabel = document.createElement('label');
-      jobLabel.textContent = labelText;
-      const jobSelect = document.createElement('select');
-      jobSelect.setAttribute(dataAttr, entry.key);
-      jobSelect.multiple = true;
-      jobSelect.size = 6;
+    const jobWrap = document.createElement('div');
+    const jobLabel = document.createElement('label');
+    jobLabel.textContent = 'Kopplade jobbtyper';
+    const jobSelect = document.createElement('select');
+    jobSelect.setAttribute('data-place-job-key', entry.key);
+    jobSelect.multiple = true;
+    jobSelect.size = 6;
 
-      const linkedJobTypes = getPlaceJobTypes(entry.key, direction);
-      sortedTruckTypes.forEach(type => {
-        const opt = document.createElement('option');
-        opt.value = type;
-        opt.textContent = type;
-        opt.selected = linkedJobTypes.includes(type);
-        jobSelect.appendChild(opt);
-      });
-      const help = document.createElement('div');
-      help.className = 'multi-help';
-      help.textContent = helpText;
-      jobWrap.appendChild(jobLabel);
-      jobWrap.appendChild(jobSelect);
-      jobWrap.appendChild(help);
-      return jobWrap;
-    };
-
-    meta.appendChild(buildJobTypeSelect('Jobbtyper från', 'Välj vilka jobbtyper som får hämtas/starta från platsen.', 'data-place-from-job-key', 'from'));
-    meta.appendChild(buildJobTypeSelect('Jobbtyper till', 'Välj vilka jobbtyper som får köras/lämnas till platsen.', 'data-place-to-job-key', 'to'));
+    const linkedJobTypes = getPlaceJobTypes(entry.key);
+    sortedTruckTypes.forEach(type => {
+      const opt = document.createElement('option');
+      opt.value = type;
+      opt.textContent = type;
+      opt.selected = linkedJobTypes.includes(type);
+      jobSelect.appendChild(opt);
+    });
+    const help = document.createElement('div');
+    help.className = 'multi-help';
+    help.textContent = 'Välj en eller flera jobbtyper.';
+    jobWrap.appendChild(jobLabel);
+    jobWrap.appendChild(jobSelect);
+    jobWrap.appendChild(help);
+    meta.appendChild(jobWrap);
 
     const usage = getPlaceUsage(entry.key);
     const toggles = document.createElement('div');
@@ -5641,33 +5410,12 @@ function saveManagedPlaces(){
     }
   });
 
-  const ensureConfig = key => {
-    if(!nextConfigs[key]) nextConfigs[key] = { fromJobTypes: [], toJobTypes: [] };
-    return nextConfigs[key];
-  };
-
-  const fromJobSelects = document.querySelectorAll('#placeManagerList select[data-place-from-job-key]');
-  fromJobSelects.forEach(select => {
-    const key = select.getAttribute('data-place-from-job-key');
+  const jobSelects = document.querySelectorAll('#placeManagerList select[data-place-job-key]');
+  jobSelects.forEach(select => {
+    const key = select.getAttribute('data-place-job-key');
     const jobTypes = getSelectedValues(select);
     if(jobTypes.length){
-      ensureConfig(key).fromJobTypes = jobTypes;
-    }
-  });
-
-  const toJobSelects = document.querySelectorAll('#placeManagerList select[data-place-to-job-key]');
-  toJobSelects.forEach(select => {
-    const key = select.getAttribute('data-place-to-job-key');
-    const jobTypes = getSelectedValues(select);
-    if(jobTypes.length){
-      ensureConfig(key).toJobTypes = jobTypes;
-    }
-  });
-
-  Object.keys(nextConfigs).forEach(key => {
-    const cfg = nextConfigs[key];
-    if(!(cfg.fromJobTypes || []).length && !(cfg.toJobTypes || []).length){
-      delete nextConfigs[key];
+      nextConfigs[key] = { jobTypes };
     }
   });
 
@@ -5729,8 +5477,7 @@ fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
 fillSelect('newDest', getToPlaceValues(), true, '----');
 fillSelect('editType', sortedTruckTypes);
-fillSelect('newManagedPlaceFromJobType', sortedTruckTypes);
-fillSelect('newManagedPlaceToJobType', sortedTruckTypes);
+fillSelect('newManagedPlaceJobType', sortedTruckTypes);
 fillSelect('newQuickType', sortedTruckTypes);
 fillMachineSelects();
 refreshPlaceSelects();
@@ -5744,13 +5491,13 @@ document.getElementById('newType').addEventListener('change', function(){
 });
 
 document.getElementById('newPlace').addEventListener('change', function(){
-  applyLinkedJobType('newType', this.value, 'from');
+  applyLinkedJobType('newType', this.value);
   updateNewJobPlaceSelects(true);
   applySopsandDefaultDestination();
 });
 
 document.getElementById('newDest').addEventListener('change', function(){
-  applyLinkedJobType('newType', this.value, 'to');
+  applyLinkedJobType('newType', this.value);
   updateNewJobPlaceSelects(true);
   applySopsandDefaultDestination();
 });
