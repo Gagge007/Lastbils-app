@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-03
+- Nuvarande version: Stadslass v2026-05-07-01-04
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -82,6 +82,7 @@ button{
 .pill-type{ background:#fff8cc !important; }
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
 .private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
+.start-point-note{ margin-top:8px; color:#334155; font-size:14px; font-weight:700; }
 
 #activePills{
   display:flex !important;
@@ -812,6 +813,7 @@ button{
     <div id="activeNone" class="muted">Inget aktivt jobb.</div>
     <div id="activeBox" class="hidden">
       <div id="activePills"></div>
+      <div id="activeStartPoint" class="start-point-note hidden"></div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
         <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
@@ -1030,7 +1032,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-03</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-04</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -4171,6 +4173,113 @@ function showTab(tab){
   }
 }
 
+
+function getStartPointText(job){
+  if(!job) return '';
+  if(job.startPointAddress) return String(job.startPointAddress || '').trim();
+  if(job.startPointStatus === 'fetching') return 'hämtar...';
+  if(job.startPointStatus === 'missing') return 'saknas';
+  return '';
+}
+
+function getStartPointHtml(job){
+  const text = getStartPointText(job);
+  return text ? '<div class="start-point-note">Startpunkt: '+escapeHtml(text)+'</div>' : '';
+}
+
+function setStartPointForJob(jobId, status, address){
+  if(!jobId) return;
+  let updated = false;
+  const apply = job => {
+    if(!job || job.id !== jobId) return;
+    job.startPointStatus = status;
+    if(address){
+      job.startPointAddress = String(address || '').trim();
+    } else if(status === 'missing'){
+      delete job.startPointAddress;
+    }
+    job.startPointFetchedAt = new Date().toISOString();
+    updated = true;
+  };
+
+  apply(state.active);
+  apply(state.pausedOtherWork);
+  (state.jobs || []).forEach(apply);
+  (state.queue || []).forEach(apply);
+
+  if(updated){
+    saveState();
+    renderActive();
+    renderToday();
+  }
+}
+
+function compactReverseGeocodeAddress(data){
+  if(!data || typeof data !== 'object') return '';
+  const a = data.address || {};
+  const road = a.road || a.pedestrian || a.footway || a.cycleway || a.path || a.residential || a.industrial || '';
+  const houseNumber = a.house_number || '';
+  const namedPlace = a.amenity || a.shop || a.office || a.building || a.neighbourhood || a.suburb || '';
+  const city = a.city || a.town || a.village || a.municipality || a.county || '';
+
+  let firstPart = '';
+  if(road){
+    firstPart = (road + (houseNumber ? ' ' + houseNumber : '')).trim();
+  } else if(namedPlace){
+    firstPart = String(namedPlace).trim();
+  }
+
+  if(firstPart && city) return firstPart + ', ' + city;
+  if(firstPart) return firstPart;
+
+  const displayName = String(data.display_name || '').trim();
+  if(!displayName) return '';
+  return displayName.split(',').map(part => part.trim()).filter(Boolean).slice(0, 3).join(', ');
+}
+
+async function reverseGeocodeStartAddress(position){
+  if(!position || !position.coords) return '';
+  if(navigator.onLine === false) return '';
+
+  const lat = position.coords.latitude;
+  const lon = position.coords.longitude;
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+
+  const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&zoom=18&addressdetails=1&accept-language=sv';
+  const response = await fetch(url, {cache:'no-store'});
+  if(!response || !response.ok) return '';
+  const data = await response.json();
+  return compactReverseGeocodeAddress(data);
+}
+
+function captureStartPointForActiveJob(jobId){
+  if(!jobId) return;
+  if(!navigator.geolocation){
+    setStartPointForJob(jobId, 'missing', '');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      reverseGeocodeStartAddress(pos)
+        .then(address => {
+          setStartPointForJob(jobId, address ? 'ready' : 'missing', address || '');
+        })
+        .catch(() => {
+          setStartPointForJob(jobId, 'missing', '');
+        });
+    },
+    () => {
+      setStartPointForJob(jobId, 'missing', '');
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 60000,
+      timeout: 15000
+    }
+  );
+}
+
 function isOtherWorkJob(job){
   return !!job && job.type === 'Övrig verksamhet';
 }
@@ -4226,6 +4335,9 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     privateComment:getAllowedPrivateComment(type, privateComment),
     plannedDate: todayStr(),
     start:Date.now(),
+    startPointStatus:'fetching',
+    startPointAddress:'',
+    startPointFetchedAt:'',
     loads:[],
     totalWeight:0,
     distanceKm:0,
@@ -4239,6 +4351,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   startDistanceTracking();
   startActiveTimer();
   render();
+  captureStartPointForActiveJob(state.active.id);
   return true;
 }
 
@@ -4669,6 +4782,13 @@ function renderActive(){
     (state.active.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(state.active, 'dest')+'</span>' : '')+
     (materialCode ? '<span class="pill pill-code">Mtrl kod '+escapeHtml(materialCode)+'</span>' : '');
 
+  const activeStartPoint = document.getElementById('activeStartPoint');
+  if(activeStartPoint){
+    const startPointText = getStartPointText(state.active);
+    activeStartPoint.textContent = startPointText ? 'Startpunkt: ' + startPointText : '';
+    activeStartPoint.classList.toggle('hidden', !startPointText);
+  }
+
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
   document.getElementById('activeLoads').textContent = String((state.active.loads||[]).length);
@@ -4960,6 +5080,9 @@ function restartFinishedJob(jobId){
   restarted.motionStillMs = Number.isFinite(Number(restarted.motionStillMs)) ? Number(restarted.motionStillMs) : 0;
   restarted.motionLastTs = Date.now();
   restarted.motionLastMode = 'still';
+  restarted.startPointStatus = 'fetching';
+  restarted.startPointAddress = '';
+  restarted.startPointFetchedAt = '';
 
   state.active = restarted;
   state.jobs = state.jobs.filter(x => x.id !== jobId);
@@ -4967,6 +5090,7 @@ function restartFinishedJob(jobId){
   startDistanceTracking();
   startActiveTimer();
   render();
+  captureStartPointForActiveJob(state.active.id);
   showTab('idag');
 }
 
@@ -4982,6 +5106,7 @@ function renderToday(){
     '<div class="job">'+
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
+      getStartPointHtml(x)+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
       getMotionSplitHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
@@ -6023,6 +6148,9 @@ window.addEventListener('offline', updateConnectionStatus);
 if(state.active){
   startDistanceTracking();
   startActiveTimer();
+  if(state.active.startPointStatus === 'fetching' && !state.active.startPointAddress){
+    captureStartPointForActiveJob(state.active.id);
+  }
 }
 updateNewJobPlaceSelects(true);
 updateNewMachineUI();
