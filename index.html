@@ -737,8 +737,11 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
-            <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
+            <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" placeholder="Ange vikt i ton" oninput="sanitizeWeightInput(this)" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <div class="row" style="gap:10px; align-items:center">
+              <button class="queue-yellow" onclick="addLoadToCurrent()">Ange vikt</button>
+              <button class="inline" onclick="markNoEmptying()">Ingen tömning</button>
+            </div>
           </div>
           <div class="row" style="gap:10px; align-items:center">
             <input id="activeCommentInput" placeholder="Skriv kommentar" style="max-width:240px">
@@ -4279,15 +4282,69 @@ function removeQueuedJob(qid){
   renderCleanupPreview();
 }
 
+function sanitizeWeightInput(input){
+  if(!input) return;
+  const previous = input.value || '';
+  let next = previous.replace(/\./g, ',').replace(/[^0-9,]/g, '');
+  const firstComma = next.indexOf(',');
+  if(firstComma !== -1){
+    next = next.slice(0, firstComma + 1) + next.slice(firstComma + 1).replace(/,/g, '');
+  }
+  if(next !== previous){
+    input.value = next;
+  }
+}
+
+function getWeightInputNumber(input){
+  if(!input) return NaN;
+  sanitizeWeightInput(input);
+  const raw = String(input.value || '').replace(',', '.');
+  return Number(raw);
+}
+
+function focusWeightInput(){
+  const input = document.getElementById('weightInput');
+  if(!input) return;
+  input.focus();
+  try{ input.select(); }catch(e){}
+}
+
 function addLoadToCurrent(){
   if(!state.active) return;
-  const raw = document.getElementById('weightInput').value.replace(',', '.');
-  const n = Number(raw);
-  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
+  const input = document.getElementById('weightInput');
+  if(input && !String(input.value || '').trim()){
+    focusWeightInput();
+    return;
+  }
+
+  const n = getWeightInputNumber(input);
+  if(!Number.isFinite(n) || n <= 0){
+    alert('Skriv en giltig vikt.');
+    focusWeightInput();
+    return;
+  }
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
-  document.getElementById('weightInput').value = '';
+  if(input) input.value = '';
   saveState(); render();
+}
+
+function markNoEmptying(){
+  if(!state.active) return;
+  const marker = 'Ej behov av tömning';
+  const commentInput = document.getElementById('activeCommentInput');
+  const current = String(commentInput ? commentInput.value : state.active.comment || '').trim();
+  let nextComment = current;
+  if(!nextComment){
+    nextComment = marker;
+  } else if(!nextComment.toLocaleLowerCase('sv-SE').includes(marker.toLocaleLowerCase('sv-SE'))){
+    nextComment = nextComment + ' – ' + marker;
+  }
+  state.active.comment = nextComment;
+  state.active.excludeFromTimeEstimate = true;
+  if(commentInput) commentInput.value = nextComment;
+  saveState();
+  renderActive();
 }
 
 function addLoadToLatest(){
