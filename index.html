@@ -15,7 +15,7 @@ Stadslass versionskontroll
   - Intern kommentar: bara för Äta, Övriga jobb och Övrig verksamhet
   - Hantera platser: separata jobbtyper Från och Till
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
-  - Ändringslogg: finns i Inställningar
+  - Uppskattad tid i kö: ren visning, baserad på minst 3 jämförbara avslutade jobb
 -->
 <html lang="sv">
 <head>
@@ -1066,23 +1066,6 @@ button{
         <div class="muted">Kontrollera tekniska funktioner i appen.</div>
         <div class="settings-group-actions">
           <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
-          <button class="primary" onclick="toggleChangeLogManager()">Ändringslogg</button>
-        </div>
-      </div>
-    </div>
-    <div id="changeLogManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här syns appens ändringslogg. Nya versioner läggs till här så det går att se vad varje index.html innehåller.</div>
-
-      <div class="place-row">
-        <div class="place-key">Versioner</div>
-        <div class="job">
-          <div><span class="pill pill-code">Version: Stadslass v2026-05-07-01-03</span></div>
-          <div style="margin-top:8px"><strong>Ändring:</strong> Lade till ändringslogg i Inställningar.</div>
-          <div class="multi-help" style="margin-top:6px">Filen bygger på senaste index.html och lagringsnyckeln driftlogg_v4_full är oförändrad.</div>
-        </div>
-        <div class="job">
-          <div><span class="pill">Version: Stadslass v2026-05-07-01-02</span></div>
-          <div style="margin-top:8px">Basversion före ändringsloggen.</div>
         </div>
       </div>
     </div>
@@ -2602,7 +2585,7 @@ function renderGpsTestPoint(point, extraStatus){
 
 
 function hideSettingsPanels(exceptId){
-  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','changeLogManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
@@ -3010,10 +2993,6 @@ function toggleGpsTestManager(){
   toggleSettingsPanel('gpsTestManagerWrap', () => {
     updateGpsEnvironmentInfo();
   });
-}
-
-function toggleChangeLogManager(){
-  toggleSettingsPanel('changeLogManagerWrap');
 }
 
 function startGpsTest(){
@@ -4731,6 +4710,108 @@ function setQueuedJobPlannedDate(qid, value){
   renderQueue();
 }
 
+
+function normalizeEstimateText(value){
+  return String(value || '')
+    .trim()
+    .toLocaleLowerCase('sv-SE')
+    .replace(/\s+/g, ' ');
+}
+
+function estimateComparableValue(job, field){
+  if(!job) return '';
+  const shownLabel = (field === 'place' || field === 'dest') ? getItemPlaceLabel(job, field) : '';
+  return normalizeEstimateText(shownLabel || job[field] || '');
+}
+
+function estimateDisplayValue(job){
+  return normalizeEstimateText((job && (job.displayType || job.type)) || '');
+}
+
+function isExcludedTypeForTimeEstimate(type){
+  const text = normalizeEstimateText(type);
+  const compact = text.replace(/\s+/g, '');
+  if(!text) return true;
+  return text === 'äta' ||
+    text === 'övriga jobb' ||
+    text === 'övrig verksamhet' ||
+    text === 'möte/utbildning' ||
+    text === 'möte utbildning' ||
+    compact === 'möte/utbildning' ||
+    compact === 'möteutbildning' ||
+    compact === 'äta/övrigajobb' ||
+    compact === 'äta/övrigtjobb';
+}
+
+function hasExcludedPlaceForTimeEstimate(job){
+  const values = [
+    job && job.place,
+    job && job.dest,
+    job && job.placeLabel,
+    job && job.destLabel
+  ].map(normalizeEstimateText);
+  return values.some(value => value.includes('von utfall'));
+}
+
+function hasExcludedCommentForTimeEstimate(job){
+  const text = normalizeEstimateText((job && job.comment) || '');
+  if(!text) return false;
+  return [
+    'ingen tömning',
+    'ej behov av tömning',
+    'ej tömd',
+    'kontroll',
+    'endast vägning',
+    'låg vikt',
+    'bara koll',
+    'ingen körning'
+  ].some(keyword => text.includes(keyword));
+}
+
+function shouldExcludeFromTimeEstimate(job){
+  if(!job) return true;
+  if(job.excludeFromTimeEstimate === true) return true;
+  if(isExcludedTypeForTimeEstimate(job.type)) return true;
+  if(hasExcludedPlaceForTimeEstimate(job)) return true;
+  if(hasExcludedCommentForTimeEstimate(job)) return true;
+  return false;
+}
+
+function isComparableForTimeEstimate(queueJob, finishedJob){
+  if(!queueJob || !finishedJob) return false;
+  if(shouldExcludeFromTimeEstimate(queueJob) || shouldExcludeFromTimeEstimate(finishedJob)) return false;
+  if(normalizeEstimateText(queueJob.type) !== normalizeEstimateText(finishedJob.type)) return false;
+  if(estimateComparableValue(queueJob, 'place') !== estimateComparableValue(finishedJob, 'place')) return false;
+  if(estimateComparableValue(queueJob, 'dest') !== estimateComparableValue(finishedJob, 'dest')) return false;
+  if(estimateDisplayValue(queueJob) !== estimateDisplayValue(finishedJob)) return false;
+  return true;
+}
+
+function getEstimatedMinutesForQueueJob(queueJob){
+  if(!queueJob || queueJob.status === 'pausad') return null;
+  if(shouldExcludeFromTimeEstimate(queueJob)) return null;
+
+  const times = (state.jobs || [])
+    .filter(job => isComparableForTimeEstimate(queueJob, job))
+    .map(job => {
+      const durationMs = Number((job.end || 0) - (job.start || 0));
+      return Math.round(durationMs / 60000);
+    })
+    .filter(minutes => Number.isFinite(minutes) && minutes >= 2);
+
+  if(times.length < 3) return null;
+  times.sort((a, b) => a - b);
+  const middle = Math.floor(times.length / 2);
+  const median = times.length % 2 ? times[middle] : Math.round((times[middle - 1] + times[middle]) / 2);
+  return Number.isFinite(median) && median > 0 ? median : null;
+}
+
+function getQueueEstimateHtml(queueJob){
+  const minutes = getEstimatedMinutesForQueueJob(queueJob);
+  if(!minutes) return '';
+  return '<div style="margin-top:6px; font-weight:700">Uppskattad tid: '+minutes+' min</div>';
+}
+
 function renderQueue(){
   const visible = state.queue
     .map((x, index) => ({...x, _queueIndex:index}))
@@ -4763,6 +4844,7 @@ function renderQueue(){
     '<div class="job">'+
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
+      getQueueEstimateHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
       (x.githubExported ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:13px">Överförd till GitHub</div>' : '')+
