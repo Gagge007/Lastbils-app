@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01
+- Nuvarande version: Stadslass v2026-05-07-01-01
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1003,7 +1003,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-01</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -4144,6 +4144,29 @@ function showTab(tab){
   }
 }
 
+function isOtherWorkJob(job){
+  return !!job && job.type === 'Övrig verksamhet';
+}
+
+function resumePausedOtherWorkIfPossible(){
+  if(state.active || !state.pausedOtherWork) return false;
+
+  const resumed = {...state.pausedOtherWork};
+  const pausedElapsedMs = resumed.pausedElapsedMs || 0;
+  delete resumed.pausedElapsedMs;
+  delete resumed.status;
+  delete resumed._queueIndex;
+  resumed.start = Date.now() - pausedElapsedMs;
+  resumed.motionLastTs = Date.now();
+  resumed.motionLastMode = 'still';
+
+  state.active = resumed;
+  state.pausedOtherWork = null;
+  startDistanceTracking();
+  startActiveTimer();
+  return true;
+}
+
 function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
   if(state.active){
     const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
@@ -4411,10 +4434,17 @@ function pauseActiveJob(){
   paused.plannedDate = paused.plannedDate || paused.date || todayStr();
   paused.pausedElapsedMs = Date.now() - (paused.start || Date.now());
 
+  const pausedJobWasOtherWork = isOtherWorkJob(paused);
+
   state.queue.push(paused);
   state.active = null;
   stopDistanceTracking();
   stopActiveTimer();
+
+  if(!pausedJobWasOtherWork){
+    resumePausedOtherWorkIfPossible();
+  }
+
   saveState();
   render();
   showTab('ko');
@@ -4466,8 +4496,15 @@ function completeQueuedJob(qid){
     finished.start = finished.end - elapsed;
     state.jobs.unshift(finished);
     state.queue = state.queue.filter(x => x.id !== qid);
+
+    if(!isOtherWorkJob(finished)){
+      resumePausedOtherWorkIfPossible();
+    }
+
     saveState();
     render();
+    showTab('ko');
+    setTimeout(() => showTab('ko'), 80);
     return;
   }
 
@@ -4572,16 +4609,7 @@ function stopJob(){
   stopDistanceTracking();
   stopActiveTimer();
 
-  if(state.pausedOtherWork){
-    const resumed = {...state.pausedOtherWork};
-    const pausedElapsedMs = resumed.pausedElapsedMs || 0;
-    delete resumed.pausedElapsedMs;
-    resumed.start = Date.now() - pausedElapsedMs;
-    state.active = resumed;
-    state.pausedOtherWork = null;
-    startDistanceTracking();
-    startActiveTimer();
-  }
+  resumePausedOtherWorkIfPossible();
 
   saveState();
   render();
