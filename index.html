@@ -737,14 +737,14 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" enterkeyhint="done" placeholder="Ange vikt i ton" oninput="normalizeWeightInput(this)" style="width:100%; max-width:none; min-height:64px; font-size:18px">
-            <button class="queue-yellow" onclick="addLoadToCurrent(event)">Ange ny vikt</button>
+            <input id="weightInput" placeholder="Ange vikt i ton" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <button class="queue-yellow" onclick="addLoadToCurrent()">Ange ny vikt</button>
           </div>
           <div class="row" style="gap:10px; align-items:center">
             <input id="activeCommentInput" placeholder="Skriv kommentar" style="max-width:240px">
             <button class="inline" onclick="saveActiveComment()">Spara kommentar</button>
           </div>
-          <div class="row" style="gap:10px; align-items:center">
+          <div class="row" id="activePrivateCommentRow" style="gap:10px; align-items:center">
             <input id="activePrivateCommentInput" placeholder="Intern kommentar (exporteras inte)" style="max-width:240px">
             <button class="inline" onclick="saveActivePrivateComment()">Spara intern kommentar</button>
           </div>
@@ -814,8 +814,10 @@ button{
     </div>
     <label style="margin-top:10px">Kommentar</label>
     <textarea id="newComment"></textarea>
-    <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
-    <textarea id="newPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
+    <div id="newPrivateCommentWrap">
+      <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
+      <textarea id="newPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
+    </div>
     <div class="new-job-actions">
       <button class="queue-start" onclick="startManualJob()">Starta jobb</button>
       <button class="queue-yellow" onclick="addManualJobToQueue()">Lägg i kön</button>
@@ -923,8 +925,10 @@ button{
     <input id="editDest">
     <label style="margin-top:10px">Kommentar</label>
     <textarea id="editComment"></textarea>
-    <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
-    <textarea id="editPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
+    <div id="editPrivateCommentWrap">
+      <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
+      <textarea id="editPrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
+    </div>
     <label style="margin-top:10px">Tid i minuter</label>
     <input id="editMinutes" type="number" min="0" step="1" placeholder="Ange tid i minuter">
     <label style="margin-top:10px">Total vikt i ton</label>
@@ -1954,6 +1958,53 @@ function getJobTypeRequirements(type){
   return getJobTypeMeta(type).requirements || [];
 }
 
+function allowsPrivateCommentForType(type){
+  const raw = String(type || '').trim().toLocaleLowerCase('sv-SE');
+  const normalized = raw.replace(/\s+/g, ' ');
+  const compact = raw.replace(/\s+/g, '');
+  return normalized === 'äta' ||
+    normalized === 'övriga jobb' ||
+    normalized === 'övrig verksamhet' ||
+    compact === 'äta/övrigajobb' ||
+    compact === 'äta/övrigtjobb';
+}
+
+function getAllowedPrivateComment(type, value){
+  return allowsPrivateCommentForType(type) ? String(value || '') : '';
+}
+
+function updateNewPrivateCommentVisibility(){
+  const typeEl = document.getElementById('newType');
+  const wrap = document.getElementById('newPrivateCommentWrap');
+  const input = document.getElementById('newPrivateComment');
+  const allowed = typeEl ? allowsPrivateCommentForType(typeEl.value) : false;
+  if(wrap) wrap.classList.toggle('hidden', !allowed);
+  if(input && !allowed && document.activeElement !== input){
+    input.value = '';
+  }
+}
+
+function updateActivePrivateCommentVisibility(){
+  const row = document.getElementById('activePrivateCommentRow');
+  const input = document.getElementById('activePrivateCommentInput');
+  const allowed = !!(state.active && allowsPrivateCommentForType(state.active.type));
+  if(row) row.classList.toggle('hidden', !allowed);
+  if(input && !allowed){
+    input.value = '';
+  }
+}
+
+function updateEditPrivateCommentVisibility(){
+  const typeEl = document.getElementById('editType');
+  const wrap = document.getElementById('editPrivateCommentWrap');
+  const input = document.getElementById('editPrivateComment');
+  const allowed = typeEl ? allowsPrivateCommentForType(typeEl.value) : false;
+  if(wrap) wrap.classList.toggle('hidden', !allowed);
+  if(input && !allowed && document.activeElement !== input){
+    input.value = '';
+  }
+}
+
 
 function getCustomPlaceByKey(key){
   return (state.customPlaces || []).find(p => p.key === key) || null;
@@ -2476,7 +2527,7 @@ function renderHistoryManager(){
       '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Start: '+clockTime(job.start)+' · Slut: '+clockTime(job.end)+'</div>'+ 
       '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
       (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment)+'</div>' : '')+
-      (job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment)+'</div>' : '')+
+      (allowsPrivateCommentForType(job.type) && job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
         '<button onclick="openEditJob(\''+escapeJsSingle(job.id)+'\')">Redigera</button>'+ 
         '<button class="danger" onclick="deleteFinishedJob(\''+escapeJsSingle(job.id)+'\')">Ta bort</button>'+ 
@@ -2570,7 +2621,7 @@ function renderTrashManager(){
       '<div><span class="pill">'+escapeHtml(getTrashLabel(entry))+'</span><span class="pill pill-type">'+escapeHtml(item.type || '')+'</span>'+(item.place ? '<span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(item, 'place'))+'</span>' : '')+(item.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(item, 'dest'))+'</span>' : '')+'</div>'+ 
       '<div style="margin-top:6px">Raderad: '+escapeHtml(new Date(entry.deletedAt || Date.now()).toLocaleString('sv-SE'))+(item.date ? ' · Datum: '+escapeHtml(formatShortDate(item.date)) : '')+(item.plannedDate ? ' · Planerad: '+escapeHtml(formatShortDate(item.plannedDate)) : '')+'</div>'+ 
       (item.comment ? '<div style="margin-top:6px">'+escapeHtml(item.comment)+'</div>' : '')+
-      (item.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(item.privateComment)+'</div>' : '')+
+      (allowsPrivateCommentForType(item.type) && item.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(item.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
         '<button class="primary inline" onclick="restoreTrashItem(\''+escapeJsSingle(entry.trashId)+'\')">Återställ</button>'+ 
         '<button class="danger inline" onclick="permanentlyDeleteTrashItem(\''+escapeJsSingle(entry.trashId)+'\')">Ta bort permanent</button>'+ 
@@ -3168,9 +3219,8 @@ function sanitizeQueueItemForGithub(item){
   return clean;
 }
 
-function buildGithubQueuePayload(sourceItems){
-  const queueItems = Array.isArray(sourceItems) ? sourceItems : getQueueTransferItems();
-  const items = queueItems.map(sanitizeQueueItemForGithub);
+function buildGithubQueuePayload(){
+  const items = getQueueTransferItems().map(sanitizeQueueItemForGithub);
   return {
     app: 'Stadslass',
     transferType: 'queue',
@@ -3182,19 +3232,8 @@ function buildGithubQueuePayload(sourceItems){
   };
 }
 
-function markQueueItemsAsTransferredToGithub(items, filename){
-  const transferredAt = new Date().toISOString();
-  (items || []).forEach(item => {
-    if(!item) return;
-    item.githubTransferred = true;
-    item.githubTransferredAt = transferredAt;
-    item.githubTransferredFile = filename || getGithubQueueFileName();
-  });
-}
-
 function createGithubQueueFile(){
-  const exportItems = getQueueTransferItems();
-  const payload = buildGithubQueuePayload(exportItems);
+  const payload = buildGithubQueuePayload();
   if(!payload.queue.length){
     alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.');
     setGithubQueueInfo('Inga uppdrag finns att skapa GitHub-köfil av.');
@@ -3204,9 +3243,6 @@ function createGithubQueueFile(){
   const filename = getGithubQueueFileName();
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   downloadBlobFile(blob, filename);
-  markQueueItemsAsTransferredToGithub(exportItems, filename);
-  saveState();
-  render();
   setGithubQueueInfo('GitHub-köfil skapad: ' + filename + '. Ladda upp filen bredvid index.html på GitHub.');
 }
 
@@ -3914,17 +3950,6 @@ function showTab(tab){
   }
 }
 
-function forceQueueTab(){
-  showTab('ko');
-  setTimeout(() => {
-    renderQueue();
-    showTab('ko');
-  }, 50);
-  setTimeout(() => {
-    showTab('ko');
-  }, 250);
-}
-
 function startJob(vehicle, type, place, dest, comment, displayType, privateComment){
   if(state.active){
     const activeIsOtherWork = state.active.type === 'Övrig verksamhet';
@@ -3954,7 +3979,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     placeLabel:getStoredPlaceLabel(place),
     destLabel:getStoredPlaceLabel(dest),
     comment:comment||'',
-    privateComment:privateComment||'',
+    privateComment:getAllowedPrivateComment(type, privateComment),
     plannedDate: todayStr(),
     start:Date.now(),
     loads:[],
@@ -3987,6 +4012,7 @@ function openNewJobPreset(type){
   updateNewMachineUI();
   updateNewSeaweedUI();
   updateFixedRouteRules();
+  updateNewPrivateCommentVisibility();
 }
 function startQuickSeaweed(){
   alert('Havstång används nu som vanlig jobbtyp med vanliga Från/Till.');
@@ -4011,6 +4037,7 @@ function resetNewJobForm(){
   updateNewMachineUI();
   updateNewSeaweedUI();
   updateFixedRouteRules();
+  updateNewPrivateCommentVisibility();
 }
 
 function validateNewJobSelection(type, place, dest){
@@ -4110,7 +4137,7 @@ function addManualJobToQueue(){
     placeLabel:getStoredPlaceLabel(place),
     destLabel:getStoredPlaceLabel(dest),
     comment:comment,
-    privateComment:privateComment,
+    privateComment:getAllowedPrivateComment(type, privateComment),
     status:'köad',
     date:todayStr(),
     plannedDate:plannedDate
@@ -4147,7 +4174,7 @@ function startQueuedJob(qid){
     return;
   }
 
-  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, q.privateComment || '');
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, getAllowedPrivateComment(q.type, q.privateComment || ''));
   if(!started) return;
 
   if(state.active && q.plannedDate){
@@ -4172,8 +4199,10 @@ function pauseActiveJob(){
     state.active.comment = commentInput.value || '';
   }
   const privateCommentInput = document.getElementById('activePrivateCommentInput');
-  if(privateCommentInput){
+  if(allowsPrivateCommentForType(state.active.type) && privateCommentInput){
     state.active.privateComment = privateCommentInput.value || '';
+  } else {
+    state.active.privateComment = '';
   }
 
   const paused = {...state.active};
@@ -4187,7 +4216,7 @@ function pauseActiveJob(){
   stopActiveTimer();
   saveState();
   render();
-  forceQueueTab();
+  showTab('snabb');
 }
 
 function resumePausedJob(qid){
@@ -4250,52 +4279,15 @@ function removeQueuedJob(qid){
   renderCleanupPreview();
 }
 
-function normalizeWeightInput(input){
-  if(!input) return '';
-  let value = String(input.value || '').replace(/\./g, ',').replace(/[^0-9,]/g, '');
-  const firstComma = value.indexOf(',');
-  if(firstComma !== -1){
-    value = value.slice(0, firstComma + 1) + value.slice(firstComma + 1).replace(/,/g, '');
-  }
-  if(input.value !== value) input.value = value;
-  return value;
-}
-
-function focusWeightInput(){
-  const input = document.getElementById('weightInput');
-  if(!input) return;
-  input.focus({preventScroll:true});
-  try{ input.click(); }catch(e){}
-  try{
-    const len = input.value.length;
-    input.setSelectionRange(len, len);
-  }catch(e){}
-}
-
-function addLoadToCurrent(event){
-  if(event && event.preventDefault) event.preventDefault();
+function addLoadToCurrent(){
   if(!state.active) return;
-  const input = document.getElementById('weightInput');
-  if(!input) return;
-
-  const cleaned = normalizeWeightInput(input).trim();
-  if(!cleaned){
-    focusWeightInput();
-    return;
-  }
-
-  const n = Number(cleaned.replace(',', '.'));
-  if(!Number.isFinite(n) || n <= 0){
-    alert('Skriv en giltig vikt.');
-    focusWeightInput();
-    return;
-  }
-
+  const raw = document.getElementById('weightInput').value.replace(',', '.');
+  const n = Number(raw);
+  if(!Number.isFinite(n) || n <= 0){ alert('Skriv en giltig vikt.'); return; }
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
-  input.value = '';
-  saveState();
-  render();
+  document.getElementById('weightInput').value = '';
+  saveState(); render();
 }
 
 function addLoadToLatest(){
@@ -4332,7 +4324,6 @@ function stopJob(){
 
   saveState();
   render();
-  forceQueueTab();
 }
 
 function switchJob(){
@@ -4380,8 +4371,9 @@ function renderActive(){
     commentInput.value = state.active.comment || '';
   }
 
+  updateActivePrivateCommentVisibility();
   const privateCommentInput = document.getElementById('activePrivateCommentInput');
-  if(privateCommentInput && document.activeElement !== privateCommentInput){
+  if(privateCommentInput && allowsPrivateCommentForType(state.active.type) && document.activeElement !== privateCommentInput){
     privateCommentInput.value = state.active.privateComment || '';
   }
 }
@@ -4433,9 +4425,8 @@ function renderQueue(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
-      (x.githubTransferred ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Överförd till GitHub</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
-      (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
+      (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
         '<input type="text" inputmode="numeric" placeholder="28/4" value="'+escapeHtml(formatShortDate(getQueuedJobDate(x)))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
@@ -4462,7 +4453,8 @@ function openEditJob(jobId){
   document.getElementById('editPlace').value = job.place || '';
   document.getElementById('editDest').value = job.dest || '';
   document.getElementById('editComment').value = job.comment || '';
-  document.getElementById('editPrivateComment').value = job.privateComment || '';
+  document.getElementById('editPrivateComment').value = getAllowedPrivateComment(job.type, job.privateComment || '');
+  updateEditPrivateCommentVisibility();
   document.getElementById('editMinutes').value = totalMinutes;
   document.getElementById('editWeight').value = Number(job.totalWeight || 0).toFixed(1).replace('.', ',');
   document.getElementById('editJobModal').classList.add('show');
@@ -4507,7 +4499,7 @@ function saveEditedJob(){
   job.place = document.getElementById('editPlace').value;
   job.dest = document.getElementById('editDest').value;
   job.comment = document.getElementById('editComment').value;
-  job.privateComment = document.getElementById('editPrivateComment').value;
+  job.privateComment = getAllowedPrivateComment(job.type, document.getElementById('editPrivateComment').value);
   job.end = job.start + Math.round(minutes) * 60000;
   job.totalWeight = weight;
   job.loads = weight > 0 ? [weight] : [];
@@ -4541,7 +4533,7 @@ function renderToday(){
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
-      (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
+      (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
@@ -5014,7 +5006,7 @@ function startQuickItem(quickId){
       placeLabel:getStoredPlaceLabel(item.place || ''),
       destLabel:getStoredPlaceLabel(item.dest || ''),
       comment:item.comment || '',
-      privateComment:item.privateComment || '',
+      privateComment:getAllowedPrivateComment(item.type, item.privateComment || ''),
       status:'köad',
       date:todayStr(),
       plannedDate:getQuickPlannedDate()
@@ -5049,7 +5041,7 @@ function queueQuickItem(quickId){
     placeLabel:getStoredPlaceLabel(item.place || ''),
     destLabel:getStoredPlaceLabel(item.dest || ''),
     comment:item.comment || '',
-    privateComment:item.privateComment || '',
+    privateComment:getAllowedPrivateComment(item.type, item.privateComment || ''),
     status:'köad',
     date:todayStr(),
     plannedDate:getQuickPlannedDate ? getQuickPlannedDate() : todayStr()
@@ -5552,6 +5544,7 @@ document.getElementById('newType').addEventListener('change', function(){
   updateNewSeaweedUI();
   updateFixedRouteRules();
   applySopsandDefaultDestination();
+  updateNewPrivateCommentVisibility();
 });
 
 document.getElementById('newPlace').addEventListener('change', function(){
@@ -5575,6 +5568,13 @@ if(newMachineEl){
   });
 }
 
+const editTypeEl = document.getElementById('editType');
+if(editTypeEl){
+  editTypeEl.addEventListener('change', function(){
+    updateEditPrivateCommentVisibility();
+  });
+}
+
 
 
 
@@ -5587,6 +5587,7 @@ updateNewMachineUI();
 updateNewSeaweedUI();
 updateFixedRouteRules();
 applySopsandDefaultDestination();
+updateNewPrivateCommentVisibility();
 updateSummaryControls();
 updateGpsEnvironmentInfo();
 initializeNewJobDate();
@@ -5607,7 +5608,7 @@ function saveActiveComment(){
 function saveActivePrivateComment(){
   if(!state.active) return;
   const input = document.getElementById('activePrivateCommentInput');
-  state.active.privateComment = input ? input.value : '';
+  state.active.privateComment = getAllowedPrivateComment(state.active.type, input ? input.value : '');
   saveState();
   renderActive();
 }
