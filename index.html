@@ -3168,8 +3168,9 @@ function sanitizeQueueItemForGithub(item){
   return clean;
 }
 
-function buildGithubQueuePayload(){
-  const items = getQueueTransferItems().map(sanitizeQueueItemForGithub);
+function buildGithubQueuePayload(sourceItems){
+  const queueItems = Array.isArray(sourceItems) ? sourceItems : getQueueTransferItems();
+  const items = queueItems.map(sanitizeQueueItemForGithub);
   return {
     app: 'Stadslass',
     transferType: 'queue',
@@ -3181,8 +3182,19 @@ function buildGithubQueuePayload(){
   };
 }
 
+function markQueueItemsAsTransferredToGithub(items, filename){
+  const transferredAt = new Date().toISOString();
+  (items || []).forEach(item => {
+    if(!item) return;
+    item.githubTransferred = true;
+    item.githubTransferredAt = transferredAt;
+    item.githubTransferredFile = filename || getGithubQueueFileName();
+  });
+}
+
 function createGithubQueueFile(){
-  const payload = buildGithubQueuePayload();
+  const exportItems = getQueueTransferItems();
+  const payload = buildGithubQueuePayload(exportItems);
   if(!payload.queue.length){
     alert('Det finns inga uppdrag i kö att skapa GitHub-köfil av.');
     setGithubQueueInfo('Inga uppdrag finns att skapa GitHub-köfil av.');
@@ -3192,6 +3204,9 @@ function createGithubQueueFile(){
   const filename = getGithubQueueFileName();
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   downloadBlobFile(blob, filename);
+  markQueueItemsAsTransferredToGithub(exportItems, filename);
+  saveState();
+  render();
   setGithubQueueInfo('GitHub-köfil skapad: ' + filename + '. Ladda upp filen bredvid index.html på GitHub.');
 }
 
@@ -4418,6 +4433,7 @@ function renderQueue(){
       '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
+      (x.githubTransferred ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Överförd till GitHub</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
       (x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div style="margin-top:10px; max-width:240px">'+
