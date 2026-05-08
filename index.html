@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-09
+- Nuvarande version: Stadslass v2026-05-07-01-10
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -20,6 +20,8 @@ Stadslass versionskontroll
   - Uppskattad tid: följer faktisk start, Från/Till, displayType och returkrav
   - GPS-inspelning/Ruttmätning: manuell, kan sparas bort per uppdrag
   - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
+  - Funktionslista: uppdateras vid varje version; funktioner kan vara aktiv, skyddad, skyddad men får byggas om, ersatt, borttagen medvetet eller testfunktion
+  - Funktionskontroll: kontrollerar knappar/paneler, tekniska regler och testuppdrag i minnet utan att spara
 -->
 <html lang="sv">
 <head>
@@ -1036,7 +1038,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-09</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-10</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1072,6 +1074,7 @@ button{
         <div class="muted">Kontrollera tekniska funktioner i appen.</div>
         <div class="settings-group-actions">
           <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
+          <button class="primary" onclick="toggleFunctionControlManager()">Funktionskontroll</button>
         </div>
       </div>
     </div>
@@ -1205,6 +1208,26 @@ button{
         </div>
       </div>
     </div>
+    <div id="functionControlManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kontrollerar appen att viktiga funktioner finns kvar efter en uppdatering. Skyddad betyder inte låst för alltid, utan att funktionen inte får försvinna eller ändras tyst.</div>
+
+      <div class="place-row">
+        <div class="place-key">Funktionskontroll</div>
+        <div class="multi-help">Kontrollen kör nivå 1, 2 och 3: knappar/paneler, tekniska regler och ett testuppdrag i minnet utan att spara något.</div>
+        <div class="row">
+          <button class="primary inline" onclick="runFunctionControlUi()">Kör funktionskontroll</button>
+        </div>
+        <div id="functionControlSummary" class="multi-help" style="margin-top:10px">Inte körd.</div>
+        <div id="functionControlResults" style="margin-top:10px"></div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Funktionslista</div>
+        <div class="multi-help">Listan ska uppdateras vid varje appversion. Skyddade funktioner får byggas om, ersättas eller tas bort endast som medveten dokumenterad ändring.</div>
+        <div id="featureManifestList"></div>
+      </div>
+    </div>
+
     <div id="backupManagerWrap" class="place-manager hidden">
       <div class="place-help">Här kan du säkerhetskopiera och återställa appdata. Interna kommentarer exporteras inte i backupfilen.</div>
 
@@ -3007,8 +3030,240 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
+const APP_VERSION = 'Stadslass v2026-05-07-01-10';
+const APP_FEATURE_MANIFEST = [
+  {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
+  {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
+  {name:'Ange vikt tvåstegsfunktion', status:'Skyddad', purpose:'Första tryck fokuserar viktfältet, nästa sparar vikt.', changeRule:'Beteendet ska bevaras eller ersättas dokumenterat.'},
+  {name:'Ingen tömning', status:'Skyddad', purpose:'Markerar Ej behov av tömning och exkluderar från uppskattad tid.', changeRule:'Får ändras bara om samma syfte behålls.'},
+  {name:'Uppdrag i kö', status:'Skyddad men får byggas om', purpose:'Planera, starta, pausa, återuppta och ta bort uppdrag.', changeRule:'Arbetsflödet får utvecklas men köfunktionen ska inte tappas.'},
+  {name:'Uppdrag i kö efter start/klart', status:'Skyddad beteenderegel', purpose:'Efter start, paus och klart visas Uppdrag i kö istället för Idag.', changeRule:'Får ändras endast om nytt arbetsflöde ersätter regeln.'},
+  {name:'Idag', status:'Aktiv', purpose:'Visar dagens avslutade uppdrag.', changeRule:'Får utvecklas och filtreras men ska följa papperskorgsregeln.'},
+  {name:'Historik kalender', status:'Aktiv', purpose:'Visa och söka avslutade jobb via kalender.', changeRule:'Får byggas om, ska följa papperskorgsregeln.'},
+  {name:'Papperskorg', status:'Skyddad', purpose:'Borttagna uppdrag hamnar i papperskorgen före permanent borttagning.', changeRule:'Får byggas om men borttagen data får inte användas som underlag.'},
+  {name:'Papperskorg exkluderas från underlag', status:'Skyddad', purpose:'Papperskorg används inte för sammanställning, export, uppskattad tid eller GPS-lärning.', changeRule:'Får inte brytas utan uttryckligt beslut.'},
+  {name:'GPS-data följer uppdraget', status:'Skyddad', purpose:'GPS-/ruttdata följer uppdraget till papperskorgen och försvinner vid permanent borttagning.', changeRule:'Får ändras endast med dokumenterad ny datamodell.'},
+  {name:'GPS-inspelning/Ruttmätning', status:'Skyddad men får byggas om', purpose:'Manuell GPS-inspelning per uppdrag med möjlighet att spara bort datan.', changeRule:'Får ersättas av bättre ruttmätning men inte försvinna tyst.'},
+  {name:'Startpunkt', status:'Skyddad men får byggas om', purpose:'Visar adress för startpunkt i aktivt jobb och Idag.', changeRule:'Tekniken kan ändras men informationen ska finnas kvar eller ersättas.'},
+  {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparar stabil startplats för bättre uppskattad tid.', changeRule:'Får förbättras med platskoordinater men inte tappas.'},
+  {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
+  {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar uppskattad tid i kö baserat på jämförbara avslutade jobb.', changeRule:'Får förbättras, men ska inte blanda fel underlag.'},
+  {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
+  {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
+  {name:'GitHub-kö export/import markeringar', status:'Skyddad men får byggas om', purpose:'Visar Överförd till GitHub och Hämtad från GitHub.', changeRule:'Får ersättas av bättre synkstatus.'},
+  {name:'Intern kommentar-regel', status:'Skyddad', purpose:'Intern kommentar bara för Äta, Övriga jobb och Övrig verksamhet.', changeRule:'Får ändras endast som medveten regeländring.'},
+  {name:'Funktionslista', status:'Skyddad men får byggas om', purpose:'Dokumenterar aktiva, skyddade, ersatta och borttagna funktioner.', changeRule:'Ska uppdateras vid varje version.'},
+  {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
+  {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
+  {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
+];
+
+function featureStatusClass(status){
+  const value = String(status || '').toLocaleLowerCase('sv-SE');
+  if(value.includes('borttagen')) return 'queue-alert';
+  if(value.includes('skyddad')) return 'pill-alert';
+  return '';
+}
+
+function toggleFunctionControlManager(){
+  toggleSettingsPanel('functionControlManagerWrap', () => {
+    renderFeatureManifestList();
+    renderFunctionControlIdle();
+  });
+}
+
+function renderFunctionControlIdle(){
+  const summary = document.getElementById('functionControlSummary');
+  if(summary && summary.textContent === 'Inte körd.'){
+    summary.innerHTML = 'Version: <strong>' + escapeHtml(APP_VERSION) + '</strong> · Funktionslista: ' + APP_FEATURE_MANIFEST.length + ' poster.';
+  }
+}
+
+function renderFeatureManifestList(){
+  const el = document.getElementById('featureManifestList');
+  if(!el) return;
+  el.innerHTML = APP_FEATURE_MANIFEST.map(feature => {
+    const cls = featureStatusClass(feature.status);
+    return '<div class="job">' +
+      '<div><strong>' + escapeHtml(feature.name) + '</strong> <span class="pill ' + cls + '">' + escapeHtml(feature.status) + '</span></div>' +
+      '<div class="multi-help" style="margin-top:6px">Syfte: ' + escapeHtml(feature.purpose) + '</div>' +
+      '<div class="multi-help">Ändringsregel: ' + escapeHtml(feature.changeRule) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function addFunctionCheck(results, level, name, ok, detail){
+  results.push({
+    level,
+    name,
+    ok: !!ok,
+    detail: String(detail || '')
+  });
+}
+
+function functionExists(name){
+  try{ return typeof window[name] === 'function' || typeof eval(name) === 'function'; }catch(e){ return false; }
+}
+
+function functionSourceIncludes(name, text){
+  try{
+    const fn = window[name] || eval(name);
+    return typeof fn === 'function' && String(fn).includes(text);
+  }catch(e){
+    return false;
+  }
+}
+
+function runMemoryOnlyTestJobCheck(){
+  const previousState = state;
+  const now = Date.now();
+  const mkJob = (idValue, minutes, routeGps) => ({
+    id:idValue,
+    date:todayStr(),
+    vehicle:'lastbil',
+    type:'Sopsand',
+    displayType:'Sopsand',
+    place:'Ringön (BAS)',
+    dest:'Sortera Torslanda',
+    placeLabel:'Ringön (BAS)',
+    destLabel:'Sortera Torslanda',
+    calculationStartPlace:'Ringön (BAS)',
+    calculationStartLabel:'Ringön (BAS)',
+    returnRequired:false,
+    returnRequiredAtStart:false,
+    routeRule:'returkrav_nej',
+    start:now - minutes * 60000,
+    end:now,
+    loads:[1],
+    totalWeight:1,
+    distanceKm:1,
+    routeGps:routeGps || null,
+    routeGpsStatus:routeGps ? routeGps.status : undefined
+  });
+
+  const validGps = {status:'saved', startedAt:now - 100000, endedAt:now, distanceKm:1, points:[{lat:57.7, lon:11.9, ts:now}], pointCount:1};
+  const validJobs = [mkJob('memory_valid_1', 20, validGps), mkJob('memory_valid_2', 22, validGps), mkJob('memory_valid_3', 24, validGps)];
+  const trashJob = mkJob('memory_trash_1', 99, validGps);
+  const queueJob = {
+    id:'memory_queue_1',
+    status:'köad',
+    vehicle:'lastbil',
+    type:'Sopsand',
+    displayType:'Sopsand',
+    place:'Ringön (BAS)',
+    dest:'Sortera Torslanda',
+    calculationStartPlace:'Ringön (BAS)',
+    calculationStartLabel:'Ringön (BAS)',
+    returnRequired:false,
+    returnRequiredAtStart:false,
+    routeRule:'returkrav_nej',
+    plannedDate:todayStr()
+  };
+
+  try{
+    state = {
+      active:null,
+      pausedOtherWork:null,
+      lastWorkPoint:{place:'Ringön (BAS)', placeLabel:'Ringön (BAS)', updatedAt:now},
+      placeLabels:{},
+      placeAddresses:{},
+      customPlaces:[],
+      placeConfigs:{},
+      placeUsage:{},
+      jobTypes:cloneDefaultJobTypes(),
+      jobTypeMeta:{},
+      machines:cloneDefaultMachines(),
+      jobs:[...validJobs, trashJob],
+      queue:[queueJob],
+      trash:[{trashId:'memory_trash_entry', deletedAt:new Date().toISOString(), source:'finished', item:trashJob}]
+    };
+
+    const underlag = getFinishedJobsForUnderlag();
+    const estimate = getTimeEstimateForQueuedJob(queueJob);
+    const gpsRecords = getSavedRouteGpsRecordsForUnderlag();
+    const noEmptyExcluded = isExcludedFromTimeEstimate({type:'Sopsand', place:'Ringön (BAS)', displayType:'Sopsand', comment:'Ej behov av tömning'});
+
+    return {
+      ok: underlag.length === 3 && !underlag.some(job => job.id === 'memory_trash_1') && !!estimate && estimate.minutes === 22 && gpsRecords.length === 3 && noEmptyExcluded,
+      detail:'underlag=' + underlag.length + ', uppskattad tid=' + (estimate ? estimate.minutes + ' min' : 'saknas') + ', gps-underlag=' + gpsRecords.length + ', ingen tömning exkluderas=' + (noEmptyExcluded ? 'ja' : 'nej')
+    };
+  }catch(e){
+    return {ok:false, detail:e && e.message ? e.message : String(e)};
+  }finally{
+    state = previousState;
+  }
+}
+
+function runFunctionControlChecks(){
+  const results = [];
+
+  addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb-panel finns', !!document.getElementById('activeJobCard'), 'activeJobCard');
+  addFunctionCheck(results, 'Nivå 1', 'Uppdrag i kö-panel finns', !!document.getElementById('queueList'), 'queueList');
+  addFunctionCheck(results, 'Nivå 1', 'Idag-panel finns', !!document.getElementById('todayList'), 'todayList');
+  addFunctionCheck(results, 'Nivå 1', 'Viktfält och Ange vikt finns', !!document.getElementById('weightInput') && functionExists('addLoadToCurrent'), 'weightInput + addLoadToCurrent');
+  addFunctionCheck(results, 'Nivå 1', 'Ingen tömning finns', functionExists('markNoEmptying'), 'markNoEmptying');
+  addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning finns', !!document.getElementById('activeRouteGps') && functionExists('startActiveRouteGpsRecording') && functionExists('discardActiveRouteGpsData'), 'activeRouteGps + GPS-funktioner');
+  addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!document.getElementById('activeStartPoint') && functionExists('requestActiveStartPointAddress'), 'activeStartPoint + requestActiveStartPointAddress');
+  addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!document.getElementById('trashManagerWrap') && functionExists('moveToTrash') && functionExists('restoreTrashItem'), 'trashManagerWrap + papperskorgsfunktioner');
+  addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!document.getElementById('connectionStatus') && functionExists('updateConnectionStatus'), 'connectionStatus');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!document.getElementById('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20, 'featureManifestList');
+
+  addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-10') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-10'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
+  addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
+  addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
+  addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkrat underlag', functionSourceIncludes('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
+  addFunctionCheck(results, 'Nivå 2', 'GPS-underlag använder papperskorgssäkrat underlag', functionExists('getSavedRouteGpsRecordsForUnderlag') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'getSavedRouteGpsRecordsForUnderlag');
+  addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', functionSourceIncludes('moveToTrash', 'JSON.stringify') && functionSourceIncludes('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
+  addFunctionCheck(results, 'Nivå 2', 'Returkrav och beräkningsstart finns i startflödet', functionSourceIncludes('startJob', 'calculationStartPlace') && functionSourceIncludes('startJob', 'returnRequiredAtStart'), 'startJob');
+  addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet paus/återstart finns', functionSourceIncludes('startJob', 'pausedOtherWork') && functionExists('resumePausedOtherWorkIfPossible'), 'startJob + resumePausedOtherWorkIfPossible');
+
+  const memoryTest = runMemoryOnlyTestJobCheck();
+  addFunctionCheck(results, 'Nivå 3', 'Testuppdrag i minnet utan att spara', memoryTest.ok, memoryTest.detail);
+
+  return results;
+}
+
+function renderFunctionControlResults(results){
+  const summary = document.getElementById('functionControlSummary');
+  const list = document.getElementById('functionControlResults');
+  if(!summary || !list) return;
+
+  const failed = results.filter(item => !item.ok);
+  const passed = results.length - failed.length;
+  summary.innerHTML = failed.length
+    ? '<strong class="queue-alert">Funktionskontroll: FEL</strong> · OK: ' + passed + ' · Fel: ' + failed.length
+    : '<strong style="color:#15803d">Funktionskontroll: OK</strong> · ' + passed + ' kontroller godkända.';
+
+  const byLevel = {};
+  results.forEach(item => {
+    if(!byLevel[item.level]) byLevel[item.level] = [];
+    byLevel[item.level].push(item);
+  });
+
+  list.innerHTML = Object.keys(byLevel).map(level => {
+    const rows = byLevel[level].map(item => {
+      const symbol = item.ok ? '✓' : '✗';
+      const color = item.ok ? '#15803d' : '#b91c1c';
+      return '<div class="job">' +
+        '<div style="font-weight:700;color:' + color + '">' + symbol + ' ' + escapeHtml(item.name) + '</div>' +
+        (item.detail ? '<div class="multi-help" style="margin-top:4px">' + escapeHtml(item.detail) + '</div>' : '') +
+      '</div>';
+    }).join('');
+    return '<h4 style="margin:14px 0 4px">' + escapeHtml(level) + '</h4>' + rows;
+  }).join('');
+}
+
+function runFunctionControlUi(){
+  renderFeatureManifestList();
+  const results = runFunctionControlChecks();
+  renderFunctionControlResults(results);
+}
+
+
 function hideSettingsPanels(exceptId){
-  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
