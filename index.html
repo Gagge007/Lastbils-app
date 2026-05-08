@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-07
+- Nuvarande version: Stadslass v2026-05-07-01-08
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -18,6 +18,7 @@ Stadslass versionskontroll
   - Startpunkt: visas i Aktivt jobb och Idag
   - Beräkningsstart: sparas vid start och används för uppskattad tid
   - Uppskattad tid: följer faktisk start, Från/Till, displayType och returkrav
+  - GPS-inspelning/Ruttmätning: manuell, kan sparas bort per uppdrag
 -->
 <html lang="sv">
 <head>
@@ -815,6 +816,7 @@ button{
     <div id="activeBox" class="hidden">
       <div id="activePills"></div>
       <div id="activeStartPoint" class="muted" style="margin-top:8px"></div>
+      <div id="activeRouteGps" class="muted" style="margin-top:8px"></div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
         <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
@@ -1033,7 +1035,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-07</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-08</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1906,6 +1908,7 @@ function startDistanceTracking(){
       }
 
       ensureActiveMotionFields();
+      captureRouteGpsPoint(point);
 
       if(lastGpsPoint){
         const delta = haversineKm(lastGpsPoint.lat, lastGpsPoint.lon, point.lat, point.lon);
@@ -2246,6 +2249,236 @@ function formatCalculationStartText(job){
 function getCalculationStartHtml(job){
   const text = formatCalculationStartText(job);
   return text ? '<div style="margin-top:6px">' + escapeHtml(text) + '</div>' : '';
+}
+
+
+function getRouteGps(job){
+  return job && job.routeGps && typeof job.routeGps === 'object' ? job.routeGps : null;
+}
+
+function getRouteGpsStatus(job){
+  if(!job) return 'none';
+  if(job.routeGpsDiscarded || job.routeGpsStatus === 'discarded') return 'discarded';
+  const rec = getRouteGps(job);
+  if(rec && rec.status === 'active') return 'active';
+  if(rec && rec.status === 'saved') return 'saved';
+  return 'none';
+}
+
+function routeGpsDurationMs(job){
+  const rec = getRouteGps(job);
+  if(!rec || !rec.startedAt) return 0;
+  const end = rec.endedAt || Date.now();
+  return Math.max(0, Number(end) - Number(rec.startedAt));
+}
+
+function formatRouteGpsText(job){
+  const status = getRouteGpsStatus(job);
+  if(status === 'discarded') return 'GPS-inspelning: sparas ej för detta uppdrag';
+  if(status === 'active'){
+    const rec = getRouteGps(job) || {};
+    return 'GPS-inspelning: aktiv · ' + mins(routeGpsDurationMs(job)) + ' · ' + km(rec.distanceKm || 0);
+  }
+  if(status === 'saved'){
+    const rec = getRouteGps(job) || {};
+    return 'GPS-inspelning: sparad · ' + mins(routeGpsDurationMs(job)) + ' · ' + km(rec.distanceKm || 0);
+  }
+  return 'GPS-inspelning: inte startad';
+}
+
+function getRouteGpsHtml(job){
+  if(!job) return '';
+  return '<div style="margin-top:6px">' + escapeHtml(formatRouteGpsText(job)) + '</div>';
+}
+
+function buildRouteGpsMetaForJob(job){
+  return {
+    type: job.type || '',
+    displayType: job.displayType || job.type || '',
+    place: job.place || '',
+    placeLabel: getItemPlaceLabel(job, 'place'),
+    dest: job.dest || '',
+    destLabel: getItemPlaceLabel(job, 'dest'),
+    calculationStartPlace: job.calculationStartPlace || '',
+    calculationStartLabel: getCalculationStartLabelForJob(job),
+    returnRequired: getJobReturnRequiredValue(job),
+    routeRule: getJobReturnRequiredValue(job) ? 'returkrav_ja' : 'returkrav_nej'
+  };
+}
+
+function roundGpsValue(value){
+  return Math.round(Number(value) * 1000000) / 1000000;
+}
+
+function captureRouteGpsPoint(point){
+  if(!state.active) return;
+  const rec = getRouteGps(state.active);
+  if(!rec || rec.status !== 'active') return;
+  if(!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return;
+  const accuracy = Number(point.accuracy || 9999);
+  if(accuracy > 50) return;
+
+  const now = Number(point.ts || Date.now());
+  const current = {
+    lat: Number(point.lat),
+    lon: Number(point.lon),
+    ts: now,
+    accuracy
+  };
+
+  if(rec.lastPoint && Number.isFinite(rec.lastPoint.lat) && Number.isFinite(rec.lastPoint.lon)){
+    const delta = haversineKm(rec.lastPoint.lat, rec.lastPoint.lon, current.lat, current.lon);
+    const elapsedMs = Math.max(0, now - Number(rec.lastPoint.ts || now));
+    const hours = elapsedMs / 3600000;
+    const speedKmh = hours > 0 ? delta / hours : 0;
+    if(Number.isFinite(delta) && delta > 0.005 && delta < 3 && speedKmh < 120){
+      rec.distanceKm = Number((Number(rec.distanceKm || 0) + delta).toFixed(3));
+    }
+  }
+
+  rec.lastPoint = current;
+  if(!Array.isArray(rec.points)) rec.points = [];
+  const lastSaved = rec.points.length ? rec.points[rec.points.length - 1] : null;
+  const movedKm = lastSaved ? haversineKm(lastSaved.lat, lastSaved.lon, current.lat, current.lon) : Infinity;
+  const elapsedSinceSaved = lastSaved ? now - Number(lastSaved.ts || now) : Infinity;
+  if(!lastSaved || movedKm >= 0.05 || elapsedSinceSaved >= 20000){
+    rec.points.push({
+      lat: roundGpsValue(current.lat),
+      lon: roundGpsValue(current.lon),
+      ts: now,
+      accuracy: Math.round(accuracy)
+    });
+    if(rec.points.length > 600){
+      rec.points = rec.points.slice(rec.points.length - 600);
+    }
+  }
+  rec.updatedAt = now;
+  rec.pointCount = rec.points.length;
+}
+
+function captureCurrentRouteGpsPoint(){
+  if(!state.active || getRouteGpsStatus(state.active) !== 'active') return;
+  if(!navigator.geolocation) return;
+  const activeId = state.active.id;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      if(!state.active || state.active.id !== activeId) return;
+      const lat = pos && pos.coords ? pos.coords.latitude : null;
+      const lon = pos && pos.coords ? pos.coords.longitude : null;
+      if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      captureRouteGpsPoint({
+        lat,
+        lon,
+        ts: Date.now(),
+        accuracy: pos.coords.accuracy || 9999
+      });
+      saveState();
+      renderActive();
+    },
+    () => {},
+    {enableHighAccuracy:true, maximumAge:0, timeout:12000}
+  );
+}
+
+function startActiveRouteGpsRecording(){
+  if(!state.active) return;
+  if(!navigator.geolocation){
+    alert('GPS stöds inte på den här enheten.');
+    return;
+  }
+  const status = getRouteGpsStatus(state.active);
+  if(status === 'active') return;
+  if(status === 'saved'){
+    alert('GPS-inspelning är redan sparad för detta uppdrag. Tryck Spara ej GPS-data om den inte ska användas.');
+    return;
+  }
+  state.active.routeGps = {
+    status:'active',
+    startedAt:Date.now(),
+    endedAt:null,
+    distanceKm:0,
+    points:[],
+    pointCount:0,
+    ...buildRouteGpsMetaForJob(state.active)
+  };
+  state.active.routeGpsStatus = 'active';
+  state.active.routeGpsDiscarded = false;
+  delete state.active.routeGpsDiscardedAt;
+  saveState();
+  renderActive();
+  captureCurrentRouteGpsPoint();
+}
+
+function finalizeActiveRouteGpsRecording(){
+  if(!state.active) return;
+  const rec = getRouteGps(state.active);
+  if(!rec || rec.status !== 'active') return;
+  rec.status = 'saved';
+  rec.endedAt = Date.now();
+  rec.durationMs = Math.max(0, Number(rec.endedAt) - Number(rec.startedAt || rec.endedAt));
+  rec.pointCount = Array.isArray(rec.points) ? rec.points.length : 0;
+  delete rec.lastPoint;
+  state.active.routeGpsStatus = 'saved';
+}
+
+function stopActiveRouteGpsRecording(){
+  if(!state.active) return;
+  finalizeActiveRouteGpsRecording();
+  saveState();
+  renderActive();
+}
+
+function discardRouteGpsData(job){
+  if(!job) return;
+  delete job.routeGps;
+  job.routeGpsStatus = 'discarded';
+  job.routeGpsDiscarded = true;
+  job.routeGpsDiscardedAt = Date.now();
+}
+
+function discardActiveRouteGpsData(){
+  if(!state.active) return;
+  discardRouteGpsData(state.active);
+  saveState();
+  renderActive();
+}
+
+function discardFinishedRouteGpsData(jobId){
+  const job = (state.jobs || []).find(x => x.id === jobId);
+  if(!job) return;
+  discardRouteGpsData(job);
+  saveState();
+  renderToday();
+  renderHistoryManager();
+}
+
+function resetRouteGpsForRestart(job){
+  if(!job) return;
+  delete job.routeGps;
+  delete job.routeGpsStatus;
+  delete job.routeGpsDiscarded;
+  delete job.routeGpsDiscardedAt;
+}
+
+function renderActiveRouteGps(){
+  const el = document.getElementById('activeRouteGps');
+  if(!el) return;
+  if(!state.active){
+    el.innerHTML = '';
+    return;
+  }
+  const status = getRouteGpsStatus(state.active);
+  let buttons = '';
+  if(status === 'none'){
+    buttons = '<button class="inline" onclick="startActiveRouteGpsRecording()">Starta GPS-inspelning</button>'+
+      '<button class="inline" onclick="discardActiveRouteGpsData()">Spara ej GPS-data</button>';
+  } else if(status === 'active'){
+    buttons = '<button class="inline" onclick="stopActiveRouteGpsRecording()">Avsluta GPS-inspelning</button>'+
+      '<button class="inline" onclick="discardActiveRouteGpsData()">Spara ej GPS-data</button>';
+  } else if(status === 'saved'){
+    buttons = '<button class="inline" onclick="discardActiveRouteGpsData()">Spara ej GPS-data</button>';
+  }
+  el.innerHTML = escapeHtml(formatRouteGpsText(state.active)) + (buttons ? '<div class="row" style="margin-top:6px">' + buttons + '</div>' : '');
 }
 
 function allowsPrivateCommentForType(type){
@@ -4726,6 +4959,14 @@ function completeQueuedJob(qid){
     delete finished._queueIndex;
     finished.end = Date.now();
     finished.start = finished.end - elapsed;
+    if(finished.routeGps && finished.routeGps.status === 'active'){
+      finished.routeGps.status = 'saved';
+      finished.routeGps.endedAt = finished.end;
+      finished.routeGps.durationMs = Math.max(0, Number(finished.routeGps.endedAt) - Number(finished.routeGps.startedAt || finished.routeGps.endedAt));
+      finished.routeGps.pointCount = Array.isArray(finished.routeGps.points) ? finished.routeGps.points.length : 0;
+      delete finished.routeGps.lastPoint;
+      finished.routeGpsStatus = 'saved';
+    }
     finished.returnRequired = getJobReturnRequiredValue(finished);
     finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
     finished.routeEndPlace = getJobCompletionPlace(finished);
@@ -4841,6 +5082,7 @@ function stopJob(){
   if(!state.active) return;
 
   finalizeActiveMotion();
+  finalizeActiveRouteGpsRecording();
   const finished = {...state.active, end:Date.now()};
   finished.returnRequired = getJobReturnRequiredValue(finished);
   finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
@@ -4891,6 +5133,7 @@ function renderActive(){
     const activeStartLines = [formatStartPointText(state.active), formatCalculationStartText(state.active)].filter(Boolean);
     activeStartPointEl.innerHTML = activeStartLines.map(escapeHtml).join('<br>');
   }
+  renderActiveRouteGps();
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
@@ -5141,6 +5384,7 @@ function restartFinishedJob(jobId){
   applyStartMeasurementFields(restarted);
   restarted.startPointStatus = 'pending';
   delete restarted.startAddress;
+  resetRouteGpsForRestart(restarted);
 
   state.active = restarted;
   state.jobs = state.jobs.filter(x => x.id !== jobId);
@@ -5168,10 +5412,12 @@ function renderToday(){
       getMotionSplitHtml(x)+
       getStartPointHtml(x)+
       getCalculationStartHtml(x)+
+      getRouteGpsHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
         '<button class="restart-yellow" onclick="restartFinishedJob(\''+x.id+'\')">Återstarta</button>'+ 
+        (['active','saved'].includes(getRouteGpsStatus(x)) ? '<button class="inline" onclick="discardFinishedRouteGpsData(\''+x.id+'\')">Spara ej GPS-data</button>' : '')+
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
       '</div>'+
