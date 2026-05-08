@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-08
+- Nuvarande version: Stadslass v2026-05-07-01-09
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -19,6 +19,7 @@ Stadslass versionskontroll
   - Beräkningsstart: sparas vid start och används för uppskattad tid
   - Uppskattad tid: följer faktisk start, Från/Till, displayType och returkrav
   - GPS-inspelning/Ruttmätning: manuell, kan sparas bort per uppdrag
+  - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
 -->
 <html lang="sv">
 <head>
@@ -1035,7 +1036,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-08</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-09</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1132,7 +1133,7 @@ button{
     </div>
 
     <div id="trashManagerWrap" class="place-manager hidden">
-      <div class="place-help">Borttagna köuppdrag och avslutade jobb hamnar här. Du kan återställa dem eller ta bort dem permanent.</div>
+      <div class="place-help">Borttagna köuppdrag och avslutade jobb hamnar här. Allt som ligger i papperskorgen används inte som underlag för sammanställning, export, uppskattad tid eller GPS-lärning. GPS-data följer uppdraget till papperskorgen.</div>
 
       <div class="place-row">
         <div class="place-key">Papperskorg</div>
@@ -3110,7 +3111,7 @@ function renderHistoryManager(){
   const lastDay = new Date(year, month, 0).getDate();
 
   const jobsByDate = {};
-  (state.jobs || []).forEach(job => {
+  getFinishedJobsForUnderlag().forEach(job => {
     if(!job || !job.date || job.date.slice(0,7) !== monthValue) return;
     if(!jobsByDate[job.date]) jobsByDate[job.date] = [];
     jobsByDate[job.date].push(job);
@@ -3135,7 +3136,7 @@ function renderHistoryManager(){
   const query = String(searchEl ? searchEl.value : '').trim().toLocaleLowerCase('sv-SE');
   let shownJobs = [];
   if(query){
-    shownJobs = (state.jobs || []).filter(job => job && job.date && job.date.slice(0,7) === monthValue && jobSearchText(job).includes(query));
+    shownJobs = getFinishedJobsForUnderlag().filter(job => job && job.date && job.date.slice(0,7) === monthValue && jobSearchText(job).includes(query));
     info.textContent = 'Sökresultat i ' + monthValue + ': ' + shownJobs.length + ' jobb.';
   } else {
     shownJobs = (jobsByDate[historySelectedDate] || []).slice();
@@ -3175,6 +3176,29 @@ function moveToTrash(source, item){
     source:source,
     item:JSON.parse(JSON.stringify(item || {}))
   });
+}
+
+function getTrashItemIdSet(){
+  ensureTrash();
+  return new Set((state.trash || [])
+    .map(entry => entry && entry.item ? String(entry.item.id || '') : '')
+    .filter(Boolean));
+}
+
+function isJobInTrash(job){
+  if(!job || !job.id) return false;
+  return getTrashItemIdSet().has(String(job.id));
+}
+
+function getFinishedJobsForUnderlag(){
+  const trashIds = getTrashItemIdSet();
+  return (state.jobs || []).filter(job => job && !trashIds.has(String(job.id || '')));
+}
+
+function getSavedRouteGpsRecordsForUnderlag(){
+  return getFinishedJobsForUnderlag()
+    .map(job => ({job, routeGps:getRouteGps(job)}))
+    .filter(item => item.routeGps && item.routeGps.status === 'saved' && !item.job.routeGpsDiscarded);
 }
 
 function toggleTrashManager(){
@@ -3343,7 +3367,7 @@ function getCleanupSelection(){
   const includeTrash = !!(document.getElementById('cleanupTrash') && document.getElementById('cleanupTrash').checked);
   const includeQueue = !!(document.getElementById('cleanupQueue') && document.getElementById('cleanupQueue').checked);
 
-  const finishedJobs = includeFinished ? (state.jobs || []).filter(job => isOlderThanCleanupCutoff(getFinishedJobCleanupDate(job), cutoffIso)) : [];
+  const finishedJobs = includeFinished ? getFinishedJobsForUnderlag().filter(job => isOlderThanCleanupCutoff(getFinishedJobCleanupDate(job), cutoffIso)) : [];
   const trashItems = includeTrash ? (state.trash || []).filter(entry => isOlderThanCleanupCutoff(getTrashCleanupDate(entry), cutoffIso)) : [];
   const queueItems = includeQueue ? (state.queue || []).filter(item => isOlderThanCleanupCutoff(getQueueCleanupDate(item), cutoffIso)) : [];
 
@@ -3949,7 +3973,7 @@ function toggleFinishedTransferManager(){
 function updateFinishedTransferInfo(){
   const el = document.getElementById('finishedTransferExportInfo');
   if(!el) return;
-  const count = (state.jobs || []).length;
+  const count = getFinishedJobsForUnderlag().length;
   el.textContent = count === 1 ? '1 avslutat jobb finns att dela.' : count + ' avslutade jobb finns att dela.';
 }
 
@@ -3975,7 +3999,7 @@ function sanitizeFinishedJobForTransfer(job){
 }
 
 function buildFinishedTransferPayload(){
-  const jobs = (state.jobs || []).map(sanitizeFinishedJobForTransfer);
+  const jobs = getFinishedJobsForUnderlag().map(sanitizeFinishedJobForTransfer);
   return {
     app: 'Lastbil app',
     transferType: 'finished_jobs',
@@ -5216,7 +5240,7 @@ function timeEstimateKey(job){
 function getTimeEstimateForQueuedJob(queueJob){
   if(!isTimeEstimateAllowedForJob(queueJob)) return null;
   const key = timeEstimateKey(queueJob);
-  const durations = (state.jobs || [])
+  const durations = getFinishedJobsForUnderlag()
     .filter(job => isTimeEstimateAllowedForJob(job) && timeEstimateKey(job) === key)
     .map(job => Number(job.end || 0) - Number(job.start || 0))
     .filter(ms => Number.isFinite(ms) && ms >= 60000);
@@ -5398,7 +5422,7 @@ function restartFinishedJob(jobId){
 
 function renderToday(){
   const today = todayStr();
-  const todays = state.jobs.filter(x => x.date === today);
+  const todays = getFinishedJobsForUnderlag().filter(x => x.date === today);
   const el = document.getElementById('todayList');
   if(!todays.length){
     el.innerHTML = '<div class="muted">Inga avslutade jobb idag.</div>';
@@ -5468,7 +5492,7 @@ function populateSummaryMonthOptions(){
 
   const months = new Set();
   months.add(getCurrentMonthValue());
-  (state.jobs || []).forEach(job => {
+  getFinishedJobsForUnderlag().forEach(job => {
     if(job && job.date && job.date.length >= 7){
       months.add(job.date.slice(0,7));
     }
@@ -5499,7 +5523,7 @@ function updateSummaryControls(){
 
 function getFilteredSummaryJobs(){
   const selection = getSummarySelection();
-  return state.jobs.filter(x => matchesSummaryPeriod(x, selection));
+  return getFinishedJobsForUnderlag().filter(x => matchesSummaryPeriod(x, selection));
 }
 
 function escapeXml(value){
