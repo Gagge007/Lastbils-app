@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-06
+- Nuvarande version: Stadslass v2026-05-07-01-07
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -15,6 +15,9 @@ Stadslass versionskontroll
   - Intern kommentar: bara för Äta, Övriga jobb och Övrig verksamhet
   - Hantera platser: separata jobbtyper Från och Till
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
+  - Startpunkt: visas i Aktivt jobb och Idag
+  - Beräkningsstart: sparas vid start och används för uppskattad tid
+  - Uppskattad tid: följer faktisk start, Från/Till, displayType och returkrav
 -->
 <html lang="sv">
 <head>
@@ -1030,7 +1033,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-06</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-07</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -2034,10 +2037,22 @@ function normalizeVehicleState(){
       item.dest = 'Ruskvädersgatan (Ristipp)';
     }
   });
-  if(state.active) normalizeItem(state.active);
-  if(state.pausedOtherWork) normalizeItem(state.pausedOtherWork);
-  (state.jobs || []).forEach(normalizeItem);
+  const normalizeRouteItem = item => {
+    if(!item || typeof item !== 'object') return;
+    if(typeof item.returnRequiredAtStart !== 'boolean' && typeof item.returnRequired === 'boolean'){
+      item.returnRequiredAtStart = item.returnRequired;
+    }
+    if(!item.routeRule && (typeof item.returnRequiredAtStart === 'boolean' || typeof item.returnRequired === 'boolean')){
+      const ret = getJobReturnRequiredValue(item);
+      item.routeRule = ret ? 'returkrav_ja' : 'returkrav_nej';
+      item.routeEndPlace = ret ? (item.place || '') : (item.dest || '');
+    }
+  };
+  if(state.active){ normalizeItem(state.active); normalizeRouteItem(state.active); }
+  if(state.pausedOtherWork){ normalizeItem(state.pausedOtherWork); normalizeRouteItem(state.pausedOtherWork); }
+  (state.jobs || []).forEach(item => { normalizeItem(item); normalizeRouteItem(item); });
   (state.queue || []).forEach(item => {
+    normalizeRouteItem(item);
     normalizeItem(item);
     if(item && !item.status) item.status = 'köad';
     if(item && !item.plannedDate) item.plannedDate = todayStr();
@@ -2155,9 +2170,56 @@ function getJobTypeReturnRequired(type){
   return !!getJobTypeMeta(type).returnRequired;
 }
 
+function getJobReturnRequiredValue(job){
+  if(!job) return false;
+  if(typeof job.returnRequiredAtStart === 'boolean') return job.returnRequiredAtStart;
+  if(typeof job.returnRequired === 'boolean') return job.returnRequired;
+  return getJobTypeReturnRequired(job.type);
+}
+
+function getCurrentCalculationStartPlace(fallbackPlace){
+  const workPoint = state && state.lastWorkPoint ? state.lastWorkPoint : null;
+  return String((workPoint && workPoint.place) || fallbackPlace || '').trim();
+}
+
+function getCurrentCalculationStartLabel(fallbackPlace){
+  const workPoint = state && state.lastWorkPoint ? state.lastWorkPoint : null;
+  const place = getCurrentCalculationStartPlace(fallbackPlace);
+  if(workPoint && workPoint.place === place && workPoint.placeLabel){
+    return workPoint.placeLabel;
+  }
+  return getStoredPlaceLabel(place) || place;
+}
+
+function getCalculationStartPlaceForEstimate(job){
+  if(!job) return '';
+  if(job.calculationStartPlace) return job.calculationStartPlace;
+  if(job.status === 'köad') return getCurrentCalculationStartPlace(job.place);
+  return job.place || '';
+}
+
+function getCalculationStartLabelForJob(job){
+  if(!job) return '';
+  const place = job.calculationStartPlace || job.place || '';
+  return job.calculationStartLabel || getStoredPlaceLabel(place) || place;
+}
+
+function applyStartMeasurementFields(job){
+  if(!job) return job;
+  const returnRequired = getJobTypeReturnRequired(job.type);
+  const calculationStartPlace = getCurrentCalculationStartPlace(job.place);
+  job.calculationStartPlace = calculationStartPlace;
+  job.calculationStartLabel = getCurrentCalculationStartLabel(job.place);
+  job.returnRequiredAtStart = returnRequired;
+  job.returnRequired = returnRequired;
+  job.routeEndPlace = returnRequired ? (job.place || '') : (job.dest || '');
+  job.routeRule = returnRequired ? 'returkrav_ja' : 'returkrav_nej';
+  return job;
+}
+
 function getJobCompletionPlace(job){
   if(!job) return '';
-  const ret = job.returnRequired === true || getJobTypeReturnRequired(job.type);
+  const ret = getJobReturnRequiredValue(job);
   return ret ? (job.place || '') : (job.dest || '');
 }
 
@@ -2167,9 +2229,23 @@ function updateLastWorkPointFromJob(job){
   state.lastWorkPoint = {
     place: place || '',
     placeLabel: place === job.place ? getItemPlaceLabel(job, 'place') : getItemPlaceLabel(job, 'dest'),
-    returnRequired: job.returnRequired === true || getJobTypeReturnRequired(job.type),
+    returnRequired: getJobReturnRequiredValue(job),
     updatedAt: Date.now()
   };
+}
+
+function formatCalculationStartText(job){
+  if(!job) return '';
+  const place = job.calculationStartPlace || job.place || '';
+  const label = getCalculationStartLabelForJob(job) || 'saknas';
+  const returnText = getJobReturnRequiredValue(job) ? 'Ja' : 'Nej';
+  if(!place && !label) return 'Beräkningsstart: saknas · Returkrav vid start: ' + returnText;
+  return 'Beräkningsstart: ' + label + ' · Returkrav vid start: ' + returnText;
+}
+
+function getCalculationStartHtml(job){
+  const text = formatCalculationStartText(job);
+  return text ? '<div style="margin-top:6px">' + escapeHtml(text) + '</div>' : '';
 }
 
 function allowsPrivateCommentForType(type){
@@ -4330,6 +4406,8 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   }
 
   const returnRequired = getJobTypeReturnRequired(type);
+  const calculationStartPlace = getCurrentCalculationStartPlace(place);
+  const calculationStartLabel = getCurrentCalculationStartLabel(place);
 
   state.active = {
     id:id(),
@@ -4339,6 +4417,9 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     displayType: displayType || type,
     place,
     dest,
+    calculationStartPlace,
+    calculationStartLabel,
+    returnRequiredAtStart:returnRequired,
     returnRequired,
     routeEndPlace: returnRequired ? place : dest,
     routeRule: returnRequired ? 'returkrav_ja' : 'returkrav_nej',
@@ -4645,7 +4726,8 @@ function completeQueuedJob(qid){
     delete finished._queueIndex;
     finished.end = Date.now();
     finished.start = finished.end - elapsed;
-    finished.returnRequired = finished.returnRequired === true || getJobTypeReturnRequired(finished.type);
+    finished.returnRequired = getJobReturnRequiredValue(finished);
+    finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
     finished.routeEndPlace = getJobCompletionPlace(finished);
     finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
     state.jobs.unshift(finished);
@@ -4760,7 +4842,8 @@ function stopJob(){
 
   finalizeActiveMotion();
   const finished = {...state.active, end:Date.now()};
-  finished.returnRequired = finished.returnRequired === true || getJobTypeReturnRequired(finished.type);
+  finished.returnRequired = getJobReturnRequiredValue(finished);
+  finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
   finished.routeEndPlace = getJobCompletionPlace(finished);
   finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
   state.jobs.unshift(finished);
@@ -4795,7 +4878,7 @@ function renderActive(){
   const requirementPills = getJobTypeRequirements(state.active.type)
     .map(req => '<span class="pill pill-alert">'+escapeHtml(req)+'</span>')
     .join('');
-  const returnRequiredPill = getJobTypeReturnRequired(state.active.type) ? '<span class="pill pill-alert">Returkrav</span>' : '';
+  const returnRequiredPill = getJobReturnRequiredValue(state.active) ? '<span class="pill pill-alert">Returkrav</span>' : '';
   document.getElementById('activePills').innerHTML =
     '<span class="pill pill-type">'+activeTypeLabel+'</span>'+
     '<span class="pill pill-place">Från '+getItemPlaceLabel(state.active, 'place')+'</span>'+
@@ -4805,7 +4888,8 @@ function renderActive(){
 
   const activeStartPointEl = document.getElementById('activeStartPoint');
   if(activeStartPointEl){
-    activeStartPointEl.textContent = formatStartPointText(state.active);
+    const activeStartLines = [formatStartPointText(state.active), formatCalculationStartText(state.active)].filter(Boolean);
+    activeStartPointEl.innerHTML = activeStartLines.map(escapeHtml).join('<br>');
   }
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
@@ -4877,10 +4961,12 @@ function isTimeEstimateAllowedForJob(job){
 function timeEstimateKey(job){
   if(!job) return '';
   return [
+    normalizeEstimatePart(getCalculationStartPlaceForEstimate(job)),
     normalizeEstimatePart(job.type),
     normalizeEstimatePart(job.place),
     normalizeEstimatePart(job.dest),
-    normalizeEstimatePart(job.displayType || job.type)
+    normalizeEstimatePart(job.displayType || job.type),
+    getJobReturnRequiredValue(job) ? 'returkrav_ja' : 'returkrav_nej'
   ].join('|');
 }
 
@@ -4934,7 +5020,7 @@ function renderQueue(){
   }
   el.innerHTML = ordered.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobTypeReturnRequired(x.type) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'<span class="pill">'+escapeHtml(x.status)+'</span></div>'+
+      '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'<span class="pill">'+escapeHtml(x.status)+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
@@ -5052,6 +5138,9 @@ function restartFinishedJob(jobId){
   restarted.motionStillMs = Number.isFinite(Number(restarted.motionStillMs)) ? Number(restarted.motionStillMs) : 0;
   restarted.motionLastTs = Date.now();
   restarted.motionLastMode = 'still';
+  applyStartMeasurementFields(restarted);
+  restarted.startPointStatus = 'pending';
+  delete restarted.startAddress;
 
   state.active = restarted;
   state.jobs = state.jobs.filter(x => x.id !== jobId);
@@ -5059,6 +5148,7 @@ function restartFinishedJob(jobId){
   startDistanceTracking();
   startActiveTimer();
   render();
+  requestActiveStartPointAddress();
   showTab('ko');
 }
 
@@ -5072,11 +5162,12 @@ function renderToday(){
   }
   el.innerHTML = todays.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(x.returnRequired || getJobTypeReturnRequired(x.type) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'</div>'+
+      '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
       getMotionSplitHtml(x)+
       getStartPointHtml(x)+
+      getCalculationStartHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
