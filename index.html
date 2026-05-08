@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-05
+- Nuvarande version: Stadslass v2026-05-07-01-06
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -15,9 +15,6 @@ Stadslass versionskontroll
   - Intern kommentar: bara för Äta, Övriga jobb och Övrig verksamhet
   - Hantera platser: separata jobbtyper Från och Till
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
-  - Uppskattad tid i kö: ren visning, baserad på minst 3 jämförbara avslutade jobb
-  - Startpunkt: adress visas i aktivt jobb och Idag om GPS/adresstjänst fungerar
-  - Aktivt jobb: Uppdrag i kö visas som underflik vid start/fortsätt/klart
 -->
 <html lang="sv">
 <head>
@@ -814,7 +811,7 @@ button{
     <div id="activeNone" class="muted">Inget aktivt jobb.</div>
     <div id="activeBox" class="hidden">
       <div id="activePills"></div>
-      <div id="activeStartPoint" class="muted hidden" style="margin-top:8px"></div>
+      <div id="activeStartPoint" class="muted" style="margin-top:8px"></div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
         <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
@@ -1033,7 +1030,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-05</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-06</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1281,12 +1278,13 @@ button{
       </div>
     </div>
     <div id="jobTypeManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper, ta bort jobbtyper, ange Mtrl kod och lägga in krav/varningar.</div>
+      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper, ta bort jobbtyper, ange Mtrl kod, returkrav och krav/varningar.</div>
 
       <div class="place-row">
         <div class="place-key">Ny jobbtyp</div>
         <input id="newManagedJobTypeName" placeholder="Namn på jobbtyp">
         <input id="newManagedJobTypeCode" placeholder="Mtrl kod (valfritt)">
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="newManagedJobTypeReturnRequired" type="checkbox" style="width:auto"> Returkrav</label>
         <textarea id="newManagedJobTypeRequirements" placeholder="Krav/varningar, ett per rad"></textarea>
         <div class="multi-help">Exempel: HJÄLMKRAV, TRANSPORTDOKUMENT, TA MED TOMT FLAK.</div>
         <div class="row">
@@ -1978,8 +1976,9 @@ function normalizeJobTypeMeta(meta){
     const raw = meta[type] || {};
     const materialCode = String(raw.materialCode || raw.code || raw.mtrlCode || '').trim();
     const requirements = normalizeRequirements(raw.requirements || raw.krav || raw.requirement || '');
-    if(materialCode || requirements.length){
-      next[cleanType] = { materialCode, requirements };
+    const returnRequired = raw.returnRequired === true || raw.returkrav === true || raw.returnRequired === 'true' || raw.returkrav === 'ja' || raw.returkrav === 'JA' || raw.returkrav === 1 || raw.returnRequired === 1;
+    if(materialCode || requirements.length || returnRequired){
+      next[cleanType] = { materialCode, requirements, returnRequired };
     }
   });
   return next;
@@ -2005,6 +2004,7 @@ function normalizeVehicleState(){
   if(!('placeConfigs' in state)) state.placeConfigs = {};
   if(!('placeUsage' in state)) state.placeUsage = {};
   if(!('placeAddresses' in state)) state.placeAddresses = {};
+  if(!('lastWorkPoint' in state)) state.lastWorkPoint = null;
   if(!Array.isArray(state.trash)) state.trash = [];
   if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
@@ -2058,6 +2058,7 @@ function loadState(){
       if(!('placeConfigs' in parsed)) parsed.placeConfigs = {};
       if(!('placeUsage' in parsed)) parsed.placeUsage = {};
       if(!('placeAddresses' in parsed)) parsed.placeAddresses = {};
+      if(!('lastWorkPoint' in parsed)) parsed.lastWorkPoint = null;
       if(!Array.isArray(parsed.trash)) parsed.trash = [];
       if(!Array.isArray(parsed.jobTypes)) parsed.jobTypes = cloneDefaultJobTypes();
       parsed.jobTypes = normalizeJobTypesList(parsed.jobTypes);
@@ -2067,7 +2068,7 @@ function loadState(){
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[], trash:[]};
+  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[], trash:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -2123,18 +2124,20 @@ function getJobTypeMeta(type){
   const meta = state.jobTypeMeta[type] || {};
   return {
     materialCode: String(meta.materialCode || '').trim(),
-    requirements: normalizeRequirements(meta.requirements || [])
+    requirements: normalizeRequirements(meta.requirements || []),
+    returnRequired: meta.returnRequired === true
   };
 }
 
-function setJobTypeMeta(type, materialCode, requirements){
+function setJobTypeMeta(type, materialCode, requirements, returnRequired){
   if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)){
     state.jobTypeMeta = {};
   }
   const code = String(materialCode || '').trim();
   const reqs = normalizeRequirements(requirements || []);
-  if(code || reqs.length){
-    state.jobTypeMeta[type] = { materialCode: code, requirements: reqs };
+  const ret = returnRequired === true;
+  if(code || reqs.length || ret){
+    state.jobTypeMeta[type] = { materialCode: code, requirements: reqs, returnRequired: ret };
   } else if(state.jobTypeMeta[type]){
     delete state.jobTypeMeta[type];
   }
@@ -2146,6 +2149,27 @@ function getMaterialCode(type){
 
 function getJobTypeRequirements(type){
   return getJobTypeMeta(type).requirements || [];
+}
+
+function getJobTypeReturnRequired(type){
+  return !!getJobTypeMeta(type).returnRequired;
+}
+
+function getJobCompletionPlace(job){
+  if(!job) return '';
+  const ret = job.returnRequired === true || getJobTypeReturnRequired(job.type);
+  return ret ? (job.place || '') : (job.dest || '');
+}
+
+function updateLastWorkPointFromJob(job){
+  if(!job) return;
+  const place = getJobCompletionPlace(job);
+  state.lastWorkPoint = {
+    place: place || '',
+    placeLabel: place === job.place ? getItemPlaceLabel(job, 'place') : getItemPlaceLabel(job, 'dest'),
+    returnRequired: job.returnRequired === true || getJobTypeReturnRequired(job.type),
+    updatedAt: Date.now()
+  };
 }
 
 function allowsPrivateCommentForType(type){
@@ -2242,6 +2266,92 @@ function unknownPlaceWarning(item){
 
 function getPlaceAddress(value){
   return (state.placeAddresses && state.placeAddresses[value]) ? state.placeAddresses[value] : '';
+}
+
+function formatStartPointText(job){
+  if(!job) return '';
+  if(job.startAddress) return 'Startpunkt: ' + job.startAddress;
+  if(job.startPointStatus === 'loading') return 'Startpunkt: hämtar...';
+  return 'Startpunkt: saknas';
+}
+
+function getStartPointHtml(job){
+  if(!job) return '';
+  return '<div style="margin-top:6px">' + escapeHtml(formatStartPointText(job)) + '</div>';
+}
+
+function cleanReverseAddress(data){
+  if(!data || typeof data !== 'object') return '';
+  const address = data.address || {};
+  const road = address.road || address.pedestrian || address.footway || address.cycleway || address.path || address.neighbourhood || '';
+  const house = address.house_number || '';
+  const city = address.city || address.town || address.village || address.municipality || address.county || '';
+  const parts = [];
+  const street = [road, house].filter(Boolean).join(' ');
+  if(street) parts.push(street);
+  if(city) parts.push(city);
+  if(parts.length) return parts.join(', ');
+  return String(data.display_name || '').split(',').slice(0, 3).join(',').trim();
+}
+
+async function reverseGeocodeAddress(lat, lon){
+  try{
+    const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&zoom=18&addressdetails=1';
+    const res = await fetch(url, {headers:{'Accept':'application/json'}});
+    if(!res.ok) return '';
+    const data = await res.json();
+    return cleanReverseAddress(data);
+  }catch(e){
+    return '';
+  }
+}
+
+function requestActiveStartPointAddress(){
+  if(!state.active) return;
+  if(state.active.startAddress || state.active.startPointStatus === 'loading') return;
+  state.active.startPointStatus = 'loading';
+  saveState();
+  renderActive();
+
+  if(!navigator.geolocation){
+    if(state.active){
+      state.active.startPointStatus = 'missing';
+      saveState();
+      renderActive();
+    }
+    return;
+  }
+
+  const activeId = state.active.id;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos && pos.coords ? pos.coords.latitude : null;
+      const lon = pos && pos.coords ? pos.coords.longitude : null;
+      if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+        if(state.active && state.active.id === activeId){
+          state.active.startPointStatus = 'missing';
+          saveState();
+          renderActive();
+        }
+        return;
+      }
+      reverseGeocodeAddress(lat, lon).then(address => {
+        if(!state.active || state.active.id !== activeId) return;
+        state.active.startAddress = address || '';
+        state.active.startPointStatus = address ? 'ok' : 'missing';
+        saveState();
+        renderActive();
+      });
+    },
+    () => {
+      if(state.active && state.active.id === activeId){
+        state.active.startPointStatus = 'missing';
+        saveState();
+        renderActive();
+      }
+    },
+    {enableHighAccuracy:true, maximumAge:30000, timeout:12000}
+  );
 }
 
 function getPlaceConfig(value){
@@ -3746,6 +3856,7 @@ function toggleJobTypeManager(){
 function addManagedJobType(){
   const nameEl = document.getElementById('newManagedJobTypeName');
   const codeEl = document.getElementById('newManagedJobTypeCode');
+  const returnRequiredEl = document.getElementById('newManagedJobTypeReturnRequired');
   const requirementsEl = document.getElementById('newManagedJobTypeRequirements');
   if(!nameEl) return;
   const name = (nameEl.value || '').trim();
@@ -3760,9 +3871,10 @@ function addManagedJobType(){
   }
   state.jobTypes.push(name);
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
-  setJobTypeMeta(name, codeEl ? codeEl.value : '', requirementsEl ? requirementsEl.value : '');
+  setJobTypeMeta(name, codeEl ? codeEl.value : '', requirementsEl ? requirementsEl.value : '', !!(returnRequiredEl && returnRequiredEl.checked));
   nameEl.value = '';
   if(codeEl) codeEl.value = '';
+  if(returnRequiredEl) returnRequiredEl.checked = false;
   if(requirementsEl) requirementsEl.value = '';
   saveState();
   refreshJobTypeSelects();
@@ -3821,6 +3933,7 @@ function saveManagedJobType(oldName){
   refreshTruckTypesFromState();
   const input = document.querySelector('#jobTypeManagerList input[data-jobtype-name="'+cssEscape(oldName)+'"]');
   const codeInput = document.querySelector('#jobTypeManagerList input[data-jobtype-code="'+cssEscape(oldName)+'"]');
+  const returnRequiredInput = document.querySelector('#jobTypeManagerList input[data-jobtype-return="'+cssEscape(oldName)+'"]');
   const requirementsInput = document.querySelector('#jobTypeManagerList textarea[data-jobtype-requirements="'+cssEscape(oldName)+'"]');
   if(!input) return;
   const nextName = (input.value || '').trim();
@@ -3838,7 +3951,7 @@ function saveManagedJobType(oldName){
     replaceJobTypeReferences(oldName, nextName);
   }
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
-  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '');
+  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '', !!(returnRequiredInput && returnRequiredInput.checked));
   saveState();
   refreshJobTypeSelects();
   renderJobTypeManager();
@@ -3879,6 +3992,7 @@ function renderJobTypeManager(){
       '<input data-jobtype-name="'+escapeHtml(type)+'" value="'+escapeHtml(type)+'">'+
       '<label>Mtrl kod</label>'+
       '<input data-jobtype-code="'+escapeHtml(type)+'" value="'+escapeHtml(meta.materialCode || '')+'" placeholder="Mtrl kod (valfritt)">'+
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-jobtype-return="'+escapeHtml(type)+'" type="checkbox" style="width:auto" '+(meta.returnRequired ? 'checked' : '')+'> Returkrav</label>'+
       '<label>Krav/varningar</label>'+
       '<textarea data-jobtype-requirements="'+escapeHtml(type)+'" placeholder="Ett krav per rad">'+escapeHtml((meta.requirements || []).join('\n'))+'</textarea>'+
       '<div class="row">'+
@@ -4150,196 +4264,6 @@ function updateNewSeaweedRoute(){
   return;
 }
 
-
-function normalizeLocationText(value){
-  return String(value || '')
-    .trim()
-    .toLocaleLowerCase('sv-SE')
-    .replace(/\s+/g, ' ');
-}
-
-function normalizeEstimateText(value){
-  return normalizeLocationText(value);
-}
-
-function estimateComparableValue(job, field){
-  if(!job) return '';
-  const direct = job[field] || '';
-  const label = job[field + 'Label'] || '';
-  return normalizeEstimateText(direct || label);
-}
-
-function estimateDisplayValue(job){
-  return normalizeEstimateText((job && (job.displayType || job.type)) || '');
-}
-
-function shouldExcludeFromTimeEstimate(job){
-  if(!job) return true;
-  if(job.excludeFromTimeEstimate) return true;
-
-  const type = normalizeEstimateText(job.type);
-  const displayType = normalizeEstimateText(job.displayType);
-  const comment = normalizeEstimateText(job.comment);
-  const place = normalizeEstimateText((job.place || '') + ' ' + (job.placeLabel || ''));
-  const dest = normalizeEstimateText((job.dest || '') + ' ' + (job.destLabel || ''));
-  const combined = [type, displayType, comment, place, dest].join(' ');
-
-  const excludedTypes = [
-    'äta',
-    'äta/ övriga jobb',
-    'äta/övriga jobb',
-    'övriga jobb',
-    'övrig verksamhet',
-    'möte/utbildning',
-    'möte utbildning'
-  ];
-
-  if(excludedTypes.some(x => type === x || type.includes(x) || displayType === x || displayType.includes(x))) return true;
-  if(place.includes('von utfall') || dest.includes('von utfall')) return true;
-
-  const excludedTerms = [
-    'ingen tömning',
-    'ej behov av tömning',
-    'ej tömd',
-    'kontroll',
-    'endast vägning',
-    'låg vikt',
-    'bara koll',
-    'ingen körning'
-  ];
-
-  return excludedTerms.some(term => combined.includes(term));
-}
-
-function isComparableForTimeEstimate(queueJob, finishedJob){
-  if(!queueJob || !finishedJob) return false;
-  if(shouldExcludeFromTimeEstimate(queueJob) || shouldExcludeFromTimeEstimate(finishedJob)) return false;
-  if(!finishedJob.start || !finishedJob.end) return false;
-
-  const durationMs = finishedJob.end - finishedJob.start;
-  if(!Number.isFinite(durationMs) || durationMs < 60000) return false;
-
-  if(normalizeEstimateText(queueJob.type) !== normalizeEstimateText(finishedJob.type)) return false;
-  if(estimateComparableValue(queueJob, 'place') !== estimateComparableValue(finishedJob, 'place')) return false;
-  if(estimateComparableValue(queueJob, 'dest') !== estimateComparableValue(finishedJob, 'dest')) return false;
-  if(estimateDisplayValue(queueJob) !== estimateDisplayValue(finishedJob)) return false;
-  return true;
-}
-
-function getEstimatedMinutesForQueueJob(queueJob){
-  if(!queueJob || queueJob.status === 'pausad') return null;
-  if(shouldExcludeFromTimeEstimate(queueJob)) return null;
-
-  const durations = (state.jobs || [])
-    .filter(job => isComparableForTimeEstimate(queueJob, job))
-    .map(job => job.end - job.start)
-    .sort((a,b) => a-b);
-
-  if(durations.length < 3) return null;
-
-  const mid = Math.floor(durations.length / 2);
-  const medianMs = durations.length % 2
-    ? durations[mid]
-    : (durations[mid - 1] + durations[mid]) / 2;
-
-  return Math.max(1, Math.round(medianMs / 60000));
-}
-
-function getQueueEstimateHtml(queueJob){
-  const minutes = getEstimatedMinutesForQueueJob(queueJob);
-  if(minutes === null) return '';
-  return '<div style="margin-top:6px; font-weight:700">Uppskattad tid: '+minutes+' min</div>';
-}
-
-function formatReverseGeocodeAddress(data){
-  if(!data) return '';
-  const address = data.address || {};
-  const road = address.road || address.pedestrian || address.footway || address.cycleway || address.path || address.residential || address.neighbourhood || '';
-  const house = address.house_number || '';
-  const city = address.city || address.town || address.village || address.municipality || address.county || '';
-  const street = [road, house].filter(Boolean).join(' ').trim();
-  if(street && city) return street + ', ' + city;
-  if(street) return street;
-  if(city) return city;
-  const display = String(data.display_name || '').trim();
-  if(!display) return '';
-  return display.split(',').map(x => x.trim()).filter(Boolean).slice(0, 3).join(', ');
-}
-
-function getActiveStartPointText(job){
-  if(!job) return '';
-  if(job.startPointAddress) return 'Startpunkt: ' + job.startPointAddress;
-  if(job.startPointStatus === 'hämtar') return 'Startpunkt: hämtar...';
-  if(job.startPointStatus === 'saknas') return 'Startpunkt: saknas';
-  return '';
-}
-
-function getStartPointHtml(job){
-  const text = getActiveStartPointText(job);
-  if(!text) return '';
-  return '<div style="margin-top:6px">'+escapeHtml(text)+'</div>';
-}
-
-function updateActiveStartPointView(){
-  const el = document.getElementById('activeStartPoint');
-  if(!el) return;
-  const text = getActiveStartPointText(state.active);
-  if(!text){
-    el.textContent = '';
-    el.classList.add('hidden');
-    return;
-  }
-  el.textContent = text;
-  el.classList.remove('hidden');
-}
-
-async function captureStartPointForActive(activeId){
-  if(!activeId) return;
-  if(!navigator.geolocation){
-    if(state.active && state.active.id === activeId){
-      state.active.startPointStatus = 'saknas';
-      saveState();
-      renderActive();
-    }
-    return;
-  }
-
-  try{
-    const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 30000
-      });
-    });
-
-    const lat = pos && pos.coords ? pos.coords.latitude : null;
-    const lon = pos && pos.coords ? pos.coords.longitude : null;
-    if(!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('GPS saknas');
-
-    const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
-    const response = await fetch(url, {headers:{'Accept':'application/json'}});
-    if(!response.ok) throw new Error('Adresstjänst svarade inte');
-    const data = await response.json();
-    const address = formatReverseGeocodeAddress(data);
-    if(!address) throw new Error('Adress saknas');
-
-    if(state.active && state.active.id === activeId){
-      state.active.startPointAddress = address;
-      state.active.startPointStatus = 'klar';
-      saveState();
-      renderActive();
-    }
-  } catch(err){
-    if(state.active && state.active.id === activeId){
-      state.active.startPointAddress = '';
-      state.active.startPointStatus = 'saknas';
-      saveState();
-      renderActive();
-    }
-  }
-}
-
 function showTab(tab){
   ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
   document.getElementById('tab-'+tab).classList.remove('hidden');
@@ -4405,6 +4329,8 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     }
   }
 
+  const returnRequired = getJobTypeReturnRequired(type);
+
   state.active = {
     id:id(),
     date:todayStr(),
@@ -4413,6 +4339,10 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     displayType: displayType || type,
     place,
     dest,
+    returnRequired,
+    routeEndPlace: returnRequired ? place : dest,
+    routeRule: returnRequired ? 'returkrav_ja' : 'returkrav_nej',
+    startPointStatus:'pending',
     placeLabel:getStoredPlaceLabel(place),
     destLabel:getStoredPlaceLabel(dest),
     comment:comment||'',
@@ -4426,15 +4356,13 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     motionStillMs:0,
     motionStartedAt:Date.now(),
     motionLastTs:Date.now(),
-    motionLastMode:'still',
-    startPointAddress:'',
-    startPointStatus:'hämtar'
+    motionLastMode:'still'
   };
   saveState();
   startDistanceTracking();
   startActiveTimer();
   render();
-  captureStartPointForActive(state.active.id);
+  requestActiveStartPointAddress();
   return true;
 }
 
@@ -4717,7 +4645,11 @@ function completeQueuedJob(qid){
     delete finished._queueIndex;
     finished.end = Date.now();
     finished.start = finished.end - elapsed;
+    finished.returnRequired = finished.returnRequired === true || getJobTypeReturnRequired(finished.type);
+    finished.routeEndPlace = getJobCompletionPlace(finished);
+    finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
     state.jobs.unshift(finished);
+    updateLastWorkPointFromJob(finished);
     state.queue = state.queue.filter(x => x.id !== qid);
 
     if(!isOtherWorkJob(finished)){
@@ -4827,7 +4759,12 @@ function stopJob(){
   if(!state.active) return;
 
   finalizeActiveMotion();
-  state.jobs.unshift({...state.active, end:Date.now()});
+  const finished = {...state.active, end:Date.now()};
+  finished.returnRequired = finished.returnRequired === true || getJobTypeReturnRequired(finished.type);
+  finished.routeEndPlace = getJobCompletionPlace(finished);
+  finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
+  state.jobs.unshift(finished);
+  updateLastWorkPointFromJob(finished);
   state.active = null;
   stopDistanceTracking();
   stopActiveTimer();
@@ -4858,14 +4795,19 @@ function renderActive(){
   const requirementPills = getJobTypeRequirements(state.active.type)
     .map(req => '<span class="pill pill-alert">'+escapeHtml(req)+'</span>')
     .join('');
+  const returnRequiredPill = getJobTypeReturnRequired(state.active.type) ? '<span class="pill pill-alert">Returkrav</span>' : '';
   document.getElementById('activePills').innerHTML =
     '<span class="pill pill-type">'+activeTypeLabel+'</span>'+
     '<span class="pill pill-place">Från '+getItemPlaceLabel(state.active, 'place')+'</span>'+
-    requirementPills +
+    requirementPills + returnRequiredPill +
     (state.active.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(state.active, 'dest')+'</span>' : '')+
     (materialCode ? '<span class="pill pill-code">Mtrl kod '+escapeHtml(materialCode)+'</span>' : '');
 
-  updateActiveStartPointView();
+  const activeStartPointEl = document.getElementById('activeStartPoint');
+  if(activeStartPointEl){
+    activeStartPointEl.textContent = formatStartPointText(state.active);
+  }
+
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
   document.getElementById('activeLoads').textContent = String((state.active.loads||[]).length);
@@ -4907,6 +4849,61 @@ function setQueuedJobPlannedDate(qid, value){
   renderQueue();
 }
 
+function normalizeEstimatePart(value){
+  return String(value || '').trim().toLocaleLowerCase('sv-SE').replace(/\s+/g, ' ');
+}
+
+function isExcludedFromTimeEstimate(job){
+  if(!job) return true;
+  if(job.excludeFromTimeEstimate === true) return true;
+  const type = normalizeEstimatePart(job.type);
+  const place = normalizeEstimatePart(job.place);
+  const placeLabel = normalizeEstimatePart(job.placeLabel || getItemPlaceLabel(job, 'place'));
+  const text = normalizeEstimatePart([job.type, job.displayType, job.comment].filter(Boolean).join(' '));
+  if(type === 'äta' || type === 'övriga jobb' || type === 'övrig verksamhet' || type === 'möte/utbildning') return true;
+  if(place === 'von utfallsgatan' || placeLabel === 'von utfallsgatan') return true;
+  const phrases = ['ingen tömning','ej behov av tömning','ej tömd','kontroll','endast vägning','låg vikt','bara koll','ingen körning'];
+  return phrases.some(phrase => text.includes(phrase));
+}
+
+function isTimeEstimateAllowedForJob(job){
+  if(!job || isExcludedFromTimeEstimate(job)) return false;
+  if(!job.type || !job.place || !job.dest) return false;
+  const type = normalizeEstimatePart(job.type);
+  if(type === 'annat' && !String(job.displayType || '').trim()) return false;
+  return true;
+}
+
+function timeEstimateKey(job){
+  if(!job) return '';
+  return [
+    normalizeEstimatePart(job.type),
+    normalizeEstimatePart(job.place),
+    normalizeEstimatePart(job.dest),
+    normalizeEstimatePart(job.displayType || job.type)
+  ].join('|');
+}
+
+function getTimeEstimateForQueuedJob(queueJob){
+  if(!isTimeEstimateAllowedForJob(queueJob)) return null;
+  const key = timeEstimateKey(queueJob);
+  const durations = (state.jobs || [])
+    .filter(job => isTimeEstimateAllowedForJob(job) && timeEstimateKey(job) === key)
+    .map(job => Number(job.end || 0) - Number(job.start || 0))
+    .filter(ms => Number.isFinite(ms) && ms >= 60000);
+  if(durations.length < 3) return null;
+  durations.sort((a,b) => a-b);
+  const mid = Math.floor(durations.length / 2);
+  const medianMs = durations.length % 2 ? durations[mid] : (durations[mid - 1] + durations[mid]) / 2;
+  return {minutes: Math.max(1, Math.round(medianMs / 60000)), count: durations.length};
+}
+
+function renderTimeEstimateHtml(queueJob){
+  const estimate = getTimeEstimateForQueuedJob(queueJob);
+  if(!estimate) return '';
+  return '<div style="margin-top:6px;font-weight:700">Uppskattad tid: ' + estimate.minutes + ' min</div>';
+}
+
 function renderQueue(){
   const visible = state.queue
     .map((x, index) => ({...x, _queueIndex:index}))
@@ -4937,13 +4934,13 @@ function renderQueue(){
   }
   el.innerHTML = ordered.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'<span class="pill">'+x.status+'</span></div>'+
+      '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobTypeReturnRequired(x.type) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'<span class="pill">'+escapeHtml(x.status)+'</span></div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
       (x.githubExported ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:13px">Överförd till GitHub</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
-      getQueueEstimateHtml(x)+
+      renderTimeEstimateHtml(x)+
       '<div style="margin-top:10px; max-width:240px">'+
         '<label>Dag för uppdrag</label>'+
         '<input type="text" inputmode="numeric" placeholder="28/4" value="'+escapeHtml(formatShortDate(getQueuedJobDate(x)))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
@@ -5048,8 +5045,6 @@ function restartFinishedJob(jobId){
   const restarted = {...job};
   delete restarted.end;
   restarted.start = Date.now();
-  restarted.startPointAddress = '';
-  restarted.startPointStatus = 'hämtar';
   restarted.loads = restarted.loads || [];
   restarted.totalWeight = restarted.totalWeight || restarted.loads.reduce((a,b)=>a+b,0);
   restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
@@ -5064,7 +5059,6 @@ function restartFinishedJob(jobId){
   startDistanceTracking();
   startActiveTimer();
   render();
-  captureStartPointForActive(state.active.id);
   showTab('ko');
 }
 
@@ -5078,7 +5072,7 @@ function renderToday(){
   }
   el.innerHTML = todays.map(x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+x.type+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+'</div>'+
+      '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(x.returnRequired || getJobTypeReturnRequired(x.type) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
       getMotionSplitHtml(x)+
