@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-10
+- Nuvarande version: Stadslass v2026-05-07-01-11
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -14,6 +14,7 @@ Stadslass versionskontroll
   - Idag: visar Körning ca / Stillasående ca på avslutade jobb
   - Intern kommentar: bara för Äta, Övriga jobb och Övrig verksamhet
   - Hantera platser: separata jobbtyper Från och Till
+  - Snabbval Slottskogen: visar Komprimator och Sopsand Säldammen, men sparar Sopsand från Säldammen tekniskt separat
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
   - Startpunkt: visas i Aktivt jobb och Idag
   - Beräkningsstart: sparas vid start och används för uppskattad tid
@@ -1038,7 +1039,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-10</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-11</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1446,7 +1447,7 @@ const DEFAULT_QUICK_ITEMS = [
   {id:'quick_ring_40360', group:'Ringön', label:'Komprimator 40360', vehicle:'lastbil', type:'Komprimator', place:'Ringön (BAS)', dest:'Renova Sävenäs', comment:'40360', displayType:'Komprimator 40360'},
   {id:'quick_ring_maskin', group:'Ringön', label:'Maskintransport', action:'machineTransport'},
   {id:'quick_slottskogen_komp', group:'Slottskogen', label:'Komprimator', vehicle:'lastbil', type:'Komprimator', place:'Slottskogen', dest:'Renova Högsbo', comment:'Slottskogen', displayType:'Komprimator'},
-  {id:'quick_saldammen_sopsand', group:'Säldammen', label:'Sopsand', vehicle:'lastbil', type:'Sopsand', place:'Säldammen', dest:'Sortera Torslanda', comment:'', displayType:''},
+  {id:'quick_saldammen_sopsand', group:'Slottskogen', label:'Sopsand Säldammen', vehicle:'lastbil', type:'Sopsand', place:'Säldammen', dest:'Sortera Torslanda', comment:'', displayType:''},
   {id:'quick_vonutfall_sopsand', group:'von Utfall', label:'Sopsand', vehicle:'lastbil', type:'Sopsand', place:'von Utfallsgatan', dest:'Sortera Torslanda', comment:'', displayType:''}
 ];
 function cloneDefaultQuickItems(){ return DEFAULT_QUICK_ITEMS.map(item => ({...item})); }
@@ -2059,6 +2060,17 @@ function normalizeVehicleState(){
     displayType: item.displayType || '',
     action: item.action || ''
   }));
+  state.quickItems.forEach(item => {
+    if(item && item.id === 'quick_saldammen_sopsand'){
+      item.group = 'Slottskogen';
+      item.label = 'Sopsand Säldammen';
+      item.type = 'Sopsand';
+      item.place = 'Säldammen';
+      item.dest = 'Sortera Torslanda';
+      item.vehicle = 'lastbil';
+      item.displayType = '';
+    }
+  });
   state.quickItems.forEach(item => {
     if(item && item.type === 'Ris' && item.place === 'Ringön (BAS)' && !item.dest){
       item.dest = 'Ruskvädersgatan (Ristipp)';
@@ -3030,7 +3042,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-10';
+const APP_VERSION = 'Stadslass v2026-05-07-01-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3053,6 +3065,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'GitHub-kö export/import markeringar', status:'Skyddad men får byggas om', purpose:'Visar Överförd till GitHub och Hämtad från GitHub.', changeRule:'Får ersättas av bättre synkstatus.'},
   {name:'Intern kommentar-regel', status:'Skyddad', purpose:'Intern kommentar bara för Äta, Övriga jobb och Övrig verksamhet.', changeRule:'Får ändras endast som medveten regeländring.'},
   {name:'Funktionslista', status:'Skyddad men får byggas om', purpose:'Dokumenterar aktiva, skyddade, ersatta och borttagna funktioner.', changeRule:'Ska uppdateras vid varje version.'},
+  {name:'Snabbval Slottskogen/Säldammen', status:'Aktiv', purpose:'Visar Sopsand Säldammen under Slottskogen utan att ändra faktisk Från-plats.', changeRule:'Visningen får ändras, men Säldammen ska sparas tekniskt separat när snabbvalet används.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -3209,7 +3222,9 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!document.getElementById('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20, 'featureManifestList');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-10') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-10'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-11') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-11'), APP_VERSION);
+  const saldammenQuick = getQuickItems().find(item => item && item.id === 'quick_saldammen_sopsand');
+  addFunctionCheck(results, 'Nivå 2', 'Säldammen visas under Slottskogen men sparas separat', !!saldammenQuick && saldammenQuick.group === 'Slottskogen' && saldammenQuick.label === 'Sopsand Säldammen' && saldammenQuick.place === 'Säldammen' && saldammenQuick.dest === 'Sortera Torslanda', saldammenQuick ? (saldammenQuick.group + ' / ' + saldammenQuick.label + ' / Från ' + saldammenQuick.place + ' / Till ' + saldammenQuick.dest) : 'snabbval saknas');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
