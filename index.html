@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-22
+- Nuvarande version: Stadslass v2026-05-07-01-23
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1111,7 +1111,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-22</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-23</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1202,6 +1202,26 @@ button{
           <button class="inline" onclick="resetMapRouteTestResult()">Rensa testresultat</button>
         </div>
         <div id="mapRouteTestResult" class="multi-help map-test-result" style="margin-top:10px">Inget karttest kört.</div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Testa starttillägg</div>
+        <div class="multi-help">Testar sträckan Startpunkt → Från. Testet använder samma kartskydd och cache som karttestet och påverkar inte aktivt uppdrag eller uppskattad tid.</div>
+        <div class="quick-edit-grid">
+          <div>
+            <label>Startpunkt</label>
+            <select id="mapStartAddonStart"></select>
+          </div>
+          <div>
+            <label>Från</label>
+            <select id="mapStartAddonFrom"></select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary inline" onclick="runMapStartAddonTest()">Testa starttillägg</button>
+          <button class="inline" onclick="resetMapStartAddonTestResult()">Rensa starttest</button>
+        </div>
+        <div id="mapStartAddonTestResult" class="multi-help map-test-result" style="margin-top:10px">Inget starttilläggstest kört.</div>
       </div>
     </div>
   <div id="settingsSummaryWrap" class="card hidden">
@@ -2459,12 +2479,21 @@ function formatCalculationStartText(job){
   if(materialRoute) lines.push('Materialflöde: ' + materialRoute);
   lines.push('Returkrav materialflöde: ' + returnText);
   lines.push('Starttillägg: ej beräknat – startpunkt varierar');
-  return lines.join('<br>');
+  return lines.join('\n');
+}
+
+function formatMultiLineTextHtml(text){
+  return String(text || '')
+    .split(/\n+/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(escapeHtml)
+    .join('<br>');
 }
 
 function getCalculationStartHtml(job){
   const text = formatCalculationStartText(job);
-  return text ? '<div style="margin-top:6px">' + text + '</div>' : '';
+  return text ? '<div style="margin-top:6px">' + formatMultiLineTextHtml(text) + '</div>' : '';
 }
 
 function formatCountdownMinutes(ms){
@@ -3002,6 +3031,10 @@ function requestActiveStartPointAddress(){
       }
       reverseGeocodeAddress(lat, lon).then(address => {
         if(!state.active || state.active.id !== activeId) return;
+        state.active.startLat = lat;
+        state.active.startLon = lon;
+        state.active.startAccuracy = pos && pos.coords ? Number(pos.coords.accuracy || 0) : 0;
+        state.active.startPointCapturedAt = Date.now();
         state.active.startAddress = address || '';
         state.active.startPointStatus = address ? 'ok' : 'missing';
         applyEstimatedCountdownAtStart(state.active);
@@ -3364,7 +3397,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-22';
+const APP_VERSION = 'Stadslass v2026-05-07-01-23';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3381,7 +3414,9 @@ const APP_FEATURE_MANIFEST = [
   {name:'Startpunkt', status:'Skyddad men får byggas om', purpose:'Visar adress för startpunkt i aktivt jobb och Idag.', changeRule:'Tekniken kan ändras men informationen ska finnas kvar eller ersättas.'},
   {name:'Kartförberedelse platsdatabas', status:'Aktiv', purpose:'Fasta platser har Plus Code/adress, koordinater, alias och placeholder-status för kommande karttjänst.', changeRule:'Får byggas vidare till kartmotor men ska inte starta Google-anrop utan separat beslut.'},
   {name:'Lokal kartnyckel i Inställningar', status:'Aktiv', purpose:'Google API-nyckel kan sparas och raderas lokalt per enhet utan att ligga i HTML-filen eller följa med backup/export.', changeRule:'Får byggas vidare till kartmotor men nyckeln ska hållas utanför uppdragsdata och backup.'},
-  {name:'Karttjänst testfunktion', status:'Testfunktion', purpose:'Manuellt karttest med valfri fysisk plats från platsdatabasen. Visar körtid, avstånd och fel utan att påverka uppdrag.', changeRule:'Får byggas vidare till starttillägg och materialflöde först efter testgodkännande.'},
+  {name:'Karttjänst testfunktion', status:'Testfunktion', purpose:'Manuellt karttest med valfri fysisk plats från platsdatabasen. Visar körtid, avstånd och fel utan att påverka uppdrag.', changeRule:'Får byggas vidare till materialflöde först efter testgodkännande.'},
+  {name:'Starttillägg karttest', status:'Testfunktion', purpose:'Manuellt test av Startpunkt → Från med samma kartskydd och cache som karttjänsten. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat testgodkännande.'},
+  {name:'Aktivt jobb radbrytning', status:'Aktiv', purpose:'Startpunkt/materialflöde/returkrav/starttillägg visas utan synlig HTML-kod som <br>.', changeRule:'Får ändras visuellt men får inte visa tekniska HTML-taggar för användaren.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
@@ -3575,10 +3610,12 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Karttjänst testfunktion finns', !!document.getElementById('mapTestFrom') && !!document.getElementById('mapTestTo') && !!document.getElementById('mapRouteTestResult') && functionExists('runMapRouteTest') && functionExists('requestGoogleRouteTest'), 'manuellt test i Inställningar → Karttjänst');
   addFunctionCheck(results, 'Nivå 1', 'Karttest felruta radbryts på mobil', !!document.getElementById('mapRouteTestResult') && document.getElementById('mapRouteTestResult').classList.contains('map-test-result'), 'map-test-result med overflow-wrap:anywhere');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!document.getElementById('mapGuardStatus') && functionExists('canMakeMapRequest') && functionExists('registerMapRequest') && functionExists('getCachedMapRoute') && functionExists('setCachedMapRoute'), 'lokala gränser + cache för kartanrop');
+  addFunctionCheck(results, 'Nivå 1', 'Starttillägg karttest finns', !!document.getElementById('mapStartAddonStart') && !!document.getElementById('mapStartAddonFrom') && !!document.getElementById('mapStartAddonTestResult') && functionExists('runMapStartAddonTest') && functionExists('requestGoogleRouteByPoints'), 'manuellt test av Startpunkt → Från utan påverkan på uppdrag');
+  addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte HTML-taggar i startinfo', functionExists('formatMultiLineTextHtml') && functionSourceIncludes('renderActive', 'formatMultiLineTextHtml(activeStartText)'), 'radbrytning sker via formateringsfunktion, inte synlig <br>-text');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-22') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-22'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-23') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-23'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4136,6 +4173,7 @@ function toggleMapKeyManager(){
   toggleSettingsPanel('mapKeyManagerWrap', () => {
     renderMapKeyManager();
     populateMapRouteTestSelects();
+    populateMapStartAddonTestSelects();
   });
 }
 
@@ -4197,6 +4235,49 @@ function resetMapRouteTestResult(){
   const el = document.getElementById('mapRouteTestResult');
   if(!el) return;
   el.textContent = 'Inget karttest kört.';
+  el.classList.remove('queue-alert', 'is-error', 'is-ok');
+}
+
+function hasActiveStartPointCoordinates(){
+  return !!(state.active && Number.isFinite(Number(state.active.startLat)) && Number.isFinite(Number(state.active.startLon)));
+}
+
+function getActiveStartPointLabel(){
+  if(!state.active) return 'Aktiv startpunkt saknas';
+  return state.active.startAddress || state.active.calculationStartLabel || state.active.placeLabel || state.active.place || 'Aktiv startpunkt';
+}
+
+function getMapStartAddonStartOptions(){
+  const options = [];
+  options.push({value:'__active_start__', label:hasActiveStartPointCoordinates() ? 'Aktiv startpunkt: ' + getActiveStartPointLabel() : 'Aktiv startpunkt – GPS saknas'});
+  getMapTestPlaceOptions().forEach(key => options.push({value:key, label:getPlaceLabel(key)}));
+  return options;
+}
+
+function populateMapStartAddonTestSelects(){
+  const startEl = document.getElementById('mapStartAddonStart');
+  const fromEl = document.getElementById('mapStartAddonFrom');
+  if(!startEl || !fromEl) return;
+  const previousStart = startEl.value || '__active_start__';
+  const previousFrom = fromEl.value || (state.active && state.active.place ? state.active.place : 'Ringön (BAS)');
+  const startOptions = getMapStartAddonStartOptions();
+  const fromOptions = getMapTestPlaceOptions();
+  const startValues = startOptions.map(item => item.value);
+  const fromSelected = fromOptions.includes(previousFrom) ? previousFrom : 'Ringön (BAS)';
+  startEl.innerHTML = startOptions.map(item => {
+    const selectedAttr = item.value === (startValues.includes(previousStart) ? previousStart : '__active_start__') ? ' selected' : '';
+    return '<option value="' + escapeHtml(item.value) + '"' + selectedAttr + '>' + escapeHtml(item.label) + '</option>';
+  }).join('');
+  fromEl.innerHTML = fromOptions.map(key => {
+    const selectedAttr = key === fromSelected ? ' selected' : '';
+    return '<option value="' + escapeHtml(key) + '"' + selectedAttr + '>' + escapeHtml(getPlaceLabel(key)) + '</option>';
+  }).join('');
+}
+
+function resetMapStartAddonTestResult(){
+  const el = document.getElementById('mapStartAddonTestResult');
+  if(!el) return;
+  el.textContent = 'Inget starttilläggstest kört.';
   el.classList.remove('queue-alert', 'is-error', 'is-ok');
 }
 
@@ -4303,14 +4384,17 @@ function saveMapRouteCache(cache){
   }
 }
 
-function buildMapRouteCacheKey(fromPlace, toPlace){
-  return normalizePlaceMapKey(fromPlace) + '→' + normalizePlaceMapKey(toPlace);
+function buildMapRouteCacheKeyFromParts(fromKey, toKey){
+  return String(fromKey || '').trim() + '→' + String(toKey || '').trim();
 }
 
-function getCachedMapRoute(fromPlace, toPlace){
+function buildMapRouteCacheKey(fromPlace, toPlace){
+  return buildMapRouteCacheKeyFromParts('plats:' + normalizePlaceMapKey(fromPlace), 'plats:' + normalizePlaceMapKey(toPlace));
+}
+
+function getCachedMapRouteByKey(cacheKey){
   const cache = getMapRouteCache();
-  const key = buildMapRouteCacheKey(fromPlace, toPlace);
-  const item = cache[key];
+  const item = cache[cacheKey];
   if(!item || !item.result) return null;
   return Object.assign({}, item.result, {
     fromCache:true,
@@ -4318,10 +4402,9 @@ function getCachedMapRoute(fromPlace, toPlace){
   });
 }
 
-function setCachedMapRoute(fromPlace, toPlace, result){
+function setCachedMapRouteByKey(cacheKey, result){
   const cache = getMapRouteCache();
-  const key = buildMapRouteCacheKey(fromPlace, toPlace);
-  cache[key] = {
+  cache[cacheKey] = {
     dayKey:getLocalDateKey(new Date()),
     savedAt:Date.now(),
     result:{
@@ -4332,6 +4415,14 @@ function setCachedMapRoute(fromPlace, toPlace, result){
   };
   saveMapRouteCache(cache);
   renderMapGuardStatus();
+}
+
+function getCachedMapRoute(fromPlace, toPlace){
+  return getCachedMapRouteByKey(buildMapRouteCacheKey(fromPlace, toPlace));
+}
+
+function setCachedMapRoute(fromPlace, toPlace, result){
+  setCachedMapRouteByKey(buildMapRouteCacheKey(fromPlace, toPlace), result);
 }
 
 function getMapRouteCacheCount(){
@@ -4356,6 +4447,7 @@ function resetMapGuardCountersFromSettings(){
   saveMapGuardState({ dayKey:getLocalDateKey(new Date()), dayCount:0, calls:[] });
   renderMapGuardStatus();
   resetMapRouteTestResult();
+  resetMapStartAddonTestResult();
   alert('Kartanropsräknare rensad på denna enhet.');
 }
 
@@ -4364,6 +4456,7 @@ function resetMapRouteCacheFromSettings(){
   saveMapRouteCache({});
   renderMapGuardStatus();
   resetMapRouteTestResult();
+  resetMapStartAddonTestResult();
   alert('Kartcache rensad på denna enhet.');
 }
 
@@ -4415,16 +4508,46 @@ function buildGoogleRoutesRequestBody(fromCoord, toCoord){
   };
 }
 
-async function requestGoogleRouteTest(fromPlace, toPlace){
+function buildMapPointFromPlace(place, roleLabel){
+  const coord = getPlaceCoordinates(place);
+  if(!coord) throw new Error((roleLabel || 'Platsen') + ' saknar fasta koordinater eller är placeholder.');
+  const normalized = normalizePlaceMapKey(place);
+  return {
+    lat:coord.lat,
+    lon:coord.lon,
+    label:getPlaceLabel(normalized),
+    cacheKey:'plats:' + normalized
+  };
+}
+
+function buildMapPointFromActiveStart(){
+  if(!state.active) throw new Error('Det finns inget aktivt jobb med startpunkt.');
+  const lat = Number(state.active.startLat);
+  const lon = Number(state.active.startLon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+    throw new Error('Aktiv startpunkt saknar GPS-koordinater. Starta ett nytt uppdrag och tillåt GPS, eller välj en fast plats som startpunkt.');
+  }
+  return {
+    lat,
+    lon,
+    label:getActiveStartPointLabel(),
+    cacheKey:'aktiv_start:' + lat.toFixed(5) + ',' + lon.toFixed(5)
+  };
+}
+
+function buildMapPointFromStartAddonValue(value){
+  if(value === '__active_start__') return buildMapPointFromActiveStart();
+  return buildMapPointFromPlace(value, 'Startpunkten');
+}
+
+async function requestGoogleRouteByPoints(fromPoint, toPoint){
   const key = getLocalMapApiKey();
   if(!key) throw new Error('Kartnyckel saknas på denna enhet. Spara kartnyckel först.');
+  if(!fromPoint || !Number.isFinite(Number(fromPoint.lat)) || !Number.isFinite(Number(fromPoint.lon))) throw new Error('Startpunkten saknar giltiga koordinater.');
+  if(!toPoint || !Number.isFinite(Number(toPoint.lat)) || !Number.isFinite(Number(toPoint.lon))) throw new Error('Målplatsen saknar giltiga koordinater.');
 
-  const fromCoord = getPlaceCoordinates(fromPlace);
-  const toCoord = getPlaceCoordinates(toPlace);
-  if(!fromCoord) throw new Error('Från-platsen saknar fasta koordinater eller är placeholder.');
-  if(!toCoord) throw new Error('Till-platsen saknar fasta koordinater eller är placeholder.');
-
-  const cached = getCachedMapRoute(fromPlace, toPlace);
+  const cacheKey = buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
+  const cached = getCachedMapRouteByKey(cacheKey);
   if(cached) return cached;
 
   const guardCheck = canMakeMapRequest();
@@ -4438,7 +4561,7 @@ async function requestGoogleRouteTest(fromPlace, toPlace){
       'X-Goog-Api-Key':key,
       'X-Goog-FieldMask':'routes.duration,routes.distanceMeters'
     },
-    body:JSON.stringify(buildGoogleRoutesRequestBody(fromCoord, toCoord))
+    body:JSON.stringify(buildGoogleRoutesRequestBody(fromPoint, toPoint))
   });
 
   let data = null;
@@ -4456,8 +4579,15 @@ async function requestGoogleRouteTest(fromPlace, toPlace){
     distanceMeters:Number(route.distanceMeters || 0),
     fromCache:false
   };
-  setCachedMapRoute(fromPlace, toPlace, result);
+  setCachedMapRouteByKey(cacheKey, result);
   return result;
+}
+
+async function requestGoogleRouteTest(fromPlace, toPlace){
+  return requestGoogleRouteByPoints(
+    buildMapPointFromPlace(fromPlace, 'Från-platsen'),
+    buildMapPointFromPlace(toPlace, 'Till-platsen')
+  );
 }
 
 async function runMapRouteTest(){
@@ -4494,6 +4624,58 @@ async function runMapRouteTest(){
       '<span class="map-test-detail">' + escapeHtml(message) + '</span>' +
       '<span class="map-test-section map-test-label">Åtgärd:</span>' +
       '<span class="map-test-detail">Kontrollera att rätt API är aktiverat, att nyckeln är sparad på denna enhet, att nyckelns begränsningar tillåter anropet och att lokalt kartskydd inte har stoppat anropet.</span>',
+      true,
+      false
+    );
+    renderMapGuardStatus();
+  }
+}
+
+function setMapStartAddonTestResult(html, isError, isOk){
+  const el = document.getElementById('mapStartAddonTestResult');
+  if(!el) return;
+  el.innerHTML = html;
+  el.classList.toggle('queue-alert', !!isError);
+  el.classList.toggle('is-error', !!isError);
+  el.classList.toggle('is-ok', !!isOk && !isError);
+}
+
+async function runMapStartAddonTest(){
+  const startEl = document.getElementById('mapStartAddonStart');
+  const fromEl = document.getElementById('mapStartAddonFrom');
+  const startValue = startEl ? startEl.value : '__active_start__';
+  const fromPlace = fromEl ? fromEl.value : (state.active && state.active.place ? state.active.place : 'Ringön (BAS)');
+  if(!startValue || !fromPlace){
+    setMapStartAddonTestResult('Välj både Startpunkt och Från.', true);
+    return;
+  }
+  setMapStartAddonTestResult('Testar starttillägg…', false);
+  try{
+    const startPoint = buildMapPointFromStartAddonValue(startValue);
+    const fromPoint = buildMapPointFromPlace(fromPlace, 'Från-platsen');
+    const result = await requestGoogleRouteByPoints(startPoint, fromPoint);
+    const durationText = Number.isFinite(result.durationSeconds) ? formatMapDuration(result.durationSeconds) : escapeHtml(result.durationRaw || '-');
+    const distanceText = formatMapDistanceMeters(result.distanceMeters);
+    const sourceText = result.fromCache ? 'Källa: sparat resultat från dagens kartcache. Inget nytt Google-anrop gjordes.' : 'Källa: nytt Google Routes API-anrop. Räknas i lokal anropsräknare.';
+    setMapStartAddonTestResult(
+      '<strong>Starttillägg testat.</strong>' +
+      '<span class="map-test-section map-test-detail">Startpunkt → Från: ' + escapeHtml(startPoint.label) + ' → ' + escapeHtml(fromPoint.label) + '</span>' +
+      '<span class="map-test-detail">Starttillägg karttid: ' + escapeHtml(durationText) + '</span>' +
+      '<span class="map-test-detail">Sträcka: ' + escapeHtml(distanceText) + '</span>' +
+      '<span class="map-test-section muted">' + escapeHtml(sourceText) + '</span>' +
+      '<span class="map-test-section muted">Testet är manuellt och påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.</span>',
+      false,
+      true
+    );
+    renderMapGuardStatus();
+  }catch(e){
+    const message = e && e.message ? e.message : String(e || 'Okänt fel');
+    setMapStartAddonTestResult(
+      '<strong>Starttilläggstest misslyckades.</strong>' +
+      '<span class="map-test-section map-test-label">Fel:</span>' +
+      '<span class="map-test-detail">' + escapeHtml(message) + '</span>' +
+      '<span class="map-test-section map-test-label">Åtgärd:</span>' +
+      '<span class="map-test-detail">Kontrollera att startpunkt och Från har koordinater, att kartnyckeln är sparad och att lokalt kartskydd inte har stoppat anropet.</span>',
       true,
       false
     );
@@ -6229,8 +6411,8 @@ function renderActive(){
 
   const activeStartPointEl = document.getElementById('activeStartPoint');
   if(activeStartPointEl){
-    const activeStartLines = [formatStartPointText(state.active), formatCalculationStartText(state.active)].filter(Boolean);
-    activeStartPointEl.innerHTML = activeStartLines.map(escapeHtml).join('<br>');
+    const activeStartText = [formatStartPointText(state.active), formatCalculationStartText(state.active)].filter(Boolean).join('\n');
+    activeStartPointEl.innerHTML = formatMultiLineTextHtml(activeStartText);
   }
   renderActiveRouteGps();
 
@@ -6627,6 +6809,10 @@ function restartFinishedJob(jobId){
   applyStartMeasurementFields(restarted);
   restarted.startPointStatus = 'pending';
   delete restarted.startAddress;
+  delete restarted.startLat;
+  delete restarted.startLon;
+  delete restarted.startAccuracy;
+  delete restarted.startPointCapturedAt;
   resetRouteGpsForRestart(restarted);
 
   state.active = restarted;
