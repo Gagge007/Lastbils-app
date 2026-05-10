@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-21
+- Nuvarande version: Stadslass v2026-05-07-01-22
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -26,6 +26,7 @@ Stadslass versionskontroll
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
   - Karttjänst test: manuellt testanrop kan göras i Inställningar utan att påverka uppdrag eller uppskattad tid
+  - Kartskydd: lokala spärrar, anropsräknare och cache begränsar kartanrop per minut/dag
   - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
   - Funktionslista: uppdateras vid varje version; funktioner kan vara aktiv, skyddad, skyddad men får byggas om, ersatt, borttagen medvetet eller testfunktion
   - Funktionskontroll: kontrollerar knappar/paneler, tekniska regler och testuppdrag i minnet utan att spara
@@ -1110,7 +1111,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-21</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-22</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1143,7 +1144,7 @@ button{
       </div>
       <div class="settings-group">
         <h4>Karttjänst</h4>
-        <div class="muted">Lokal kartnyckel och manuell testfunktion. Test påverkar inte uppdrag eller uppskattad tid.</div>
+        <div class="muted">Lokal kartnyckel, kartskydd och manuell testfunktion. Test påverkar inte uppdrag eller uppskattad tid.</div>
         <div class="settings-group-actions">
           <button class="primary" onclick="toggleMapKeyManager()">Kartnyckel</button>
         </div>
@@ -1158,7 +1159,7 @@ button{
       </div>
     </div>
     <div id="mapKeyManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du spara Google API-nyckeln lokalt på denna enhet. Nyckeln ligger inte i HTML-filen och ska inte följa med GitHub-kö, Excel/export eller backup. Testfunktionen körs bara när du trycker på Testa karttid och påverkar inte uppdrag eller uppskattad tid.</div>
+      <div class="place-help">Här kan du spara Google API-nyckeln lokalt på denna enhet. Nyckeln ligger inte i HTML-filen och ska inte följa med GitHub-kö, Excel/export eller backup. Kartskyddet räknar lokala anrop, använder cache och stoppar test om lokal gräns nås.</div>
 
       <div class="place-row">
         <div class="place-key">Kartnyckel för denna enhet</div>
@@ -1170,6 +1171,16 @@ button{
           <button class="primary inline" onclick="saveMapApiKeyFromSettings()">Spara kartnyckel</button>
           <button class="inline" onclick="toggleMapApiKeyVisibility()">Visa/dölj</button>
           <button class="danger inline" onclick="deleteMapApiKeyFromSettings()">Radera kartnyckel från denna enhet</button>
+        </div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Kartskydd</div>
+        <div id="mapGuardStatus" class="multi-help">Status kontrolleras.</div>
+        <div class="multi-help">Lokalt skydd på denna enhet: max 10 kartanrop per minut, max 200 per dag och minsta intervall 3 minuter för framtida automatisk kartuppdatering. Samma rutt kan återanvändas från cache i stället för att fråga Google igen.</div>
+        <div class="row" style="margin-top:12px">
+          <button class="inline" onclick="resetMapGuardCountersFromSettings()">Rensa anropsräknare</button>
+          <button class="inline" onclick="resetMapRouteCacheFromSettings()">Rensa kartcache</button>
         </div>
       </div>
 
@@ -1537,6 +1548,14 @@ button{
 
 const KEY = 'driftlogg_v4_full';
 const MAP_API_KEY_STORAGE_KEY = 'stadslass_map_api_key_local_v1';
+const MAP_GUARD_STORAGE_KEY = 'stadslass_map_guard_local_v1';
+const MAP_ROUTE_CACHE_STORAGE_KEY = 'stadslass_map_route_cache_local_v1';
+const MAP_GUARD_LIMITS = {
+  maxPerMinute: 10,
+  maxPerDay: 200,
+  minAutoIntervalMinutes: 3,
+  cacheMaxAgeMs: 24 * 60 * 60 * 1000
+};
 const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avfall','Tryckimpregnerat','Komprimator','Kompost','Ris','Flis','Maskintransport','Snö','Annat','Övriga jobb'];
 function cloneDefaultJobTypes(){ return DEFAULT_TRUCK_TYPES.slice(); }
 let truckTypes = cloneDefaultJobTypes();
@@ -3345,7 +3364,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-21';
+const APP_VERSION = 'Stadslass v2026-05-07-01-22';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3364,6 +3383,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Lokal kartnyckel i Inställningar', status:'Aktiv', purpose:'Google API-nyckel kan sparas och raderas lokalt per enhet utan att ligga i HTML-filen eller följa med backup/export.', changeRule:'Får byggas vidare till kartmotor men nyckeln ska hållas utanför uppdragsdata och backup.'},
   {name:'Karttjänst testfunktion', status:'Testfunktion', purpose:'Manuellt karttest med valfri fysisk plats från platsdatabasen. Visar körtid, avstånd och fel utan att påverka uppdrag.', changeRule:'Får byggas vidare till starttillägg och materialflöde först efter testgodkännande.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
+  {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar uppskattad tid i kö baserat på jämförbara avslutade jobb.', changeRule:'Får förbättras, men ska inte blanda fel underlag.'},
@@ -3554,11 +3574,13 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!document.getElementById('mapKeyManagerWrap') && !!document.getElementById('mapApiKeyInput') && functionExists('getLocalMapApiKey') && functionExists('setLocalMapApiKey') && functionExists('deleteLocalMapApiKey'), 'mapKeyManagerWrap + lokal localStorage-nyckel');
   addFunctionCheck(results, 'Nivå 1', 'Karttjänst testfunktion finns', !!document.getElementById('mapTestFrom') && !!document.getElementById('mapTestTo') && !!document.getElementById('mapRouteTestResult') && functionExists('runMapRouteTest') && functionExists('requestGoogleRouteTest'), 'manuellt test i Inställningar → Karttjänst');
   addFunctionCheck(results, 'Nivå 1', 'Karttest felruta radbryts på mobil', !!document.getElementById('mapRouteTestResult') && document.getElementById('mapRouteTestResult').classList.contains('map-test-result'), 'map-test-result med overflow-wrap:anywhere');
+  addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!document.getElementById('mapGuardStatus') && functionExists('canMakeMapRequest') && functionExists('registerMapRequest') && functionExists('getCachedMapRoute') && functionExists('setCachedMapRoute'), 'lokala gränser + cache för kartanrop');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-21') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-21'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-22') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-22'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
+  addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
   const ringonCoord = getPlaceCoordinates('Ringön');
   const slottskogenCoord = getPlaceCoordinates('Slottskogen Vedbacken');
@@ -4107,6 +4129,7 @@ function renderMapKeyManager(){
     input.type = 'password';
     input.placeholder = key ? 'Nyckel finns – klistra in ny om du vill byta' : 'Klistra in API-nyckel';
   }
+  renderMapGuardStatus();
 }
 
 function toggleMapKeyManager(){
@@ -4177,6 +4200,173 @@ function resetMapRouteTestResult(){
   el.classList.remove('queue-alert', 'is-error', 'is-ok');
 }
 
+
+function getLocalDateKey(date){
+  const d = date instanceof Date ? date : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+function getMapGuardState(){
+  const today = getLocalDateKey(new Date());
+  let state = null;
+  try{
+    state = JSON.parse(localStorage.getItem(MAP_GUARD_STORAGE_KEY) || 'null');
+  }catch(e){
+    state = null;
+  }
+  if(!state || typeof state !== 'object') state = {};
+  if(state.dayKey !== today){
+    state.dayKey = today;
+    state.dayCount = 0;
+    state.calls = [];
+  }
+  if(!Array.isArray(state.calls)) state.calls = [];
+  const cutoff = Date.now() - 60 * 1000;
+  state.calls = state.calls.filter(ts => Number(ts) >= cutoff);
+  state.dayCount = Math.max(0, Number(state.dayCount || 0));
+  return state;
+}
+
+function saveMapGuardState(mapGuardState){
+  try{
+    localStorage.setItem(MAP_GUARD_STORAGE_KEY, JSON.stringify(mapGuardState));
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+function getMapGuardStatus(){
+  const guard = getMapGuardState();
+  const minuteCount = guard.calls.length;
+  return {
+    dayKey:guard.dayKey,
+    dayCount:guard.dayCount,
+    minuteCount,
+    maxPerMinute:MAP_GUARD_LIMITS.maxPerMinute,
+    maxPerDay:MAP_GUARD_LIMITS.maxPerDay,
+    minAutoIntervalMinutes:MAP_GUARD_LIMITS.minAutoIntervalMinutes,
+    remainingMinute:Math.max(0, MAP_GUARD_LIMITS.maxPerMinute - minuteCount),
+    remainingDay:Math.max(0, MAP_GUARD_LIMITS.maxPerDay - guard.dayCount)
+  };
+}
+
+function canMakeMapRequest(){
+  const status = getMapGuardStatus();
+  if(status.minuteCount >= MAP_GUARD_LIMITS.maxPerMinute){
+    return { ok:false, reason:'Kartskydd stoppade anropet. Lokal gräns är ' + MAP_GUARD_LIMITS.maxPerMinute + ' kartanrop per minut på denna enhet. Vänta en minut och försök igen.' };
+  }
+  if(status.dayCount >= MAP_GUARD_LIMITS.maxPerDay){
+    return { ok:false, reason:'Kartskydd stoppade anropet. Lokal gräns är ' + MAP_GUARD_LIMITS.maxPerDay + ' kartanrop per dag på denna enhet. Rensa räknare bara om du medvetet vill fortsätta testa.' };
+  }
+  return { ok:true };
+}
+
+function registerMapRequest(){
+  const guard = getMapGuardState();
+  guard.calls.push(Date.now());
+  guard.dayCount = Math.max(0, Number(guard.dayCount || 0)) + 1;
+  saveMapGuardState(guard);
+  renderMapGuardStatus();
+}
+
+function getMapRouteCache(){
+  let cache = null;
+  try{
+    cache = JSON.parse(localStorage.getItem(MAP_ROUTE_CACHE_STORAGE_KEY) || 'null');
+  }catch(e){
+    cache = null;
+  }
+  if(!cache || typeof cache !== 'object') cache = {};
+  const now = Date.now();
+  const today = getLocalDateKey(new Date());
+  Object.keys(cache).forEach(key => {
+    const item = cache[key];
+    const savedAt = item && Number(item.savedAt || 0);
+    const dayKey = item && item.dayKey;
+    if(!savedAt || dayKey !== today || now - savedAt > MAP_GUARD_LIMITS.cacheMaxAgeMs){
+      delete cache[key];
+    }
+  });
+  return cache;
+}
+
+function saveMapRouteCache(cache){
+  try{
+    localStorage.setItem(MAP_ROUTE_CACHE_STORAGE_KEY, JSON.stringify(cache || {}));
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+function buildMapRouteCacheKey(fromPlace, toPlace){
+  return normalizePlaceMapKey(fromPlace) + '→' + normalizePlaceMapKey(toPlace);
+}
+
+function getCachedMapRoute(fromPlace, toPlace){
+  const cache = getMapRouteCache();
+  const key = buildMapRouteCacheKey(fromPlace, toPlace);
+  const item = cache[key];
+  if(!item || !item.result) return null;
+  return Object.assign({}, item.result, {
+    fromCache:true,
+    cacheSavedAt:item.savedAt || null
+  });
+}
+
+function setCachedMapRoute(fromPlace, toPlace, result){
+  const cache = getMapRouteCache();
+  const key = buildMapRouteCacheKey(fromPlace, toPlace);
+  cache[key] = {
+    dayKey:getLocalDateKey(new Date()),
+    savedAt:Date.now(),
+    result:{
+      durationSeconds:result.durationSeconds,
+      durationRaw:result.durationRaw || '',
+      distanceMeters:result.distanceMeters
+    }
+  };
+  saveMapRouteCache(cache);
+  renderMapGuardStatus();
+}
+
+function getMapRouteCacheCount(){
+  return Object.keys(getMapRouteCache()).length;
+}
+
+function renderMapGuardStatus(){
+  const el = document.getElementById('mapGuardStatus');
+  if(!el) return;
+  const status = getMapGuardStatus();
+  const cacheCount = getMapRouteCacheCount();
+  el.innerHTML =
+    '<strong>Kartskydd aktivt.</strong>' +
+    '<br>Anrop senaste minuten: ' + escapeHtml(String(status.minuteCount)) + ' / ' + escapeHtml(String(status.maxPerMinute)) +
+    '<br>Anrop idag: ' + escapeHtml(String(status.dayCount)) + ' / ' + escapeHtml(String(status.maxPerDay)) +
+    '<br>Cache idag: ' + escapeHtml(String(cacheCount)) + ' rutter' +
+    '<br>Framtida automatisk uppdatering: minst ' + escapeHtml(String(status.minAutoIntervalMinutes)) + ' minuter mellan anrop.';
+}
+
+function resetMapGuardCountersFromSettings(){
+  if(!confirm('Rensa lokala kartanropsräknare för denna enhet?')) return;
+  saveMapGuardState({ dayKey:getLocalDateKey(new Date()), dayCount:0, calls:[] });
+  renderMapGuardStatus();
+  resetMapRouteTestResult();
+  alert('Kartanropsräknare rensad på denna enhet.');
+}
+
+function resetMapRouteCacheFromSettings(){
+  if(!confirm('Rensa lokal kartcache för denna enhet?')) return;
+  saveMapRouteCache({});
+  renderMapGuardStatus();
+  resetMapRouteTestResult();
+  alert('Kartcache rensad på denna enhet.');
+}
+
 function setMapRouteTestResult(html, isError, isOk){
   const el = document.getElementById('mapRouteTestResult');
   if(!el) return;
@@ -4219,7 +4409,7 @@ function buildGoogleRoutesRequestBody(fromCoord, toCoord){
       }
     },
     travelMode:'DRIVE',
-    routingPreference:'TRAFFIC_AWARE',
+    routingPreference:'TRAFFIC_UNAWARE',
     languageCode:'sv-SE',
     units:'METRIC'
   };
@@ -4233,6 +4423,13 @@ async function requestGoogleRouteTest(fromPlace, toPlace){
   const toCoord = getPlaceCoordinates(toPlace);
   if(!fromCoord) throw new Error('Från-platsen saknar fasta koordinater eller är placeholder.');
   if(!toCoord) throw new Error('Till-platsen saknar fasta koordinater eller är placeholder.');
+
+  const cached = getCachedMapRoute(fromPlace, toPlace);
+  if(cached) return cached;
+
+  const guardCheck = canMakeMapRequest();
+  if(!guardCheck.ok) throw new Error(guardCheck.reason);
+  registerMapRequest();
 
   const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
     method:'POST',
@@ -4253,11 +4450,14 @@ async function requestGoogleRouteTest(fromPlace, toPlace){
 
   const route = data && Array.isArray(data.routes) && data.routes.length ? data.routes[0] : null;
   if(!route) throw new Error('Karttjänsten svarade men ingen rutt hittades.');
-  return {
+  const result = {
     durationSeconds:parseGoogleDurationSeconds(route.duration),
     durationRaw:route.duration || '',
-    distanceMeters:Number(route.distanceMeters || 0)
+    distanceMeters:Number(route.distanceMeters || 0),
+    fromCache:false
   };
+  setCachedMapRoute(fromPlace, toPlace, result);
+  return result;
 }
 
 async function runMapRouteTest(){
@@ -4274,15 +4474,18 @@ async function runMapRouteTest(){
     const result = await requestGoogleRouteTest(fromPlace, toPlace);
     const durationText = Number.isFinite(result.durationSeconds) ? formatMapDuration(result.durationSeconds) : escapeHtml(result.durationRaw || '-');
     const distanceText = formatMapDistanceMeters(result.distanceMeters);
+    const sourceText = result.fromCache ? 'Källa: sparat resultat från dagens kartcache. Inget nytt Google-anrop gjordes.' : 'Källa: nytt Google Routes API-anrop. Räknas i lokal anropsräknare.';
     setMapRouteTestResult(
       '<strong>Karttjänst svarar.</strong>' +
       '<span class="map-test-section map-test-detail">Rutt: ' + escapeHtml(getPlaceLabel(fromPlace)) + ' → ' + escapeHtml(getPlaceLabel(toPlace)) + '</span>' +
       '<span class="map-test-detail">Körtid: ' + escapeHtml(durationText) + '</span>' +
       '<span class="map-test-detail">Avstånd: ' + escapeHtml(distanceText) + '</span>' +
+      '<span class="map-test-section muted">' + escapeHtml(sourceText) + '</span>' +
       '<span class="map-test-section muted">Testet är manuellt och påverkar inte uppdrag eller uppskattad tid.</span>',
       false,
       true
     );
+    renderMapGuardStatus();
   }catch(e){
     const message = e && e.message ? e.message : String(e || 'Okänt fel');
     setMapRouteTestResult(
@@ -4290,10 +4493,11 @@ async function runMapRouteTest(){
       '<span class="map-test-section map-test-label">Fel:</span>' +
       '<span class="map-test-detail">' + escapeHtml(message) + '</span>' +
       '<span class="map-test-section map-test-label">Åtgärd:</span>' +
-      '<span class="map-test-detail">Kontrollera att rätt API är aktiverat, att nyckeln är sparad på denna enhet och att nyckelns begränsningar tillåter anropet.</span>',
+      '<span class="map-test-detail">Kontrollera att rätt API är aktiverat, att nyckeln är sparad på denna enhet, att nyckelns begränsningar tillåter anropet och att lokalt kartskydd inte har stoppat anropet.</span>',
       true,
       false
     );
+    renderMapGuardStatus();
   }
 }
 
