@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-25
+- Nuvarande version: Stadslass v2026-05-07-01-26
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -31,6 +31,7 @@ Stadslass versionskontroll
   - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
   - Funktionslista: uppdateras vid varje version; funktioner kan vara aktiv, skyddad, skyddad men får byggas om, ersatt, borttagen medvetet eller testfunktion
   - Funktionskontroll: kontrollerar knappar/paneler, tekniska regler och testuppdrag i minnet utan att spara
+  - Systemkontroll: samlar intern appkontroll och ett karttest med max 1 Google/cache-rutt i Inställningar
 -->
 <html lang="sv">
 <head>
@@ -1120,7 +1121,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-25</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-26</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1162,6 +1163,7 @@ button{
         <h4>Kontroll & test</h4>
         <div class="muted">Kontrollera tekniska funktioner i appen.</div>
         <div class="settings-group-actions">
+          <button class="primary" onclick="toggleSystemControlManager()">Systemkontroll</button>
           <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
           <button class="primary" onclick="toggleFunctionControlManager()">Funktionskontroll</button>
         </div>
@@ -1364,6 +1366,20 @@ button{
           <button class="inline" onclick="renderCleanupPreview()">Beräkna</button>
           <button class="danger inline" onclick="performCleanupData()">Rensa vald arbetsdata</button>
         </div>
+      </div>
+    </div>
+    <div id="systemControlManagerWrap" class="place-manager hidden">
+      <div class="place-help">Här kan du köra en samlad systemkontroll efter uppdatering/GitHub-uppladdning. Kontrollen påverkar inte uppdrag, kö, historik, papperskorg eller uppskattad tid.</div>
+
+      <div class="place-row">
+        <div class="place-key">Systemkontroll</div>
+        <div class="multi-help">Kontrollen gör först interna appkontroller och kör sedan ett karttest med max 1 rutt: Ringön (BAS) → Renova Sävenäs. Karttestet använder samma kartskydd och cache som övriga kartfunktioner.</div>
+        <div class="row">
+          <button class="primary inline" onclick="runSystemControlWithMaps()">Kör systemkontroll</button>
+          <button class="inline" onclick="resetSystemControlResult()">Rensa kontroll</button>
+        </div>
+        <div id="systemControlSummary" class="multi-help" style="margin-top:10px">Inte körd.</div>
+        <div id="systemControlResults" class="map-test-result" style="margin-top:10px">Kör kontrollen efter att du laddat upp ny version eller lagt in kartnyckel på en ny enhet.</div>
       </div>
     </div>
     <div id="gpsTestManagerWrap" class="place-manager hidden">
@@ -3550,7 +3566,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-25';
+const APP_VERSION = 'Stadslass v2026-05-07-01-26';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3571,6 +3587,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Starttillägg karttest', status:'Testfunktion', purpose:'Manuellt test av Startpunkt → Från med samma kartskydd och cache som karttjänsten. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat testgodkännande.'},
   {name:'Total karttid karttest', status:'Testfunktion', purpose:'Manuellt test av starttillägg + materialflöde, inklusive returkrav när det är valt. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas vidare först efter separat testgodkännande.'},
   {name:'Kartberäknad tid i aktivt jobb', status:'Testfunktion/information', purpose:'Knappstyrd beräkning i aktivt jobb av Startpunkt → Från + Från → Till + eventuell retur. Påverkar inte nedräkning, Klart, historik, Excel/export eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat godkännande.'},
+  {name:'Systemkontroll med karttest', status:'Testfunktion', purpose:'Samlad kontroll i Inställningar som testar appens centrala funktioner och en standardrutt med Google/cache utan att påverka uppdrag.', changeRule:'Ska uppdateras när nya huvudfunktioner läggs till.'},
   {name:'Aktivt jobb radbrytning', status:'Aktiv', purpose:'Startpunkt/materialflöde/returkrav/starttillägg visas utan synlig HTML-kod som <br>.', changeRule:'Får ändras visuellt men får inte visa tekniska HTML-taggar för användaren.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
@@ -3768,11 +3785,12 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Starttillägg karttest finns', !!document.getElementById('mapStartAddonStart') && !!document.getElementById('mapStartAddonFrom') && !!document.getElementById('mapStartAddonTestResult') && functionExists('runMapStartAddonTest') && functionExists('requestGoogleRouteByPoints'), 'manuellt test av Startpunkt → Från utan påverkan på uppdrag');
   addFunctionCheck(results, 'Nivå 1', 'Total karttid karttest finns', !!document.getElementById('mapTotalStart') && !!document.getElementById('mapTotalFrom') && !!document.getElementById('mapTotalTo') && !!document.getElementById('mapTotalRouteTestResult') && functionExists('runMapTotalRouteTest'), 'manuellt test av Startpunkt → Från + materialflöde + returkrav');
   addFunctionCheck(results, 'Nivå 1', 'Kartberäknad tid i aktivt jobb finns', !!document.getElementById('activeMapRouteCard') && !!document.getElementById('activeMapRouteResult') && functionExists('runActiveMapRouteCalculation') && functionExists('renderActiveMapRoutePanel'), 'knappstyrd aktiv informationsruta utan påverkan på uppdrag');
+  addFunctionCheck(results, 'Nivå 1', 'Systemkontroll med karttest finns', !!document.getElementById('systemControlManagerWrap') && !!document.getElementById('systemControlResults') && functionExists('runSystemControlWithMaps'), 'samlad kontroll i Inställningar med intern kontroll + max 1 karttest');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte HTML-taggar i startinfo', functionExists('formatMultiLineTextHtml') && functionSourceIncludes('renderActive', 'formatMultiLineTextHtml(activeStartText)'), 'radbrytning sker via formateringsfunktion, inte synlig <br>-text');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-24') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-24'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-26') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-26'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -3836,9 +3854,142 @@ function runFunctionControlUi(){
   renderFunctionControlResults(results);
 }
 
+function toggleSystemControlManager(){
+  toggleSettingsPanel('systemControlManagerWrap', () => {
+    resetSystemControlResult(false);
+  });
+}
+
+function resetSystemControlResult(forceText){
+  const summary = document.getElementById('systemControlSummary');
+  const results = document.getElementById('systemControlResults');
+  if(summary) summary.textContent = 'Inte körd.';
+  if(results){
+    results.classList.remove('queue-alert', 'is-error', 'is-ok');
+    results.textContent = forceText === false ? 'Kör kontrollen efter att du laddat upp ny version eller lagt in kartnyckel på en ny enhet.' : 'Kontrollen är rensad.';
+  }
+}
+
+function setSystemControlResult(summaryHtml, resultHtml, isError, isOk){
+  const summary = document.getElementById('systemControlSummary');
+  const results = document.getElementById('systemControlResults');
+  if(summary) summary.innerHTML = summaryHtml;
+  if(results){
+    results.innerHTML = resultHtml;
+    results.classList.toggle('queue-alert', !!isError);
+    results.classList.toggle('is-error', !!isError);
+    results.classList.toggle('is-ok', !!isOk && !isError);
+  }
+}
+
+function systemCheck(label, ok, detail){
+  return { label:String(label || ''), ok:!!ok, detail:String(detail || '') };
+}
+
+function checkLocalStorageAvailable(){
+  try{
+    const key = 'stadslass_systemcheck_' + Date.now();
+    localStorage.setItem(key, 'ok');
+    const ok = localStorage.getItem(key) === 'ok';
+    localStorage.removeItem(key);
+    return ok;
+  }catch(e){
+    return false;
+  }
+}
+
+function countMapUsablePlaces(){
+  try{
+    return Object.keys(PLACE_MAP_DATA || {}).filter(key => canUsePlaceForMapCalculation(key)).length;
+  }catch(e){
+    return 0;
+  }
+}
+
+function buildSystemControlInternalChecks(){
+  const guardStatus = typeof getMapGuardStatus === 'function' ? getMapGuardStatus() : null;
+  const mapKey = getLocalMapApiKey();
+  const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
+  const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
+  return [
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-26') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-26'), APP_VERSION),
+    systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
+    systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
+    systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
+    systemCheck('Kartnyckel lokalt', !!mapKey, mapKey ? 'finns på denna enhet (' + maskMapApiKey(mapKey) + ')' : 'saknas på denna enhet'),
+    systemCheck('Kartskydd', !!guardStatus && guardStatus.maxPerMinute === MAP_GUARD_LIMITS.maxPerMinute && guardStatus.maxPerDay === MAP_GUARD_LIMITS.maxPerDay, guardStatus ? ('idag ' + guardStatus.dayCount + '/' + guardStatus.maxPerDay + ', senaste minuten ' + guardStatus.minuteCount + '/' + guardStatus.maxPerMinute) : 'saknas'),
+    systemCheck('Kartcache', typeof getMapRouteCache === 'function' && typeof getCachedMapRoute === 'function' && typeof setCachedMapRoute === 'function', 'cache används för upprepade rutter samma dag'),
+    systemCheck('Platser/koordinater', !!ringon && !!save && countMapUsablePlaces() >= 10, 'routebara platser: ' + countMapUsablePlaces()),
+    systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
+    systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
+    systemCheck('Kartberäknad tid i aktivt jobb', !!document.getElementById('activeMapRouteCard') && typeof runActiveMapRouteCalculation === 'function', 'knappstyrd informationsruta'),
+    systemCheck('Uppdrag i kö', !!document.getElementById('queueList') && typeof renderQueue === 'function', 'kölista finns'),
+    systemCheck('Idag/historik', typeof renderToday === 'function' && typeof renderHistoryManager === 'function' && !!document.getElementById('historyManagerWrap'), 'dagens jobb och historik finns'),
+    systemCheck('Papperskorg', !!document.getElementById('trashManagerWrap') && typeof renderTrashManager === 'function', 'borttagna uppdrag hålls separat'),
+    systemCheck('Funktionskontroll', !!document.getElementById('functionControlManagerWrap') && typeof runFunctionControlChecks === 'function', 'nivå 1–3 finns'),
+    systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
+  ];
+}
+
+function renderSystemControlRows(checks){
+  return checks.map(item => {
+    const symbol = item.ok ? '✅' : '❌';
+    const color = item.ok ? '#15803d' : '#b91c1c';
+    return '<div class="job" style="border-left:4px solid ' + color + '">' +
+      '<div style="font-weight:700;color:' + color + '">' + symbol + ' ' + escapeHtml(item.label) + '</div>' +
+      '<div class="multi-help" style="margin-top:4px">' + escapeHtml(item.detail) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function runSystemControlWithMaps(){
+  const started = new Date();
+  setSystemControlResult('Systemkontroll körs…', '<strong>Kontrollerar appen…</strong>', false, false);
+
+  const internalChecks = buildSystemControlInternalChecks();
+  let mapCheck = null;
+  let mapHtml = '';
+
+  if(!getLocalMapApiKey()){
+    mapCheck = systemCheck('Karttest Google/cache', false, 'Kartnyckel saknas på denna enhet. Lägg in kartnyckel under Karttjänst innan kartkontroll kan köras.');
+  } else {
+    try{
+      const result = await requestGoogleRouteTest('Ringön (BAS)', 'Renova Sävenäs');
+      const durationText = Number.isFinite(result.durationSeconds) ? formatMapDuration(result.durationSeconds) : (result.durationRaw || '-');
+      const distanceText = formatMapDistanceMeters(result.distanceMeters);
+      const sourceText = result.fromCache ? 'cache, inget nytt Google-anrop' : 'nytt Google Routes API-anrop';
+      mapCheck = systemCheck('Karttest Google/cache', true, 'Ringön (BAS) → Renova Sävenäs · ' + durationText + ' · ' + distanceText + ' · ' + sourceText);
+      mapHtml = '<span class="map-test-section map-test-label">Karttest:</span>' +
+        '<span class="map-test-detail">Ringön (BAS) → Renova Sävenäs</span>' +
+        '<span class="map-test-detail">Körtid: ' + escapeHtml(durationText) + '</span>' +
+        '<span class="map-test-detail">Avstånd: ' + escapeHtml(distanceText) + '</span>' +
+        '<span class="map-test-section muted">Källa: ' + escapeHtml(sourceText) + '</span>';
+    }catch(e){
+      const message = e && e.message ? e.message : String(e || 'Okänt fel');
+      mapCheck = systemCheck('Karttest Google/cache', false, message);
+      mapHtml = '<span class="map-test-section map-test-label">Karttest misslyckades:</span>' +
+        '<span class="map-test-detail">' + escapeHtml(message) + '</span>';
+    }
+  }
+
+  const allChecks = internalChecks.concat([mapCheck]);
+  const failed = allChecks.filter(item => !item.ok);
+  const okCount = allChecks.length - failed.length;
+  const timeText = started.toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const summaryHtml = (failed.length ? '<strong class="queue-alert">Systemkontroll: ' + failed.length + ' fel</strong>' : '<strong style="color:#15803d">Systemkontroll: OK</strong>') +
+    ' · ' + okCount + '/' + allChecks.length + ' kontroller godkända · ' + escapeHtml(timeText);
+  const resultHtml = '<strong>Systemkontroll</strong>' +
+    '<span class="map-test-section muted">Kontrollen påverkar inte uppdrag, kö, historik, papperskorg, nedräkning eller uppskattad tid. Kartdelen använder kartskydd och cache.</span>' +
+    (mapHtml || '') +
+    '<div style="margin-top:10px">' + renderSystemControlRows(allChecks) + '</div>';
+
+  setSystemControlResult(summaryHtml, resultHtml, failed.length > 0, failed.length === 0);
+  renderMapGuardStatus();
+}
+
 
 function hideSettingsPanels(exceptId){
-  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
