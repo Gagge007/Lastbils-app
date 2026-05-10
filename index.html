@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-31
+- Nuvarande version: Stadslass v2026-05-07-01-33
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -20,11 +20,13 @@ Stadslass versionskontroll
   - Startpunkt: visas som information i appen och används av karttjänsten för bättre uppskattad tid
   - Beräkningsstart: sparas internt och kan användas bakom kulisserna när karttjänst/historik räknar uppskattad tid
   - Uppskattad tid: visas enkelt i aktivt jobb och kö; karttjänst + historik används bakom kulisserna
-  - Fasdata tid: aktivt jobb har en enkel knapp Lastar/Lossad som sparar materialtransporttid och returtid; startsträckans faktiska tid används inte som lärdata
+  - Fasdata tid: aktivt jobb har knappen Lastar som startar ett lass/materialdel; sparad vikt avslutar lasset och kan ge flerlassdata
   - Startsträcka i aktiv tid: aktivt jobb bakar in kartberäknad startsträcka i uppskattad tid och räknar bort den när Lastar trycks
-  - Aktivt jobb knappfärger: Lastar/Lossad blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa fortsatt gul och Klart oförändrad röd
+  - Aktivt jobb knappfärger: Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa fortsatt gul och Klart oförändrad röd
   - Fasnamn v31: första fas-knappen heter Lastar så lastningstiden hamnar i materialtransporten, inte i startsträckan
-  - Missad Lastar/Lossad: jobbet sparas men undantas från uppskattad tid/GPS-inlärning
+  - Missad Lastar: jobbet sparas men undantas från uppskattad tid/GPS-inlärning
+  - Flerlass v32: sopsand från von Utfallsgatan och stenflis kan lära per lass/varv med Lastar -> Vikt och Vikt -> nästa Lastar
+  - Transportlägen v33: utan returkrav lär Lastar -> Vikt; med returkrav lär Lastar -> Avslutat och vikt är bara registrering; flerlass gäller endast utan returkrav
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb med uppskattad tid visar tidsstöd, tid kvar och beräknad klar-tid utan att blockera Klart
   - GPS-inspelning/Ruttmätning: dold i aktivt jobb; gammal GPS-data bevaras i gamla uppdrag
@@ -1213,7 +1215,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-31</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-33</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -2651,8 +2653,47 @@ function formatCountdownMinutes(ms){
   return h > 0 ? h + ' h ' + m + ' min' : m + ' min';
 }
 
+function getMultiLoadEstimateMinutesFromMapOrHistory(job){
+  const estimate = getTimeEstimateForQueuedJob(job);
+  const outbound = Number(job && (job.smartMapMaterialMinutes || job.estimatedMapMaterialMinutesAtStart) || 0);
+  if(Number.isFinite(outbound) && outbound > 0) return Math.max(1, Math.round(outbound));
+  if(estimate && Number.isFinite(Number(estimate.materialMinutes)) && Number(estimate.materialMinutes) > 0) return Math.max(1, Math.round(Number(estimate.materialMinutes)));
+  if(estimate && Number.isFinite(Number(estimate.minutes)) && Number(estimate.minutes) > 0) return Math.max(1, Math.round(Number(estimate.minutes)));
+  return 0;
+}
+
+function getMultiLoadNextTurnEstimateMinutes(job){
+  if(!job) return 0;
+  const turnEstimate = getMultiLoadTurnEstimateForJob(job);
+  if(turnEstimate && Number.isFinite(Number(turnEstimate.minutes)) && Number(turnEstimate.minutes) > 0){
+    return Math.max(1, Math.round(Number(turnEstimate.minutes)));
+  }
+  const oneWay = getMultiLoadEstimateMinutesFromMapOrHistory(job);
+  return oneWay > 0 ? Math.max(1, oneWay * 2) : 0;
+}
+
+function getActiveMultiLoadEstimateCountdownHtml(job){
+  if(!job || !isMultiLoadLearningMode(job)) return '';
+  const phase = getTransportPhase(job);
+  const destLabel = getItemPlaceLabel(job, 'dest') || job.dest || 'anläggning';
+  const fromLabel = getItemPlaceLabel(job, 'place') || job.place || 'Från-plats';
+  if(phase === 'loading'){
+    const minutes = getMultiLoadEstimateMinutesFromMapOrHistory(job);
+    return minutes > 0 ? '<strong>Uppskattad nästa del: till ' + escapeHtml(destLabel) + ' ca ' + minutes + ' min</strong>' : '<strong>Uppskattad nästa del: till ' + escapeHtml(destLabel) + ' – saknas</strong>';
+  }
+  const loadCount = Array.isArray(job.loads) ? job.loads.length : 0;
+  if(loadCount > 0){
+    const minutes = getMultiLoadNextTurnEstimateMinutes(job);
+    return minutes > 0 ? '<strong>Uppskattad nästa varv: ' + escapeHtml(destLabel) + ' → ' + escapeHtml(fromLabel) + ' → ' + escapeHtml(destLabel) + ' ca ' + minutes + ' min</strong>' : '<strong>Uppskattad nästa varv: till/från ' + escapeHtml(destLabel) + ' – saknas</strong>';
+  }
+  return '';
+}
+
 function getActiveEstimateCountdownHtml(job){
   if(!job) return '';
+  const multiLoadHtml = getActiveMultiLoadEstimateCountdownHtml(job);
+  if(multiLoadHtml) return multiLoadHtml;
+
   const totalMinutes = Number(job.estimatedMinutesAtStart || 0);
   const endAt = Number(job.estimatedEndAt || 0);
   if(!Number.isFinite(totalMinutes) || totalMinutes <= 0 || !Number.isFinite(endAt) || endAt <= 0) return '';
@@ -2664,6 +2705,7 @@ function getActiveEstimateCountdownHtml(job){
   }
   return '<strong>' + estimateText + '</strong> · Över uppskattad tid: ' + formatCountdownMinutes(Math.abs(diff)) + ' · Beräknad klar: passerad ' + clockTime(endAt);
 }
+
 
 function renderActiveEstimateCountdown(){
   const el = document.getElementById('activeEstimateCountdown');
@@ -3712,7 +3754,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-31';
+const APP_VERSION = 'Stadslass v2026-05-07-01-33';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3742,10 +3784,12 @@ const APP_FEATURE_MANIFEST = [
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
   {name:'Startsträcka i aktiv uppskattad tid', status:'Aktiv', purpose:'Aktivt jobb bakar in kartberäknad startsträcka från faktisk startplats till Från-plats och räknar bort den när Lastar trycks.', changeRule:'Startsträckans faktiska tid ska inte användas som lärdata för materialflödet.'},
-  {name:'Fasdata Lastar/Lossad', status:'Aktiv övergångsfunktion', purpose:'En enkel knapp i aktivt jobb sparar Lastar och Lossad så appen kan lära materialtransporttid och returtid utan att använda startsträckan som lärdata.', changeRule:'Kan döljas eller tas bort senare när historiken räcker.'},
+  {name:'Fasdata Lastar/Vikt', status:'Aktiv', purpose:'Knappen Lastar startar ett lass/materialdel. Ange vikt avslutar lasset och kan ge flerlassdata utan att startsträckan används som lärdata.', changeRule:'Får byggas vidare men ska inte blanda startsträcka med lassdata.'},
   {name:'Aktiv nedräkning från uppskattad tid', status:'Aktiv', purpose:'Visar tidsstöd, tid kvar och beräknad klar-tid i aktivt jobb när uppskattad tid finns.', changeRule:'Får ändras i visning men ska inte blockera Klart eller påverka GPS/faktisk tid.'},
-  {name:'Aktivt jobb knappfärger v30', status:'Aktiv', purpose:'Minskar gul dominans i aktivt jobb: Lastar/Lossad är blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa gul och Klart oförändrad röd.', changeRule:'Visuell ändring får byggas vidare men ska inte ändra tidslogik, karttjänst eller fasdata.'},
-  {name:'Fasnamn och missad fasdata v31', status:'Aktiv', purpose:'Första fasknappen heter Lastar så lastningstid räknas som materialtransport. Missad Lastar/Lossad gör att jobbet sparas men undantas från uppskattad tid och GPS-inlärning.', changeRule:'Får byggas vidare med bättre dialog, men ska inte låta osäker fasdata påverka inlärningen.'},
+  {name:'Aktivt jobb knappfärger v30', status:'Aktiv', purpose:'Minskar gul dominans i aktivt jobb: Lastar är blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa gul och Klart oförändrad röd.', changeRule:'Visuell ändring får byggas vidare men ska inte ändra tidslogik, karttjänst eller fasdata.'},
+  {name:'Fasnamn och missad fasdata v31', status:'Aktiv', purpose:'Fasknappen heter Lastar så lastningstid räknas som materialtransport. Missad Lastar gör att jobbet sparas men undantas från uppskattad tid och GPS-inlärning.', changeRule:'Får byggas vidare med bättre dialog, men ska inte låta osäker fasdata påverka inlärningen.'},
+  {name:'Flerlassdata v32', status:'Aktiv', purpose:'Sopsand från von Utfallsgatan och stenflis kan registrera flera lass i samma uppdrag. Lastar startar ett lass och Ange vikt avslutar lasset.', changeRule:'Flerlassdata ska hållas separat från vanliga 1-lassuppdrag i uppskattning/inlärning.'},
+  {name:'Transportlägen v33', status:'Aktiv', purpose:'Skiljer på utan returkrav, med returkrav och flerlass utan returkrav. Vid returkrav är Ange vikt bara viktregistrering och inlärningen går till Klart/Avslutat.', changeRule:'Flerlasslogik ska inte köras när returkrav är aktivt.'},
   {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
   {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt. Offline är nödläge för att behålla Excel-underlag, inte full uppskattningslogik.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
   {name:'GitHub-kö export/import markeringar', status:'Skyddad men får byggas om', purpose:'Visar Överförd till GitHub och Hämtad från GitHub.', changeRule:'Får ersättas av bättre synkstatus.'},
@@ -3939,9 +3983,9 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte HTML-taggar i startinfo', functionExists('formatMultiLineTextHtml') && functionSourceIncludes('renderActive', 'formatMultiLineTextHtml(activeStartText)'), 'radbrytning sker via formateringsfunktion, inte synlig <br>-text');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
-  addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb knappfärger v30 finns', !!document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && document.querySelector('button.active-weight-btn') && document.querySelector('button.active-no-empty-btn'), 'Lastar/Lossad blå, Ange vikt neutral blågrå, Ingen tömning orange.');
+  addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb knappfärger v30 finns', !!document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && document.querySelector('button.active-weight-btn') && document.querySelector('button.active-no-empty-btn'), 'Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange.');
 
-  addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar/Lossad v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Första fasknappen är Lastar och Klart har skydd för missad fasdata.');
+  addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
   addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-31') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-31'), APP_VERSION);
@@ -3955,17 +3999,19 @@ function runFunctionControlChecks(){
   const saldammenQuick = getQuickItems().find(item => item && item.id === 'quick_saldammen_sopsand');
   addFunctionCheck(results, 'Nivå 2', 'Säldammen visas under Slottskogen men sparas separat', !!saldammenQuick && saldammenQuick.group === 'Slottskogen' && saldammenQuick.subGroup === 'Säldammen' && saldammenQuick.label === 'Sopsand' && saldammenQuick.place === 'Säldammen' && saldammenQuick.dest === 'Sortera Torslanda', saldammenQuick ? (saldammenQuick.group + ' / ' + saldammenQuick.subGroup + ' / ' + saldammenQuick.label + ' / Från ' + saldammenQuick.place + ' / Till ' + saldammenQuick.dest) : 'snabbval saknas');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
-  addFunctionCheck(results, 'Nivå 2', 'Knappfärger v30 är bara visuell ändring', document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('markNoEmptying', 'excludeFromTimeEstimate'), 'CSS-klasser ändrade; Lastar/Lossad och Ingen tömning-funktionerna finns kvar.');
+  addFunctionCheck(results, 'Nivå 2', 'Knappfärger v30 är bara visuell ändring', document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('markNoEmptying', 'excludeFromTimeEstimate'), 'CSS-klasser ändrade; Lastar och Ingen tömning-funktionerna finns kvar.');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
   addFunctionCheck(results, 'Nivå 2', 'Startsträcka ingår i aktiv uppskattad tid', functionExists('getVisibleEstimateMinutesForPhase') && functionExists('getCachedStartAddonMinutesForJob') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart'), 'kartad startsträcka ingår före Lastar och räknas bort efter Lastar');
-  addFunctionCheck(results, 'Nivå 2', 'Fasdata Lastar/Lossad finns', !!document.getElementById('activePhaseButton') && functionExists('toggleActiveTransportPhase') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedMaterialFlowDurationMs'), 'Lastar/Lossad sparar materialtransporttid; startsträcka används inte som lärdata');
+  addFunctionCheck(results, 'Nivå 2', 'Fasdata Lastar/Vikt finns', !!document.getElementById('activePhaseButton') && functionExists('toggleActiveTransportPhase') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedMaterialFlowDurationSamples'), 'Lastar och Ange vikt sparar lassdata; startsträcka används inte som lärdata');
   addFunctionCheck(results, 'Nivå 2', 'Startpunkt används bara bakom uppskattad tid', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('buildSmartMapPointFromJobStart', 'startLat') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'karttjänst'), 'materialflödesnyckel hålls stabil; startpunkt används av kartdelen.');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkrat underlag', functionSourceIncludes('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-underlag använder papperskorgssäkrat underlag', functionExists('getSavedRouteGpsRecordsForUnderlag') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'getSavedRouteGpsRecordsForUnderlag');
-  addFunctionCheck(results, 'Nivå 2', 'Missad fasdata undantas från uppskattad tid och GPS-inlärning', functionExists('markJobExcludedFromEstimateLearning') && functionSourceIncludes('prepareJobForCompletionWithPhaseGuard', 'Missad Lastar/Lossad') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'excludeFromGpsLearning') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isExcludedFromTimeEstimate'), 'Jobbet sparas i historik men osäker tid/GPS används inte som lärdata.');
+  addFunctionCheck(results, 'Nivå 2', 'Missad fasdata undantas från uppskattad tid och GPS-inlärning', functionExists('markJobExcludedFromEstimateLearning') && functionSourceIncludes('prepareJobForCompletionWithPhaseGuard', 'Missad Lastar') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'excludeFromGpsLearning') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isExcludedFromTimeEstimate'), 'Jobbet sparas i historik men saknad Lastar/osäker tid/GPS används inte som lärdata.');
+  addFunctionCheck(results, 'Nivå 2', 'Flerlassdata v32 finns', functionExists('isMultiLoadSensitiveJob') && functionExists('getFinishedMaterialFlowDurationSamples') && functionExists('getMultiLoadTurnEstimateForJob') && functionSourceIncludes('addLoadToCurrent', 'currentLoadStartedAt'), 'Sopsand von Utfallsgatan och stenflis kan spara Lastar -> Vikt samt Vikt -> nästa Lastar som separat flerlassdata.');
+  addFunctionCheck(results, 'Nivå 2', 'Transportlägen v33 finns', functionExists('isMultiLoadLearningMode') && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Retur pågår'), 'Tre lägen: utan returkrav, med returkrav och flerlass utan returkrav.');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', functionSourceIncludes('moveToTrash', 'JSON.stringify') && functionSourceIncludes('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
   addFunctionCheck(results, 'Nivå 2', 'Returkrav och beräkningsstart finns i startflödet', functionSourceIncludes('startJob', 'calculationStartPlace') && functionSourceIncludes('startJob', 'returnRequiredAtStart'), 'startJob');
   addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet paus/återstart finns', functionSourceIncludes('startJob', 'pausedOtherWork') && functionExists('resumePausedOtherWorkIfPossible'), 'startJob + resumePausedOtherWorkIfPossible');
@@ -4080,11 +4126,13 @@ function buildSystemControlInternalChecks(){
     systemCheck('Platser/koordinater', !!ringon && !!save && countMapUsablePlaces() >= 10, 'routebara platser: ' + countMapUsablePlaces()),
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
-    systemCheck('Aktivt jobb knappfärger v30', !!document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && !!document.querySelector('button.active-weight-btn') && !!document.querySelector('button.active-no-empty-btn'), 'Lastar/Lossad blå, Ange vikt neutral blågrå, Ingen tömning orange'),
-    systemCheck('Fasnamn och missad fasdata v31', !!document.getElementById('activePhaseButton') && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar/Lossad + undantag från uppskattad tid/GPS-inlärning vid missad fasdata'),
+    systemCheck('Aktivt jobb knappfärger v30', !!document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && !!document.querySelector('button.active-weight-btn') && !!document.querySelector('button.active-no-empty-btn'), 'Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange'),
+    systemCheck('Fasnamn och missad fasdata v31', !!document.getElementById('activePhaseButton') && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar + undantag från uppskattad tid/GPS-inlärning vid missad Lastar'),
+    systemCheck('Flerlassdata v32', typeof isMultiLoadSensitiveJob === 'function' && typeof getMultiLoadTurnEstimateForJob === 'function' && typeof getFinishedMaterialFlowDurationSamples === 'function', 'Sopsand von Utfallsgatan och stenflis kan lära per lass/varv'),
+    systemCheck('Transportlägen v33', typeof isMultiLoadLearningMode === 'function' && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav'), 'Utan returkrav, returkrav och flerlass utan returkrav skiljs åt'),
     systemCheck('Uppskattad tid med karttjänst', typeof getTimeEstimateForQueuedJob === 'function' && typeof scheduleSmartEstimateForJob === 'function', 'karttjänst/historik bakom enkel uppskattad tid'),
     systemCheck('Startsträcka i aktiv tid', typeof getVisibleEstimateMinutesForPhase === 'function' && typeof getEstimateStartAddonMinutes === 'function', 'kartad startsträcka ingår före Lastar och räknas bort efter Lastar'),
-    systemCheck('Fasdata Lastar/Lossad', !!document.getElementById('activePhaseButton') && typeof toggleActiveTransportPhase === 'function' && typeof getFinishedMaterialFlowDurationMs === 'function', 'materialtransporttid/returtid kan sparas utan startsträcka som lärdata'),
+    systemCheck('Fasdata Lastar/Vikt', !!document.getElementById('activePhaseButton') && typeof toggleActiveTransportPhase === 'function' && typeof getFinishedMaterialFlowDurationMs === 'function', 'lassdata kan sparas utan startsträcka som lärdata'),
     systemCheck('Uppdrag i kö', !!document.getElementById('queueList') && typeof renderQueue === 'function', 'kölista finns'),
     systemCheck('Idag/historik', typeof renderToday === 'function' && typeof renderHistoryManager === 'function' && !!document.getElementById('historyManagerWrap'), 'dagens jobb och historik finns'),
     systemCheck('Papperskorg', !!document.getElementById('trashManagerWrap') && typeof renderTrashManager === 'function', 'borttagna uppdrag hålls separat'),
@@ -6603,6 +6651,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     motionLastTs:Date.now(),
     motionLastMode:'still'
   };
+  state.active.canBeMultiLoad = isMultiLoadSensitiveJob(state.active);
   initializeTransportPhaseForJob(state.active);
   applyEstimatedCountdownAtStart(state.active);
   saveState();
@@ -6994,30 +7043,139 @@ function addLoadToCurrent(){
     focusWeightInput();
     return;
   }
+
+  if(!Array.isArray(state.active.loads)) state.active.loads = [];
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
+
+  if(isTransportPhaseTrackingAllowed(state.active)){
+    initializeTransportPhaseForJob(state.active);
+    const startedAt = getOpenLoadStartedAt(state.active);
+    const now = Date.now();
+    const returnRequired = getJobReturnRequiredValue(state.active);
+    const multiLoadMode = isMultiLoadLearningMode(state.active);
+
+    if(startedAt > 0){
+      if(returnRequired){
+        // Returkrav: vikten är dokumentation. Inlärningen fortsätter till Klart/Avslutat.
+        state.active.returnRequirementWeightAt = now;
+        state.active.returnRequirementWeight = n;
+        state.active.transportPhase = 'returning';
+        state.active.phaseDataVersion = 3;
+      } else {
+        // Utan returkrav: vikt avslutar aktuellt lass för inlärningen.
+        const segments = ensureLoadSegments(state.active);
+        segments.push({
+          index:segments.length + 1,
+          startedAt,
+          weightAt:now,
+          weight:n,
+          durationMs:Math.max(0, now - startedAt)
+        });
+        delete state.active.currentLoadStartedAt;
+        state.active.transportPhase = multiLoadMode ? 'between_loads' : 'load_complete';
+        state.active.phaseDataVersion = 3;
+        if(segments.length > 1) state.active.multiLoadJob = true;
+        if(multiLoadMode) state.active.canBeMultiLoad = true;
+        updateTransportPhaseDurations(state.active, now);
+      }
+    } else if(!Number(state.active.loadedAt || 0)){
+      state.active.weightWithoutLoadStart = true;
+      if(multiLoadMode) state.active.canBeMultiLoad = true;
+    }
+  }
+
   if(input) input.value = '';
+  applyEstimatedCountdownAtStart(state.active);
   saveState(); render();
 }
-
 
 function isTransportPhaseTrackingAllowed(job){
   return !!job && !isOtherWorkJob(job) && isTimeEstimateAllowedForJob(job);
 }
 
+function normalizeTransportText(value){
+  return String(value || '').toLocaleLowerCase('sv-SE').trim();
+}
+
+function isSopsandVonUtfallJob(job){
+  if(!job) return false;
+  const type = normalizeTransportText(job.type || job.displayType || '');
+  const display = normalizeTransportText(job.displayType || job.label || '');
+  const place = normalizeEstimatePart(job.place || '');
+  const isSopsand = type === 'sopsand' || display.includes('sopsand');
+  const isVonUtfall = place === normalizeEstimatePart('von Utfallsgatan');
+  return isSopsand && isVonUtfall;
+}
+
+function isStenflisJob(job){
+  if(!job) return false;
+  const text = normalizeTransportText([
+    job.type,
+    job.displayType,
+    job.label,
+    job.comment
+  ].filter(Boolean).join(' '));
+  return text.includes('stenflis');
+}
+
+function isMultiLoadSensitiveJob(job){
+  return isSopsandVonUtfallJob(job) || isStenflisJob(job);
+}
+
+function isMultiLoadLearningMode(job){
+  return !!job && isMultiLoadSensitiveJob(job) && !getJobReturnRequiredValue(job);
+}
+
+function ensureLoadSegments(job){
+  if(!job) return [];
+  if(!Array.isArray(job.loadSegments)) job.loadSegments = [];
+  return job.loadSegments;
+}
+
+function getOpenLoadStartedAt(job){
+  const ts = Number(job && job.currentLoadStartedAt || 0);
+  return Number.isFinite(ts) && ts > 0 ? ts : 0;
+}
+
+function getCompletedLoadSegments(job){
+  const segments = Array.isArray(job && job.loadSegments) ? job.loadSegments : [];
+  return segments
+    .map((segment, index) => {
+      const startedAt = Number(segment.startedAt || 0);
+      const weightAt = Number(segment.weightAt || segment.completedAt || 0);
+      const weight = Number(segment.weight || segment.ton || 0);
+      const durationMs = Number(segment.durationMs || (weightAt - startedAt));
+      if(!Number.isFinite(startedAt) || !Number.isFinite(weightAt) || startedAt <= 0 || weightAt <= startedAt) return null;
+      return {
+        index:Number(segment.index || (index + 1)),
+        startedAt,
+        weightAt,
+        weight:Number.isFinite(weight) && weight > 0 ? weight : 0,
+        durationMs:Number.isFinite(durationMs) && durationMs >= 0 ? durationMs : (weightAt - startedAt)
+      };
+    })
+    .filter(Boolean);
+}
+
 function initializeTransportPhaseForJob(job){
   if(!job || !isTransportPhaseTrackingAllowed(job)) return job;
+  ensureLoadSegments(job);
   if(!job.transportPhase){
-    job.transportPhase = job.unloadedAt ? 'unloaded' : (job.loadedAt ? 'loaded' : 'start');
+    job.transportPhase = getOpenLoadStartedAt(job) ? 'loading' : (job.loadedAt ? 'between_loads' : 'start');
   }
-  job.phaseDataVersion = 1;
+  if(Number(job.phaseDataVersion || 0) < 3) job.phaseDataVersion = 3;
   return job;
 }
 
 function getTransportPhase(job){
   if(!job) return 'none';
-  if(job.transportPhase === 'unloaded' || job.unloadedAt) return 'unloaded';
-  if(job.transportPhase === 'loaded' || job.loadedAt) return 'loaded';
+  if(job.transportPhase === 'returning') return 'returning';
+  if(job.transportPhase === 'load_complete') return 'load_complete';
+  if(job.transportPhase === 'between_loads') return 'between_loads';
+  if(job.transportPhase === 'loading') return 'loading';
+  if(getOpenLoadStartedAt(job)) return 'loading';
+  if(job.loadedAt) return 'between_loads';
   return 'start';
 }
 
@@ -7032,36 +7190,76 @@ function updateTransportPhaseDurations(job, endAt){
   if(!job) return job;
   const end = Number(endAt || job.end || Date.now());
   const start = Number(job.start || 0);
-  const loaded = Number(job.loadedAt || 0);
-  const unloaded = Number(job.unloadedAt || 0);
+  const firstLoaded = Number(job.loadedAt || 0);
+  const returnRequired = getJobReturnRequiredValue(job);
+  const multiLoadMode = isMultiLoadLearningMode(job);
+  const segments = getCompletedLoadSegments(job);
 
   const totalMs = positiveDurationMs(start, end);
   if(totalMs !== null) job.actualTotalTimeMs = totalMs;
 
-  const materialMs = positiveDurationMs(loaded, unloaded);
-  if(materialMs !== null){
-    job.materialTransportTimeMs = materialMs;
-    let flowMs = materialMs;
-    if(getJobReturnRequiredValue(job)){
-      const returnMs = positiveDurationMs(unloaded, end);
-      if(returnMs !== null){
-        job.returnTimeMs = returnMs;
-        flowMs += returnMs;
-      }
-    } else {
-      delete job.returnTimeMs;
+  // Med returkrav är hela uppdraget från Lastar till Klart/Avslutat inlärningen.
+  // Ange vikt sparar bara vikt och ska inte bryta tidsinlärningen.
+  if(returnRequired && firstLoaded > 0){
+    const materialMs = positiveDurationMs(firstLoaded, end);
+    if(materialMs !== null){
+      job.materialTransportTimeMs = materialMs;
+      job.materialFlowTimeMs = materialMs;
     }
-    job.materialFlowTimeMs = flowMs;
+    delete job.returnTimeMs;
+    delete job.multiLoadJob;
+    return job;
+  }
+
+  if(segments.length){
+    const firstStart = firstLoaded > 0 ? firstLoaded : segments[0].startedAt;
+    const lastWeightAt = segments[segments.length - 1].weightAt;
+    const flowMs = positiveDurationMs(firstStart, lastWeightAt);
+    if(flowMs !== null){
+      job.materialTransportTimeMs = flowMs;
+      job.materialFlowTimeMs = flowMs;
+    }
+    job.completedLoadSegmentCount = segments.length;
+    job.completedLoadTimeMs = segments.reduce((sum, segment) => sum + Math.max(0, Number(segment.durationMs || 0)), 0);
+    job.completedReturnBetweenLoadsTimeMs = segments.slice(1).reduce((sum, segment, index) => {
+      const previous = segments[index];
+      return sum + Math.max(0, Number(segment.startedAt || 0) - Number(previous.weightAt || 0));
+    }, 0);
+    if(segments.length > 1) job.multiLoadJob = true;
+    if(multiLoadMode) job.canBeMultiLoad = true;
+    delete job.returnTimeMs;
+    return job;
+  }
+
+  if(firstLoaded > 0){
+    const materialMs = positiveDurationMs(firstLoaded, end);
+    if(materialMs !== null){
+      job.materialTransportTimeMs = materialMs;
+      job.materialFlowTimeMs = materialMs;
+    }
+    delete job.returnTimeMs;
+    return job;
+  }
+
+  // Bakåtkompatibilitet för äldre jobb som hann få loadedAt/unloadedAt innan v32.
+  const loaded = Number(job.loadedAt || 0);
+  const unloaded = Number(job.unloadedAt || 0);
+  const legacyMaterialMs = positiveDurationMs(loaded, unloaded);
+  if(legacyMaterialMs !== null){
+    job.materialTransportTimeMs = legacyMaterialMs;
+    job.materialFlowTimeMs = legacyMaterialMs;
   }
   return job;
 }
 
 function finalizeTransportPhaseData(job, endAt){
   if(!job) return job;
-  job.phaseDataVersion = Number(job.phaseDataVersion || 1);
+  job.phaseDataVersion = Math.max(3, Number(job.phaseDataVersion || 0));
   if(!job.transportPhase){
     job.transportPhase = getTransportPhase(job);
   }
+  if(isMultiLoadLearningMode(job)) job.canBeMultiLoad = true;
+  if(getJobReturnRequiredValue(job)) delete job.canBeMultiLoad;
   updateTransportPhaseDurations(job, endAt || job.end || Date.now());
   return job;
 }
@@ -7069,10 +7267,18 @@ function finalizeTransportPhaseData(job, endAt){
 function shiftTransportPhaseTimestamps(job, offsetMs){
   const offset = Number(offsetMs || 0);
   if(!job || !Number.isFinite(offset) || offset === 0) return job;
-  ['loadedAt','unloadedAt'].forEach(key => {
+  ['loadedAt','unloadedAt','currentLoadStartedAt','returnRequirementWeightAt'].forEach(key => {
     const value = Number(job[key] || 0);
     if(Number.isFinite(value) && value > 0) job[key] = value + offset;
   });
+  if(Array.isArray(job.loadSegments)){
+    job.loadSegments.forEach(segment => {
+      ['startedAt','weightAt','completedAt'].forEach(key => {
+        const value = Number(segment[key] || 0);
+        if(Number.isFinite(value) && value > 0) segment[key] = value + offset;
+      });
+    });
+  }
   return job;
 }
 
@@ -7080,12 +7286,21 @@ function resetTransportPhaseForRestart(job){
   if(!job) return job;
   delete job.loadedAt;
   delete job.unloadedAt;
+  delete job.currentLoadStartedAt;
+  delete job.returnRequirementWeightAt;
+  delete job.returnRequirementWeight;
+  delete job.loadSegments;
+  delete job.completedLoadSegmentCount;
+  delete job.completedLoadTimeMs;
+  delete job.completedReturnBetweenLoadsTimeMs;
   delete job.materialTransportTimeMs;
   delete job.returnTimeMs;
   delete job.materialFlowTimeMs;
   delete job.actualTotalTimeMs;
+  delete job.multiLoadJob;
+  delete job.canBeMultiLoad;
   job.transportPhase = isTransportPhaseTrackingAllowed(job) ? 'start' : '';
-  job.phaseDataVersion = 1;
+  job.phaseDataVersion = 3;
   return job;
 }
 
@@ -7093,21 +7308,33 @@ function toggleActiveTransportPhase(){
   if(!state.active || !isTransportPhaseTrackingAllowed(state.active)) return;
   initializeTransportPhaseForJob(state.active);
   const phase = getTransportPhase(state.active);
+  const multiLoadMode = isMultiLoadLearningMode(state.active);
+  if(phase === 'loading' || phase === 'returning' || phase === 'load_complete') return;
+  if(phase === 'between_loads' && !multiLoadMode) return;
   const now = Date.now();
-  if(phase === 'start'){
-    state.active.loadedAt = now;
-    state.active.transportPhase = 'loaded';
-  } else if(phase === 'loaded'){
-    state.active.unloadedAt = now;
-    state.active.transportPhase = 'unloaded';
-    updateTransportPhaseDurations(state.active, now);
-  } else {
-    return;
-  }
-  state.active.phaseDataVersion = 1;
+  if(!Number(state.active.loadedAt || 0)) state.active.loadedAt = now;
+  state.active.currentLoadStartedAt = now;
+  state.active.transportPhase = 'loading';
+  state.active.phaseDataVersion = 3;
   applyEstimatedCountdownAtStart(state.active);
   saveState();
   renderActive();
+}
+
+function getActiveLoadPhaseText(job){
+  if(!job || !isTransportPhaseTrackingAllowed(job)) return '';
+  const phase = getTransportPhase(job);
+  const returnRequired = getJobReturnRequiredValue(job);
+  const multiLoadMode = isMultiLoadLearningMode(job);
+  if(phase === 'loading'){
+    return returnRequired ? 'Transport med returkrav pågår – ange vikt när den finns, och tryck Klart när uppdraget är tillbaka/klart.' : 'Lass pågår – ange vikt när lasset är lossat/vägt.';
+  }
+  if(phase === 'returning') return 'Vikt registrerad. Returkrav pågår – tryck Klart när uppdraget är tillbaka/klart.';
+  if(phase === 'load_complete') return 'Lass registrerat. Tryck Klart om uppdraget är färdigt.';
+  if(phase === 'between_loads'){
+    return multiLoadMode ? 'Lass registrerat. Tryck Lastar för nästa lass eller Klart om uppdraget är färdigt.' : 'Lass registrerat. Tryck Klart om uppdraget är färdigt.';
+  }
+  return 'Tryck Lastar när du börjar lasta/första lasset.';
 }
 
 function renderActiveTransportPhaseControl(){
@@ -7120,12 +7347,25 @@ function renderActiveTransportPhaseControl(){
   }
   initializeTransportPhaseForJob(state.active);
   const phase = getTransportPhase(state.active);
-  if(phase === 'unloaded'){
-    wrap.classList.add('hidden');
-    return;
+  const multiLoadMode = isMultiLoadLearningMode(state.active);
+  let label = 'Lastar';
+  let disabled = false;
+  if(phase === 'loading'){
+    label = 'Lass pågår';
+    disabled = true;
+  } else if(phase === 'returning'){
+    label = 'Retur pågår';
+    disabled = true;
+  } else if(phase === 'load_complete'){
+    label = 'Lass registrerat';
+    disabled = true;
+  } else if(phase === 'between_loads'){
+    label = multiLoadMode ? 'Lastar' : 'Lass registrerat';
+    disabled = !multiLoadMode;
   }
-  btn.textContent = phase === 'loaded' ? 'Lossad' : 'Lastar';
-  btn.disabled = false;
+  btn.textContent = label;
+  btn.disabled = disabled;
+  btn.title = getActiveLoadPhaseText(state.active);
   wrap.classList.remove('hidden');
 }
 
@@ -7182,35 +7422,30 @@ function prepareJobForCompletionWithPhaseGuard(job){
   if(!job || !isTransportPhaseTrackingAllowed(job)) return true;
   initializeTransportPhaseForJob(job);
   const phase = getTransportPhase(job);
-  const now = Date.now();
-
-  if(phase === 'unloaded') return true;
 
   if(phase === 'start'){
-    const ok = confirm('Lastar/Lossad saknas. Avsluta ändå utan inlärning?\n\nJobbet sparas i historik, men tid/GPS/fasdata används inte för framtida uppskattad tid.');
+    const ok = confirm('Lastar saknas. Avsluta ändå utan inlärning?\n\nJobbet sparas i historik, men tid/GPS/fasdata används inte för framtida uppskattad tid.');
     if(!ok) return false;
-    markJobExcludedFromEstimateLearning(job, 'Missad Lastar/Lossad');
+    markJobExcludedFromEstimateLearning(job, 'Missad Lastar');
     return true;
   }
 
-  if(phase === 'loaded'){
-    const setLossadNow = confirm('Lossad saknas.\n\nOK = sätt Lossad nu och avsluta med fasdata.\nAvbryt = välj nästa fråga.');
-    if(setLossadNow){
-      job.unloadedAt = now;
-      job.transportPhase = 'unloaded';
-      job.phaseDataVersion = Number(job.phaseDataVersion || 1);
-      updateTransportPhaseDurations(job, now);
-      return true;
-    }
-
-    const finishWithoutLearning = confirm('Avsluta utan inlärning?\n\nJobbet sparas i historik, men tid/GPS/fasdata används inte för framtida uppskattad tid.');
-    if(!finishWithoutLearning) return false;
-    markJobExcludedFromEstimateLearning(job, 'Missad Lossad');
+  if(phase === 'loading'){
+    const ok = confirm('Pågående lass saknar vikt. Avsluta ändå utan inlärning?\n\nJobbet sparas i historik, men detta uppdrag används inte för framtida uppskattad tid.');
+    if(!ok) return false;
+    markJobExcludedFromEstimateLearning(job, 'Pågående lass saknade vikt');
     return true;
+  }
+
+  if(job.weightWithoutLoadStart){
+    job.excludeFromEstimateLearning = true;
+    job.excludeFromGpsLearning = true;
+    job.learningExcludedReason = job.learningExcludedReason || 'Vikt registrerad utan Lastar';
   }
 
   return true;
 }
+
 
 function stopJob(){
   if(!state.active) return;
@@ -7424,13 +7659,19 @@ function getFinishedMaterialFlowDurationMs(job){
   const loaded = Number(job.loadedAt || 0);
   const unloaded = Number(job.unloadedAt || 0);
   const end = Number(job.end || 0);
-  const materialMs = unloaded - loaded;
-  if(Number.isFinite(materialMs) && materialMs >= 60000){
-    if(getJobReturnRequiredValue(job)){
-      const returnMs = end - unloaded;
-      return Number.isFinite(returnMs) && returnMs >= 0 ? materialMs + returnMs : materialMs;
+  if(loaded > 0 && unloaded > loaded){
+    const materialMs = unloaded - loaded;
+    if(Number.isFinite(materialMs) && materialMs >= 60000){
+      if(getJobReturnRequiredValue(job)){
+        const returnMs = end - unloaded;
+        return Number.isFinite(returnMs) && returnMs >= 0 ? materialMs + returnMs : materialMs;
+      }
+      return materialMs;
     }
-    return materialMs;
+  }
+  if(loaded > 0 && end > loaded){
+    const materialMs = end - loaded;
+    return Number.isFinite(materialMs) && materialMs >= 60000 ? materialMs : null;
   }
   return null;
 }
@@ -7469,15 +7710,56 @@ function getStartAddonRouteText(job){
   return startLabel + ' → ' + fromLabel;
 }
 
+function getFinishedMaterialFlowDurationSamples(job){
+  if(!job) return [];
+  if(isMultiLoadLearningMode(job)){
+    const segments = getCompletedLoadSegments(job);
+    if(segments.length){
+      return segments.map(segment => Number(segment.durationMs || 0)).filter(ms => Number.isFinite(ms) && ms >= 60000);
+    }
+  }
+  const ms = getFinishedMaterialFlowDurationMs(job);
+  return ms !== null ? [ms] : [];
+}
+
+function getMultiLoadTurnDurationSamples(job){
+  const segments = getCompletedLoadSegments(job);
+  const samples = [];
+  for(let i = 1; i < segments.length; i++){
+    const previous = segments[i - 1];
+    const current = segments[i];
+    const duration = Number(current.weightAt || 0) - Number(previous.weightAt || 0);
+    if(Number.isFinite(duration) && duration >= 60000) samples.push(duration);
+  }
+  return samples;
+}
+
+function getMultiLoadTurnEstimateForJob(job){
+  if(!isTimeEstimateAllowedForJob(job) || !isMultiLoadLearningMode(job)) return null;
+  const key = materialFlowEstimateKey(job);
+  const durations = getFinishedJobsForUnderlag()
+    .filter(finished => isTimeEstimateAllowedForJob(finished) && isMultiLoadLearningMode(finished) && materialFlowEstimateKey(finished) === key && isStableMaterialFlowSample(finished))
+    .flatMap(getMultiLoadTurnDurationSamples);
+  if(durations.length < 3) return null;
+  const medianMs = medianDurationMs(durations);
+  if(!Number.isFinite(medianMs)) return null;
+  return {
+    minutes: estimateMinutesFromMs(medianMs),
+    count: durations.length,
+    medianMs,
+    routeText:getMaterialRouteText(job)
+  };
+}
+
 function getMaterialFlowEstimateForJob(job){
   if(!isTimeEstimateAllowedForJob(job)) return null;
   const key = materialFlowEstimateKey(job);
   const samples = getFinishedJobsForUnderlag()
     .filter(finished => isTimeEstimateAllowedForJob(finished) && materialFlowEstimateKey(finished) === key && isStableMaterialFlowSample(finished));
   let durations = samples
-    .map(getFinishedMaterialFlowDurationMs)
+    .flatMap(getFinishedMaterialFlowDurationSamples)
     .filter(ms => ms !== null);
-  if(durations.length < 3){
+  if(durations.length < 3 && !isMultiLoadLearningMode(job)){
     durations = samples
       .filter(isStableMaterialFlowSample)
       .map(getFinishedDurationMs)
