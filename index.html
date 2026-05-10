@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-28
+- Nuvarande version: Stadslass v2026-05-07-01-29
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -21,6 +21,7 @@ Stadslass versionskontroll
   - Beräkningsstart: sparas internt och kan användas bakom kulisserna när karttjänst/historik räknar uppskattad tid
   - Uppskattad tid: visas enkelt i aktivt jobb och kö; karttjänst + historik används bakom kulisserna
   - Fasdata tid: aktivt jobb har en enkel knapp Lastad/Lossad som sparar materialtransporttid och returtid; startsträckans faktiska tid används inte som lärdata
+  - Startsträcka i aktiv tid: aktivt jobb bakar in kartberäknad startsträcka i uppskattad tid och räknar bort den när Lastad trycks
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb med uppskattad tid visar tidsstöd, tid kvar och beräknad klar-tid utan att blockera Klart
   - GPS-inspelning/Ruttmätning: dold i aktivt jobb; gammal GPS-data bevaras i gamla uppdrag
@@ -1125,7 +1126,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-28</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-29</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -2592,22 +2593,79 @@ function renderActiveEstimateCountdown(){
   el.classList.toggle('queue-alert', Number(state.active.estimatedEndAt || 0) < Date.now());
 }
 
+function getEstimateStartAddonMinutes(estimate){
+  if(!estimate) return 0;
+  const direct = Number(estimate.startAddonMinutes || 0);
+  if(Number.isFinite(direct) && direct > 0) return Math.round(direct);
+  const mapTotal = Number(estimate.mapTotalMinutes || 0);
+  const mapMaterial = Number(estimate.mapMaterialMinutes || 0);
+  if(Number.isFinite(mapTotal) && Number.isFinite(mapMaterial) && mapTotal > mapMaterial){
+    return Math.max(0, Math.round(mapTotal - mapMaterial));
+  }
+  return 0;
+}
+
+function getStoredEstimateStartAddonMinutes(job){
+  if(!job) return 0;
+  const direct = Number(job.estimatedStartAddonMinutesAtStart || 0);
+  if(Number.isFinite(direct) && direct > 0) return Math.round(direct);
+  const mapTotal = Number(job.estimatedMapTotalMinutesAtStart || job.smartMapTotalMinutes || 0);
+  const mapMaterial = Number(job.estimatedMapMaterialMinutesAtStart || job.smartMapMaterialMinutes || 0);
+  if(Number.isFinite(mapTotal) && Number.isFinite(mapMaterial) && mapTotal > mapMaterial){
+    return Math.max(0, Math.round(mapTotal - mapMaterial));
+  }
+  return 0;
+}
+
+function isTransportStartPhasePassed(job){
+  if(!job) return false;
+  const phase = getTransportPhase(job);
+  return phase === 'loaded' || phase === 'unloaded';
+}
+
+function getVisibleEstimateMinutesForPhase(job, totalMinutes, startAddonMinutes){
+  const total = Number(totalMinutes || 0);
+  if(!Number.isFinite(total) || total <= 0) return 0;
+  if(isTransportStartPhasePassed(job)){
+    const addon = Math.max(0, Number(startAddonMinutes || 0));
+    return Math.max(1, Math.round(total - addon));
+  }
+  return Math.max(1, Math.round(total));
+}
+
+function getEstimateCountdownBaseTime(job){
+  if(!job) return Date.now();
+  if(isTransportStartPhasePassed(job)){
+    const loadedAt = Number(job.loadedAt || 0);
+    if(Number.isFinite(loadedAt) && loadedAt > 0) return loadedAt;
+  }
+  return Number(job.start || Date.now());
+}
+
 function applyEstimatedCountdownAtStart(job){
   if(!job) return job;
   const estimate = getTimeEstimateForQueuedJob(job);
   if(estimate && Number.isFinite(Number(estimate.minutes)) && Number(estimate.minutes) > 0){
-    job.estimatedMinutesAtStart = Number(estimate.minutes);
-    job.estimatedEndAt = Number(job.start || Date.now()) + Number(estimate.minutes) * 60000;
+    const totalMinutes = Math.max(1, Math.round(Number(estimate.minutes)));
+    const startAddonMinutes = getEstimateStartAddonMinutes(estimate);
+    const visibleMinutes = getVisibleEstimateMinutesForPhase(job, totalMinutes, startAddonMinutes);
+    const baseTime = getEstimateCountdownBaseTime(job);
+
+    job.estimatedTotalMinutesAtStart = totalMinutes;
+    job.estimatedMinutesAtStart = visibleMinutes;
+    job.estimatedEndAt = baseTime + visibleMinutes * 60000;
     job.estimatedCountAtStart = Number(estimate.count || 0);
     job.estimatedMaterialFlowMinutesAtStart = Number(estimate.materialMinutes || 0);
     job.estimatedMaterialFlowCountAtStart = Number(estimate.materialCount || 0);
-    job.estimatedStartAddonMinutesAtStart = Number(estimate.startAddonMinutes || 0);
+    job.estimatedStartAddonMinutesAtStart = Number(startAddonMinutes || 0);
     job.estimatedStartAddonCountAtStart = Number(estimate.startAddonCount || 0);
     job.estimatedStartAddonSafeAtStart = estimate.startAddonSafe === true;
     job.estimatedStartAddonMissingAtStart = estimate.startAddonMissing === true;
     job.estimatedSourceAtStart = estimate.source || '';
     job.estimatedMapTotalMinutesAtStart = Number(estimate.mapTotalMinutes || 0);
     job.estimatedMapMaterialMinutesAtStart = Number(estimate.mapMaterialMinutes || 0);
+    job.estimatedStartAddonIncludedInActiveTime = startAddonMinutes > 0;
+    job.estimatedStartAddonRemovedFromRemaining = isTransportStartPhasePassed(job) && startAddonMinutes > 0;
   } else {
     delete job.estimatedMinutesAtStart;
     delete job.estimatedEndAt;
@@ -2621,6 +2679,9 @@ function applyEstimatedCountdownAtStart(job){
     delete job.estimatedSourceAtStart;
     delete job.estimatedMapTotalMinutesAtStart;
     delete job.estimatedMapMaterialMinutesAtStart;
+    delete job.estimatedTotalMinutesAtStart;
+    delete job.estimatedStartAddonIncludedInActiveTime;
+    delete job.estimatedStartAddonRemovedFromRemaining;
   }
   return job;
 }
@@ -3564,7 +3625,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-28';
+const APP_VERSION = 'Stadslass v2026-05-07-01-29';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3593,6 +3654,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
+  {name:'Startsträcka i aktiv uppskattad tid', status:'Aktiv', purpose:'Aktivt jobb bakar in kartberäknad startsträcka från faktisk startplats till Från-plats och räknar bort den när Lastad trycks.', changeRule:'Startsträckans faktiska tid ska inte användas som lärdata för materialflödet.'},
   {name:'Fasdata Lastad/Lossad', status:'Aktiv övergångsfunktion', purpose:'En enkel knapp i aktivt jobb sparar Lastad och Lossad så appen kan lära materialtransporttid och returtid utan att använda startsträckan som lärdata.', changeRule:'Kan döljas eller tas bort senare när historiken räcker.'},
   {name:'Aktiv nedräkning från uppskattad tid', status:'Aktiv', purpose:'Visar tidsstöd, tid kvar och beräknad klar-tid i aktivt jobb när uppskattad tid finns.', changeRule:'Får ändras i visning men ska inte blockera Klart eller påverka GPS/faktisk tid.'},
   {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
@@ -3802,6 +3864,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
+  addFunctionCheck(results, 'Nivå 2', 'Startsträcka ingår i aktiv uppskattad tid', functionExists('getVisibleEstimateMinutesForPhase') && functionExists('getCachedStartAddonMinutesForJob') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart'), 'kartad startsträcka ingår före Lastad och räknas bort efter Lastad');
   addFunctionCheck(results, 'Nivå 2', 'Fasdata Lastad/Lossad finns', !!document.getElementById('activePhaseButton') && functionExists('toggleActiveTransportPhase') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedMaterialFlowDurationMs'), 'Lastad/Lossad sparar materialtransporttid; startsträcka används inte som lärdata');
   addFunctionCheck(results, 'Nivå 2', 'Startpunkt används bara bakom uppskattad tid', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('buildSmartMapPointFromJobStart', 'startLat') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'karttjänst'), 'materialflödesnyckel hålls stabil; startpunkt används av kartdelen.');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
@@ -3923,6 +3986,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
     systemCheck('Uppskattad tid med karttjänst', typeof getTimeEstimateForQueuedJob === 'function' && typeof scheduleSmartEstimateForJob === 'function', 'karttjänst/historik bakom enkel uppskattad tid'),
+    systemCheck('Startsträcka i aktiv tid', typeof getVisibleEstimateMinutesForPhase === 'function' && typeof getEstimateStartAddonMinutes === 'function', 'kartad startsträcka ingår före Lastad och räknas bort efter Lastad'),
     systemCheck('Fasdata Lastad/Lossad', !!document.getElementById('activePhaseButton') && typeof toggleActiveTransportPhase === 'function' && typeof getFinishedMaterialFlowDurationMs === 'function', 'materialtransporttid/returtid kan sparas utan startsträcka som lärdata'),
     systemCheck('Uppdrag i kö', !!document.getElementById('queueList') && typeof renderQueue === 'function', 'kölista finns'),
     systemCheck('Idag/historik', typeof renderToday === 'function' && typeof renderHistoryManager === 'function' && !!document.getElementById('historyManagerWrap'), 'dagens jobb och historik finns'),
@@ -6942,6 +7006,7 @@ function toggleActiveTransportPhase(){
     return;
   }
   state.active.phaseDataVersion = 1;
+  applyEstimatedCountdownAtStart(state.active);
   saveState();
   renderActive();
 }
@@ -7378,6 +7443,20 @@ function getBestSmartMapTotalsForJob(job){
   return getStoredSmartMapTotalsForJob(job) || getCachedMapTotalsForJob(job);
 }
 
+function getCachedStartAddonMinutesForJob(job){
+  if(!isTimeEstimateAllowedForJob(job)) return 0;
+  try{
+    const startPoint = buildSmartMapPointFromJobStart(job);
+    const fromPoint = buildMapPointFromPlace(job.place, 'Från-platsen');
+    if(!startPoint || !fromPoint) return 0;
+    const startResult = getRouteResultFromCacheOrSamePoint(startPoint, fromPoint);
+    if(!startResult) return 0;
+    return mapSecondsToEstimateMinutes(Number(startResult.durationSeconds || 0));
+  }catch(e){
+    return 0;
+  }
+}
+
 function getHistoricalPracticalAddonMinutes(job, materialEstimate, mapTotals){
   if(!isTimeEstimateAllowedForJob(job) || !mapTotals) return null;
   const key = materialFlowEstimateKey(job);
@@ -7410,6 +7489,7 @@ function getTimeEstimateForQueuedJob(queueJob){
   if(!isTimeEstimateAllowedForJob(queueJob)) return null;
   const materialEstimate = getMaterialFlowEstimateForJob(queueJob);
   const mapTotals = getBestSmartMapTotalsForJob(queueJob);
+  const cachedStartAddonMinutes = getCachedStartAddonMinutesForJob(queueJob);
   let totalMinutes = null;
   let source = '';
   let practicalAddonMinutes = null;
@@ -7428,8 +7508,8 @@ function getTimeEstimateForQueuedJob(queueJob){
   }
 
   if((totalMinutes === null || !Number.isFinite(totalMinutes)) && materialEstimate){
-    totalMinutes = Math.max(1, Math.round(Number(materialEstimate.minutes || 0)));
-    source = 'historik';
+    totalMinutes = Math.max(1, Math.round(Number(materialEstimate.minutes || 0) + Number(cachedStartAddonMinutes || 0)));
+    source = cachedStartAddonMinutes > 0 ? 'historik+kartad startsträcka' : 'historik';
   }
 
   if(totalMinutes === null || !Number.isFinite(totalMinutes) || totalMinutes <= 0) return null;
@@ -7440,14 +7520,14 @@ function getTimeEstimateForQueuedJob(queueJob){
     materialMinutes: materialEstimate ? materialEstimate.minutes : 0,
     materialCount: materialEstimate ? materialEstimate.count : 0,
     materialRouteText: materialEstimate ? materialEstimate.routeText : getMaterialRouteText(queueJob),
-    startAddonMinutes: mapTotals ? Math.max(0, Math.round(Number(mapTotals.totalMinutes || 0) - Number(mapTotals.materialMinutes || 0))) : 0,
+    startAddonMinutes: mapTotals ? Math.max(0, Math.round(Number(mapTotals.totalMinutes || 0) - Number(mapTotals.materialMinutes || 0))) : Math.max(0, Math.round(Number(cachedStartAddonMinutes || 0))),
     startAddonCount: 0,
-    startAddonSafe: !!mapTotals,
-    startAddonMissing: !mapTotals,
-    startAddonReason: mapTotals ? 'Karttjänst finns bakom uppskattad tid.' : 'Karttjänst/historik saknar tillräckligt underlag.',
+    startAddonSafe: !!mapTotals || cachedStartAddonMinutes > 0,
+    startAddonMissing: !mapTotals && cachedStartAddonMinutes <= 0,
+    startAddonReason: (mapTotals || cachedStartAddonMinutes > 0) ? 'Karttjänst finns bakom uppskattad tid.' : 'Karttjänst/historik saknar tillräckligt underlag.',
     startAddonRouteText: getStartAddonRouteText(queueJob),
-    mapTotalMinutes: mapTotals ? mapTotals.totalMinutes : 0,
-    mapMaterialMinutes: mapTotals ? mapTotals.materialMinutes : 0,
+    mapTotalMinutes: mapTotals ? mapTotals.totalMinutes : (materialEstimate ? Math.max(0, Math.round(Number(materialEstimate.minutes || 0) + Number(cachedStartAddonMinutes || 0))) : Math.max(0, Math.round(Number(cachedStartAddonMinutes || 0)))),
+    mapMaterialMinutes: mapTotals ? mapTotals.materialMinutes : (materialEstimate ? Math.max(0, Math.round(Number(materialEstimate.minutes || 0))) : 0),
     practicalAddonMinutes: practicalAddonMinutes === null ? 0 : practicalAddonMinutes,
     source
   };
@@ -7492,10 +7572,10 @@ function shouldScheduleSmartEstimate(job){
   const routeKey = buildSmartMapRouteKey(job);
   if(!routeKey) return false;
   if(job.smartMapRouteKey === routeKey && Number(job.smartMapTotalMinutes || 0) > 0) return false;
-  const attemptKey = 'smart:' + (job.id || routeKey);
+  const attemptKey = 'smart:' + (job.id || 'job') + ':' + routeKey;
   if(smartEstimateInFlight.has(attemptKey)) return false;
   const attemptedAt = Number(job.smartMapAttemptedAt || 0);
-  if(attemptedAt && Date.now() - attemptedAt < MAP_GUARD_LIMITS.minAutoIntervalMinutes * 60000) return false;
+  if(job.smartMapAttemptedRouteKey === routeKey && attemptedAt && Date.now() - attemptedAt < MAP_GUARD_LIMITS.minAutoIntervalMinutes * 60000) return false;
   return true;
 }
 
@@ -7511,9 +7591,11 @@ function applySmartMapTotalsToJob(job, totals){
 
 function scheduleSmartEstimateForJob(job, context){
   if(!shouldScheduleSmartEstimate(job)) return;
-  const attemptKey = 'smart:' + (job.id || buildSmartMapRouteKey(job));
+  const routeKey = buildSmartMapRouteKey(job);
+  const attemptKey = 'smart:' + (job.id || 'job') + ':' + routeKey;
   smartEstimateInFlight.add(attemptKey);
   job.smartMapAttemptedAt = Date.now();
+  job.smartMapAttemptedRouteKey = routeKey;
   calculateSmartMapTotalsForJob(job).then(totals => {
     let target = null;
     if(context === 'active'){
