@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-13
+- Nuvarande version: Stadslass v2026-05-07-01-14
+- Versionsrad: Inställningar visar Stadslass v2026-05-07-01-14 och funktionskontrollen matchar APP_VERSION
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1060,7 +1061,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-13</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-14</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -3124,9 +3125,10 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-13';
+const APP_VERSION = 'Stadslass v2026-05-07-01-14';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
+  {name:'Versionsrad i Inställningar', status:'Skyddad beteenderegel', purpose:'Visar aktuell appversion synligt i Inställningar.', changeRule:'Ska uppdateras vid varje version tillsammans med APP_VERSION och versionskommentaren.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
   {name:'Ange vikt tvåstegsfunktion', status:'Skyddad', purpose:'Första tryck fokuserar viktfältet, nästa sparar vikt.', changeRule:'Beteendet ska bevaras eller ersättas dokumenterat.'},
   {name:'Ingen tömning', status:'Skyddad', purpose:'Markerar Ej behov av tömning och exkluderar från uppskattad tid.', changeRule:'Får ändras bara om samma syfte behålls.'},
@@ -3306,7 +3308,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-13') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-13'), APP_VERSION);
+  const appVersionInfo = document.getElementById('appVersionInfo');
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', !!appVersionInfo && appVersionInfo.textContent.includes(APP_VERSION) && APP_FEATURE_MANIFEST.some(feature => feature.name === 'Versionsrad i Inställningar'), APP_VERSION);
   const saldammenQuick = getQuickItems().find(item => item && item.id === 'quick_saldammen_sopsand');
   addFunctionCheck(results, 'Nivå 2', 'Säldammen visas under Slottskogen men sparas separat', !!saldammenQuick && saldammenQuick.group === 'Slottskogen' && saldammenQuick.subGroup === 'Säldammen' && saldammenQuick.label === 'Sopsand' && saldammenQuick.place === 'Säldammen' && saldammenQuick.dest === 'Sortera Torslanda', saldammenQuick ? (saldammenQuick.group + ' / ' + saldammenQuick.subGroup + ' / ' + saldammenQuick.label + ' / Från ' + saldammenQuick.place + ' / Till ' + saldammenQuick.dest) : 'snabbval saknas');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
