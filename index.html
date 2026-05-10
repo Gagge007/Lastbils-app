@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-20
+- Nuvarande version: Stadslass v2026-05-07-01-21
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -423,6 +423,51 @@ button{
   color:var(--muted);
   font-size:13px;
   margin-top:4px;
+}
+
+#tab-settings .map-test-result{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  white-space:normal;
+  line-height:1.35;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:#f8fafc;
+}
+#tab-settings .map-test-result *{
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+#tab-settings .map-test-result.is-error{
+  color:#7f1d1d;
+  font-weight:600;
+  border-color:#fecaca;
+  background:#fef2f2;
+}
+#tab-settings .map-test-result.is-ok{
+  color:#14532d;
+  font-weight:600;
+  border-color:#bbf7d0;
+  background:#f0fdf4;
+}
+#tab-settings .map-test-result .map-test-section{
+  margin-top:6px;
+}
+#tab-settings .map-test-result .map-test-label{
+  display:block;
+  font-weight:800;
+  color:inherit;
+}
+#tab-settings .map-test-result .map-test-detail{
+  display:block;
+  color:inherit;
+  font-weight:600;
 }
 
 #tab-settings .quick-manager{
@@ -1065,7 +1110,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-20</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-21</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1145,7 +1190,7 @@ button{
           <button class="primary inline" onclick="runMapRouteTest()">Testa karttid</button>
           <button class="inline" onclick="resetMapRouteTestResult()">Rensa testresultat</button>
         </div>
-        <div id="mapRouteTestResult" class="multi-help" style="margin-top:10px">Inget karttest kört.</div>
+        <div id="mapRouteTestResult" class="multi-help map-test-result" style="margin-top:10px">Inget karttest kört.</div>
       </div>
     </div>
   <div id="settingsSummaryWrap" class="card hidden">
@@ -3300,7 +3345,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-20';
+const APP_VERSION = 'Stadslass v2026-05-07-01-21';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3318,6 +3363,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Kartförberedelse platsdatabas', status:'Aktiv', purpose:'Fasta platser har Plus Code/adress, koordinater, alias och placeholder-status för kommande karttjänst.', changeRule:'Får byggas vidare till kartmotor men ska inte starta Google-anrop utan separat beslut.'},
   {name:'Lokal kartnyckel i Inställningar', status:'Aktiv', purpose:'Google API-nyckel kan sparas och raderas lokalt per enhet utan att ligga i HTML-filen eller följa med backup/export.', changeRule:'Får byggas vidare till kartmotor men nyckeln ska hållas utanför uppdragsdata och backup.'},
   {name:'Karttjänst testfunktion', status:'Testfunktion', purpose:'Manuellt karttest med valfri fysisk plats från platsdatabasen. Visar körtid, avstånd och fel utan att påverka uppdrag.', changeRule:'Får byggas vidare till starttillägg och materialflöde först efter testgodkännande.'},
+  {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar uppskattad tid i kö baserat på jämförbara avslutade jobb.', changeRule:'Får förbättras, men ska inte blanda fel underlag.'},
@@ -3507,10 +3553,11 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && functionExists('getPlaceCoordinates') && functionExists('canUsePlaceForMapCalculation'), 'PLACE_MAP_DATA + kartförberedande hjälpfunktioner');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!document.getElementById('mapKeyManagerWrap') && !!document.getElementById('mapApiKeyInput') && functionExists('getLocalMapApiKey') && functionExists('setLocalMapApiKey') && functionExists('deleteLocalMapApiKey'), 'mapKeyManagerWrap + lokal localStorage-nyckel');
   addFunctionCheck(results, 'Nivå 1', 'Karttjänst testfunktion finns', !!document.getElementById('mapTestFrom') && !!document.getElementById('mapTestTo') && !!document.getElementById('mapRouteTestResult') && functionExists('runMapRouteTest') && functionExists('requestGoogleRouteTest'), 'manuellt test i Inställningar → Karttjänst');
+  addFunctionCheck(results, 'Nivå 1', 'Karttest felruta radbryts på mobil', !!document.getElementById('mapRouteTestResult') && document.getElementById('mapRouteTestResult').classList.contains('map-test-result'), 'map-test-result med overflow-wrap:anywhere');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-20') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-20'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-21') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-21'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
   const ringonCoord = getPlaceCoordinates('Ringön');
@@ -4125,14 +4172,18 @@ function populateMapRouteTestSelects(){
 
 function resetMapRouteTestResult(){
   const el = document.getElementById('mapRouteTestResult');
-  if(el) el.textContent = 'Inget karttest kört.';
+  if(!el) return;
+  el.textContent = 'Inget karttest kört.';
+  el.classList.remove('queue-alert', 'is-error', 'is-ok');
 }
 
-function setMapRouteTestResult(html, isError){
+function setMapRouteTestResult(html, isError, isOk){
   const el = document.getElementById('mapRouteTestResult');
   if(!el) return;
   el.innerHTML = html;
   el.classList.toggle('queue-alert', !!isError);
+  el.classList.toggle('is-error', !!isError);
+  el.classList.toggle('is-ok', !!isOk && !isError);
 }
 
 function parseGoogleDurationSeconds(value){
@@ -4224,19 +4275,24 @@ async function runMapRouteTest(){
     const durationText = Number.isFinite(result.durationSeconds) ? formatMapDuration(result.durationSeconds) : escapeHtml(result.durationRaw || '-');
     const distanceText = formatMapDistanceMeters(result.distanceMeters);
     setMapRouteTestResult(
-      '<strong style="color:#15803d">Karttjänst svarar.</strong><br>' +
-      'Rutt: ' + escapeHtml(getPlaceLabel(fromPlace)) + ' → ' + escapeHtml(getPlaceLabel(toPlace)) + '<br>' +
-      'Körtid: ' + escapeHtml(durationText) + '<br>' +
-      'Avstånd: ' + escapeHtml(distanceText) + '<br>' +
-      '<span class="muted">Testet är manuellt och påverkar inte uppdrag eller uppskattad tid.</span>',
-      false
+      '<strong>Karttjänst svarar.</strong>' +
+      '<span class="map-test-section map-test-detail">Rutt: ' + escapeHtml(getPlaceLabel(fromPlace)) + ' → ' + escapeHtml(getPlaceLabel(toPlace)) + '</span>' +
+      '<span class="map-test-detail">Körtid: ' + escapeHtml(durationText) + '</span>' +
+      '<span class="map-test-detail">Avstånd: ' + escapeHtml(distanceText) + '</span>' +
+      '<span class="map-test-section muted">Testet är manuellt och påverkar inte uppdrag eller uppskattad tid.</span>',
+      false,
+      true
     );
   }catch(e){
     const message = e && e.message ? e.message : String(e || 'Okänt fel');
     setMapRouteTestResult(
-      '<strong>Karttest misslyckades.</strong><br>' + escapeHtml(message) + '<br>' +
-      '<span class="muted">Kontrollera att rätt API är aktiverat, att nyckeln är sparad på denna enhet och att nyckelns begränsningar tillåter anropet.</span>',
-      true
+      '<strong>Karttest misslyckades.</strong>' +
+      '<span class="map-test-section map-test-label">Fel:</span>' +
+      '<span class="map-test-detail">' + escapeHtml(message) + '</span>' +
+      '<span class="map-test-section map-test-label">Åtgärd:</span>' +
+      '<span class="map-test-detail">Kontrollera att rätt API är aktiverat, att nyckeln är sparad på denna enhet och att nyckelns begränsningar tillåter anropet.</span>',
+      true,
+      false
     );
   }
 }
