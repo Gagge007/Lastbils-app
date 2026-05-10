@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-17
+- Nuvarande version: Stadslass v2026-05-07-01-18
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -23,6 +23,7 @@ Stadslass versionskontroll
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb med uppskattad tid visar tidsstöd, tid kvar och beräknad klar-tid utan att blockera Klart
   - GPS-inspelning/Ruttmätning: manuell, kan sparas bort per uppdrag
+  - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
   - Funktionslista: uppdateras vid varje version; funktioner kan vara aktiv, skyddad, skyddad men får byggas om, ersatt, borttagen medvetet eller testfunktion
   - Funktionskontroll: kontrollerar knappar/paneler, tekniska regler och testuppdrag i minnet utan att spara
@@ -1062,7 +1063,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-17</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-18</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1450,7 +1451,34 @@ function cloneDefaultJobTypes(){ return DEFAULT_TRUCK_TYPES.slice(); }
 let truckTypes = cloneDefaultJobTypes();
 let sortedTruckTypes = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
 const places = ['Ringön (BAS)','von Utfallsgatan','Slottskogen','Säldammen','Flaklager Skräppekärr','Ruskvädersgatan (Ristipp)','Renova Bioanläggning','Renova Skräppekärr','Renova Sävenäs','Renova Högsbo','Renova verkstad','Stena Metall','Sortera Torslanda','Ströman Kungälv','Maskinparken Kungälv','Annan plats'];
-const dests = ['Sortera Torslanda','Stena Metall','Renova Skräppekärr','Renova Sävenäs','Renova Högsbo','Renova Bioanläggning','Renova verkstad','Ströman Kungälv','Maskinparken Kungälv','Flaklager Skräppekärr','Ruskvädersgatan (Ristipp)','Ringön (BAS)','Annan destination'];
+const dests = ['Sortera Torslanda','Stena Metall','Renova Skräppekärr','Renova Sävenäs','Renova Högsbo','Renova Bioanläggning','Renova verkstad','Ströman Kungälv','Maskinparken Kungälv','Flaklager Skräppekärr','Ruskvädersgatan (Ristipp)','Renova Fläskebol','Ringön (BAS)','Annan destination'];
+
+const PLACE_MAP_DATA = {
+  'Ringön (BAS)': { type:'physical', referenceType:'plusCode', plusCode:'PX99+QP Göteborg', lat:57.719437, lon:11.969312, aliases:['Ringön'] },
+  'von Utfallsgatan': { type:'physical', referenceType:'plusCode', plusCode:'P2GF+HJG Göteborg', lat:57.726438, lon:12.024063, aliases:[] },
+  'Slottskogen': { type:'physical', referenceType:'plusCode', plusCode:'MWMM+2QP Göteborg', address:'Vedbacken 15, 414 76 Göteborg', lat:57.6825909, lon:11.9344394, aliases:['Slottskogen Vedbacken'] },
+  'Säldammen': { type:'physical', referenceType:'plusCode', plusCode:'MWMQ+Q9W Göteborg', lat:57.684437, lon:11.938438, aliases:[] },
+  'Flaklager Skräppekärr': { type:'physical', referenceType:'plusCode', plusCode:'Q224+772 Göteborg', lat:57.750687, lon:12.005688, aliases:[] },
+  'Ruskvädersgatan (Ristipp)': { type:'physical', referenceType:'plusCode', plusCode:'PV5H+4HV Göteborg', lat:57.707813, lon:11.878937, aliases:['Ristipp'] },
+  'Renova Bioanläggning': { type:'physical', referenceType:'plusCode', plusCode:'Q252+9Q Göteborg', lat:57.758437, lon:12.001938, aliases:[] },
+  'Renova Skräppekärr': { type:'physical', referenceType:'plusCode', plusCode:'P2X4+8C Göteborg', lat:57.748312, lon:12.006063, aliases:[] },
+  'Renova Sävenäs': { type:'physical', referenceType:'plusCode', plusCode:'P2JX+MW Göteborg', lat:57.731687, lon:12.049812, aliases:[] },
+  'Renova Högsbo': { type:'physical', referenceType:'plusCode', plusCode:'MW4X+R4 Göteborg', lat:57.657063, lon:11.947812, aliases:[] },
+  'Renova verkstad': { type:'physical', referenceType:'plusCode', plusCode:'QVCR+5V4 Göteborg', lat:57.770437, lon:11.892187, aliases:[] },
+  'Stena Metall': { type:'physical', referenceType:'plusCode', plusCode:'PXGP+6J Göteborg', lat:57.725563, lon:11.986562, aliases:[] },
+  'Sortera Torslanda': { type:'physical', referenceType:'plusCode', plusCode:'PR6X+HR Göteborg', lat:57.711438, lon:11.849563, aliases:[] },
+  'Ströman Kungälv': { type:'physical', referenceType:'plusCode', plusCode:'VWMQ+M2 Kungälv', lat:57.884187, lon:11.937563, aliases:[] },
+  'Maskinparken Kungälv': { type:'physical', referenceType:'plusCode', plusCode:'VWGV+5J Kungälv', lat:57.875437, lon:11.944063, aliases:[] },
+  'Renova Fläskebol': { type:'physical', referenceType:'plusCode', plusCode:'M5P5+F3 Landvetter', lat:57.686187, lon:12.157688, aliases:[] },
+  'Annan plats': { type:'placeholder', placeholder:true, aliases:[] },
+  'Annan destination': { type:'placeholder', placeholder:true, aliases:[] }
+};
+const PLACE_MAP_ALIASES = Object.keys(PLACE_MAP_DATA).reduce((acc, key) => {
+  acc[key] = key;
+  (PLACE_MAP_DATA[key].aliases || []).forEach(alias => { acc[alias] = key; });
+  return acc;
+}, {});
+
 const DEFAULT_MACHINES = [
   {id:'machine_citycat_5006', name:'CityCat 5006', workshop:'Ströman Kungälv'},
   {id:'machine_citycat_v20', name:'CityCat V20', workshop:'Ströman Kungälv'},
@@ -2735,8 +2763,64 @@ function unknownPlaceWarning(item){
     : '';
 }
 
+
+function normalizePlaceMapKey(value){
+  const raw = String(value || '').trim();
+  return PLACE_MAP_ALIASES[raw] || raw;
+}
+
+function getPlaceMapInfo(value){
+  const key = normalizePlaceMapKey(value);
+  return PLACE_MAP_DATA[key] || null;
+}
+
+function isPlaceMapPlaceholder(value){
+  const info = getPlaceMapInfo(value);
+  return !!(info && info.placeholder);
+}
+
+function getPlaceMapReference(value){
+  const info = getPlaceMapInfo(value);
+  if(!info || info.placeholder) return '';
+  return info.plusCode || info.address || '';
+}
+
+function getPlaceCoordinates(value){
+  const info = getPlaceMapInfo(value);
+  if(!info || info.placeholder) return null;
+  const lat = Number(info.lat);
+  const lon = Number(info.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lon };
+}
+
+function canUsePlaceForMapCalculation(value){
+  return !!getPlaceCoordinates(value) && !isPlaceMapPlaceholder(value);
+}
+
+function canUseRouteForMapCalculation(fromPlace, toPlace){
+  return canUsePlaceForMapCalculation(fromPlace) && canUsePlaceForMapCalculation(toPlace);
+}
+
+function formatPlaceCoordinateText(value){
+  const coord = getPlaceCoordinates(value);
+  if(!coord) return '';
+  return coord.lat + ', ' + coord.lon;
+}
+
+function getPlaceMapStatusText(value){
+  const key = normalizePlaceMapKey(value);
+  const info = getPlaceMapInfo(value);
+  if(!info) return 'Kartreferens: saknas fasta koordinater.';
+  if(info.placeholder) return 'Kartreferens: ej fysisk plats – ska inte användas för kartberäkning.';
+  const reference = getPlaceMapReference(key);
+  const aliasText = (info.aliases || []).length ? ' · Alias: ' + info.aliases.join(', ') : '';
+  return 'Kartreferens: ' + reference + ' · Koordinat: ' + formatPlaceCoordinateText(key) + aliasText;
+}
+
 function getPlaceAddress(value){
-  return (state.placeAddresses && state.placeAddresses[value]) ? state.placeAddresses[value] : '';
+  if(state.placeAddresses && state.placeAddresses[value]) return state.placeAddresses[value];
+  return getPlaceMapReference(value);
 }
 
 function formatStartPointText(job){
@@ -3170,7 +3254,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-17';
+const APP_VERSION = 'Stadslass v2026-05-07-01-18';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3185,6 +3269,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'GPS-data följer uppdraget', status:'Skyddad', purpose:'GPS-/ruttdata följer uppdraget till papperskorgen och försvinner vid permanent borttagning.', changeRule:'Får ändras endast med dokumenterad ny datamodell.'},
   {name:'GPS-inspelning/Ruttmätning', status:'Skyddad men får byggas om', purpose:'Manuell GPS-inspelning per uppdrag med möjlighet att spara bort datan.', changeRule:'Får ersättas av bättre ruttmätning men inte försvinna tyst.'},
   {name:'Startpunkt', status:'Skyddad men får byggas om', purpose:'Visar adress för startpunkt i aktivt jobb och Idag.', changeRule:'Tekniken kan ändras men informationen ska finnas kvar eller ersättas.'},
+  {name:'Kartförberedelse platsdatabas', status:'Aktiv', purpose:'Fasta platser har Plus Code/adress, koordinater, alias och placeholder-status för kommande karttjänst.', changeRule:'Får byggas vidare till kartmotor men ska inte starta Google-anrop utan separat beslut.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar uppskattad tid i kö baserat på jämförbara avslutade jobb.', changeRule:'Får förbättras, men ska inte blanda fel underlag.'},
@@ -3371,10 +3456,14 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!document.getElementById('trashManagerWrap') && functionExists('moveToTrash') && functionExists('restoreTrashItem'), 'trashManagerWrap + papperskorgsfunktioner');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!document.getElementById('connectionStatus') && functionExists('updateConnectionStatus'), 'connectionStatus');
   addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!document.getElementById('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20, 'featureManifestList');
+  addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && functionExists('getPlaceCoordinates') && functionExists('canUsePlaceForMapCalculation'), 'PLACE_MAP_DATA + kartförberedande hjälpfunktioner');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-17') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-17'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-18') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-18'), APP_VERSION);
+  const ringonCoord = getPlaceCoordinates('Ringön');
+  const slottskogenCoord = getPlaceCoordinates('Slottskogen Vedbacken');
+  addFunctionCheck(results, 'Nivå 2', 'Platsdatabas innehåller alias, koordinater och placeholders', !!ringonCoord && ringonCoord.lat === 57.719437 && normalizePlaceMapKey('Ristipp') === 'Ruskvädersgatan (Ristipp)' && !!slottskogenCoord && slottskogenCoord.lat === 57.6825909 && isPlaceMapPlaceholder('Annan plats') && !canUsePlaceForMapCalculation('Annan destination'), 'Ringön/Ristipp/Slottskogen-alias + Annan plats/destination spärras');
   const saldammenQuick = getQuickItems().find(item => item && item.id === 'quick_saldammen_sopsand');
   addFunctionCheck(results, 'Nivå 2', 'Säldammen visas under Slottskogen men sparas separat', !!saldammenQuick && saldammenQuick.group === 'Slottskogen' && saldammenQuick.subGroup === 'Säldammen' && saldammenQuick.label === 'Sopsand' && saldammenQuick.place === 'Säldammen' && saldammenQuick.dest === 'Sortera Torslanda', saldammenQuick ? (saldammenQuick.group + ' / ' + saldammenQuick.subGroup + ' / ' + saldammenQuick.label + ' / Från ' + saldammenQuick.place + ' / Till ' + saldammenQuick.dest) : 'snabbval saknas');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
@@ -6880,6 +6969,10 @@ function renderPlaceManager(){
     addressInput.setAttribute('data-place-address-key', entry.key);
     addressInput.placeholder = 'Adress eller Plus Code';
 
+    const mapInfo = document.createElement('div');
+    mapInfo.className = 'multi-help';
+    mapInfo.textContent = getPlaceMapStatusText(entry.key);
+
     const meta = document.createElement('div');
     meta.className = 'place-meta';
 
@@ -6923,6 +7016,7 @@ function renderPlaceManager(){
     row.appendChild(label);
     row.appendChild(input);
     row.appendChild(addressInput);
+    row.appendChild(mapInfo);
     row.appendChild(meta);
     listEl.appendChild(row);
   });
