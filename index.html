@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-15
+- Nuvarande version: Stadslass v2026-05-07-01-16
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -17,8 +17,9 @@ Stadslass versionskontroll
   - Snabbval Slottskogen: visar Komprimator, underrubrik Säldammen och knappen Sopsand, men sparar Sopsand från Säldammen tekniskt separat
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
   - Startpunkt: visas i Aktivt jobb och Idag
-  - Beräkningsstart: sparas vid start och används bara för starttillägg till Från-platsen
+  - Beräkningsstart: sparas som reserv men faktisk startpunkt/adress styr starttillägg när den finns
   - Uppskattad tid: delas i Materialflöde, Starttillägg och Total uppskattad tid
+  - Starttillägg: använder faktisk startpunkt/adress → Från; Beräkningsstart används bara som reserv utan faktisk startpunkt
   - Aktiv tidsnedräkning: aktiva jobb med uppskattad tid visar tidsstöd, tid kvar och beräknad klar-tid utan att blockera Klart
   - GPS-inspelning/Ruttmätning: manuell, kan sparas bort per uppdrag
   - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
@@ -1060,7 +1061,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-15</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-16</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -2296,19 +2297,37 @@ function updateLastWorkPointFromJob(job){
   };
 }
 
+function getActualStartLabelForDisplay(job){
+  if(!job) return 'faktisk startpunkt';
+  if(job.startAddress) return job.startAddress;
+  if(job.startPointStatus === 'loading' || job.startPointStatus === 'pending') return 'faktisk startpunkt hämtas';
+  if(job.startPointStatus === 'missing') return 'faktisk startpunkt saknas';
+  return getCalculationStartLabelForJob(job) || getCalculationStartPlaceForEstimate(job) || 'faktisk startpunkt saknas';
+}
+
+function isCalculationStartSameAsFrom(job){
+  if(!job) return false;
+  const calcStart = normalizeEstimatePart(getCalculationStartPlaceForEstimate(job));
+  const from = normalizeEstimatePart(job.place);
+  return !!calcStart && !!from && calcStart === from;
+}
+
 function formatCalculationStartText(job){
   if(!job) return '';
-  const startPlace = job.calculationStartPlace || job.place || '';
-  const startLabel = getCalculationStartLabelForJob(job) || 'saknas';
   const fromLabel = getItemPlaceLabel(job, 'place') || job.place || 'Från-plats saknas';
+  const startLabel = getActualStartLabelForDisplay(job);
+  const materialRoute = getMaterialRouteText(job);
   const returnText = getJobReturnRequiredValue(job) ? 'Ja' : 'Nej';
-  if(!startPlace && !startLabel) return 'Beräkningsstart/starttillägg: saknas · Returkrav vid start: ' + returnText;
-  return 'Beräkningsstart/starttillägg: ' + startLabel + ' → ' + fromLabel + ' · Returkrav vid start: ' + returnText;
+  const lines = [];
+  lines.push('Starttillägg: ' + startLabel + ' → ' + fromLabel);
+  if(materialRoute) lines.push('Materialflöde: ' + materialRoute);
+  lines.push('Returkrav materialflöde: ' + returnText);
+  return lines.join('<br>');
 }
 
 function getCalculationStartHtml(job){
   const text = formatCalculationStartText(job);
-  return text ? '<div style="margin-top:6px">' + escapeHtml(text) + '</div>' : '';
+  return text ? '<div style="margin-top:6px">' + text + '</div>' : '';
 }
 
 function formatCountdownMinutes(ms){
@@ -2792,6 +2811,7 @@ function requestActiveStartPointAddress(){
         if(!state.active || state.active.id !== activeId) return;
         state.active.startAddress = address || '';
         state.active.startPointStatus = address ? 'ok' : 'missing';
+        applyEstimatedCountdownAtStart(state.active);
         saveState();
         renderActive();
       });
@@ -2799,6 +2819,7 @@ function requestActiveStartPointAddress(){
     () => {
       if(state.active && state.active.id === activeId){
         state.active.startPointStatus = 'missing';
+        applyEstimatedCountdownAtStart(state.active);
         saveState();
         renderActive();
       }
@@ -3150,7 +3171,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-15';
+const APP_VERSION = 'Stadslass v2026-05-07-01-16';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3165,13 +3186,13 @@ const APP_FEATURE_MANIFEST = [
   {name:'GPS-data följer uppdraget', status:'Skyddad', purpose:'GPS-/ruttdata följer uppdraget till papperskorgen och försvinner vid permanent borttagning.', changeRule:'Får ändras endast med dokumenterad ny datamodell.'},
   {name:'GPS-inspelning/Ruttmätning', status:'Skyddad men får byggas om', purpose:'Manuell GPS-inspelning per uppdrag med möjlighet att spara bort datan.', changeRule:'Får ersättas av bättre ruttmätning men inte försvinna tyst.'},
   {name:'Startpunkt', status:'Skyddad men får byggas om', purpose:'Visar adress för startpunkt i aktivt jobb och Idag.', changeRule:'Tekniken kan ändras men informationen ska finnas kvar eller ersättas.'},
-  {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparar stabil startplats för starttillägg till Från-platsen.', changeRule:'Får förbättras med platskoordinater men ska inte blandas in i materialflödets huvudunderlag.'},
+  {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas som reserv för starttillägg men får inte ersätta faktisk GPS-startpunkt/adress när den finns.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar uppskattad tid i kö baserat på jämförbara avslutade jobb.', changeRule:'Får förbättras, men ska inte blanda fel underlag.'},
-  {name:'Delad uppskattad tid: materialflöde + starttillägg', status:'Skyddad beteenderegel', purpose:'Materialflöde räknas på Från → Till eller Från → Till → Från; Beräkningsstart används bara för starttillägg till Från.', changeRule:'Total uppskattad tid ska bygga på materialflöde plus endast säkert starttillägg.'},
+  {name:'Delad uppskattad tid: materialflöde + starttillägg', status:'Skyddad beteenderegel', purpose:'Materialflöde räknas på Från → Till eller Från → Till → Från; starttillägg använder faktisk startpunkt/adress → Från när den finns.', changeRule:'Total uppskattad tid ska bygga på materialflöde plus endast säkert starttillägg.'},
   {name:'Aktiv nedräkning från uppskattad tid', status:'Aktiv', purpose:'Visar tidsstöd, tid kvar och beräknad klar-tid i aktivt jobb när uppskattad tid finns.', changeRule:'Får ändras i visning men ska inte blockera Klart eller påverka GPS/faktisk tid.'},
   {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
-  {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
+  {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt. Offline är nödläge för att behålla Excel-underlag, inte full uppskattningslogik.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
   {name:'GitHub-kö export/import markeringar', status:'Skyddad men får byggas om', purpose:'Visar Överförd till GitHub och Hämtad från GitHub.', changeRule:'Får ersättas av bättre synkstatus.'},
   {name:'Intern kommentar-regel', status:'Skyddad', purpose:'Intern kommentar bara för Äta, Övriga jobb och Övrig verksamhet.', changeRule:'Får ändras endast som medveten regeländring.'},
   {name:'Funktionslista', status:'Skyddad men får byggas om', purpose:'Dokumenterar aktiva, skyddade, ersatta och borttagna funktioner.', changeRule:'Ska uppdateras vid varje version.'},
@@ -3316,16 +3337,20 @@ function runMemoryOnlyTestJobCheck(){
     const addonEstimate = getTimeEstimateForQueuedJob(addonQueueJob);
     const gpsRecords = getSavedRouteGpsRecordsForUnderlag();
     const noEmptyExcluded = isExcludedFromTimeEstimate({type:'Sopsand', place:'Ringön (BAS)', displayType:'Sopsand', comment:'Ej behov av tömning'});
-    const materialKeyIgnoresStart = materialFlowEstimateKey(queueJob) === materialFlowEstimateKey(addonQueueJob);
-    const startKeyDiffers = startAddonEstimateKey(queueJob) !== startAddonEstimateKey(addonQueueJob);
+    const actualStartQueueJob = {...addonQueueJob, id:'memory_queue_3', startAddress:'Ringjärnsvägen, Landvetter', startPointStatus:'ok'};
+    const actualStartEstimate = getTimeEstimateForQueuedJob(actualStartQueueJob);
+    const materialKeyIgnoresStart = materialFlowEstimateKey(queueJob) === materialFlowEstimateKey(addonQueueJob) && materialFlowEstimateKey(queueJob) === materialFlowEstimateKey(actualStartQueueJob);
+    const startKeyDiffers = startAddonEstimateKey(queueJob) !== startAddonEstimateKey(addonQueueJob) && startAddonEstimateKey(actualStartQueueJob) !== startAddonEstimateKey(addonQueueJob);
+    const actualStartOverridesCalculationStart = startAddonEstimateKey(actualStartQueueJob).includes('adress:ringjärnsvägen, landvetter') && !!actualStartEstimate && actualStartEstimate.startAddonMissing === true;
 
     return {
       ok: underlag.length === 6 &&
         !underlag.some(job => job.id === 'memory_trash_1') &&
         !!estimate && estimate.materialMinutes === 22 && estimate.startAddonMinutes === 0 && estimate.minutes === 22 &&
         !!addonEstimate && addonEstimate.materialMinutes === 22 && addonEstimate.startAddonMinutes === 12 && addonEstimate.minutes === 34 &&
-        gpsRecords.length === 6 && noEmptyExcluded && materialKeyIgnoresStart && startKeyDiffers,
-      detail:'underlag=' + underlag.length + ', materialflöde=' + (estimate ? estimate.materialMinutes + ' min' : 'saknas') + ', starttillägg=' + (addonEstimate ? addonEstimate.startAddonMinutes + ' min' : 'saknas') + ', total=' + (addonEstimate ? addonEstimate.minutes + ' min' : 'saknas') + ', gps-underlag=' + gpsRecords.length + ', papperskorg exkluderad=' + (!underlag.some(job => job.id === 'memory_trash_1') ? 'ja' : 'nej')
+        !!actualStartEstimate && actualStartEstimate.materialMinutes === 22 && actualStartEstimate.startAddonMinutes === 0 && actualStartEstimate.minutes === 22 &&
+        gpsRecords.length === 6 && noEmptyExcluded && materialKeyIgnoresStart && startKeyDiffers && actualStartOverridesCalculationStart,
+      detail:'underlag=' + underlag.length + ', materialflöde=' + (estimate ? estimate.materialMinutes + ' min' : 'saknas') + ', starttillägg=' + (addonEstimate ? addonEstimate.startAddonMinutes + ' min' : 'saknas') + ', faktisk startpunkt överstyr beräkningsstart=' + (actualStartOverridesCalculationStart ? 'ja' : 'nej') + ', total=' + (addonEstimate ? addonEstimate.minutes + ' min' : 'saknas') + ', gps-underlag=' + gpsRecords.length + ', papperskorg exkluderad=' + (!underlag.some(job => job.id === 'memory_trash_1') ? 'ja' : 'nej')
     };
   }catch(e){
     return {ok:false, detail:e && e.message ? e.message : String(e)};
@@ -3350,13 +3375,13 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-15') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-15'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-16') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-16'), APP_VERSION);
   const saldammenQuick = getQuickItems().find(item => item && item.id === 'quick_saldammen_sopsand');
   addFunctionCheck(results, 'Nivå 2', 'Säldammen visas under Slottskogen men sparas separat', !!saldammenQuick && saldammenQuick.group === 'Slottskogen' && saldammenQuick.subGroup === 'Säldammen' && saldammenQuick.label === 'Sopsand' && saldammenQuick.place === 'Säldammen' && saldammenQuick.dest === 'Sortera Torslanda', saldammenQuick ? (saldammenQuick.group + ' / ' + saldammenQuick.subGroup + ' / ' + saldammenQuick.label + ' / Från ' + saldammenQuick.place + ' / Till ' + saldammenQuick.dest) : 'snabbval saknas');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
   addFunctionCheck(results, 'Nivå 2', 'Delad uppskattad tid finns', functionExists('materialFlowEstimateKey') && functionExists('startAddonEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getMaterialFlowEstimateForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getStartAddonEstimateForJob'), 'materialFlowEstimateKey + startAddonEstimateKey');
-  addFunctionCheck(results, 'Nivå 2', 'Beräkningsstart styr bara starttillägg', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('startAddonEstimateKey', 'getCalculationStartPlaceForEstimate'), 'Materialflöde utan Beräkningsstart, Starttillägg med Beräkningsstart');
+  addFunctionCheck(results, 'Nivå 2', 'Faktisk startpunkt styr starttillägg', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('getStartAddonEstimateSource', 'startAddress') && functionSourceIncludes('startAddonEstimateKey', 'getStartAddonEstimateSource'), 'Materialflöde utan Beräkningsstart, Starttillägg med faktisk startpunkt/adress när den finns');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkrat underlag', functionSourceIncludes('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
@@ -5640,10 +5665,55 @@ function materialFlowEstimateKey(job){
   ].join('|');
 }
 
+function getStartAddonEstimateSource(job){
+  if(!job) return {key:'', label:'', sameAsFrom:false, missing:true};
+  const from = normalizeEstimatePart(job.place);
+  const startAddress = String(job.startAddress || '').trim();
+  if(startAddress){
+    return {
+      key:'adress:' + normalizeEstimatePart(startAddress),
+      label:startAddress,
+      sameAsFrom:false,
+      missing:false,
+      actual:true
+    };
+  }
+
+  if(job.startPointStatus === 'pending' || job.startPointStatus === 'loading' || job.startPointStatus === 'missing'){
+    const sameAsFrom = isCalculationStartSameAsFrom(job);
+    if(sameAsFrom){
+      return {
+        key:'plats:' + from,
+        label:getCalculationStartLabelForJob(job) || getItemPlaceLabel(job, 'place') || job.place || '',
+        sameAsFrom:true,
+        missing:false,
+        actual:false
+      };
+    }
+    return {
+      key:'faktisk_startpunkt_saknas',
+      label:getActualStartLabelForDisplay(job),
+      sameAsFrom:false,
+      missing:true,
+      actual:true
+    };
+  }
+
+  const calculationStart = normalizeEstimatePart(getCalculationStartPlaceForEstimate(job));
+  return {
+    key:calculationStart ? 'plats:' + calculationStart : '',
+    label:getCalculationStartLabelForJob(job) || getCalculationStartPlaceForEstimate(job) || '',
+    sameAsFrom:!!calculationStart && !!from && calculationStart === from,
+    missing:!calculationStart,
+    actual:false
+  };
+}
+
 function startAddonEstimateKey(job){
   if(!job) return '';
+  const source = getStartAddonEstimateSource(job);
   return [
-    normalizeEstimatePart(getCalculationStartPlaceForEstimate(job)),
+    normalizeEstimatePart(source.key),
     normalizeEstimatePart(job.place)
   ].join('|');
 }
@@ -5681,7 +5751,8 @@ function getMaterialRouteText(job){
 
 function getStartAddonRouteText(job){
   if(!job) return '';
-  const startLabel = getCalculationStartLabelForJob(job) || getCalculationStartPlaceForEstimate(job) || 'Beräkningsstart';
+  const source = getStartAddonEstimateSource(job);
+  const startLabel = source.label || getActualStartLabelForDisplay(job) || 'faktisk startpunkt';
   const fromLabel = getItemPlaceLabel(job, 'place') || job.place || 'Från';
   return startLabel + ' → ' + fromLabel;
 }
@@ -5707,15 +5778,25 @@ function getMaterialFlowEstimateForJob(job){
 
 function getStartAddonEstimateForJob(job, materialEstimate){
   if(!isTimeEstimateAllowedForJob(job) || !materialEstimate) return null;
-  const startPlace = normalizeEstimatePart(getCalculationStartPlaceForEstimate(job));
-  const fromPlace = normalizeEstimatePart(job.place);
-  if(!startPlace || startPlace === fromPlace){
+  const source = getStartAddonEstimateSource(job);
+  if(source.sameAsFrom){
     return {
       minutes: 0,
       count: 0,
       safe: true,
       missing: false,
-      reason: 'Beräkningsstart är samma som Från-plats.',
+      reason: 'Starttillägg är 0 eftersom startpunkt/beräkningsstart är samma som Från-plats.',
+      routeText: getStartAddonRouteText(job)
+    };
+  }
+
+  if(source.missing || !source.key){
+    return {
+      minutes: 0,
+      count: 0,
+      safe: false,
+      missing: true,
+      reason: 'Starttillägg saknar säker faktisk startpunkt för ' + getStartAddonRouteText(job) + '.',
       routeText: getStartAddonRouteText(job)
     };
   }
@@ -5784,7 +5865,7 @@ function renderTimeEstimateHtml(queueJob){
     rows.push('<div class="muted">' + escapeHtml(estimate.startAddonRouteText || getStartAddonRouteText(queueJob)) + ' · Underlag: ' + estimate.startAddonCount + ' jämförbara jobb</div>');
   } else if(estimate.startAddonMissing){
     rows.push('<div class="queue-alert" style="margin-top:4px">Starttillägg: saknar säkert underlag</div>');
-    rows.push('<div class="muted">' + escapeHtml(estimate.startAddonReason || 'Beräkningsstart → Från har för få jämförbara jobb.') + '</div>');
+    rows.push('<div class="muted">' + escapeHtml(estimate.startAddonReason || 'Faktisk startpunkt/adress → Från har för få jämförbara jobb.') + '</div>');
   } else {
     rows.push('<div style="font-weight:700;margin-top:4px">Starttillägg: 0 min</div>');
     rows.push('<div class="muted">' + escapeHtml(estimate.startAddonRouteText || getStartAddonRouteText(queueJob)) + '</div>');
