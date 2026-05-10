@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-26
+- Nuvarande version: Stadslass v2026-05-07-01-27
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -17,9 +17,9 @@ Stadslass versionskontroll
   - Snabbval Slottskogen: visar Komprimator, underrubrik Säldammen och knappen Sopsand, men sparar Sopsand från Säldammen tekniskt separat
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
   - Startpunkt: visas i Aktivt jobb och Idag
-  - Startpunkt: visas som information i appen men låser inte uppskattad tid
-  - Beräkningsstart: sparas internt men används inte som hård starttilläggsberäkning
-  - Uppskattad tid: huvudunderlag är Materialflöde; Starttillägg visas som ej beräknat tills karttjänst finns
+  - Startpunkt: visas som information i appen och används av karttjänsten för bättre uppskattad tid
+  - Beräkningsstart: sparas internt och kan användas bakom kulisserna när karttjänst/historik räknar uppskattad tid
+  - Uppskattad tid: visas enkelt i aktivt jobb och kö; karttjänst + historik används bakom kulisserna
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb med uppskattad tid visar tidsstöd, tid kvar och beräknad klar-tid utan att blockera Klart
   - GPS-inspelning/Ruttmätning: dold i aktivt jobb; gammal GPS-data bevaras i gamla uppdrag
@@ -27,7 +27,7 @@ Stadslass versionskontroll
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
   - Karttjänst test: manuellt testanrop kan göras i Inställningar utan att påverka uppdrag eller uppskattad tid
   - Kartskydd: lokala spärrar, anropsräknare och cache begränsar kartanrop per minut/dag
-  - Kartberäknad tid i aktivt jobb: knappstyrd informationsruta utan påverkan på nedräkning, historik eller export
+  - Kartberäknad tid i aktivt jobb: detaljerad informationsruta är dold; uppskattad tid visas enkelt
   - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
   - Funktionslista: uppdateras vid varje version; funktioner kan vara aktiv, skyddad, skyddad men får byggas om, ersatt, borttagen medvetet eller testfunktion
   - Funktionskontroll: kontrollerar knappar/paneler, tekniska regler och testuppdrag i minnet utan att spara
@@ -1121,7 +1121,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-26</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-27</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1629,6 +1629,8 @@ const MAP_GUARD_LIMITS = {
   minAutoIntervalMinutes: 3,
   cacheMaxAgeMs: 24 * 60 * 60 * 1000
 };
+const SMART_ESTIMATE_DEFAULT_OVERHEAD_MINUTES = 15;
+const smartEstimateInFlight = new Set();
 const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avfall','Tryckimpregnerat','Komprimator','Kompost','Ris','Flis','Maskintransport','Snö','Annat','Övriga jobb'];
 function cloneDefaultJobTypes(){ return DEFAULT_TRUCK_TYPES.slice(); }
 let truckTypes = cloneDefaultJobTypes();
@@ -2563,25 +2565,12 @@ function getActiveEstimateCountdownHtml(job){
   const endAt = Number(job.estimatedEndAt || 0);
   if(!Number.isFinite(totalMinutes) || totalMinutes <= 0 || !Number.isFinite(endAt) || endAt <= 0) return '';
 
-  const details = [];
-  const materialMinutes = Number(job.estimatedMaterialFlowMinutesAtStart || 0);
-  const startAddonMinutes = Number(job.estimatedStartAddonMinutesAtStart || 0);
-  if(Number.isFinite(materialMinutes) && materialMinutes > 0){
-    details.push('Materialflöde: ' + Math.round(materialMinutes) + ' min');
-  }
-  if(job.estimatedStartAddonSafeAtStart === true && Number.isFinite(startAddonMinutes) && startAddonMinutes > 0){
-    details.push('Starttillägg: ' + Math.round(startAddonMinutes) + ' min');
-  } else if(job.estimatedStartAddonMissingAtStart === true){
-    details.push('Starttillägg: ej beräknat – startpunkt varierar');
-  }
-
   const diff = endAt - Date.now();
-  const estimateText = 'Total uppskattad tid: ' + Math.round(totalMinutes) + ' min';
-  const detailText = details.length ? ' · ' + details.join(' · ') : '';
+  const estimateText = 'Uppskattad tid: ' + Math.round(totalMinutes) + ' min';
   if(diff >= 0){
-    return '<strong>Tidsstöd:</strong> ' + estimateText + detailText + ' · Tid kvar: ca ' + formatCountdownMinutes(diff) + ' · Beräknad klar: ca ' + clockTime(endAt);
+    return '<strong>' + estimateText + '</strong> · Tid kvar: ca ' + formatCountdownMinutes(diff) + ' · Klar ca ' + clockTime(endAt);
   }
-  return '<strong>Tidsstöd:</strong> ' + estimateText + detailText + ' · Över uppskattad tid: ' + formatCountdownMinutes(Math.abs(diff)) + ' · Beräknad klar: passerad ' + clockTime(endAt);
+  return '<strong>' + estimateText + '</strong> · Över uppskattad tid: ' + formatCountdownMinutes(Math.abs(diff)) + ' · Beräknad klar: passerad ' + clockTime(endAt);
 }
 
 function renderActiveEstimateCountdown(){
@@ -2612,6 +2601,9 @@ function applyEstimatedCountdownAtStart(job){
     job.estimatedStartAddonCountAtStart = Number(estimate.startAddonCount || 0);
     job.estimatedStartAddonSafeAtStart = estimate.startAddonSafe === true;
     job.estimatedStartAddonMissingAtStart = estimate.startAddonMissing === true;
+    job.estimatedSourceAtStart = estimate.source || '';
+    job.estimatedMapTotalMinutesAtStart = Number(estimate.mapTotalMinutes || 0);
+    job.estimatedMapMaterialMinutesAtStart = Number(estimate.mapMaterialMinutes || 0);
   } else {
     delete job.estimatedMinutesAtStart;
     delete job.estimatedEndAt;
@@ -2622,6 +2614,9 @@ function applyEstimatedCountdownAtStart(job){
     delete job.estimatedStartAddonCountAtStart;
     delete job.estimatedStartAddonSafeAtStart;
     delete job.estimatedStartAddonMissingAtStart;
+    delete job.estimatedSourceAtStart;
+    delete job.estimatedMapTotalMinutesAtStart;
+    delete job.estimatedMapMaterialMinutesAtStart;
   }
   return job;
 }
@@ -2856,10 +2851,7 @@ function resetActiveMapRouteUiForJob(jobId){
 }
 
 function shouldShowActiveMapRouteCard(job){
-  if(!job) return false;
-  if(job.type === 'Övrig verksamhet') return false;
-  if(!job.place || !job.dest) return false;
-  return true;
+  return false;
 }
 
 function setActiveMapRouteResult(html, isError, isOk){
@@ -3209,6 +3201,7 @@ function requestActiveStartPointAddress(){
         applyEstimatedCountdownAtStart(state.active);
         saveState();
         renderActive();
+        scheduleSmartEstimateForActive();
       });
     },
     () => {
@@ -3217,6 +3210,7 @@ function requestActiveStartPointAddress(){
         applyEstimatedCountdownAtStart(state.active);
         saveState();
         renderActive();
+        scheduleSmartEstimateForActive();
       }
     },
     {enableHighAccuracy:true, maximumAge:30000, timeout:12000}
@@ -3566,7 +3560,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-26';
+const APP_VERSION = 'Stadslass v2026-05-07-01-27';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3586,15 +3580,15 @@ const APP_FEATURE_MANIFEST = [
   {name:'Karttjänst testfunktion', status:'Testfunktion', purpose:'Manuellt karttest med valfri fysisk plats från platsdatabasen. Visar körtid, avstånd och fel utan att påverka uppdrag.', changeRule:'Får byggas vidare till materialflöde först efter testgodkännande.'},
   {name:'Starttillägg karttest', status:'Testfunktion', purpose:'Manuellt test av Startpunkt → Från med samma kartskydd och cache som karttjänsten. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat testgodkännande.'},
   {name:'Total karttid karttest', status:'Testfunktion', purpose:'Manuellt test av starttillägg + materialflöde, inklusive returkrav när det är valt. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas vidare först efter separat testgodkännande.'},
-  {name:'Kartberäknad tid i aktivt jobb', status:'Testfunktion/information', purpose:'Knappstyrd beräkning i aktivt jobb av Startpunkt → Från + Från → Till + eventuell retur. Påverkar inte nedräkning, Klart, historik, Excel/export eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat godkännande.'},
+  {name:'Kartberäknad tid i aktivt jobb', status:'Dold i aktiv vy', purpose:'Detaljerad kartberäkning är flyttad bakom uppskattad tid. Aktivt jobb visar bara uppskattad tid.', changeRule:'Får visas igen bara om aktiv vy inte blir rörig.'},
   {name:'Systemkontroll med karttest', status:'Testfunktion', purpose:'Samlad kontroll i Inställningar som testar appens centrala funktioner och en standardrutt med Google/cache utan att påverka uppdrag.', changeRule:'Ska uppdateras när nya huvudfunktioner läggs till.'},
   {name:'Aktivt jobb radbrytning', status:'Aktiv', purpose:'Startpunkt/materialflöde/returkrav/starttillägg visas utan synlig HTML-kod som <br>.', changeRule:'Får ändras visuellt men får inte visa tekniska HTML-taggar för användaren.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
-  {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar uppskattad tid i kö baserat på jämförbara avslutade jobb.', changeRule:'Får förbättras, men ska inte blanda fel underlag.'},
-  {name:'Delad uppskattad tid: materialflöde + starttillägg', status:'Skyddad beteenderegel', purpose:'Materialflöde är huvudunderlag: Från → Till eller Från → Till → Från. Starttillägg visas som ej beräknat tills karttjänst finns.', changeRule:'Total uppskattad tid ska tills vidare bygga på materialflöde; startpunkt ska visas men inte låsa uppskattad tid.'},
+  {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
+  {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
   {name:'Aktiv nedräkning från uppskattad tid', status:'Aktiv', purpose:'Visar tidsstöd, tid kvar och beräknad klar-tid i aktivt jobb när uppskattad tid finns.', changeRule:'Får ändras i visning men ska inte blockera Klart eller påverka GPS/faktisk tid.'},
   {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
   {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt. Offline är nödläge för att behålla Excel-underlag, inte full uppskattningslogik.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
@@ -3784,17 +3778,17 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!document.getElementById('mapGuardStatus') && functionExists('canMakeMapRequest') && functionExists('registerMapRequest') && functionExists('getCachedMapRoute') && functionExists('setCachedMapRoute'), 'lokala gränser + cache för kartanrop');
   addFunctionCheck(results, 'Nivå 1', 'Starttillägg karttest finns', !!document.getElementById('mapStartAddonStart') && !!document.getElementById('mapStartAddonFrom') && !!document.getElementById('mapStartAddonTestResult') && functionExists('runMapStartAddonTest') && functionExists('requestGoogleRouteByPoints'), 'manuellt test av Startpunkt → Från utan påverkan på uppdrag');
   addFunctionCheck(results, 'Nivå 1', 'Total karttid karttest finns', !!document.getElementById('mapTotalStart') && !!document.getElementById('mapTotalFrom') && !!document.getElementById('mapTotalTo') && !!document.getElementById('mapTotalRouteTestResult') && functionExists('runMapTotalRouteTest'), 'manuellt test av Startpunkt → Från + materialflöde + returkrav');
-  addFunctionCheck(results, 'Nivå 1', 'Kartberäknad tid i aktivt jobb finns', !!document.getElementById('activeMapRouteCard') && !!document.getElementById('activeMapRouteResult') && functionExists('runActiveMapRouteCalculation') && functionExists('renderActiveMapRoutePanel'), 'knappstyrd aktiv informationsruta utan påverkan på uppdrag');
+  addFunctionCheck(results, 'Nivå 1', 'Kartberäkning bakom uppskattad tid finns', functionExists('getTimeEstimateForQueuedJob') && functionExists('scheduleSmartEstimateForJob') && functionExists('getBestSmartMapTotalsForJob'), 'aktiv vy och kö visar bara uppskattad tid');
   addFunctionCheck(results, 'Nivå 1', 'Systemkontroll med karttest finns', !!document.getElementById('systemControlManagerWrap') && !!document.getElementById('systemControlResults') && functionExists('runSystemControlWithMaps'), 'samlad kontroll i Inställningar med intern kontroll + max 1 karttest');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte HTML-taggar i startinfo', functionExists('formatMultiLineTextHtml') && functionSourceIncludes('renderActive', 'formatMultiLineTextHtml(activeStartText)'), 'radbrytning sker via formateringsfunktion, inte synlig <br>-text');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-26') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-26'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-27') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-27'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
-  addFunctionCheck(results, 'Nivå 2', 'Aktiv kartberäkning påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runActiveMapRouteCalculation', 'requestGoogleRouteByPointsForTotal') && functionSourceIncludes('runActiveMapRouteCalculation', 'Information/test') && !functionSourceIncludes('runActiveMapRouteCalculation', 'saveState') && !functionSourceIncludes('runActiveMapRouteCalculation', 'estimatedMinutesAtStart'), 'endast visning i aktivt jobb + lokal kartcache/anropsräknare');
+  addFunctionCheck(results, 'Nivå 2', 'Karttjänst kopplas bakom uppskattad tid', functionSourceIncludes('getTimeEstimateForQueuedJob', 'karttjänst+historik') && functionExists('calculateSmartMapTotalsForJob') && functionExists('scheduleSmartEstimateForActive'), 'uppskattad tid använder karttjänst/historik utan detaljvisning i aktivt jobb');
   const ringonCoord = getPlaceCoordinates('Ringön');
   const slottskogenCoord = getPlaceCoordinates('Slottskogen Vedbacken');
   addFunctionCheck(results, 'Nivå 2', 'Platsdatabas innehåller alias, koordinater och placeholders', !!ringonCoord && ringonCoord.lat === 57.719437 && normalizePlaceMapKey('Ristipp') === 'Ruskvädersgatan (Ristipp)' && !!slottskogenCoord && slottskogenCoord.lat === 57.6825909 && isPlaceMapPlaceholder('Annan plats') && !canUsePlaceForMapCalculation('Annan destination'), 'Ringön/Ristipp/Slottskogen-alias + Annan plats/destination spärras');
@@ -3802,8 +3796,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Säldammen visas under Slottskogen men sparas separat', !!saldammenQuick && saldammenQuick.group === 'Slottskogen' && saldammenQuick.subGroup === 'Säldammen' && saldammenQuick.label === 'Sopsand' && saldammenQuick.place === 'Säldammen' && saldammenQuick.dest === 'Sortera Torslanda', saldammenQuick ? (saldammenQuick.group + ' / ' + saldammenQuick.subGroup + ' / ' + saldammenQuick.label + ' / Från ' + saldammenQuick.place + ' / Till ' + saldammenQuick.dest) : 'snabbval saknas');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
-  addFunctionCheck(results, 'Nivå 2', 'Delad uppskattad tid finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getMaterialFlowEstimateForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'startAddonMissing'), 'materialflöde som huvudunderlag + starttillägg ej beräknat');
-  addFunctionCheck(results, 'Nivå 2', 'Startpunkt visas men låser inte uppskattad tid', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('formatCalculationStartText', 'Starttillägg: ej beräknat') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'Starttillägg ej beräknat'), 'Startpunkt sparas/visas separat; total uppskattad tid bygger på materialflöde.');
+  addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
+  addFunctionCheck(results, 'Nivå 2', 'Startpunkt används bara bakom uppskattad tid', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('buildSmartMapPointFromJobStart', 'startLat') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'karttjänst'), 'materialflödesnyckel hålls stabil; startpunkt används av kartdelen.');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkrat underlag', functionSourceIncludes('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
@@ -3912,7 +3906,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-26') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-26'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-27') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-27'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -3922,7 +3916,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Platser/koordinater', !!ringon && !!save && countMapUsablePlaces() >= 10, 'routebara platser: ' + countMapUsablePlaces()),
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
-    systemCheck('Kartberäknad tid i aktivt jobb', !!document.getElementById('activeMapRouteCard') && typeof runActiveMapRouteCalculation === 'function', 'knappstyrd informationsruta'),
+    systemCheck('Uppskattad tid med karttjänst', typeof getTimeEstimateForQueuedJob === 'function' && typeof scheduleSmartEstimateForJob === 'function', 'karttjänst/historik bakom enkel uppskattad tid'),
     systemCheck('Uppdrag i kö', !!document.getElementById('queueList') && typeof renderQueue === 'function', 'kölista finns'),
     systemCheck('Idag/historik', typeof renderToday === 'function' && typeof renderHistoryManager === 'function' && !!document.getElementById('historyManagerWrap'), 'dagens jobb och historik finns'),
     systemCheck('Papperskorg', !!document.getElementById('trashManagerWrap') && typeof renderTrashManager === 'function', 'borttagna uppdrag hålls separat'),
@@ -6446,6 +6440,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   startActiveTimer();
   render();
   requestActiveStartPointAddress();
+  scheduleSmartEstimateForActive();
   return true;
 }
 
@@ -6583,7 +6578,7 @@ function addManualJobToQueue(){
     comment = baseComment ? machine + ' – ' + baseComment : machine;
   }
 
-  state.queue.push({
+  const queuedJob = {
     id:id(),
     vehicle:vehicle,
     type:type,
@@ -6597,7 +6592,9 @@ function addManualJobToQueue(){
     status:'köad',
     date:todayStr(),
     plannedDate:plannedDate
-  });
+  };
+  state.queue.push(queuedJob);
+  scheduleSmartEstimateForQueueJob(queuedJob.id);
 
   resetNewJobForm();
   saveState();
@@ -6607,17 +6604,23 @@ function addManualJobToQueue(){
 
 function quickQueue(type, place, dest, displayType){
   const vehicle = type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  const queuedJob = {id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()};
+  state.queue.push(queuedJob);
+  scheduleSmartEstimateForQueueJob(queuedJob.id);
   saveState(); render();
 }
 
 function quickQueueCustom(vehicle, type, place, dest, comment, displayType){
-  state.queue.push({id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  const queuedJob = {id:id(), vehicle:vehicle, type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:comment||'', status:'köad', date:todayStr(), plannedDate:todayStr()};
+  state.queue.push(queuedJob);
+  scheduleSmartEstimateForQueueJob(queuedJob.id);
   saveState(); render();
 }
 
 function quickQueueMachine(type, place, dest, displayType){
-  state.queue.push({id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()});
+  const queuedJob = {id:id(), vehicle:'lastbil', type:type, displayType:displayType || type, place:place, dest:dest, placeLabel:getStoredPlaceLabel(place), destLabel:getStoredPlaceLabel(dest), comment:'', status:'köad', date:todayStr(), plannedDate:todayStr()};
+  state.queue.push(queuedJob);
+  scheduleSmartEstimateForQueueJob(queuedJob.id);
   saveState(); render();
 }
 
@@ -6639,6 +6642,9 @@ function startQueuedJob(qid){
   if(state.active){
     if(q.placeLabel) state.active.placeLabel = q.placeLabel;
     if(q.destLabel) state.active.destLabel = q.destLabel;
+    copySmartEstimateFields(q, state.active);
+    applyEstimatedCountdownAtStart(state.active);
+    scheduleSmartEstimateForActive();
   }
 
   state.queue = state.queue.filter(x => x.id !== qid);
@@ -6708,6 +6714,8 @@ function resumePausedJob(qid){
   resumed.motionLastMode = 'still';
 
   state.active = resumed;
+  applyEstimatedCountdownAtStart(state.active);
+  scheduleSmartEstimateForActive();
   state.queue = state.queue.filter(x => x.id !== qid);
   saveState();
   startDistanceTracking();
@@ -7101,50 +7109,272 @@ function getStartAddonEstimateForJob(job, materialEstimate){
     count: 0,
     safe: false,
     missing: true,
-    reason: 'Starttillägg ej beräknat – startpunkt varierar. Startpunkt visas som information tills karttjänst finns.',
+    reason: 'Starttillägg hanteras av karttjänsten när kartunderlag finns.',
     routeText: getStartAddonRouteText(job)
   };
+}
+
+function mapSecondsToEstimateMinutes(seconds){
+  const value = Number(seconds || 0);
+  if(!Number.isFinite(value) || value <= 0) return 0;
+  return Math.max(1, Math.round(value / 60));
+}
+
+function buildSmartMapPointFromJobStart(job){
+  if(!job) return null;
+  const lat = Number(job.startLat);
+  const lon = Number(job.startLon);
+  if(Number.isFinite(lat) && Number.isFinite(lon)){
+    return {
+      lat,
+      lon,
+      label:getActualStartLabelForDisplay(job),
+      cacheKey:'aktiv_start:' + lat.toFixed(5) + ',' + lon.toFixed(5)
+    };
+  }
+  const startPlace = getCalculationStartPlaceForEstimate(job) || job.place;
+  if(startPlace && canUsePlaceForMapCalculation(startPlace)){
+    return buildMapPointFromPlace(startPlace, 'Startpunkten');
+  }
+  return null;
+}
+
+function buildSmartMapRouteKey(job){
+  try{
+    const startPoint = buildSmartMapPointFromJobStart(job);
+    const fromPoint = buildMapPointFromPlace(job.place, 'Från-platsen');
+    const toPoint = buildMapPointFromPlace(job.dest, 'Till-platsen');
+    if(!startPoint || !fromPoint || !toPoint) return '';
+    return [startPoint.cacheKey, fromPoint.cacheKey, toPoint.cacheKey, getJobReturnRequiredValue(job) ? 'retur' : 'ejretur'].join('|');
+  }catch(e){
+    return '';
+  }
+}
+
+function getRouteResultFromCacheOrSamePoint(fromPoint, toPoint){
+  if(!fromPoint || !toPoint) return null;
+  if(fromPoint.cacheKey && toPoint.cacheKey && fromPoint.cacheKey === toPoint.cacheKey){
+    return buildZeroMapRouteResult();
+  }
+  return getCachedMapRouteByKey(buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey));
+}
+
+function getCachedMapTotalsForJob(job){
+  if(!isTimeEstimateAllowedForJob(job)) return null;
+  try{
+    const startPoint = buildSmartMapPointFromJobStart(job);
+    const fromPoint = buildMapPointFromPlace(job.place, 'Från-platsen');
+    const toPoint = buildMapPointFromPlace(job.dest, 'Till-platsen');
+    if(!startPoint || !fromPoint || !toPoint) return null;
+    const startResult = getRouteResultFromCacheOrSamePoint(startPoint, fromPoint);
+    const outboundResult = getRouteResultFromCacheOrSamePoint(fromPoint, toPoint);
+    const returnResult = getJobReturnRequiredValue(job) ? getRouteResultFromCacheOrSamePoint(toPoint, fromPoint) : buildZeroMapRouteResult();
+    if(!startResult || !outboundResult || !returnResult) return null;
+    const totalSeconds = [startResult, outboundResult, returnResult].reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
+    const materialSeconds = (Number(outboundResult.durationSeconds) || 0) + (getJobReturnRequiredValue(job) ? (Number(returnResult.durationSeconds) || 0) : 0);
+    const totalDistance = [startResult, outboundResult, returnResult].reduce((sum, item) => sum + (Number(item.distanceMeters) || 0), 0);
+    return {
+      totalMinutes: mapSecondsToEstimateMinutes(totalSeconds),
+      materialMinutes: mapSecondsToEstimateMinutes(materialSeconds),
+      totalDistanceMeters: totalDistance,
+      routeKey: buildSmartMapRouteKey(job),
+      source:'cache'
+    };
+  }catch(e){
+    return null;
+  }
+}
+
+function getStoredSmartMapTotalsForJob(job){
+  if(!job) return null;
+  const routeKey = buildSmartMapRouteKey(job);
+  if(!routeKey || job.smartMapRouteKey !== routeKey) return null;
+  const totalMinutes = Number(job.smartMapTotalMinutes || 0);
+  if(!Number.isFinite(totalMinutes) || totalMinutes <= 0) return null;
+  return {
+    totalMinutes,
+    materialMinutes:Number(job.smartMapMaterialMinutes || 0),
+    totalDistanceMeters:Number(job.smartMapTotalDistanceMeters || 0),
+    routeKey,
+    source:'stored'
+  };
+}
+
+function getBestSmartMapTotalsForJob(job){
+  return getStoredSmartMapTotalsForJob(job) || getCachedMapTotalsForJob(job);
+}
+
+function getHistoricalPracticalAddonMinutes(job, materialEstimate, mapTotals){
+  if(!isTimeEstimateAllowedForJob(job) || !mapTotals) return null;
+  const key = materialFlowEstimateKey(job);
+  const sampleAddons = getFinishedJobsForUnderlag()
+    .filter(finished => isTimeEstimateAllowedForJob(finished) && materialFlowEstimateKey(finished) === key && Number(finished.smartMapMaterialMinutes || 0) > 0)
+    .map(finished => {
+      const actualMs = getFinishedDurationMs(finished);
+      const mapMinutes = Number(finished.smartMapMaterialMinutes || 0);
+      if(actualMs === null || !Number.isFinite(mapMinutes) || mapMinutes <= 0) return null;
+      return estimateMinutesFromMs(actualMs) - mapMinutes;
+    })
+    .filter(value => Number.isFinite(value));
+
+  if(sampleAddons.length >= 3){
+    const sorted = sampleAddons.slice().sort((a,b) => a-b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    return Math.max(0, Math.round(median));
+  }
+
+  if(materialEstimate && Number.isFinite(Number(materialEstimate.minutes)) && Number.isFinite(Number(mapTotals.materialMinutes)) && Number(mapTotals.materialMinutes) > 0){
+    return Math.max(0, Math.round(Number(materialEstimate.minutes) - Number(mapTotals.materialMinutes)));
+  }
+
+  return null;
 }
 
 function getTimeEstimateForQueuedJob(queueJob){
   if(!isTimeEstimateAllowedForJob(queueJob)) return null;
   const materialEstimate = getMaterialFlowEstimateForJob(queueJob);
-  if(!materialEstimate) return null;
+  const mapTotals = getBestSmartMapTotalsForJob(queueJob);
+  let totalMinutes = null;
+  let source = '';
+  let practicalAddonMinutes = null;
+
+  if(mapTotals && Number.isFinite(Number(mapTotals.totalMinutes)) && Number(mapTotals.totalMinutes) > 0){
+    practicalAddonMinutes = getHistoricalPracticalAddonMinutes(queueJob, materialEstimate, mapTotals);
+    if(practicalAddonMinutes === null && !materialEstimate){
+      practicalAddonMinutes = SMART_ESTIMATE_DEFAULT_OVERHEAD_MINUTES;
+      source = 'karttjänst+standardtillägg';
+    } else if(practicalAddonMinutes !== null){
+      source = materialEstimate ? 'karttjänst+historik' : 'karttjänst';
+    }
+    if(practicalAddonMinutes !== null){
+      totalMinutes = Math.max(1, Math.round(Number(mapTotals.totalMinutes) + practicalAddonMinutes));
+    }
+  }
+
+  if((totalMinutes === null || !Number.isFinite(totalMinutes)) && materialEstimate){
+    totalMinutes = Math.max(1, Math.round(Number(materialEstimate.minutes || 0)));
+    source = 'historik';
+  }
+
+  if(totalMinutes === null || !Number.isFinite(totalMinutes) || totalMinutes <= 0) return null;
+
   return {
-    minutes: Math.max(1, Math.round(Number(materialEstimate.minutes || 0))),
-    count: materialEstimate.count,
-    materialMinutes: materialEstimate.minutes,
-    materialCount: materialEstimate.count,
-    materialRouteText: materialEstimate.routeText,
-    startAddonMinutes: 0,
+    minutes: totalMinutes,
+    count: materialEstimate ? materialEstimate.count : 0,
+    materialMinutes: materialEstimate ? materialEstimate.minutes : 0,
+    materialCount: materialEstimate ? materialEstimate.count : 0,
+    materialRouteText: materialEstimate ? materialEstimate.routeText : getMaterialRouteText(queueJob),
+    startAddonMinutes: mapTotals ? Math.max(0, Math.round(Number(mapTotals.totalMinutes || 0) - Number(mapTotals.materialMinutes || 0))) : 0,
     startAddonCount: 0,
-    startAddonSafe: false,
-    startAddonMissing: true,
-    startAddonReason: 'Starttillägg ej beräknat – startpunkt varierar. Startpunkt visas som information tills karttjänst finns.',
-    startAddonRouteText: getStartAddonRouteText(queueJob)
+    startAddonSafe: !!mapTotals,
+    startAddonMissing: !mapTotals,
+    startAddonReason: mapTotals ? 'Karttjänst finns bakom uppskattad tid.' : 'Karttjänst/historik saknar tillräckligt underlag.',
+    startAddonRouteText: getStartAddonRouteText(queueJob),
+    mapTotalMinutes: mapTotals ? mapTotals.totalMinutes : 0,
+    mapMaterialMinutes: mapTotals ? mapTotals.materialMinutes : 0,
+    practicalAddonMinutes: practicalAddonMinutes === null ? 0 : practicalAddonMinutes,
+    source
   };
 }
 
 function renderTimeEstimateHtml(queueJob){
+  if(!isTimeEstimateAllowedForJob(queueJob)) return '';
   const estimate = getTimeEstimateForQueuedJob(queueJob);
-  if(!estimate) return '';
-  const rows = [];
-  rows.push('<div style="font-weight:700">Materialflöde: ' + estimate.materialMinutes + ' min</div>');
-  rows.push('<div class="muted">' + escapeHtml(estimate.materialRouteText || getMaterialRouteText(queueJob)) + ' · Underlag: ' + estimate.materialCount + ' jämförbara jobb</div>');
+  if(!estimate) return '<div class="muted" style="margin-top:8px">Uppskattad tid: saknas</div>';
+  return '<div style="margin-top:8px;font-weight:800">Uppskattad tid: ' + Math.round(estimate.minutes) + ' min</div>';
+}
 
-  if(estimate.startAddonSafe && estimate.startAddonMinutes > 0){
-    rows.push('<div style="font-weight:700;margin-top:4px">Starttillägg: ' + estimate.startAddonMinutes + ' min</div>');
-    rows.push('<div class="muted">' + escapeHtml(estimate.startAddonRouteText || getStartAddonRouteText(queueJob)) + ' · Underlag: ' + estimate.startAddonCount + ' jämförbara jobb</div>');
-  } else if(estimate.startAddonMissing){
-    rows.push('<div class="queue-alert" style="margin-top:4px">Starttillägg: ej beräknat – startpunkt varierar</div>');
-    rows.push('<div class="muted">' + escapeHtml(estimate.startAddonReason || 'Startpunkt varierar och räknas inte in utan karttjänst.') + '</div>');
-  } else {
-    rows.push('<div style="font-weight:700;margin-top:4px">Starttillägg: 0 min</div>');
-    rows.push('<div class="muted">' + escapeHtml(estimate.startAddonRouteText || getStartAddonRouteText(queueJob)) + '</div>');
-  }
+function copySmartEstimateFields(fromJob, toJob){
+  if(!fromJob || !toJob) return;
+  ['smartMapRouteKey','smartMapTotalMinutes','smartMapMaterialMinutes','smartMapTotalDistanceMeters','smartMapCalculatedAt','smartMapSource'].forEach(key => {
+    if(fromJob[key] !== undefined) toJob[key] = fromJob[key];
+  });
+}
 
-  rows.push('<div style="font-weight:800;margin-top:6px">Total uppskattad tid: ' + estimate.minutes + ' min</div>');
-  return '<div style="margin-top:8px">' + rows.join('') + '</div>';
+async function calculateSmartMapTotalsForJob(job){
+  const startPoint = buildSmartMapPointFromJobStart(job);
+  if(!startPoint) throw new Error('Startpunkt saknar koordinater.');
+  const fromPoint = buildMapPointFromPlace(job.place, 'Från-platsen');
+  const toPoint = buildMapPointFromPlace(job.dest, 'Till-platsen');
+  const startResult = await requestGoogleRouteByPointsForTotal(startPoint, fromPoint);
+  const outboundResult = await requestGoogleRouteByPointsForTotal(fromPoint, toPoint);
+  const returnResult = getJobReturnRequiredValue(job) ? await requestGoogleRouteByPointsForTotal(toPoint, fromPoint) : buildZeroMapRouteResult();
+  const totalSeconds = [startResult, outboundResult, returnResult].reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
+  const materialSeconds = (Number(outboundResult.durationSeconds) || 0) + (getJobReturnRequiredValue(job) ? (Number(returnResult.durationSeconds) || 0) : 0);
+  const totalDistance = [startResult, outboundResult, returnResult].reduce((sum, item) => sum + (Number(item.distanceMeters) || 0), 0);
+  return {
+    totalMinutes: mapSecondsToEstimateMinutes(totalSeconds),
+    materialMinutes: mapSecondsToEstimateMinutes(materialSeconds),
+    totalDistanceMeters: totalDistance,
+    routeKey: buildSmartMapRouteKey(job)
+  };
+}
+
+function shouldScheduleSmartEstimate(job){
+  if(!job || !isTimeEstimateAllowedForJob(job)) return false;
+  if(!hasLocalMapApiKey()) return false;
+  const routeKey = buildSmartMapRouteKey(job);
+  if(!routeKey) return false;
+  if(job.smartMapRouteKey === routeKey && Number(job.smartMapTotalMinutes || 0) > 0) return false;
+  const attemptKey = 'smart:' + (job.id || routeKey);
+  if(smartEstimateInFlight.has(attemptKey)) return false;
+  const attemptedAt = Number(job.smartMapAttemptedAt || 0);
+  if(attemptedAt && Date.now() - attemptedAt < MAP_GUARD_LIMITS.minAutoIntervalMinutes * 60000) return false;
+  return true;
+}
+
+function applySmartMapTotalsToJob(job, totals){
+  if(!job || !totals || !Number.isFinite(Number(totals.totalMinutes)) || Number(totals.totalMinutes) <= 0) return;
+  job.smartMapRouteKey = totals.routeKey || buildSmartMapRouteKey(job);
+  job.smartMapTotalMinutes = Math.max(1, Math.round(Number(totals.totalMinutes)));
+  job.smartMapMaterialMinutes = Math.max(0, Math.round(Number(totals.materialMinutes || 0)));
+  job.smartMapTotalDistanceMeters = Math.max(0, Math.round(Number(totals.totalDistanceMeters || 0)));
+  job.smartMapCalculatedAt = Date.now();
+  job.smartMapSource = 'Google/cache';
+}
+
+function scheduleSmartEstimateForJob(job, context){
+  if(!shouldScheduleSmartEstimate(job)) return;
+  const attemptKey = 'smart:' + (job.id || buildSmartMapRouteKey(job));
+  smartEstimateInFlight.add(attemptKey);
+  job.smartMapAttemptedAt = Date.now();
+  calculateSmartMapTotalsForJob(job).then(totals => {
+    let target = null;
+    if(context === 'active'){
+      target = state.active && state.active.id === job.id ? state.active : null;
+    } else if(context === 'queue'){
+      target = (state.queue || []).find(item => item.id === job.id) || null;
+    } else {
+      target = job;
+    }
+    if(!target) return;
+    applySmartMapTotalsToJob(target, totals);
+    applyEstimatedCountdownAtStart(target);
+    saveState();
+    render();
+  }).catch(() => {
+    saveState();
+  }).finally(() => {
+    smartEstimateInFlight.delete(attemptKey);
+  });
+}
+
+function scheduleSmartEstimateForActive(){
+  if(state.active) scheduleSmartEstimateForJob(state.active, 'active');
+}
+
+function scheduleSmartEstimateForQueueJob(qid){
+  setTimeout(() => {
+    const job = (state.queue || []).find(item => item.id === qid);
+    if(job) scheduleSmartEstimateForJob(job, 'queue');
+  }, 0);
+}
+
+function scheduleSmartEstimateForVisibleQueue(ordered){
+  const list = ordered || [];
+  const candidate = list.find(job => shouldScheduleSmartEstimate(job));
+  if(candidate) scheduleSmartEstimateForJob(candidate, 'queue');
 }
 
 function renderQueue(){
@@ -7195,6 +7425,7 @@ function renderQueue(){
       '</div>'+
     '</div>'
   ).join('');
+  scheduleSmartEstimateForVisibleQueue(ordered);
 }
 
 
