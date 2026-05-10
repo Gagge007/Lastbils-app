@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-24
+- Nuvarande version: Stadslass v2026-05-07-01-25
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -22,11 +22,12 @@ Stadslass versionskontroll
   - Uppskattad tid: huvudunderlag är Materialflöde; Starttillägg visas som ej beräknat tills karttjänst finns
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb med uppskattad tid visar tidsstöd, tid kvar och beräknad klar-tid utan att blockera Klart
-  - GPS-inspelning/Ruttmätning: manuell, kan sparas bort per uppdrag
+  - GPS-inspelning/Ruttmätning: dold i aktivt jobb; gammal GPS-data bevaras i gamla uppdrag
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
   - Karttjänst test: manuellt testanrop kan göras i Inställningar utan att påverka uppdrag eller uppskattad tid
   - Kartskydd: lokala spärrar, anropsräknare och cache begränsar kartanrop per minut/dag
+  - Kartberäknad tid i aktivt jobb: knappstyrd informationsruta utan påverkan på nedräkning, historik eller export
   - Papperskorg: används aldrig som underlag; GPS-data följer uppdraget till papperskorgen
   - Funktionslista: uppdateras vid varje version; funktioner kan vara aktiv, skyddad, skyddad men får byggas om, ersatt, borttagen medvetet eller testfunktion
   - Funktionskontroll: kontrollerar knappar/paneler, tekniska regler och testuppdrag i minnet utan att spara
@@ -426,7 +427,7 @@ button{
   margin-top:4px;
 }
 
-#tab-settings .map-test-result{
+.map-test-result{
   width:100%;
   max-width:100%;
   overflow-x:hidden;
@@ -440,32 +441,32 @@ button{
   border-radius:14px;
   background:#f8fafc;
 }
-#tab-settings .map-test-result *{
+.map-test-result *{
   max-width:100%;
   overflow-wrap:anywhere;
   word-break:break-word;
 }
-#tab-settings .map-test-result.is-error{
+.map-test-result.is-error{
   color:#7f1d1d;
   font-weight:600;
   border-color:#fecaca;
   background:#fef2f2;
 }
-#tab-settings .map-test-result.is-ok{
+.map-test-result.is-ok{
   color:#14532d;
   font-weight:600;
   border-color:#bbf7d0;
   background:#f0fdf4;
 }
-#tab-settings .map-test-result .map-test-section{
+.map-test-result .map-test-section{
   margin-top:6px;
 }
-#tab-settings .map-test-result .map-test-label{
+.map-test-result .map-test-label{
   display:block;
   font-weight:800;
   color:inherit;
 }
-#tab-settings .map-test-result .map-test-detail{
+.map-test-result .map-test-detail{
   display:block;
   color:inherit;
   font-weight:600;
@@ -891,7 +892,15 @@ button{
     <div id="activeBox" class="hidden">
       <div id="activePills"></div>
       <div id="activeStartPoint" class="muted" style="margin-top:8px"></div>
-      <div id="activeRouteGps" class="muted" style="margin-top:8px"></div>
+      <div id="activeMapRouteCard" class="map-test-result hidden" style="margin-top:10px">
+        <strong>Kartberäknad tid</strong>
+        <div id="activeMapRouteResult" class="map-test-section muted">Inte beräknad. Tryck Beräkna karttid när du vill kontrollera rutten för aktivt jobb.</div>
+        <div class="row" style="margin-top:10px">
+          <button class="primary inline" onclick="runActiveMapRouteCalculation()">Beräkna karttid</button>
+          <button class="inline" onclick="clearActiveMapRouteCalculation()">Rensa</button>
+        </div>
+      </div>
+      <div id="activeRouteGps" class="muted hidden" style="margin-top:8px"></div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
         <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
@@ -1111,7 +1120,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-24</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-25</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1670,6 +1679,7 @@ let activeTimerId = null;
 let gpsTestWatchId = null;
 let gpsTestLastPoint = null;
 let gpsTestDistanceKm = 0;
+let activeMapRouteUi = null;
 
 
 let jobDateCalendarMonth = null;
@@ -2820,23 +2830,138 @@ function resetRouteGpsForRestart(job){
 function renderActiveRouteGps(){
   const el = document.getElementById('activeRouteGps');
   if(!el) return;
-  if(!state.active){
-    el.innerHTML = '';
+  el.innerHTML = '';
+  el.classList.add('hidden');
+}
+
+function resetActiveMapRouteUiForJob(jobId){
+  if(activeMapRouteUi && activeMapRouteUi.jobId === jobId) return;
+  activeMapRouteUi = null;
+}
+
+function shouldShowActiveMapRouteCard(job){
+  if(!job) return false;
+  if(job.type === 'Övrig verksamhet') return false;
+  if(!job.place || !job.dest) return false;
+  return true;
+}
+
+function setActiveMapRouteResult(html, isError, isOk){
+  if(state.active){
+    activeMapRouteUi = {
+      jobId: state.active.id,
+      html: html,
+      isError: !!isError,
+      isOk: !!isOk && !isError
+    };
+  }
+  renderActiveMapRoutePanel();
+}
+
+function clearActiveMapRouteCalculation(){
+  activeMapRouteUi = state.active ? {
+    jobId: state.active.id,
+    html: 'Inte beräknad. Tryck Beräkna karttid när du vill kontrollera rutten för aktivt jobb.',
+    isError: false,
+    isOk: false
+  } : null;
+  renderActiveMapRoutePanel();
+}
+
+function renderActiveMapRoutePanel(){
+  const card = document.getElementById('activeMapRouteCard');
+  const resultEl = document.getElementById('activeMapRouteResult');
+  if(!card || !resultEl) return;
+  if(!shouldShowActiveMapRouteCard(state.active)){
+    card.classList.add('hidden');
+    resultEl.innerHTML = '';
+    card.classList.remove('is-error', 'is-ok', 'queue-alert');
     return;
   }
-  const status = getRouteGpsStatus(state.active);
-  let buttons = '';
-  if(status === 'none'){
-    buttons = '<button class="inline" onclick="startActiveRouteGpsRecording()">Starta GPS-inspelning</button>'+
-      '<button class="inline" onclick="discardActiveRouteGpsData()">Spara ej GPS-data</button>';
-  } else if(status === 'active'){
-    buttons = '<button class="inline" onclick="stopActiveRouteGpsRecording()">Avsluta GPS-inspelning</button>'+
-      '<button class="inline" onclick="discardActiveRouteGpsData()">Spara ej GPS-data</button>';
-  } else if(status === 'saved'){
-    buttons = '<button class="inline" onclick="discardActiveRouteGpsData()">Spara ej GPS-data</button>';
-  }
-  el.innerHTML = escapeHtml(formatRouteGpsText(state.active)) + (buttons ? '<div class="row" style="margin-top:6px">' + buttons + '</div>' : '');
+  card.classList.remove('hidden');
+  resetActiveMapRouteUiForJob(state.active.id);
+  const ui = activeMapRouteUi && activeMapRouteUi.jobId === state.active.id ? activeMapRouteUi : null;
+  const defaultHtml = 'Inte beräknad. Tryck Beräkna karttid när du vill kontrollera rutten för aktivt jobb.';
+  resultEl.innerHTML = ui && ui.html ? ui.html : defaultHtml;
+  card.classList.toggle('queue-alert', !!(ui && ui.isError));
+  card.classList.toggle('is-error', !!(ui && ui.isError));
+  card.classList.toggle('is-ok', !!(ui && ui.isOk));
 }
+
+function getActiveMapRouteJob(){
+  if(!state.active) throw new Error('Det finns inget aktivt jobb.');
+  if(!state.active.place || !state.active.dest) throw new Error('Aktivt jobb saknar Från eller Till.');
+  return state.active;
+}
+
+function buildActiveMapHistoricalText(job){
+  if(!job) return '';
+  return buildHistoricalEstimateTextForTotal(job.place, job.dest, getJobReturnRequiredValue(job));
+}
+
+async function runActiveMapRouteCalculation(){
+  let job = null;
+  try{
+    job = getActiveMapRouteJob();
+  }catch(e){
+    setActiveMapRouteResult(escapeHtml(e && e.message ? e.message : String(e)), true, false);
+    return;
+  }
+  const activeId = job.id;
+  setActiveMapRouteResult('Beräknar karttid för aktivt jobb…', false, false);
+  try{
+    const startPoint = buildMapPointFromActiveStart();
+    const fromPoint = buildMapPointFromPlace(job.place, 'Från-platsen');
+    const toPoint = buildMapPointFromPlace(job.dest, 'Till-platsen');
+    const returnRequired = getJobReturnRequiredValue(job);
+    const startResult = await requestGoogleRouteByPointsForTotal(startPoint, fromPoint);
+    if(!state.active || state.active.id !== activeId) return;
+    const outboundResult = await requestGoogleRouteByPointsForTotal(fromPoint, toPoint);
+    if(!state.active || state.active.id !== activeId) return;
+    const returnResult = returnRequired ? await requestGoogleRouteByPointsForTotal(toPoint, fromPoint) : null;
+    if(!state.active || state.active.id !== activeId) return;
+    const results = [startResult, outboundResult].concat(returnResult ? [returnResult] : []);
+    const totalSeconds = results.reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
+    const totalDistance = results.reduce((sum, item) => sum + (Number(item.distanceMeters) || 0), 0);
+    const googleCount = results.filter(item => !item.fromCache && !item.skippedSamePoint).length;
+    const cacheCount = results.filter(item => item.fromCache && !item.skippedSamePoint).length;
+    const skippedCount = results.filter(item => item.skippedSamePoint).length;
+    let rows = '';
+    rows += buildMapSegmentRow('Starttillägg', startPoint.label, fromPoint.label, startResult);
+    rows += buildMapSegmentRow('Materialflöde ut', fromPoint.label, toPoint.label, outboundResult);
+    if(returnResult){
+      rows += buildMapSegmentRow('Returkrav tillbaka', toPoint.label, fromPoint.label, returnResult);
+    }
+    const sourceText = 'Källa: ' + googleCount + ' nytt/nya Google-anrop, ' + cacheCount + ' från cache' + (skippedCount ? ', ' + skippedCount + ' samma plats' : '') + '.';
+    const historicalText = buildActiveMapHistoricalText(job);
+    setActiveMapRouteResult(
+      '<strong>Kartberäknad tid för aktivt jobb.</strong>' +
+      rows +
+      '<span class="map-test-section map-test-detail"><strong>Total karttid:</strong> ' + escapeHtml(formatMapDurationForTotal(totalSeconds)) + '</span>' +
+      '<span class="map-test-detail"><strong>Total sträcka:</strong> ' + escapeHtml(formatMapDistanceMeters(totalDistance)) + '</span>' +
+      '<span class="map-test-section muted">Returkrav: ' + escapeHtml(returnRequired ? 'Ja' : 'Nej') + '</span>' +
+      '<span class="map-test-section muted">' + escapeHtml(historicalText) + '</span>' +
+      '<span class="map-test-section muted">' + escapeHtml(sourceText) + '</span>' +
+      '<span class="map-test-section muted">Information/test: styr inte nedräkning, Klart, historik, Excel/export eller uppskattad tid.</span>',
+      false,
+      true
+    );
+    renderMapGuardStatus();
+  }catch(e){
+    const message = e && e.message ? e.message : String(e || 'Okänt fel');
+    setActiveMapRouteResult(
+      '<strong>Kartberäkning misslyckades.</strong>' +
+      '<span class="map-test-section map-test-label">Fel:</span>' +
+      '<span class="map-test-detail">' + escapeHtml(message) + '</span>' +
+      '<span class="map-test-section map-test-label">Åtgärd:</span>' +
+      '<span class="map-test-detail">Kontrollera att startpunkt har GPS-koordinater, att Från/Till har fasta koordinater, att kartnyckeln är sparad och att kartskyddet inte har stoppat anropet.</span>',
+      true,
+      false
+    );
+    renderMapGuardStatus();
+  }
+}
+
 
 function allowsPrivateCommentForType(type){
   const raw = String(type || '').trim().toLocaleLowerCase('sv-SE');
@@ -3425,7 +3550,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-24';
+const APP_VERSION = 'Stadslass v2026-05-07-01-25';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3438,13 +3563,14 @@ const APP_FEATURE_MANIFEST = [
   {name:'Papperskorg', status:'Skyddad', purpose:'Borttagna uppdrag hamnar i papperskorgen före permanent borttagning.', changeRule:'Får byggas om men borttagen data får inte användas som underlag.'},
   {name:'Papperskorg exkluderas från underlag', status:'Skyddad', purpose:'Papperskorg används inte för sammanställning, export, uppskattad tid eller GPS-lärning.', changeRule:'Får inte brytas utan uttryckligt beslut.'},
   {name:'GPS-data följer uppdraget', status:'Skyddad', purpose:'GPS-/ruttdata följer uppdraget till papperskorgen och försvinner vid permanent borttagning.', changeRule:'Får ändras endast med dokumenterad ny datamodell.'},
-  {name:'GPS-inspelning/Ruttmätning', status:'Skyddad men får byggas om', purpose:'Manuell GPS-inspelning per uppdrag med möjlighet att spara bort datan.', changeRule:'Får ersättas av bättre ruttmätning men inte försvinna tyst.'},
+  {name:'GPS-inspelning/Ruttmätning', status:'Dold i aktivt jobb', purpose:'Gammal GPS-data bevaras men manuell GPS-inspelning visas inte längre i aktivt jobb eftersom karttjänsten räknar planerad rutt.', changeRule:'Får återinföras senare som separat avancerad funktion om faktisk körspårning behövs.'},
   {name:'Startpunkt', status:'Skyddad men får byggas om', purpose:'Visar adress för startpunkt i aktivt jobb och Idag.', changeRule:'Tekniken kan ändras men informationen ska finnas kvar eller ersättas.'},
   {name:'Kartförberedelse platsdatabas', status:'Aktiv', purpose:'Fasta platser har Plus Code/adress, koordinater, alias och placeholder-status för kommande karttjänst.', changeRule:'Får byggas vidare till kartmotor men ska inte starta Google-anrop utan separat beslut.'},
   {name:'Lokal kartnyckel i Inställningar', status:'Aktiv', purpose:'Google API-nyckel kan sparas och raderas lokalt per enhet utan att ligga i HTML-filen eller följa med backup/export.', changeRule:'Får byggas vidare till kartmotor men nyckeln ska hållas utanför uppdragsdata och backup.'},
   {name:'Karttjänst testfunktion', status:'Testfunktion', purpose:'Manuellt karttest med valfri fysisk plats från platsdatabasen. Visar körtid, avstånd och fel utan att påverka uppdrag.', changeRule:'Får byggas vidare till materialflöde först efter testgodkännande.'},
   {name:'Starttillägg karttest', status:'Testfunktion', purpose:'Manuellt test av Startpunkt → Från med samma kartskydd och cache som karttjänsten. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat testgodkännande.'},
   {name:'Total karttid karttest', status:'Testfunktion', purpose:'Manuellt test av starttillägg + materialflöde, inklusive returkrav när det är valt. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas vidare först efter separat testgodkännande.'},
+  {name:'Kartberäknad tid i aktivt jobb', status:'Testfunktion/information', purpose:'Knappstyrd beräkning i aktivt jobb av Startpunkt → Från + Från → Till + eventuell retur. Påverkar inte nedräkning, Klart, historik, Excel/export eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat godkännande.'},
   {name:'Aktivt jobb radbrytning', status:'Aktiv', purpose:'Startpunkt/materialflöde/returkrav/starttillägg visas utan synlig HTML-kod som <br>.', changeRule:'Får ändras visuellt men får inte visa tekniska HTML-taggar för användaren.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
@@ -3629,7 +3755,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Idag-panel finns', !!document.getElementById('todayList'), 'todayList');
   addFunctionCheck(results, 'Nivå 1', 'Viktfält och Ange vikt finns', !!document.getElementById('weightInput') && functionExists('addLoadToCurrent'), 'weightInput + addLoadToCurrent');
   addFunctionCheck(results, 'Nivå 1', 'Ingen tömning finns', functionExists('markNoEmptying'), 'markNoEmptying');
-  addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning finns', !!document.getElementById('activeRouteGps') && functionExists('startActiveRouteGpsRecording') && functionExists('discardActiveRouteGpsData'), 'activeRouteGps + GPS-funktioner');
+  addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning dold i aktivt jobb', !!document.getElementById('activeRouteGps') && document.getElementById('activeRouteGps').classList.contains('hidden') && functionExists('renderActiveRouteGps') && !functionSourceIncludes('renderActiveRouteGps', 'Starta GPS-inspelning'), 'GPS-rutan finns kvar tekniskt men visas inte i aktivt jobb');
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!document.getElementById('activeStartPoint') && functionExists('requestActiveStartPointAddress'), 'activeStartPoint + requestActiveStartPointAddress');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!document.getElementById('trashManagerWrap') && functionExists('moveToTrash') && functionExists('restoreTrashItem'), 'trashManagerWrap + papperskorgsfunktioner');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!document.getElementById('connectionStatus') && functionExists('updateConnectionStatus'), 'connectionStatus');
@@ -3641,6 +3767,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!document.getElementById('mapGuardStatus') && functionExists('canMakeMapRequest') && functionExists('registerMapRequest') && functionExists('getCachedMapRoute') && functionExists('setCachedMapRoute'), 'lokala gränser + cache för kartanrop');
   addFunctionCheck(results, 'Nivå 1', 'Starttillägg karttest finns', !!document.getElementById('mapStartAddonStart') && !!document.getElementById('mapStartAddonFrom') && !!document.getElementById('mapStartAddonTestResult') && functionExists('runMapStartAddonTest') && functionExists('requestGoogleRouteByPoints'), 'manuellt test av Startpunkt → Från utan påverkan på uppdrag');
   addFunctionCheck(results, 'Nivå 1', 'Total karttid karttest finns', !!document.getElementById('mapTotalStart') && !!document.getElementById('mapTotalFrom') && !!document.getElementById('mapTotalTo') && !!document.getElementById('mapTotalRouteTestResult') && functionExists('runMapTotalRouteTest'), 'manuellt test av Startpunkt → Från + materialflöde + returkrav');
+  addFunctionCheck(results, 'Nivå 1', 'Kartberäknad tid i aktivt jobb finns', !!document.getElementById('activeMapRouteCard') && !!document.getElementById('activeMapRouteResult') && functionExists('runActiveMapRouteCalculation') && functionExists('renderActiveMapRoutePanel'), 'knappstyrd aktiv informationsruta utan påverkan på uppdrag');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte HTML-taggar i startinfo', functionExists('formatMultiLineTextHtml') && functionSourceIncludes('renderActive', 'formatMultiLineTextHtml(activeStartText)'), 'radbrytning sker via formateringsfunktion, inte synlig <br>-text');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
@@ -3649,6 +3776,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
+  addFunctionCheck(results, 'Nivå 2', 'Aktiv kartberäkning påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runActiveMapRouteCalculation', 'requestGoogleRouteByPointsForTotal') && functionSourceIncludes('runActiveMapRouteCalculation', 'Information/test') && !functionSourceIncludes('runActiveMapRouteCalculation', 'saveState') && !functionSourceIncludes('runActiveMapRouteCalculation', 'estimatedMinutesAtStart'), 'endast visning i aktivt jobb + lokal kartcache/anropsräknare');
   const ringonCoord = getPlaceCoordinates('Ringön');
   const slottskogenCoord = getPlaceCoordinates('Slottskogen Vedbacken');
   addFunctionCheck(results, 'Nivå 2', 'Platsdatabas innehåller alias, koordinater och placeholders', !!ringonCoord && ringonCoord.lat === 57.719437 && normalizePlaceMapKey('Ristipp') === 'Ruskvädersgatan (Ristipp)' && !!slottskogenCoord && slottskogenCoord.lat === 57.6825909 && isPlaceMapPlaceholder('Annan plats') && !canUsePlaceForMapCalculation('Annan destination'), 'Ringön/Ristipp/Slottskogen-alias + Annan plats/destination spärras');
@@ -4399,14 +4527,11 @@ function buildMapSegmentRow(label, fromLabel, toLabel, result){
   const durationText = Number.isFinite(result.durationSeconds) ? formatMapDurationForTotal(result.durationSeconds) : escapeHtml(result.durationRaw || '-');
   const distanceText = formatMapDistanceMeters(result.distanceMeters);
   const source = result.skippedSamePoint ? 'samma plats' : (result.fromCache ? 'cache' : 'Google');
-  return '<span class="map-test-section map-test-detail">' +
-    '<strong>' + escapeHtml(label) + ':</strong> ' +
-    escapeHtml(fromLabel) + ' → ' + escapeHtml(toLabel) +
-    ' · ' + escapeHtml(durationText) +
-    ' · ' + escapeHtml(distanceText) +
-    ' · ' + escapeHtml(source) +
-    '</span>';
+  return '<span class="map-test-section map-test-label">' + escapeHtml(label) + '</span>' +
+    '<span class="map-test-detail">' + escapeHtml(fromLabel) + ' → ' + escapeHtml(toLabel) + '</span>' +
+    '<span class="map-test-detail">' + escapeHtml(durationText) + ' · ' + escapeHtml(distanceText) + ' · ' + escapeHtml(source) + '</span>';
 }
+
 
 function buildHistoricalEstimateTextForTotal(fromPlace, toPlace, returnRequired){
   const testJob = buildMapTotalTestJob(fromPlace, toPlace, returnRequired);
@@ -6627,6 +6752,7 @@ function renderActive(){
     activeStartPointEl.innerHTML = formatMultiLineTextHtml(activeStartText);
   }
   renderActiveRouteGps();
+  renderActiveMapRoutePanel();
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
