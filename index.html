@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-23
+- Nuvarande version: Stadslass v2026-05-07-01-24
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1111,7 +1111,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-23</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-24</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1222,6 +1222,34 @@ button{
           <button class="inline" onclick="resetMapStartAddonTestResult()">Rensa starttest</button>
         </div>
         <div id="mapStartAddonTestResult" class="multi-help map-test-result" style="margin-top:10px">Inget starttilläggstest kört.</div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Testa total karttid</div>
+        <div class="multi-help">Testar Startpunkt → Från + materialflöde. Vid returkrav räknas även Till → Från. Testet använder samma kartskydd och cache och påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.</div>
+        <div class="quick-edit-grid">
+          <div>
+            <label>Startpunkt</label>
+            <select id="mapTotalStart"></select>
+          </div>
+          <div>
+            <label>Från</label>
+            <select id="mapTotalFrom"></select>
+          </div>
+          <div>
+            <label>Till</label>
+            <select id="mapTotalTo"></select>
+          </div>
+          <div>
+            <label>Returkrav</label>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="mapTotalReturnRequired" type="checkbox" style="width:auto"> Ja, räkna Till → Från</label>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary inline" onclick="runMapTotalRouteTest()">Testa total karttid</button>
+          <button class="inline" onclick="resetMapTotalRouteTestResult()">Rensa totaltest</button>
+        </div>
+        <div id="mapTotalRouteTestResult" class="multi-help map-test-result" style="margin-top:10px">Inget totaltest kört.</div>
       </div>
     </div>
   <div id="settingsSummaryWrap" class="card hidden">
@@ -3397,7 +3425,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-23';
+const APP_VERSION = 'Stadslass v2026-05-07-01-24';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3416,6 +3444,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Lokal kartnyckel i Inställningar', status:'Aktiv', purpose:'Google API-nyckel kan sparas och raderas lokalt per enhet utan att ligga i HTML-filen eller följa med backup/export.', changeRule:'Får byggas vidare till kartmotor men nyckeln ska hållas utanför uppdragsdata och backup.'},
   {name:'Karttjänst testfunktion', status:'Testfunktion', purpose:'Manuellt karttest med valfri fysisk plats från platsdatabasen. Visar körtid, avstånd och fel utan att påverka uppdrag.', changeRule:'Får byggas vidare till materialflöde först efter testgodkännande.'},
   {name:'Starttillägg karttest', status:'Testfunktion', purpose:'Manuellt test av Startpunkt → Från med samma kartskydd och cache som karttjänsten. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas till uppskattad tid först efter separat testgodkännande.'},
+  {name:'Total karttid karttest', status:'Testfunktion', purpose:'Manuellt test av starttillägg + materialflöde, inklusive returkrav när det är valt. Påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.', changeRule:'Får kopplas vidare först efter separat testgodkännande.'},
   {name:'Aktivt jobb radbrytning', status:'Aktiv', purpose:'Startpunkt/materialflöde/returkrav/starttillägg visas utan synlig HTML-kod som <br>.', changeRule:'Får ändras visuellt men får inte visa tekniska HTML-taggar för användaren.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
@@ -3611,11 +3640,12 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Karttest felruta radbryts på mobil', !!document.getElementById('mapRouteTestResult') && document.getElementById('mapRouteTestResult').classList.contains('map-test-result'), 'map-test-result med overflow-wrap:anywhere');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!document.getElementById('mapGuardStatus') && functionExists('canMakeMapRequest') && functionExists('registerMapRequest') && functionExists('getCachedMapRoute') && functionExists('setCachedMapRoute'), 'lokala gränser + cache för kartanrop');
   addFunctionCheck(results, 'Nivå 1', 'Starttillägg karttest finns', !!document.getElementById('mapStartAddonStart') && !!document.getElementById('mapStartAddonFrom') && !!document.getElementById('mapStartAddonTestResult') && functionExists('runMapStartAddonTest') && functionExists('requestGoogleRouteByPoints'), 'manuellt test av Startpunkt → Från utan påverkan på uppdrag');
+  addFunctionCheck(results, 'Nivå 1', 'Total karttid karttest finns', !!document.getElementById('mapTotalStart') && !!document.getElementById('mapTotalFrom') && !!document.getElementById('mapTotalTo') && !!document.getElementById('mapTotalRouteTestResult') && functionExists('runMapTotalRouteTest'), 'manuellt test av Startpunkt → Från + materialflöde + returkrav');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte HTML-taggar i startinfo', functionExists('formatMultiLineTextHtml') && functionSourceIncludes('renderActive', 'formatMultiLineTextHtml(activeStartText)'), 'radbrytning sker via formateringsfunktion, inte synlig <br>-text');
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-23') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-23'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-24') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-24'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4174,6 +4204,7 @@ function toggleMapKeyManager(){
     renderMapKeyManager();
     populateMapRouteTestSelects();
     populateMapStartAddonTestSelects();
+    populateMapTotalRouteTestSelects();
   });
 }
 
@@ -4279,6 +4310,185 @@ function resetMapStartAddonTestResult(){
   if(!el) return;
   el.textContent = 'Inget starttilläggstest kört.';
   el.classList.remove('queue-alert', 'is-error', 'is-ok');
+}
+
+function populateMapTotalRouteTestSelects(){
+  const startEl = document.getElementById('mapTotalStart');
+  const fromEl = document.getElementById('mapTotalFrom');
+  const toEl = document.getElementById('mapTotalTo');
+  const returnEl = document.getElementById('mapTotalReturnRequired');
+  if(!startEl || !fromEl || !toEl) return;
+  const previousStart = startEl.value || '__active_start__';
+  const previousFrom = fromEl.value || (state.active && state.active.place ? state.active.place : 'Ringön (BAS)');
+  const previousTo = toEl.value || (state.active && state.active.dest ? state.active.dest : 'Renova Sävenäs');
+  const startOptions = getMapStartAddonStartOptions();
+  const placeOptions = getMapTestPlaceOptions();
+  const startValues = startOptions.map(item => item.value);
+  const fromSelected = placeOptions.includes(previousFrom) ? previousFrom : 'Ringön (BAS)';
+  const toSelected = placeOptions.includes(previousTo) ? previousTo : 'Renova Sävenäs';
+  startEl.innerHTML = startOptions.map(item => {
+    const selectedAttr = item.value === (startValues.includes(previousStart) ? previousStart : '__active_start__') ? ' selected' : '';
+    return '<option value="' + escapeHtml(item.value) + '"' + selectedAttr + '>' + escapeHtml(item.label) + '</option>';
+  }).join('');
+  const buildPlaceOptions = selected => placeOptions.map(key => {
+    const selectedAttr = key === selected ? ' selected' : '';
+    return '<option value="' + escapeHtml(key) + '"' + selectedAttr + '>' + escapeHtml(getPlaceLabel(key)) + '</option>';
+  }).join('');
+  fromEl.innerHTML = buildPlaceOptions(fromSelected);
+  toEl.innerHTML = buildPlaceOptions(toSelected);
+  if(returnEl && !returnEl.dataset.userChanged){
+    returnEl.checked = state.active ? getJobReturnRequiredValue(state.active) : false;
+    returnEl.onchange = function(){ this.dataset.userChanged = '1'; };
+  }
+}
+
+function resetMapTotalRouteTestResult(){
+  const el = document.getElementById('mapTotalRouteTestResult');
+  if(!el) return;
+  el.textContent = 'Inget totaltest kört.';
+  el.classList.remove('queue-alert', 'is-error', 'is-ok');
+}
+
+function setMapTotalRouteTestResult(html, isError, isOk){
+  const el = document.getElementById('mapTotalRouteTestResult');
+  if(!el) return;
+  el.innerHTML = html;
+  el.classList.toggle('queue-alert', !!isError);
+  el.classList.toggle('is-error', !!isError);
+  el.classList.toggle('is-ok', !!isOk && !isError);
+}
+
+function formatMapDurationForTotal(seconds){
+  const value = Number(seconds || 0);
+  if(!Number.isFinite(value) || value <= 0) return '0 min';
+  return formatMapDuration(value);
+}
+
+function buildZeroMapRouteResult(){
+  return { durationSeconds:0, durationRaw:'0s', distanceMeters:0, fromCache:true, skippedSamePoint:true };
+}
+
+async function requestGoogleRouteByPointsForTotal(fromPoint, toPoint){
+  if(fromPoint && toPoint && fromPoint.cacheKey && toPoint.cacheKey && fromPoint.cacheKey === toPoint.cacheKey){
+    return buildZeroMapRouteResult();
+  }
+  return requestGoogleRouteByPoints(fromPoint, toPoint);
+}
+
+function buildMapTotalTestJob(fromPlace, toPlace, returnRequired){
+  const base = state.active && typeof state.active === 'object' ? state.active : {};
+  return Object.assign({}, base, {
+    id:'map_total_test_job',
+    status:'köad',
+    type:base.type || base.displayType || '',
+    displayType:base.displayType || base.type || '',
+    place:fromPlace,
+    dest:toPlace,
+    placeLabel:getPlaceLabel(fromPlace),
+    destLabel:getPlaceLabel(toPlace),
+    calculationStartPlace:fromPlace,
+    calculationStartLabel:getPlaceLabel(fromPlace),
+    returnRequired:returnRequired === true,
+    returnRequiredAtStart:returnRequired === true,
+    routeRule:returnRequired ? 'returkrav_ja' : 'returkrav_nej',
+    plannedDate:todayStr()
+  });
+}
+
+function buildMapSegmentRow(label, fromLabel, toLabel, result){
+  const durationText = Number.isFinite(result.durationSeconds) ? formatMapDurationForTotal(result.durationSeconds) : escapeHtml(result.durationRaw || '-');
+  const distanceText = formatMapDistanceMeters(result.distanceMeters);
+  const source = result.skippedSamePoint ? 'samma plats' : (result.fromCache ? 'cache' : 'Google');
+  return '<span class="map-test-section map-test-detail">' +
+    '<strong>' + escapeHtml(label) + ':</strong> ' +
+    escapeHtml(fromLabel) + ' → ' + escapeHtml(toLabel) +
+    ' · ' + escapeHtml(durationText) +
+    ' · ' + escapeHtml(distanceText) +
+    ' · ' + escapeHtml(source) +
+    '</span>';
+}
+
+function buildHistoricalEstimateTextForTotal(fromPlace, toPlace, returnRequired){
+  const testJob = buildMapTotalTestJob(fromPlace, toPlace, returnRequired);
+  const estimate = getTimeEstimateForQueuedJob(testJob);
+  if(!estimate){
+    return 'Historisk uppskattad tid: saknas för detta materialflöde eller saknar minst 3 jämförbara jobb.';
+  }
+  const parts = [];
+  parts.push('Historisk uppskattad tid: ' + Math.round(estimate.minutes) + ' min');
+  if(Number.isFinite(Number(estimate.materialMinutes)) && estimate.materialMinutes > 0){
+    parts.push('materialflöde ' + Math.round(estimate.materialMinutes) + ' min');
+  }
+  if(Number.isFinite(Number(estimate.materialCount))){
+    parts.push('underlag ' + estimate.materialCount + ' jobb');
+  }
+  if(estimate.startAddonMissing){
+    parts.push('starttillägg ej inräknat i historiken');
+  }
+  return parts.join(' · ');
+}
+
+async function runMapTotalRouteTest(){
+  const startEl = document.getElementById('mapTotalStart');
+  const fromEl = document.getElementById('mapTotalFrom');
+  const toEl = document.getElementById('mapTotalTo');
+  const returnEl = document.getElementById('mapTotalReturnRequired');
+  const startValue = startEl ? startEl.value : '__active_start__';
+  const fromPlace = fromEl ? fromEl.value : (state.active && state.active.place ? state.active.place : 'Ringön (BAS)');
+  const toPlace = toEl ? toEl.value : (state.active && state.active.dest ? state.active.dest : 'Renova Sävenäs');
+  const returnRequired = !!(returnEl && returnEl.checked);
+  if(!startValue || !fromPlace || !toPlace){
+    setMapTotalRouteTestResult('Välj Startpunkt, Från och Till.', true);
+    return;
+  }
+  setMapTotalRouteTestResult('Testar total karttid…', false);
+  try{
+    const startPoint = buildMapPointFromStartAddonValue(startValue);
+    const fromPoint = buildMapPointFromPlace(fromPlace, 'Från-platsen');
+    const toPoint = buildMapPointFromPlace(toPlace, 'Till-platsen');
+    const startResult = await requestGoogleRouteByPointsForTotal(startPoint, fromPoint);
+    const outboundResult = await requestGoogleRouteByPointsForTotal(fromPoint, toPoint);
+    const returnResult = returnRequired ? await requestGoogleRouteByPointsForTotal(toPoint, fromPoint) : null;
+    const results = [startResult, outboundResult].concat(returnResult ? [returnResult] : []);
+    const totalSeconds = results.reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
+    const totalDistance = results.reduce((sum, item) => sum + (Number(item.distanceMeters) || 0), 0);
+    const googleCount = results.filter(item => !item.fromCache && !item.skippedSamePoint).length;
+    const cacheCount = results.filter(item => item.fromCache && !item.skippedSamePoint).length;
+    const skippedCount = results.filter(item => item.skippedSamePoint).length;
+    let rows = '';
+    rows += buildMapSegmentRow('Starttillägg', startPoint.label, fromPoint.label, startResult);
+    rows += buildMapSegmentRow('Materialflöde ut', fromPoint.label, toPoint.label, outboundResult);
+    if(returnResult){
+      rows += buildMapSegmentRow('Returkrav tillbaka', toPoint.label, fromPoint.label, returnResult);
+    }
+    const sourceText = 'Källa: ' + googleCount + ' nytt/nya Google-anrop, ' + cacheCount + ' från cache' + (skippedCount ? ', ' + skippedCount + ' hoppades över som samma plats' : '') + '.';
+    const historicalText = buildHistoricalEstimateTextForTotal(fromPlace, toPlace, returnRequired);
+    setMapTotalRouteTestResult(
+      '<strong>Total karttid testad.</strong>' +
+      rows +
+      '<span class="map-test-section map-test-detail"><strong>Total karttid:</strong> ' + escapeHtml(formatMapDurationForTotal(totalSeconds)) + '</span>' +
+      '<span class="map-test-detail"><strong>Total sträcka:</strong> ' + escapeHtml(formatMapDistanceMeters(totalDistance)) + '</span>' +
+      '<span class="map-test-section muted">Returkrav: ' + escapeHtml(returnRequired ? 'Ja' : 'Nej') + '</span>' +
+      '<span class="map-test-section muted">' + escapeHtml(historicalText) + '</span>' +
+      '<span class="map-test-section muted">' + escapeHtml(sourceText) + '</span>' +
+      '<span class="map-test-section muted">Testet är manuellt och påverkar inte aktivt uppdrag, kö, historik eller uppskattad tid.</span>',
+      false,
+      true
+    );
+    renderMapGuardStatus();
+  }catch(e){
+    const message = e && e.message ? e.message : String(e || 'Okänt fel');
+    setMapTotalRouteTestResult(
+      '<strong>Totaltest misslyckades.</strong>' +
+      '<span class="map-test-section map-test-label">Fel:</span>' +
+      '<span class="map-test-detail">' + escapeHtml(message) + '</span>' +
+      '<span class="map-test-section map-test-label">Åtgärd:</span>' +
+      '<span class="map-test-detail">Kontrollera att startpunkt, Från och Till har koordinater, att kartnyckeln är sparad och att lokalt kartskydd inte har stoppat anropet.</span>',
+      true,
+      false
+    );
+    renderMapGuardStatus();
+  }
 }
 
 
@@ -4448,6 +4658,7 @@ function resetMapGuardCountersFromSettings(){
   renderMapGuardStatus();
   resetMapRouteTestResult();
   resetMapStartAddonTestResult();
+  resetMapTotalRouteTestResult();
   alert('Kartanropsräknare rensad på denna enhet.');
 }
 
@@ -4457,6 +4668,7 @@ function resetMapRouteCacheFromSettings(){
   renderMapGuardStatus();
   resetMapRouteTestResult();
   resetMapStartAddonTestResult();
+  resetMapTotalRouteTestResult();
   alert('Kartcache rensad på denna enhet.');
 }
 
