@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-27
+- Nuvarande version: Stadslass v2026-05-07-01-28
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -20,6 +20,7 @@ Stadslass versionskontroll
   - Startpunkt: visas som information i appen och används av karttjänsten för bättre uppskattad tid
   - Beräkningsstart: sparas internt och kan användas bakom kulisserna när karttjänst/historik räknar uppskattad tid
   - Uppskattad tid: visas enkelt i aktivt jobb och kö; karttjänst + historik används bakom kulisserna
+  - Fasdata tid: aktivt jobb har en enkel knapp Lastad/Lossad som sparar materialtransporttid och returtid; startsträckans faktiska tid används inte som lärdata
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb med uppskattad tid visar tidsstöd, tid kvar och beräknad klar-tid utan att blockera Klart
   - GPS-inspelning/Ruttmätning: dold i aktivt jobb; gammal GPS-data bevaras i gamla uppdrag
@@ -909,6 +910,9 @@ button{
         <div class="stat" id="activeWeightStat"><small>Total vikt i ton</small><strong id="activeWeight">0.0 ton</strong></div>
       </div>
       <div id="activeEstimateCountdown" class="active-estimate-countdown hidden"></div>
+      <div id="activePhaseControls" class="row hidden" style="margin-top:12px; gap:10px; align-items:center">
+        <button id="activePhaseButton" class="queue-yellow" onclick="toggleActiveTransportPhase()">Lastad</button>
+      </div>
       
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
@@ -1121,7 +1125,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-27</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-28</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -3560,7 +3564,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-27';
+const APP_VERSION = 'Stadslass v2026-05-07-01-28';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3589,6 +3593,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
+  {name:'Fasdata Lastad/Lossad', status:'Aktiv övergångsfunktion', purpose:'En enkel knapp i aktivt jobb sparar Lastad och Lossad så appen kan lära materialtransporttid och returtid utan att använda startsträckan som lärdata.', changeRule:'Kan döljas eller tas bort senare när historiken räcker.'},
   {name:'Aktiv nedräkning från uppskattad tid', status:'Aktiv', purpose:'Visar tidsstöd, tid kvar och beräknad klar-tid i aktivt jobb när uppskattad tid finns.', changeRule:'Får ändras i visning men ska inte blockera Klart eller påverka GPS/faktisk tid.'},
   {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
   {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt. Offline är nödläge för att behålla Excel-underlag, inte full uppskattningslogik.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
@@ -3784,7 +3789,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning från uppskattad tid finns', !!document.getElementById('activeEstimateCountdown') && functionExists('renderActiveEstimateCountdown'), 'activeEstimateCountdown + renderActiveEstimateCountdown');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-27') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-27'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-28') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-28'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -3797,6 +3802,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
+  addFunctionCheck(results, 'Nivå 2', 'Fasdata Lastad/Lossad finns', !!document.getElementById('activePhaseButton') && functionExists('toggleActiveTransportPhase') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedMaterialFlowDurationMs'), 'Lastad/Lossad sparar materialtransporttid; startsträcka används inte som lärdata');
   addFunctionCheck(results, 'Nivå 2', 'Startpunkt används bara bakom uppskattad tid', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('buildSmartMapPointFromJobStart', 'startLat') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'karttjänst'), 'materialflödesnyckel hålls stabil; startpunkt används av kartdelen.');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
@@ -3906,7 +3912,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-27') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-27'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-28') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-28'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -3917,6 +3923,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
     systemCheck('Uppskattad tid med karttjänst', typeof getTimeEstimateForQueuedJob === 'function' && typeof scheduleSmartEstimateForJob === 'function', 'karttjänst/historik bakom enkel uppskattad tid'),
+    systemCheck('Fasdata Lastad/Lossad', !!document.getElementById('activePhaseButton') && typeof toggleActiveTransportPhase === 'function' && typeof getFinishedMaterialFlowDurationMs === 'function', 'materialtransporttid/returtid kan sparas utan startsträcka som lärdata'),
     systemCheck('Uppdrag i kö', !!document.getElementById('queueList') && typeof renderQueue === 'function', 'kölista finns'),
     systemCheck('Idag/historik', typeof renderToday === 'function' && typeof renderHistoryManager === 'function' && !!document.getElementById('historyManagerWrap'), 'dagens jobb och historik finns'),
     systemCheck('Papperskorg', !!document.getElementById('trashManagerWrap') && typeof renderTrashManager === 'function', 'borttagna uppdrag hålls separat'),
@@ -6434,6 +6441,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     motionLastTs:Date.now(),
     motionLastMode:'still'
   };
+  initializeTransportPhaseForJob(state.active);
   applyEstimatedCountdownAtStart(state.active);
   saveState();
   startDistanceTracking();
@@ -6704,7 +6712,9 @@ function resumePausedJob(qid){
   delete resumed.status;
   delete resumed.pausedElapsedMs;
   delete resumed._queueIndex;
+  const oldStart = Number(q.start || 0);
   resumed.start = Date.now() - elapsed;
+  shiftTransportPhaseTimestamps(resumed, Number(resumed.start || 0) - oldStart);
   resumed.loads = resumed.loads || [];
   resumed.totalWeight = resumed.totalWeight || resumed.loads.reduce((a,b)=>a+b,0);
   resumed.distanceKm = resumed.distanceKm || 0;
@@ -6734,8 +6744,10 @@ function completeQueuedJob(qid){
     delete finished.status;
     delete finished.pausedElapsedMs;
     delete finished._queueIndex;
+    const oldStart = Number(q.start || 0);
     finished.end = Date.now();
     finished.start = finished.end - elapsed;
+    shiftTransportPhaseTimestamps(finished, Number(finished.start || 0) - oldStart);
     if(finished.routeGps && finished.routeGps.status === 'active'){
       finished.routeGps.status = 'saved';
       finished.routeGps.endedAt = finished.end;
@@ -6748,6 +6760,7 @@ function completeQueuedJob(qid){
     finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
     finished.routeEndPlace = getJobCompletionPlace(finished);
     finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
+    finalizeTransportPhaseData(finished, finished.end);
     state.jobs.unshift(finished);
     updateLastWorkPointFromJob(finished);
     state.queue = state.queue.filter(x => x.id !== qid);
@@ -6824,6 +6837,134 @@ function addLoadToCurrent(){
   saveState(); render();
 }
 
+
+function isTransportPhaseTrackingAllowed(job){
+  return !!job && !isOtherWorkJob(job) && isTimeEstimateAllowedForJob(job);
+}
+
+function initializeTransportPhaseForJob(job){
+  if(!job || !isTransportPhaseTrackingAllowed(job)) return job;
+  if(!job.transportPhase){
+    job.transportPhase = job.unloadedAt ? 'unloaded' : (job.loadedAt ? 'loaded' : 'start');
+  }
+  job.phaseDataVersion = 1;
+  return job;
+}
+
+function getTransportPhase(job){
+  if(!job) return 'none';
+  if(job.transportPhase === 'unloaded' || job.unloadedAt) return 'unloaded';
+  if(job.transportPhase === 'loaded' || job.loadedAt) return 'loaded';
+  return 'start';
+}
+
+function positiveDurationMs(startTs, endTs){
+  const start = Number(startTs || 0);
+  const end = Number(endTs || 0);
+  const duration = end - start;
+  return Number.isFinite(duration) && duration >= 0 ? duration : null;
+}
+
+function updateTransportPhaseDurations(job, endAt){
+  if(!job) return job;
+  const end = Number(endAt || job.end || Date.now());
+  const start = Number(job.start || 0);
+  const loaded = Number(job.loadedAt || 0);
+  const unloaded = Number(job.unloadedAt || 0);
+
+  const totalMs = positiveDurationMs(start, end);
+  if(totalMs !== null) job.actualTotalTimeMs = totalMs;
+
+  const materialMs = positiveDurationMs(loaded, unloaded);
+  if(materialMs !== null){
+    job.materialTransportTimeMs = materialMs;
+    let flowMs = materialMs;
+    if(getJobReturnRequiredValue(job)){
+      const returnMs = positiveDurationMs(unloaded, end);
+      if(returnMs !== null){
+        job.returnTimeMs = returnMs;
+        flowMs += returnMs;
+      }
+    } else {
+      delete job.returnTimeMs;
+    }
+    job.materialFlowTimeMs = flowMs;
+  }
+  return job;
+}
+
+function finalizeTransportPhaseData(job, endAt){
+  if(!job) return job;
+  job.phaseDataVersion = Number(job.phaseDataVersion || 1);
+  if(!job.transportPhase){
+    job.transportPhase = getTransportPhase(job);
+  }
+  updateTransportPhaseDurations(job, endAt || job.end || Date.now());
+  return job;
+}
+
+function shiftTransportPhaseTimestamps(job, offsetMs){
+  const offset = Number(offsetMs || 0);
+  if(!job || !Number.isFinite(offset) || offset === 0) return job;
+  ['loadedAt','unloadedAt'].forEach(key => {
+    const value = Number(job[key] || 0);
+    if(Number.isFinite(value) && value > 0) job[key] = value + offset;
+  });
+  return job;
+}
+
+function resetTransportPhaseForRestart(job){
+  if(!job) return job;
+  delete job.loadedAt;
+  delete job.unloadedAt;
+  delete job.materialTransportTimeMs;
+  delete job.returnTimeMs;
+  delete job.materialFlowTimeMs;
+  delete job.actualTotalTimeMs;
+  job.transportPhase = isTransportPhaseTrackingAllowed(job) ? 'start' : '';
+  job.phaseDataVersion = 1;
+  return job;
+}
+
+function toggleActiveTransportPhase(){
+  if(!state.active || !isTransportPhaseTrackingAllowed(state.active)) return;
+  initializeTransportPhaseForJob(state.active);
+  const phase = getTransportPhase(state.active);
+  const now = Date.now();
+  if(phase === 'start'){
+    state.active.loadedAt = now;
+    state.active.transportPhase = 'loaded';
+  } else if(phase === 'loaded'){
+    state.active.unloadedAt = now;
+    state.active.transportPhase = 'unloaded';
+    updateTransportPhaseDurations(state.active, now);
+  } else {
+    return;
+  }
+  state.active.phaseDataVersion = 1;
+  saveState();
+  renderActive();
+}
+
+function renderActiveTransportPhaseControl(){
+  const wrap = document.getElementById('activePhaseControls');
+  const btn = document.getElementById('activePhaseButton');
+  if(!wrap || !btn) return;
+  if(!state.active || !isTransportPhaseTrackingAllowed(state.active)){
+    wrap.classList.add('hidden');
+    return;
+  }
+  initializeTransportPhaseForJob(state.active);
+  const phase = getTransportPhase(state.active);
+  if(phase === 'unloaded'){
+    wrap.classList.add('hidden');
+    return;
+  }
+  btn.textContent = phase === 'loaded' ? 'Lossad' : 'Lastad';
+  btn.disabled = false;
+  wrap.classList.remove('hidden');
+}
+
 function markNoEmptying(){
   if(!state.active) return;
   const marker = 'Ej behov av tömning';
@@ -6865,6 +7006,7 @@ function stopJob(){
   finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
   finished.routeEndPlace = getJobCompletionPlace(finished);
   finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
+  finalizeTransportPhaseData(finished, finished.end);
   state.jobs.unshift(finished);
   updateLastWorkPointFromJob(finished);
   state.active = null;
@@ -6887,7 +7029,7 @@ function switchJob(){
 function renderActive(){
   const none = document.getElementById('activeNone');
   const box = document.getElementById('activeBox');
-  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); renderActiveEstimateCountdown(); return; }
+  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); renderActiveEstimateCountdown(); renderActiveTransportPhaseControl(); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
 
   const isOtherWork = state.active.type === 'Övrig verksamhet';
@@ -6918,6 +7060,7 @@ function renderActive(){
   document.getElementById('activeLoads').textContent = String((state.active.loads||[]).length);
   document.getElementById('activeWeight').textContent = (state.active.totalWeight||0).toFixed(1)+' ton';
   renderActiveEstimateCountdown();
+  renderActiveTransportPhaseControl();
 
   const distanceStat = document.getElementById('activeDistanceStat');
   const loadsStat = document.getElementById('activeLoadsStat');
@@ -7049,6 +7192,31 @@ function getFinishedDurationMs(job){
   return Number.isFinite(duration) && duration >= 60000 ? duration : null;
 }
 
+function getFinishedMaterialFlowDurationMs(job){
+  if(!job) return null;
+  const stored = Number(job.materialFlowTimeMs || 0);
+  if(Number.isFinite(stored) && stored >= 60000) return stored;
+
+  const material = Number(job.materialTransportTimeMs || 0);
+  const ret = Number(job.returnTimeMs || 0);
+  if(Number.isFinite(material) && material >= 60000){
+    return getJobReturnRequiredValue(job) && Number.isFinite(ret) && ret > 0 ? material + ret : material;
+  }
+
+  const loaded = Number(job.loadedAt || 0);
+  const unloaded = Number(job.unloadedAt || 0);
+  const end = Number(job.end || 0);
+  const materialMs = unloaded - loaded;
+  if(Number.isFinite(materialMs) && materialMs >= 60000){
+    if(getJobReturnRequiredValue(job)){
+      const returnMs = end - unloaded;
+      return Number.isFinite(returnMs) && returnMs >= 0 ? materialMs + returnMs : materialMs;
+    }
+    return materialMs;
+  }
+  return null;
+}
+
 function medianDurationMs(durations){
   const values = (durations || []).filter(ms => Number.isFinite(ms) && ms >= 60000).sort((a,b) => a-b);
   if(!values.length) return null;
@@ -7088,9 +7256,15 @@ function getMaterialFlowEstimateForJob(job){
   const key = materialFlowEstimateKey(job);
   const samples = getFinishedJobsForUnderlag()
     .filter(finished => isTimeEstimateAllowedForJob(finished) && materialFlowEstimateKey(finished) === key && isStableMaterialFlowSample(finished));
-  const durations = samples
-    .map(getFinishedDurationMs)
+  let durations = samples
+    .map(getFinishedMaterialFlowDurationMs)
     .filter(ms => ms !== null);
+  if(durations.length < 3){
+    durations = samples
+      .filter(isStableMaterialFlowSample)
+      .map(getFinishedDurationMs)
+      .filter(ms => ms !== null);
+  }
   if(durations.length < 3) return null;
   const medianMs = medianDurationMs(durations);
   if(!Number.isFinite(medianMs)) return null;
@@ -7210,7 +7384,8 @@ function getHistoricalPracticalAddonMinutes(job, materialEstimate, mapTotals){
   const sampleAddons = getFinishedJobsForUnderlag()
     .filter(finished => isTimeEstimateAllowedForJob(finished) && materialFlowEstimateKey(finished) === key && Number(finished.smartMapMaterialMinutes || 0) > 0)
     .map(finished => {
-      const actualMs = getFinishedDurationMs(finished);
+      let actualMs = getFinishedMaterialFlowDurationMs(finished);
+      if(actualMs === null && isStableMaterialFlowSample(finished)) actualMs = getFinishedDurationMs(finished);
       const mapMinutes = Number(finished.smartMapMaterialMinutes || 0);
       if(actualMs === null || !Number.isFinite(mapMinutes) || mapMinutes <= 0) return null;
       return estimateMinutesFromMs(actualMs) - mapMinutes;
@@ -7534,6 +7709,7 @@ function restartFinishedJob(jobId){
   delete restarted.startAccuracy;
   delete restarted.startPointCapturedAt;
   resetRouteGpsForRestart(restarted);
+  resetTransportPhaseForRestart(restarted);
 
   state.active = restarted;
   state.jobs = state.jobs.filter(x => x.id !== jobId);
