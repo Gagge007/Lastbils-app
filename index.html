@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-38
+- Nuvarande version: Stadslass v2026-05-07-01-39
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -29,7 +29,7 @@ Stadslass versionskontroll
   - Transportlägen v33: utan returkrav lär Lastar -> Vikt; med returkrav lär Lastar -> Avslutat och vikt är bara registrering; flerlass gäller endast utan returkrav
   - Aktiv vy v34: döljer tekniska raderna Materialflöde och Starttillägg i Aktivt arbete; Returkrav och Uppskattad tid visas bredare; Start från kö scrollar upp till toppen
   - Stödruta v36: visar inlärningsregel i 10 sekunder efter Ange vikt, utan att ändra tidslogik
-  - Tillfällig kvittoimport v37: kamerabaserad OCR under Inställningar; skapar endast historiska sammanställningsrader och påverkar inte GPS/tid/inlärning
+  - Tillfällig kvittoimport v39: importerar färdiga kvittofiler/rader under Inställningar; skapar endast historiska sammanställningsrader och påverkar inte GPS/tid/inlärning
   - Aktiv vy v35: Aktivt jobb har strukturerad översikt för Från, Till, Returkrav och Mtrl kod samt större nedräkning för uppskattad tid.
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb visar en större huvudtext för uppskattad tid kvar och mindre klar cirka-tid utan att blockera Klart
@@ -1077,30 +1077,26 @@ button{
 }
 
 
-/* TEMP RECEIPT OCR MODULE START */
+/* TEMP RECEIPT IMPORT MODULE START */
 .receipt-temp-wrap{border:2px dashed #94a3b8;background:#f8fafc}
 .receipt-hero{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px}
-.receipt-camera-button{font-size:18px;font-weight:700;padding:16px 20px;border-radius:16px}
 .receipt-status{margin-top:10px;padding:10px 12px;border-radius:12px;background:#e0f2fe;border:1px solid #7dd3fc;color:#075985}
 .receipt-status.error{background:#fee2e2;border-color:#fecaca;color:#991b1b}
 .receipt-status.ok{background:#dcfce7;border-color:#86efac;color:#166534}
-.receipt-preview{margin-top:12px;display:grid;grid-template-columns:1fr;gap:12px}
-@media(min-width:850px){.receipt-preview{grid-template-columns:260px 1fr}}
-.receipt-image-preview{max-width:100%;border:1px solid var(--border);border-radius:14px;background:#fff}
 .receipt-control-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
 @media(min-width:760px){.receipt-control-grid{grid-template-columns:repeat(5,1fr)}}
 .receipt-control-card{border:1px solid var(--border);border-radius:16px;padding:12px;background:#fff;margin-top:12px}
 .receipt-history-row{display:grid;grid-template-columns:1fr;gap:6px;border:1px solid var(--border);border-radius:14px;padding:10px;margin-top:8px;background:#fff}
 @media(min-width:760px){.receipt-history-row{grid-template-columns:120px 1.3fr 1fr 1fr 100px auto;align-items:center}}
-.receipt-raw-text{font-family:monospace;font-size:13px;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:10px;max-height:220px;overflow:auto}
 .receipt-import-preview{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:#fff;padding:10px}
 .receipt-import-item{display:flex;gap:8px;align-items:flex-start;border-top:1px solid #e2e8f0;padding:8px 0}
 .receipt-import-item:first-child{border-top:0}
+.receipt-import-meta{font-size:13px;color:var(--muted);margin-top:3px}
 .receipt-duplicate{color:#b45309;font-weight:700}
-
-.receipt-scan-card{background:linear-gradient(180deg,#f8fafc,#eef6ff);border:1px solid #bfdbfe}
-.receipt-scan-card .place-key{font-size:19px}
-/* TEMP RECEIPT OCR MODULE END */
+.receipt-ready-card{background:linear-gradient(180deg,#f8fafc,#eef6ff);border:1px solid #bfdbfe}
+.receipt-ready-card .place-key{font-size:19px}
+.receipt-format-box{font-family:monospace;font-size:13px;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:10px;overflow:auto;margin-top:8px}
+/* TEMP RECEIPT IMPORT MODULE END */
 
 </style>
 </head>
@@ -1385,7 +1381,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-38</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-39</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1442,62 +1438,30 @@ button{
       </div>
     </div>
 
-    <!-- TEMP RECEIPT OCR MODULE START -->
+    <!-- TEMP RECEIPT IMPORT MODULE START -->
     <div id="receiptImportManagerWrap" class="place-manager hidden receipt-temp-wrap">
-      <div class="place-help"><strong>Tillfällig funktion – Kvittoimport.</strong> Funktionen använder kamera/OCR och kräver internet. Den skapar bara historiska sammanställningsrader: Datum, Jobbtyp, Från, Till och Vikt. Den påverkar inte GPS, aktivt arbete, pauslogik, uppskattad tid, körsträcka, arbetstid eller tidsinlärning.</div>
-      <div class="place-row receipt-scan-card">
-        <div class="place-key">Fota/scanna gammalt kvitto</div>
-        <div class="multi-help">Huvudflöde: fota kvittot med kameran. Appen OCR-läser bilden, tolkar kvittot och visar ett kontrollkort innan raden sparas. Ingen inklistring krävs i normalfallet.</div>
-        <input id="receiptImageInput" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleReceiptImageSelected(this)">
+      <div class="place-help"><strong>Tillfällig funktion – Kvittoimport.</strong> Appen tolkar inte kvittobilder längre. Importera i stället färdiga kvittofiler/rader som är framtagna utanför appen. Raderna skapar bara historiska sammanställningsrader: Datum, Jobbtyp, Från, Till och Vikt. De påverkar inte GPS, aktivt arbete, pauslogik, uppskattad tid, körsträcka, arbetstid eller tidsinlärning.</div>
+      <div class="place-row receipt-ready-card">
+        <div class="place-key">Importera färdig kvittofil</div>
+        <div class="multi-help">Använd filen som skapats efter kvittotolkning i separat chatt. Filen kan föras över från mobil till padda och importeras här. Importen fungerar även offline eftersom den bara läser en lokal fil.</div>
+        <input id="receiptImportFileInput" type="file" accept="application/json,.json,text/plain,.txt,.csv" class="hidden" onchange="handleReceiptImportFile(this)">
         <div class="receipt-hero">
-          <button class="primary receipt-camera-button" onclick="triggerReceiptCamera()">📷 Fota/scanna kvitto</button>
-          <button class="inline" onclick="clearReceiptDraft()">Rensa kontrollkort</button>
-          <button class="inline" onclick="toggleReceiptManualText()">Reservläge</button>
+          <button class="primary inline" onclick="triggerReceiptImportFile()">Importera färdig kvittofil</button>
+          <button class="inline" onclick="toggleReceiptPasteImport()">Klistra in rader</button>
         </div>
-        <div id="receiptOcrStatus" class="receipt-status hidden"></div>
-        <div id="receiptPreviewWrap" class="receipt-preview hidden">
-          <div><img id="receiptImagePreview" class="receipt-image-preview" alt="Kvittobild"></div>
-          <div>
-            <div class="multi-help">OCR-texten används bara för tolkning. Den följer inte med till sammanställningen.</div>
-            <div id="receiptRawText" class="receipt-raw-text"></div>
-          </div>
+        <div id="receiptImportStatus" class="receipt-status hidden"></div>
+        <div id="receiptPasteWrap" class="hidden" style="margin-top:12px">
+          <label>Klistra in färdiga kvittorader eller JSON</label>
+          <div class="multi-help">Reserv om filimporten krånglar. Rekommenderat radformat: Datum; Jobbtyp; Från; Till; Vikt</div>
+          <textarea id="receiptPasteText" placeholder="2026-05-04; Blandat; Ringön; Renova Skräppekärr; 1,36"></textarea>
+          <div class="row" style="margin-top:10px"><button class="primary inline" onclick="handleReceiptPasteImport()">Läs in inklistrade rader</button></div>
+          <div class="receipt-format-box">JSON-format som appen accepterar:\n{\n  "type": "stadslass_receipt_import",\n  "version": 1,\n  "batchId": "kvitton-2026-05-11-001",\n  "rows": [\n    {"datum":"2026-05-04","jobbtyp":"Blandat","fran":"Ringön","till":"Renova Skräppekärr","vikt":1.36}\n  ]\n}</div>
         </div>
-        <div id="receiptManualWrap" class="hidden" style="margin-top:12px">
-          <label>Reservläge: klistra in OCR-text manuellt</label>
-          <div class="multi-help">Reservläget är bara till för fall där kameratolkningen inte fungerar. Huvudflödet är fortfarande Fota/scanna kvitto.</div>
-          <textarea id="receiptManualText" placeholder="Klistra in kvittotext här endast som reserv."></textarea>
-          <div class="row" style="margin-top:10px"><button class="primary inline" onclick="parseReceiptManualText()">Tolka reservtext</button></div>
-        </div>
-      </div>
-      <div id="receiptControlCard" class="receipt-control-card hidden">
-        <h4>Kontrollkort före sparning</h4>
-        <div class="multi-help">Rätta fälten vid behov. Endast dessa fem fält sparas till sammanställningen.</div>
-        <div class="receipt-control-grid">
-          <div><label>Datum</label><input id="receiptDraftDate" type="date"></div>
-          <div><label>Jobbtyp</label><input id="receiptDraftJobType" placeholder="Jobbtyp"></div>
-          <div><label>Från</label><input id="receiptDraftFrom" placeholder="Från"></div>
-          <div><label>Till</label><input id="receiptDraftTo" placeholder="Till"></div>
-          <div><label>Vikt i ton</label><input id="receiptDraftWeight" inputmode="decimal" placeholder="0,00"></div>
-        </div>
-        <div class="row" style="margin-top:12px">
-          <button class="primary inline" onclick="saveReceiptDraft()">Spara kvittorad</button>
-          <button class="inline" onclick="clearReceiptDraft()">Avbryt</button>
-        </div>
-      </div>
-      <div class="place-row">
-        <div class="place-key">Export/import mobil → padda</div>
-        <div class="multi-help">Exportfilen innehåller bara Datum, Jobbtyp, Från, Till och Vikt. Vid import visas kontrollista och möjliga dubbletter kan hoppas över eller importeras ändå.</div>
-        <input id="receiptImportFileInput" type="file" accept="application/json,.json" class="hidden" onchange="handleReceiptImportFile(this)">
-        <div class="row" style="margin-top:10px">
-          <button class="primary inline" onclick="exportReceiptRows()">Exportera kvittorader</button>
-          <button class="inline" onclick="triggerReceiptImportFile()">Importera kvittorader</button>
-        </div>
-        <div id="receiptImportStatus" class="multi-help" style="margin-top:8px"></div>
         <div id="receiptImportPreview" class="receipt-import-preview hidden"></div>
       </div>
       <div class="place-row">
-        <div class="place-key">Kvittohistorik</div>
-        <div class="multi-help">Raderna sorteras efter kvittots datum, inte efter scanordning. Raderna räknas i sammanställningen/statistiken men skapar inte GPS-uppdrag.</div>
+        <div class="place-key">Kvittohistorik i den här enheten</div>
+        <div class="multi-help">Raderna sorteras efter kvittots datum. De räknas i sammanställningen/statistiken men skapar inte GPS-uppdrag och används inte för uppskattad tid.</div>
         <div class="row" style="margin-top:10px">
           <button class="inline" onclick="renderReceiptHistory()">Uppdatera lista</button>
           <button class="danger inline" onclick="clearAllReceiptRows()">Radera alla kvittorader</button>
@@ -1505,7 +1469,7 @@ button{
         <div id="receiptHistoryList"></div>
       </div>
     </div>
-    <!-- TEMP RECEIPT OCR MODULE END -->
+    <!-- TEMP RECEIPT IMPORT MODULE END -->
 
     <div id="mapKeyManagerWrap" class="place-manager hidden">
       <div class="place-help">Här kan du spara Google API-nyckeln lokalt på denna enhet. Nyckeln ligger inte i HTML-filen och ska inte följa med GitHub-kö, Excel/export eller backup. Kartskyddet räknar lokala anrop, använder cache och stoppar test om lokal gräns nås.</div>
@@ -1955,7 +1919,6 @@ button{
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 
 const KEY = 'driftlogg_v4_full';
@@ -4095,7 +4058,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-38';
+const APP_VERSION = 'Stadslass v2026-05-07-01-39';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -4134,7 +4097,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Transportlägen v33', status:'Aktiv', purpose:'Skiljer på utan returkrav, med returkrav och flerlass utan returkrav. Vid returkrav är Ange vikt bara viktregistrering och inlärningen går till Klart/Avslutat.', changeRule:'Flerlasslogik ska inte köras när returkrav är aktivt.'},
   {name:'Aktiv vy v34', status:'Aktiv', purpose:'Aktivt arbete döljer tekniska raderna Materialflöde och Starttillägg, visar Returkrav/Uppskattad tid bredare och scrollar upp när köuppdrag startas.', changeRule:'Får ändras visuellt men ska inte påverka tidslogik, Lastar, Ange vikt eller returkrav.'},
   {name:'Aktiv vy v35', status:'Aktiv', purpose:'Aktivt arbete visar Från, Till, Returkrav och Mtrl kod i en strukturerad översikt och använder större nedräkningskort för uppskattad tid.', changeRule:'Ren vyändring; får inte ändra tidslogik, Lastar, Ange vikt, returkrav eller flerlass.'},
-  {name:'Tillfällig kvittoimport OCR v38', status:'Tillfällig funktion', purpose:'Kamerabaserad OCR under Inställningar som tolkar gamla kvitton till historiska sammanställningsrader med Datum, Jobbtyp, Från, Till och Vikt.', changeRule:'Ska ligga separat och kunna tas bort utan att påverka GPS, aktivt arbete, tider, kö, papperskorg eller localStorage för huvudappen.'},
+  {name:'Tillfällig kvittoimport filimport v39', status:'Tillfällig funktion', purpose:'Importerar färdiga kvittofiler/rader som redan är tolkade utanför appen till historiska sammanställningsrader med Datum, Jobbtyp, Från, Till och Vikt.', changeRule:'Ska ligga separat och kunna tas bort utan att påverka GPS, aktivt arbete, tider, kö, papperskorg eller localStorage för huvudappen.'},
   {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
   {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt. Offline är nödläge för att behålla Excel-underlag, inte full uppskattningslogik.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
   {name:'GitHub-kö export/import markeringar', status:'Skyddad men får byggas om', purpose:'Visar Överförd till GitHub och Hämtad från GitHub.', changeRule:'Får ersättas av bättre synkstatus.'},
@@ -4333,7 +4296,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-38') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-38'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-39') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-39'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4351,7 +4314,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Fasdata Lastar/Vikt finns', !!document.getElementById('activePhaseButton') && functionExists('toggleActiveTransportPhase') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedMaterialFlowDurationSamples'), 'Lastar och Ange vikt sparar lassdata; startsträcka används inte som lärdata');
   addFunctionCheck(results, 'Nivå 2', 'Startpunkt används bara bakom uppskattad tid', !functionSourceIncludes('materialFlowEstimateKey', 'calculationStart') && functionSourceIncludes('buildSmartMapPointFromJobStart', 'startLat') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'karttjänst'), 'materialflödesnyckel hålls stabil; startpunkt används av kartdelen.');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkrat underlag', functionSourceIncludes('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag'), 'getFilteredSummaryJobs');
-  addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport OCR finns', !!document.getElementById('receiptImportManagerWrap') && !!document.getElementById('receiptImageInput') && functionExists('triggerReceiptCamera') && functionExists('parseReceiptTextToDraft') && functionSourceIncludes('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'Inställningar → Tillfälliga funktioner → Kvittoimport');
+  addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport filimport finns', !!document.getElementById('receiptImportManagerWrap') && !!document.getElementById('receiptImportFileInput') && functionExists('handleReceiptImportFile') && functionExists('normalizeImportedReceiptRow') && functionSourceIncludes('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'Inställningar → Tillfälliga funktioner → Kvittoimport');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkrat underlag', functionSourceIncludes('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-underlag använder papperskorgssäkrat underlag', functionExists('getSavedRouteGpsRecordsForUnderlag') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'getSavedRouteGpsRecordsForUnderlag');
@@ -4465,7 +4428,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-38') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-38'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-39') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-39'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -9668,11 +9631,10 @@ if(editTypeEl){
 
 
 
-// TEMP RECEIPT OCR MODULE START
+// TEMP RECEIPT IMPORT MODULE START
 const RECEIPT_TEMP_STORAGE_KEY = 'stadslass_receipts_temp';
-let receiptDraft = null;
 let pendingReceiptImportRows = [];
-let receiptLastImageUrl = null;
+let pendingReceiptImportMeta = null;
 
 function loadReceiptRows(){
   try{
@@ -9692,26 +9654,28 @@ function cleanReceiptRowForStorage(row){
   if(!row) return null;
   return {
     id: row.id || id(),
-    date: normalizeReceiptDateValue(row.date),
-    jobType: (row.jobType || row.type || 'Okänd').trim() || 'Okänd',
-    from: (row.from || row.place || 'Okänd').trim() || 'Okänd',
-    to: (row.to || row.dest || 'Okänd').trim() || 'Okänd',
-    weight: normalizeReceiptWeightValue(row.weight),
+    date: normalizeReceiptDateValue(row.date || row.datum),
+    jobType: String(row.jobType || row.jobbtyp || row.type || 'Okänd').trim() || 'Okänd',
+    from: String(row.from || row.fran || row.från || row.place || 'Okänd').trim() || 'Okänd',
+    to: String(row.to || row.till || row.dest || 'Okänd').trim() || 'Okänd',
+    weight: normalizeReceiptWeightValue(row.weight ?? row.vikt),
+    sourceBatchId: row.sourceBatchId || row.batchId || '',
+    importedAt: Number(row.importedAt || Date.now()),
     createdAt: Number(row.createdAt || Date.now())
   };
 }
 
 function normalizeReceiptRow(row){
   const clean = cleanReceiptRowForStorage(row);
-  if(!clean || !clean.date) return clean;
+  if(!clean) return null;
   return clean;
 }
 
 function normalizeReceiptDateValue(value){
   const s = String(value || '').trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = s.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if(m) return m[1] + '-' + String(Number(m[2])).padStart(2,'0') + '-' + String(Number(m[3])).padStart(2,'0');
+  const ymd = s.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if(ymd) return ymd[1] + '-' + String(Number(ymd[2])).padStart(2,'0') + '-' + String(Number(ymd[3])).padStart(2,'0');
   const dmy = s.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
   if(dmy) return dmy[3] + '-' + String(Number(dmy[2])).padStart(2,'0') + '-' + String(Number(dmy[1])).padStart(2,'0');
   return '';
@@ -9727,8 +9691,8 @@ function normalizeReceiptWeightValue(value){
 }
 
 function receiptRowKey(row){
-  const w = normalizeReceiptWeightValue(row && row.weight).toFixed(2);
-  return [row && row.date || '', row && row.jobType || '', row && row.from || '', row && row.to || '', w]
+  const w = normalizeReceiptWeightValue(row && (row.weight ?? row.vikt)).toFixed(2);
+  return [row && (row.date || row.datum) || '', row && (row.jobType || row.jobbtyp) || '', row && (row.from || row.fran || row.från) || '', row && (row.to || row.till) || '', w]
     .map(v => String(v || '').trim().toLowerCase()).join('|');
 }
 
@@ -9759,7 +9723,7 @@ function getReceiptSummaryJobs(){
       loads: weight > 0 ? [weight] : [],
       totalWeight: weight,
       distanceKm: 0,
-      comment: '',
+      comment: row.sourceBatchId ? ('Importerad kvittorad: ' + row.sourceBatchId) : 'Importerad kvittorad',
       privateComment: '',
       excludeFromTimeEstimate: true,
       excludeFromGpsLearning: true,
@@ -9771,21 +9735,12 @@ function getReceiptSummaryJobs(){
 function toggleReceiptImportManager(){
   toggleSettingsPanel('receiptImportManagerWrap', () => {
     renderReceiptHistory();
-    setReceiptStatus(navigator.onLine ? 'Kvittoimport är redo. Funktionen kräver internet när OCR används.' : 'Kvittoimport kräver internet. Stadslass kan användas som vanligt offline.', navigator.onLine ? 'ok' : 'error');
+    setReceiptImportStatus('Kvittoimport redo. Importera färdig JSON-/textfil från kvittochatten.', 'ok');
   });
 }
 
-function triggerReceiptCamera(){
-  if(!navigator.onLine){
-    setReceiptStatus('Kvittoimport kräver internet. Använd appen som vanligt och prova kvittoimport när du är online.', 'error');
-    return;
-  }
-  const input = document.getElementById('receiptImageInput');
-  if(input) input.click();
-}
-
-function setReceiptStatus(message, kind){
-  const el = document.getElementById('receiptOcrStatus');
+function setReceiptImportStatus(message, kind){
+  const el = document.getElementById('receiptImportStatus');
   if(!el) return;
   el.classList.remove('hidden','error','ok');
   if(kind === 'error') el.classList.add('error');
@@ -9793,244 +9748,104 @@ function setReceiptStatus(message, kind){
   el.textContent = message || '';
 }
 
-function setReceiptImportStatus(message){
-  const el = document.getElementById('receiptImportStatus');
-  if(el) el.textContent = message || '';
+function triggerReceiptImportFile(){
+  const input = document.getElementById('receiptImportFileInput');
+  if(input) input.click();
 }
 
-function updateReceiptPreview(file, rawText){
-  const wrap = document.getElementById('receiptPreviewWrap');
-  const img = document.getElementById('receiptImagePreview');
-  const raw = document.getElementById('receiptRawText');
-  if(raw) raw.textContent = rawText || '';
-  if(file && img){
-    if(receiptLastImageUrl){
-      try{ URL.revokeObjectURL(receiptLastImageUrl); }catch(e){}
-    }
-    receiptLastImageUrl = URL.createObjectURL(file);
-    img.src = receiptLastImageUrl;
-  }
-  if(wrap) wrap.classList.remove('hidden');
-}
-
-async function handleReceiptImageSelected(input){
-  const file = input && input.files && input.files[0] ? input.files[0] : null;
-  if(!file) return;
-  updateReceiptPreview(file, 'OCR läser bilden…');
-  await runReceiptOcr(file);
-  if(input) input.value = '';
-}
-
-async function runReceiptOcr(file){
-  if(!navigator.onLine){
-    setReceiptStatus('Kvittoimport kräver internet för OCR.', 'error');
-    return;
-  }
-  if(!window.Tesseract || typeof Tesseract.recognize !== 'function'){
-    setReceiptStatus('OCR-motorn kunde inte laddas. Kontrollera internet och prova igen. Kvittofunktionen kräver online-läge.', 'error');
-    return;
-  }
-  try{
-    setReceiptStatus('OCR läser kvittot…', '');
-    const result = await Tesseract.recognize(file, 'swe+eng', {
-      logger: function(m){
-        if(!m) return;
-        if(m.status){
-          const pct = Number.isFinite(m.progress) ? ' ' + Math.round(m.progress * 100) + '%' : '';
-          setReceiptStatus('OCR: ' + m.status + pct, '');
-        }
-      }
-    });
-    const text = result && result.data && result.data.text ? result.data.text : '';
-    updateReceiptPreview(file, text || 'Ingen text hittades.');
-    if(!text.trim()){
-      setReceiptStatus('OCR hittade ingen tydlig text. Prova bättre ljus eller reservtext.', 'error');
-      return;
-    }
-    parseReceiptTextToDraft(text);
-    setReceiptStatus('OCR klar. Kontrollera raden innan du sparar.', 'ok');
-  }catch(e){
-    setReceiptStatus('OCR misslyckades: ' + (e && e.message ? e.message : String(e || 'okänt fel')), 'error');
-  }
-}
-
-function toggleReceiptManualText(){
-  const wrap = document.getElementById('receiptManualWrap');
+function toggleReceiptPasteImport(){
+  const wrap = document.getElementById('receiptPasteWrap');
   if(wrap) wrap.classList.toggle('hidden');
 }
 
-function parseReceiptManualText(){
-  const el = document.getElementById('receiptManualText');
-  const text = el ? el.value : '';
-  if(!text.trim()){
-    setReceiptStatus('Klistra in text först.', 'error');
-    return;
-  }
-  const raw = document.getElementById('receiptRawText');
-  if(raw) raw.textContent = text;
-  const preview = document.getElementById('receiptPreviewWrap');
-  if(preview) preview.classList.remove('hidden');
-  parseReceiptTextToDraft(text);
-  setReceiptStatus('Text tolkad. Kontrollera raden innan du sparar.', 'ok');
-}
-
-function normalizeReceiptText(text){
-  return String(text || '')
-    .replace(/\u00a0/g,' ')
-    .replace(/[–—]/g,'-')
-    .replace(/\s+/g,' ')
-    .trim();
-}
-
-function extractReceiptDate(text){
-  const raw = String(text || '');
-  let m = raw.match(/(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-  if(m){
-    return {
-      date: m[1] + '-' + String(Number(m[2])).padStart(2,'0') + '-' + String(Number(m[3])).padStart(2,'0'),
-      time: m[4] ? String(Number(m[4])).padStart(2,'0') + ':' + m[5] : ''
+function readReceiptRowsFromText(text, fileName){
+  const source = String(text || '').trim();
+  if(!source) return {rows:[], meta:{batchId:'', source:fileName || ''}};
+  try{
+    const parsed = JSON.parse(source);
+    const rows = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.rows) ? parsed.rows : []);
+    const meta = Array.isArray(parsed) ? {batchId:'', source:fileName || ''} : {
+      batchId: parsed.batchId || parsed.batch || '',
+      type: parsed.type || '',
+      version: parsed.version || '',
+      source: fileName || ''
     };
+    return {rows, meta};
+  }catch(e){
+    return {rows: parseReceiptSemicolonRows(source), meta:{batchId:'', source:fileName || ''}};
   }
-  m = raw.match(/(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-  if(m){
+}
+
+function parseReceiptSemicolonRows(text){
+  return String(text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
+    const parts = line.includes(';') ? line.split(';') : line.split('\t');
+    if(parts.length < 5) return null;
+    if(/^datum$/i.test(parts[0].trim())) return null;
     return {
-      date: m[3] + '-' + String(Number(m[2])).padStart(2,'0') + '-' + String(Number(m[1])).padStart(2,'0'),
-      time: m[4] ? String(Number(m[4])).padStart(2,'0') + ':' + m[5] : ''
+      datum: parts[0].trim(),
+      jobbtyp: parts[1].trim(),
+      fran: parts[2].trim(),
+      till: parts[3].trim(),
+      vikt: parts.slice(4).join(' ').trim()
     };
-  }
-  return {date:'', time:''};
+  }).filter(Boolean);
 }
 
-function parseReceiptNumberByUnit(numberText, unit){
-  let s = String(numberText || '').trim().replace(/\s/g,'');
-  const u = String(unit || '').toLowerCase();
-  if(!s) return null;
-  if(u.startsWith('kg') || u === 'kilo'){
-    if(/^\d{1,3}[,.]\d{3}$/.test(s)) s = s.replace(/[,.]/g,'');
-    else s = s.replace(',', '.');
-  } else {
-    s = s.replace(',', '.');
-  }
-  const n = Number(s);
-  if(!Number.isFinite(n)) return null;
-  const tons = (u.startsWith('kg') || u === 'kilo') ? n / 1000 : n;
-  return Math.round(tons * 100) / 100;
-}
-
-function extractReceiptNetWeight(text){
-  const raw = String(text || '');
-  const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const priority = lines.filter(line => /netto|nettovikt|slutvikt/i.test(line));
-  const candidates = priority.length ? priority : [raw];
-  const weightRegex = /(\d{1,3}(?:[\s.]\d{3})*(?:[,.]\d+)?|\d+(?:[,.]\d+)?)\s*(kg|kilo|ton|t)\b/ig;
-  for(const line of candidates){
-    let match;
-    weightRegex.lastIndex = 0;
-    while((match = weightRegex.exec(line))){
-      const tons = parseReceiptNumberByUnit(match[1], match[2]);
-      if(Number.isFinite(tons) && tons > 0) return tons;
-    }
-  }
-  return 0;
-}
-
-function receiptTextHasArticle(norm, code){
-  const c = String(code);
-  const re = new RegExp('(?:artikel|art|avfallskod|kod)?\\s*' + c + '\\b', 'i');
-  return re.test(norm);
-}
-
-function parseReceiptTextToDraft(text){
-  const norm = normalizeReceiptText(text);
-  const low = norm.toLowerCase();
-  const dateInfo = extractReceiptDate(text);
-  const weight = extractReceiptNetWeight(text);
-  const draft = {
+function normalizeImportedReceiptRow(item, index, meta){
+  if(!item) return null;
+  const batchId = meta && meta.batchId ? String(meta.batchId) : '';
+  const row = cleanReceiptRowForStorage({
     id: id(),
-    date: dateInfo.date,
-    jobType: 'Okänd',
-    from: 'Okänd',
-    to: 'Okänd',
-    weight: weight,
-    createdAt: Date.now()
-  };
-
-  const has101 = receiptTextHasArticle(norm, '101');
-  const has179 = receiptTextHasArticle(norm, '179') || /impregnerat\s*tr[aä]/i.test(norm);
-  const has974 = receiptTextHasArticle(norm, '974');
-  const has611 = receiptTextHasArticle(norm, '611');
-  const has301 = receiptTextHasArticle(norm, '301');
-
-  if(has101 && /sävenäs/i.test(norm) && /(41099|41360|40360)/.test(norm)){
-    draft.jobType = 'Komprimator';
-    draft.from = 'Ringön';
-    draft.to = 'Renova Sävenäs';
-  } else if(has101 && /högsbo|hogsbo/i.test(norm) && /slottskogen/i.test(norm)){
-    draft.jobType = 'Komprimator';
-    draft.from = 'Slottskogen';
-    draft.to = 'Renova Högsbo';
-  } else if(has179){
-    draft.jobType = 'Tryckimpregnerat trä';
-    draft.from = 'Ringön';
-    draft.to = 'Renova Sävenäs';
-  } else if(has974 && /fläskebo|flaskebo|fläskebol|flaskebol/i.test(norm) && /sopsand/i.test(norm)){
-    draft.jobType = 'Sopsand';
-    draft.from = 'Ringön';
-    draft.to = 'Renova Fläskebo';
-  } else if(has611 && /marieholm/i.test(norm) && /komposterbart|trädgårdsavfall|tradgardsavfall/i.test(norm)){
-    draft.jobType = 'Kompost';
-    draft.from = 'Ringön';
-    draft.to = 'Renova Marieholm';
-  } else if(has301 && /skräppekärr|skrappekarr/i.test(norm) && /blandat|avfall\s*till\s*sortering/i.test(norm)){
-    draft.jobType = 'Blandat';
-    draft.from = 'Ringön';
-    draft.to = 'Renova Skräppekärr';
-  } else if(/stena\s*recycling/i.test(norm) && /sr\s*tingstad|tingstad/i.test(norm) && (receiptTextHasArticle(norm, '1860') || /komplext\s*fragg\s*60/i.test(norm))){
-    draft.jobType = 'Metall';
-    draft.from = 'Ringön';
-    draft.to = 'Stena Recycling Tingstad';
-  } else if(/sortera/i.test(norm) && /sopsand/i.test(norm)){
-    draft.jobType = 'Sopsand';
-    draft.from = 'Okänd';
-    draft.to = 'Sortera Torslanda';
-  }
-
-  receiptDraft = draft;
-  renderReceiptDraft();
-  return draft;
-}
-
-function renderReceiptDraft(){
-  const card = document.getElementById('receiptControlCard');
-  if(!card) return;
-  if(!receiptDraft){
-    card.classList.add('hidden');
-    return;
-  }
-  card.classList.remove('hidden');
-  const dateEl = document.getElementById('receiptDraftDate');
-  const typeEl = document.getElementById('receiptDraftJobType');
-  const fromEl = document.getElementById('receiptDraftFrom');
-  const toEl = document.getElementById('receiptDraftTo');
-  const weightEl = document.getElementById('receiptDraftWeight');
-  if(dateEl) dateEl.value = receiptDraft.date || '';
-  if(typeEl) typeEl.value = receiptDraft.jobType || 'Okänd';
-  if(fromEl) fromEl.value = receiptDraft.from || 'Okänd';
-  if(toEl) toEl.value = receiptDraft.to || 'Okänd';
-  if(weightEl) weightEl.value = receiptDraft.weight ? String(receiptDraft.weight).replace('.', ',') : '';
-  scrollToSettingsPanel(card);
-}
-
-function readReceiptDraftFromInputs(){
-  return cleanReceiptRowForStorage({
-    id: receiptDraft && receiptDraft.id ? receiptDraft.id : id(),
-    date: document.getElementById('receiptDraftDate') ? document.getElementById('receiptDraftDate').value : '',
-    jobType: document.getElementById('receiptDraftJobType') ? document.getElementById('receiptDraftJobType').value : 'Okänd',
-    from: document.getElementById('receiptDraftFrom') ? document.getElementById('receiptDraftFrom').value : 'Okänd',
-    to: document.getElementById('receiptDraftTo') ? document.getElementById('receiptDraftTo').value : 'Okänd',
-    weight: document.getElementById('receiptDraftWeight') ? document.getElementById('receiptDraftWeight').value : 0,
-    createdAt: receiptDraft && receiptDraft.createdAt ? receiptDraft.createdAt : Date.now()
+    date: item.datum || item.date || item.Datum || '',
+    jobType: item.jobbtyp || item.jobType || item.type || item.Jobbtyp || 'Okänd',
+    from: item.fran || item.från || item.from || item.place || item['Från'] || 'Okänd',
+    to: item.till || item.to || item.dest || item.Till || 'Okänd',
+    weight: item.vikt ?? item.weight ?? item.Vikt ?? 0,
+    sourceBatchId: batchId,
+    importedAt: Date.now(),
+    createdAt: Date.now() + Number(index || 0)
   });
+  if(!row) return null;
+  return row;
+}
+
+function prepareReceiptImportRows(rawRows, meta){
+  pendingReceiptImportMeta = meta || null;
+  pendingReceiptImportRows = (Array.isArray(rawRows) ? rawRows : [])
+    .map((item, index) => normalizeImportedReceiptRow(item, index, pendingReceiptImportMeta))
+    .filter(Boolean);
+  renderReceiptImportPreview();
+  if(!pendingReceiptImportRows.length){
+    setReceiptImportStatus('Inga giltiga kvittorader hittades. Kontrollera filformatet.', 'error');
+  } else {
+    setReceiptImportStatus('Kontrollera importlistan innan raderna läggs in i sammanställningen.', 'ok');
+  }
+}
+
+function handleReceiptImportFile(input){
+  const file = input && input.files && input.files[0] ? input.files[0] : null;
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    try{
+      const result = readReceiptRowsFromText(reader.result, file.name);
+      prepareReceiptImportRows(result.rows, result.meta);
+    }catch(e){
+      setReceiptImportStatus('Kunde inte läsa importfilen: ' + (e && e.message ? e.message : String(e)), 'error');
+    }
+  };
+  reader.onerror = function(){
+    setReceiptImportStatus('Kunde inte läsa filen.', 'error');
+  };
+  reader.readAsText(file);
+  if(input) input.value = '';
+}
+
+function handleReceiptPasteImport(){
+  const textarea = document.getElementById('receiptPasteText');
+  const text = textarea ? textarea.value : '';
+  const result = readReceiptRowsFromText(text, 'inklistring');
+  prepareReceiptImportRows(result.rows, result.meta);
 }
 
 function findReceiptDuplicate(row, includeExistingJobs){
@@ -10038,53 +9853,80 @@ function findReceiptDuplicate(row, includeExistingJobs){
   if(!key) return false;
   if(loadReceiptRows().some(existing => receiptRowKey(existing) === key)) return true;
   if(includeExistingJobs){
-    const jobLike = getFinishedJobsForUnderlag().some(job => {
-      const weight = Number(job.totalWeight || 0);
-      const compare = {
-        date: job.date || '',
-        jobType: job.type || '',
-        from: job.place || '',
-        to: job.dest || '',
-        weight: weight
-      };
-      return receiptRowKey(compare) === key;
-    });
-    if(jobLike) return true;
+    try{
+      const jobLike = getFinishedJobsForUnderlag().some(job => {
+        const compare = {
+          date: job.date || '',
+          jobType: job.type || '',
+          from: job.place || '',
+          to: job.dest || '',
+          weight: Number(job.totalWeight || 0)
+        };
+        return receiptRowKey(compare) === key;
+      });
+      if(jobLike) return true;
+    }catch(e){}
   }
   return false;
 }
 
-function saveReceiptDraft(){
-  const row = readReceiptDraftFromInputs();
-  if(!row || !row.date){
-    alert('Datum saknas. Fyll i datum innan du sparar kvittoraden.');
+function renderReceiptImportPreview(){
+  const el = document.getElementById('receiptImportPreview');
+  if(!el) return;
+  if(!pendingReceiptImportRows.length){
+    el.classList.add('hidden');
+    el.innerHTML = '';
     return;
   }
-  if(!row.jobType) row.jobType = 'Okänd';
-  if(!row.from) row.from = 'Okänd';
-  if(!row.to) row.to = 'Okänd';
-  if(findReceiptDuplicate(row, true)){
-    const ok = confirm('Möjlig dubblett: samma Datum + Jobbtyp + Från + Till + Vikt finns redan. Importera/spara ändå?');
-    if(!ok) return;
+  el.classList.remove('hidden');
+  const duplicateCount = pendingReceiptImportRows.filter(row => findReceiptDuplicate(row, true)).length;
+  const batch = pendingReceiptImportMeta && pendingReceiptImportMeta.batchId ? pendingReceiptImportMeta.batchId : 'utan batch-id';
+  const source = pendingReceiptImportMeta && pendingReceiptImportMeta.source ? pendingReceiptImportMeta.source : '';
+  const htmlRows = pendingReceiptImportRows.map((row, index) => {
+    const duplicate = findReceiptDuplicate(row, true);
+    const missing = !row.date || !row.jobType || !row.from || !row.to || normalizeReceiptWeightValue(row.weight) <= 0;
+    return '<div class="receipt-import-item">' +
+      '<input type="checkbox" id="receiptImportPick' + index + '" ' + (duplicate || missing ? '' : 'checked') + ' style="width:auto;margin-top:4px">' +
+      '<div>' +
+        '<div><strong>' + escapeHtml(row.date || 'Datum saknas') + '</strong> – ' + escapeHtml(row.jobType || 'Okänd') + ' – ' + escapeHtml(row.from || 'Okänd') + ' → ' + escapeHtml(row.to || 'Okänd') + ' – ' + normalizeReceiptWeightValue(row.weight).toFixed(2).replace('.', ',') + ' ton</div>' +
+        (duplicate ? '<div class="receipt-duplicate">Möjlig dubblett. Markera rutan om du vill importera ändå.</div>' : '') +
+        (missing ? '<div class="receipt-duplicate">Kontrollera raden: något fält saknas eller vikten är 0.</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+  el.innerHTML = '<strong>Kontrollista import</strong>' +
+    '<div class="receipt-import-meta">Batch: ' + escapeHtml(batch) + (source ? ' · Källa: ' + escapeHtml(source) : '') + ' · Rader: ' + pendingReceiptImportRows.length + ' · Möjliga dubbletter: ' + duplicateCount + '</div>' +
+    htmlRows +
+    '<div class="row" style="margin-top:10px"><button class="primary inline" onclick="confirmReceiptImportRows()">Importera markerade rader</button><button class="inline" onclick="cancelReceiptImportRows()">Avbryt import</button></div>';
+}
+
+function confirmReceiptImportRows(){
+  if(!pendingReceiptImportRows.length) return;
+  const existing = loadReceiptRows();
+  const chosen = pendingReceiptImportRows.filter((row, index) => {
+    const cb = document.getElementById('receiptImportPick' + index);
+    return cb && cb.checked;
+  });
+  if(!chosen.length){
+    setReceiptImportStatus('Inga rader valda för import.', 'error');
+    return;
   }
-  const rows = loadReceiptRows();
-  rows.push(row);
-  saveReceiptRows(rows);
-  clearReceiptDraft();
+  saveReceiptRows(existing.concat(chosen));
+  const importedCount = chosen.length;
+  pendingReceiptImportRows = [];
+  pendingReceiptImportMeta = null;
+  renderReceiptImportPreview();
   renderReceiptHistory();
   updateSummaryControls();
   renderSummary();
-  setReceiptStatus('Kvittorad sparad och ingår i sammanställningen.', 'ok');
+  setReceiptImportStatus('Importerade ' + importedCount + ' kvittorader. De ingår nu i sammanställningen.', 'ok');
 }
 
-function clearReceiptDraft(){
-  receiptDraft = null;
-  const card = document.getElementById('receiptControlCard');
-  if(card) card.classList.add('hidden');
-  ['receiptDraftDate','receiptDraftJobType','receiptDraftFrom','receiptDraftTo','receiptDraftWeight'].forEach(idName => {
-    const el = document.getElementById(idName);
-    if(el) el.value = '';
-  });
+function cancelReceiptImportRows(){
+  pendingReceiptImportRows = [];
+  pendingReceiptImportMeta = null;
+  renderReceiptImportPreview();
+  setReceiptImportStatus('Import avbruten.', '');
 }
 
 function deleteReceiptRow(rowId){
@@ -10102,6 +9944,7 @@ function clearAllReceiptRows(){
   renderReceiptHistory();
   updateSummaryControls();
   renderSummary();
+  setReceiptImportStatus('Alla kvittorader är raderade från den här enheten.', 'ok');
 }
 
 function renderReceiptHistory(){
@@ -10115,7 +9958,7 @@ function renderReceiptHistory(){
   el.innerHTML = rows.map(row =>
     '<div class="receipt-history-row">' +
       '<div><strong>' + escapeHtml(row.date || 'Okänd') + '</strong></div>' +
-      '<div>' + escapeHtml(row.jobType || 'Okänd') + '</div>' +
+      '<div>' + escapeHtml(row.jobType || 'Okänd') + (row.sourceBatchId ? '<div class="receipt-import-meta">' + escapeHtml(row.sourceBatchId) + '</div>' : '') + '</div>' +
       '<div>Från: ' + escapeHtml(row.from || 'Okänd') + '</div>' +
       '<div>Till: ' + escapeHtml(row.to || 'Okänd') + '</div>' +
       '<div>' + normalizeReceiptWeightValue(row.weight).toFixed(2).replace('.', ',') + ' ton</div>' +
@@ -10123,121 +9966,7 @@ function renderReceiptHistory(){
     '</div>'
   ).join('');
 }
-
-function receiptExportRows(){
-  return getAllReceiptRowsSorted().map(row => ({
-    datum: row.date || '',
-    jobbtyp: row.jobType || 'Okänd',
-    fran: row.from || 'Okänd',
-    till: row.to || 'Okänd',
-    vikt: normalizeReceiptWeightValue(row.weight)
-  }));
-}
-
-function exportReceiptRows(){
-  const rows = receiptExportRows();
-  if(!rows.length){
-    alert('Det finns inga kvittorader att exportera.');
-    return;
-  }
-  const blob = new Blob([JSON.stringify(rows, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'stadslass_kvittoimport_' + todayStr() + '.json';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setReceiptImportStatus('Exportfil skapad med ' + rows.length + ' kvittorader.');
-}
-
-function triggerReceiptImportFile(){
-  const input = document.getElementById('receiptImportFileInput');
-  if(input) input.click();
-}
-
-function normalizeImportedReceiptRow(item){
-  if(!item) return null;
-  return cleanReceiptRowForStorage({
-    id: id(),
-    date: item.datum || item.date || item.Datum || '',
-    jobType: item.jobbtyp || item.jobType || item.type || item.Jobbtyp || 'Okänd',
-    from: item.fran || item.från || item.from || item.place || item['Från'] || 'Okänd',
-    to: item.till || item.to || item.dest || item.Till || 'Okänd',
-    weight: item.vikt || item.weight || item.Vikt || 0,
-    createdAt: Date.now()
-  });
-}
-
-function handleReceiptImportFile(input){
-  const file = input && input.files && input.files[0] ? input.files[0] : null;
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(){
-    try{
-      const parsed = JSON.parse(reader.result);
-      const rawRows = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.rows) ? parsed.rows : []);
-      pendingReceiptImportRows = rawRows.map(normalizeImportedReceiptRow).filter(Boolean);
-      renderReceiptImportPreview();
-      setReceiptImportStatus('Kontrollera importlistan innan raderna läggs in i sammanställningen.');
-    }catch(e){
-      setReceiptImportStatus('Kunde inte läsa importfilen: ' + (e && e.message ? e.message : String(e)));
-    }
-  };
-  reader.readAsText(file);
-  if(input) input.value = '';
-}
-
-function renderReceiptImportPreview(){
-  const el = document.getElementById('receiptImportPreview');
-  if(!el) return;
-  if(!pendingReceiptImportRows.length){
-    el.classList.add('hidden');
-    el.innerHTML = '';
-    return;
-  }
-  el.classList.remove('hidden');
-  const htmlRows = pendingReceiptImportRows.map((row, index) => {
-    const duplicate = findReceiptDuplicate(row, true);
-    return '<div class="receipt-import-item">' +
-      '<input type="checkbox" id="receiptImportPick' + index + '" ' + (duplicate ? '' : 'checked') + ' style="width:auto;margin-top:4px">' +
-      '<div>' +
-        '<div><strong>' + escapeHtml(row.date || 'Okänd') + '</strong> – ' + escapeHtml(row.jobType || 'Okänd') + ' – ' + escapeHtml(row.from || 'Okänd') + ' → ' + escapeHtml(row.to || 'Okänd') + ' – ' + normalizeReceiptWeightValue(row.weight).toFixed(2).replace('.', ',') + ' ton</div>' +
-        (duplicate ? '<div class="receipt-duplicate">Möjlig dubblett. Markera rutan om du vill importera ändå.</div>' : '') +
-      '</div>' +
-    '</div>';
-  }).join('');
-  el.innerHTML = '<strong>Kontrollista import</strong>' + htmlRows +
-    '<div class="row" style="margin-top:10px"><button class="primary inline" onclick="confirmReceiptImportRows()">Importera markerade rader</button><button class="inline" onclick="cancelReceiptImportRows()">Avbryt import</button></div>';
-}
-
-function confirmReceiptImportRows(){
-  if(!pendingReceiptImportRows.length) return;
-  const existing = loadReceiptRows();
-  const chosen = pendingReceiptImportRows.filter((row, index) => {
-    const cb = document.getElementById('receiptImportPick' + index);
-    return cb && cb.checked;
-  });
-  if(!chosen.length){
-    setReceiptImportStatus('Inga rader valda för import.');
-    return;
-  }
-  saveReceiptRows(existing.concat(chosen));
-  pendingReceiptImportRows = [];
-  renderReceiptImportPreview();
-  renderReceiptHistory();
-  updateSummaryControls();
-  renderSummary();
-  setReceiptImportStatus('Importerade ' + chosen.length + ' kvittorader.');
-}
-
-function cancelReceiptImportRows(){
-  pendingReceiptImportRows = [];
-  renderReceiptImportPreview();
-  setReceiptImportStatus('Import avbruten.');
-}
-// TEMP RECEIPT OCR MODULE END
+// TEMP RECEIPT IMPORT MODULE END
 
 function updateConnectionStatus(){
   const el = document.getElementById('connectionStatus');
