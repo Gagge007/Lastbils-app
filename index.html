@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-39
+- Nuvarande version: Stadslass v2026-05-07-01-40
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -30,6 +30,8 @@ Stadslass versionskontroll
   - Aktiv vy v34: döljer tekniska raderna Materialflöde och Starttillägg i Aktivt arbete; Returkrav och Uppskattad tid visas bredare; Start från kö scrollar upp till toppen
   - Stödruta v36: visar inlärningsregel i 10 sekunder efter Ange vikt, utan att ändra tidslogik
   - Tillfällig kvittoimport v39: importerar färdiga kvittofiler/rader under Inställningar; skapar endast historiska sammanställningsrader och påverkar inte GPS/tid/inlärning
+  - Tidsinlärning v40: uppskattad tid använder bara godkända tidsprover från 2026-05-11 och framåt samt grupperas på Jobbtyp + Från + Till + transportläge
+  - Tillfällig kartanropsrad v40: uppdrag kan visa hur många nya kartanrop/cacheträffar kartberäkningen gav, utan att påverka arbetsflödet
   - Aktiv vy v35: Aktivt jobb har strukturerad översikt för Från, Till, Returkrav och Mtrl kod samt större nedräkning för uppskattad tid.
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb visar en större huvudtext för uppskattad tid kvar och mindre klar cirka-tid utan att blockera Klart
@@ -1158,6 +1160,7 @@ button{
         </div>
       </div>
       <div id="activeRouteGps" class="muted hidden" style="margin-top:8px"></div>
+      <div id="activeMapCallCounter" class="muted" style="margin-top:6px"></div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
         <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
@@ -1381,7 +1384,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-39</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-40</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -4058,7 +4061,8 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-39';
+const APP_VERSION = 'Stadslass v2026-05-07-01-40';
+const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -4086,6 +4090,9 @@ const APP_FEATURE_MANIFEST = [
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
+  {name:'Tidsinlärning v40 brytdatum', status:'Skyddad beteenderegel', purpose:'Uppskattad tid använder bara godkända tidsprover från och med 2026-05-11 så gammal mätmodell inte blandas med ny.', changeRule:'Får ändras endast vid nytt medvetet brytdatum eller migrering.'},
+  {name:'Tidsinlärning v40 grupperingsnyckel', status:'Skyddad beteenderegel', purpose:'Inlärning grupperas internt på Jobbtyp + Från + Till + transportläge, så ändrad från-/tillplats skapar separat tidsgrupp.', changeRule:'Får byggas vidare men olika materialflöden får inte blandas.'},
+  {name:'Tillfällig kartanropsrad v40', status:'Testfunktion', purpose:'Visar nya kartanrop och cacheträffar per uppdrag för att utvärdera nyckelbelastning.', changeRule:'Kan tas bort när anropsnivån är verifierad.'},
   {name:'Stödruta efter vikt', status:'Aktiv', purpose:'Visar aktuell inlärningsregel i aktivt jobb i 10 sekunder efter Ange vikt.', changeRule:'Får ändras visuellt men ska inte ändra tidslogiken utan separat beslut.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
   {name:'Startsträcka i aktiv uppskattad tid', status:'Aktiv', purpose:'Aktivt jobb bakar in kartberäknad startsträcka från faktisk startplats till Från-plats och räknar bort den när Lastar trycks.', changeRule:'Startsträckans faktiska tid ska inte användas som lärdata för materialflödet.'},
@@ -4296,7 +4303,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-39') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-39'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-40') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-40'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4309,6 +4316,9 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', functionSourceIncludes('startJob', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('renderActive', 'renderActiveEstimateCountdown') && !functionSourceIncludes('stopJob', 'estimatedEndAt'), 'startJob + renderActive + stopJob');
   addFunctionCheck(results, 'Nivå 2', 'Knappfärger v30 är bara visuell ändring', document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart') && functionSourceIncludes('markNoEmptying', 'excludeFromTimeEstimate'), 'CSS-klasser ändrade; Lastar och Ingen tömning-funktionerna finns kvar.');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkrat underlag', functionSourceIncludes('getTimeEstimateForQueuedJob', 'getFinishedJobsForUnderlag'), 'getTimeEstimateForQueuedJob');
+  addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum v40', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-11' && functionExists('isTimeLearningSampleAllowed') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'isTimeLearningSampleAllowed'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
+  addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning grupperas på Från/Till/transportläge v40', functionSourceIncludes('materialFlowEstimateKey', 'getTimeLearningTransportMode') && functionSourceIncludes('materialFlowEstimateKey', 'job.place') && functionSourceIncludes('materialFlowEstimateKey', 'job.dest'), 'Jobbtyp + Från + Till + transportläge');
+  addFunctionCheck(results, 'Nivå 2', 'Tillfällig kartanropsrad finns v40', functionExists('formatMapCallCounterHtml') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'countMapResultsForJob') && functionSourceIncludes('applySmartMapTotalsToJob', 'smartMapNewCallCount'), 'nya anrop/cache sparas per uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
   addFunctionCheck(results, 'Nivå 2', 'Startsträcka ingår i aktiv uppskattad tid', functionExists('getVisibleEstimateMinutesForPhase') && functionExists('getCachedStartAddonMinutesForJob') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart'), 'kartad startsträcka ingår före Lastar och räknas bort efter Lastar');
   addFunctionCheck(results, 'Nivå 2', 'Fasdata Lastar/Vikt finns', !!document.getElementById('activePhaseButton') && functionExists('toggleActiveTransportPhase') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedMaterialFlowDurationSamples'), 'Lastar och Ange vikt sparar lassdata; startsträcka används inte som lärdata');
@@ -4428,7 +4438,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-39') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-39'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-40') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-40'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -4660,6 +4670,7 @@ function renderHistoryManager(){
       '<div><span class="pill pill-type">'+escapeHtml(job.type || '')+'</span><span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(job, 'place'))+'</span>'+(job.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(job, 'dest'))+'</span>' : '')+'</div>'+ 
       '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Start: '+clockTime(job.start)+' · Slut: '+clockTime(job.end)+'</div>'+ 
       '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
+      formatMapCallCounterHtml(job)+
       (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment)+'</div>' : '')+
       getLearningExclusionHtml(job)+
       (allowsPrivateCommentForType(job.type) && job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment)+'</div>' : '')+
@@ -4705,7 +4716,7 @@ function getFinishedJobsForUnderlag(){
 function getSavedRouteGpsRecordsForUnderlag(){
   return getFinishedJobsForUnderlag()
     .map(job => ({job, routeGps:getRouteGps(job)}))
-    .filter(item => item.routeGps && item.routeGps.status === 'saved' && !item.job.routeGpsDiscarded && item.job.excludeFromGpsLearning !== true && !isExcludedFromTimeEstimate(item.job));
+    .filter(item => item.routeGps && item.routeGps.status === 'saved' && !item.job.routeGpsDiscarded && item.job.excludeFromGpsLearning !== true && isTimeLearningSampleAllowed(item.job));
 }
 
 function toggleTrashManager(){
@@ -5171,6 +5182,37 @@ function formatMapDurationForTotal(seconds){
 
 function buildZeroMapRouteResult(){
   return { durationSeconds:0, durationRaw:'0s', distanceMeters:0, fromCache:true, skippedSamePoint:true };
+}
+
+function getMapResultCallType(result){
+  if(!result) return 'missing';
+  if(result.skippedSamePoint) return 'skipped';
+  if(result.fromCache) return 'cache';
+  return 'new';
+}
+
+function countMapResultsForJob(results){
+  const counts = { newCalls:0, cacheHits:0, skipped:0 };
+  (results || []).forEach(result => {
+    const type = getMapResultCallType(result);
+    if(type === 'new') counts.newCalls += 1;
+    else if(type === 'cache') counts.cacheHits += 1;
+    else if(type === 'skipped') counts.skipped += 1;
+  });
+  return counts;
+}
+
+function formatMapCallCounterHtml(job){
+  if(!job) return '';
+  const hasCounts = job.smartMapNewCallCount !== undefined || job.smartMapCacheHitCount !== undefined || job.smartMapSkippedRouteCount !== undefined;
+  if(!hasCounts) return '';
+  const newCalls = Math.max(0, Number(job.smartMapNewCallCount || 0));
+  const cacheHits = Math.max(0, Number(job.smartMapCacheHitCount || 0));
+  const skipped = Math.max(0, Number(job.smartMapSkippedRouteCount || 0));
+  const parts = ['Kartnyckel: ' + newCalls + ' nya anrop'];
+  parts.push(cacheHits + ' cache');
+  if(skipped) parts.push(skipped + ' samma plats');
+  return '<div class="muted" style="margin-top:6px">' + escapeHtml(parts.join(' · ')) + '</div>';
 }
 
 async function requestGoogleRouteByPointsForTotal(fromPoint, toPoint){
@@ -7817,7 +7859,7 @@ function switchJob(){
 function renderActive(){
   const none = document.getElementById('activeNone');
   const box = document.getElementById('activeBox');
-  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); return; }
+  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); const activeMapCallCounterEl = document.getElementById('activeMapCallCounter'); if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = ''; renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
 
   const isOtherWork = state.active.type === 'Övrig verksamhet';
@@ -7831,6 +7873,8 @@ function renderActive(){
   }
   renderActiveRouteGps();
   renderActiveMapRoutePanel();
+  const activeMapCallCounterEl = document.getElementById('activeMapCallCounter');
+  if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = formatMapCallCounterHtml(state.active);
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
@@ -7880,6 +7924,31 @@ function normalizeEstimatePart(value){
   return String(value || '').trim().toLocaleLowerCase('sv-SE').replace(/\s+/g, ' ');
 }
 
+function getJobLearningDateKey(job){
+  if(!job) return '';
+  const explicit = String(job.learningDate || job.date || '').trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(explicit)) return explicit;
+  const ts = Number(job.end || job.completedAt || job.start || 0);
+  if(Number.isFinite(ts) && ts > 0) return getLocalDateKey(new Date(ts));
+  return '';
+}
+
+function isTimeLearningAfterCutoff(job){
+  if(!TIME_LEARNING_CUTOFF_ISO) return true;
+  const key = getJobLearningDateKey(job);
+  return !!key && key >= TIME_LEARNING_CUTOFF_ISO;
+}
+
+function getTimeLearningTransportMode(job){
+  if(!job) return 'okänt_transportläge';
+  if(isMultiLoadLearningMode(job)) return 'flerlass_utan_returkrav';
+  return getJobReturnRequiredValue(job) ? 'med_returkrav' : 'utan_returkrav';
+}
+
+function isTimeLearningSampleAllowed(job){
+  return isTimeEstimateAllowedForJob(job) && isTimeLearningAfterCutoff(job);
+}
+
 function isExcludedFromTimeEstimate(job){
   if(!job) return true;
   if(job.excludeFromTimeEstimate === true) return true;
@@ -7905,10 +7974,10 @@ function materialFlowEstimateKey(job){
   if(!job) return '';
   return [
     normalizeEstimatePart(job.type),
+    normalizeEstimatePart(job.displayType || job.type),
     normalizeEstimatePart(job.place),
     normalizeEstimatePart(job.dest),
-    normalizeEstimatePart(job.displayType || job.type),
-    getJobReturnRequiredValue(job) ? 'returkrav_ja' : 'returkrav_nej'
+    normalizeEstimatePart(getTimeLearningTransportMode(job))
   ].join('|');
 }
 
@@ -8063,7 +8132,7 @@ function getMultiLoadTurnEstimateForJob(job){
   if(!isTimeEstimateAllowedForJob(job) || !isMultiLoadLearningMode(job)) return null;
   const key = materialFlowEstimateKey(job);
   const durations = getFinishedJobsForUnderlag()
-    .filter(finished => isTimeEstimateAllowedForJob(finished) && isMultiLoadLearningMode(finished) && materialFlowEstimateKey(finished) === key && isStableMaterialFlowSample(finished))
+    .filter(finished => isTimeLearningSampleAllowed(finished) && isMultiLoadLearningMode(finished) && materialFlowEstimateKey(finished) === key && isStableMaterialFlowSample(finished))
     .flatMap(getMultiLoadTurnDurationSamples);
   if(durations.length < 3) return null;
   const medianMs = medianDurationMs(durations);
@@ -8080,7 +8149,7 @@ function getMaterialFlowEstimateForJob(job){
   if(!isTimeEstimateAllowedForJob(job)) return null;
   const key = materialFlowEstimateKey(job);
   const samples = getFinishedJobsForUnderlag()
-    .filter(finished => isTimeEstimateAllowedForJob(finished) && materialFlowEstimateKey(finished) === key && isStableMaterialFlowSample(finished));
+    .filter(finished => isTimeLearningSampleAllowed(finished) && materialFlowEstimateKey(finished) === key && isStableMaterialFlowSample(finished));
   let durations = samples
     .flatMap(getFinishedMaterialFlowDurationSamples)
     .filter(ms => ms !== null);
@@ -8221,7 +8290,7 @@ function getHistoricalPracticalAddonMinutes(job, materialEstimate, mapTotals){
   if(!isTimeEstimateAllowedForJob(job) || !mapTotals) return null;
   const key = materialFlowEstimateKey(job);
   const sampleAddons = getFinishedJobsForUnderlag()
-    .filter(finished => isTimeEstimateAllowedForJob(finished) && materialFlowEstimateKey(finished) === key && Number(finished.smartMapMaterialMinutes || 0) > 0)
+    .filter(finished => isTimeLearningSampleAllowed(finished) && materialFlowEstimateKey(finished) === key && Number(finished.smartMapMaterialMinutes || 0) > 0)
     .map(finished => {
       let actualMs = getFinishedMaterialFlowDurationMs(finished);
       if(actualMs === null && isStableMaterialFlowSample(finished)) actualMs = getFinishedDurationMs(finished);
@@ -8302,7 +8371,7 @@ function renderTimeEstimateHtml(queueJob){
 
 function copySmartEstimateFields(fromJob, toJob){
   if(!fromJob || !toJob) return;
-  ['smartMapRouteKey','smartMapTotalMinutes','smartMapMaterialMinutes','smartMapTotalDistanceMeters','smartMapCalculatedAt','smartMapSource'].forEach(key => {
+  ['smartMapRouteKey','smartMapTotalMinutes','smartMapMaterialMinutes','smartMapTotalDistanceMeters','smartMapCalculatedAt','smartMapSource','smartMapNewCallCount','smartMapCacheHitCount','smartMapSkippedRouteCount'].forEach(key => {
     if(fromJob[key] !== undefined) toJob[key] = fromJob[key];
   });
 }
@@ -8315,14 +8384,19 @@ async function calculateSmartMapTotalsForJob(job){
   const startResult = await requestGoogleRouteByPointsForTotal(startPoint, fromPoint);
   const outboundResult = await requestGoogleRouteByPointsForTotal(fromPoint, toPoint);
   const returnResult = getJobReturnRequiredValue(job) ? await requestGoogleRouteByPointsForTotal(toPoint, fromPoint) : buildZeroMapRouteResult();
-  const totalSeconds = [startResult, outboundResult, returnResult].reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
+  const routeResults = [startResult, outboundResult, returnResult];
+  const callCounts = countMapResultsForJob(routeResults);
+  const totalSeconds = routeResults.reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
   const materialSeconds = (Number(outboundResult.durationSeconds) || 0) + (getJobReturnRequiredValue(job) ? (Number(returnResult.durationSeconds) || 0) : 0);
-  const totalDistance = [startResult, outboundResult, returnResult].reduce((sum, item) => sum + (Number(item.distanceMeters) || 0), 0);
+  const totalDistance = routeResults.reduce((sum, item) => sum + (Number(item.distanceMeters) || 0), 0);
   return {
     totalMinutes: mapSecondsToEstimateMinutes(totalSeconds),
     materialMinutes: mapSecondsToEstimateMinutes(materialSeconds),
     totalDistanceMeters: totalDistance,
-    routeKey: buildSmartMapRouteKey(job)
+    routeKey: buildSmartMapRouteKey(job),
+    newCallCount:callCounts.newCalls,
+    cacheHitCount:callCounts.cacheHits,
+    skippedRouteCount:callCounts.skipped
   };
 }
 
@@ -8347,6 +8421,9 @@ function applySmartMapTotalsToJob(job, totals){
   job.smartMapTotalDistanceMeters = Math.max(0, Math.round(Number(totals.totalDistanceMeters || 0)));
   job.smartMapCalculatedAt = Date.now();
   job.smartMapSource = 'Google/cache';
+  job.smartMapNewCallCount = Math.max(0, Number(totals.newCallCount || 0));
+  job.smartMapCacheHitCount = Math.max(0, Number(totals.cacheHitCount || 0));
+  job.smartMapSkippedRouteCount = Math.max(0, Number(totals.skippedRouteCount || 0));
 }
 
 function scheduleSmartEstimateForJob(job, context){
@@ -8580,6 +8657,7 @@ function renderToday(){
       getStartPointHtml(x)+
       getCalculationStartHtml(x)+
       getRouteGpsHtml(x)+
+      formatMapCallCounterHtml(x)+
       getLearningExclusionHtml(x)+
       (x.comment ? '<div style="margin-top:6px">'+escapeHtml(x.comment)+'</div>' : '')+
       (allowsPrivateCommentForType(x.type) && x.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(x.privateComment)+'</div>' : '')+
