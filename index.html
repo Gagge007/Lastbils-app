@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-35
+- Nuvarande version: Stadslass v2026-05-07-01-36
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -28,6 +28,7 @@ Stadslass versionskontroll
   - Flerlass v32: sopsand från von Utfallsgatan och stenflis kan lära per lass/varv med Lastar -> Vikt och Vikt -> nästa Lastar
   - Transportlägen v33: utan returkrav lär Lastar -> Vikt; med returkrav lär Lastar -> Avslutat och vikt är bara registrering; flerlass gäller endast utan returkrav
   - Aktiv vy v34: döljer tekniska raderna Materialflöde och Starttillägg i Aktivt arbete; Returkrav och Uppskattad tid visas bredare; Start från kö scrollar upp till toppen
+  - Stödruta v36: visar inlärningsregel i 10 sekunder efter Ange vikt, utan att ändra tidslogik
   - Aktiv vy v35: Aktivt jobb har strukturerad översikt för Från, Till, Returkrav och Mtrl kod samt större nedräkning för uppskattad tid.
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb visar en större huvudtext för uppskattad tid kvar och mindre klar cirka-tid utan att blockera Klart
@@ -977,6 +978,20 @@ button{
   font-weight:700;
   color:var(--muted);
 }
+.active-learning-support{
+  margin-top:8px;
+  padding:10px 12px;
+  border:1px solid #bbf7d0;
+  border-radius:14px;
+  background:#f0fdf4;
+  color:#14532d;
+  font-size:16px;
+  font-weight:800;
+  line-height:1.35;
+}
+@media(min-width:700px){
+  .active-learning-support{font-size:18px;padding:12px 16px;}
+}
 @media(min-width:700px){
   .active-estimate-countdown{padding:12px 16px;}
   .active-estimate-card{grid-template-columns:auto 1fr auto;align-items:end;gap:12px;}
@@ -1127,6 +1142,7 @@ button{
         <div class="stat" id="activeWeightStat"><small>Total vikt i ton</small><strong id="activeWeight">0.0 ton</strong></div>
       </div>
       <div id="activeEstimateCountdown" class="active-estimate-countdown hidden"></div>
+      <div id="activeLearningSupport" class="active-learning-support hidden"></div>
       <div id="activePhaseControls" class="row hidden" style="margin-top:12px; gap:10px; align-items:center">
         <button id="activePhaseButton" class="active-phase-btn" onclick="toggleActiveTransportPhase()">Lastar</button>
       </div>
@@ -1342,7 +1358,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-35</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-36</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1915,6 +1931,7 @@ refreshTruckTypesFromState();
 let gpsWatchId = null;
 let lastGpsPoint = null;
 let activeTimerId = null;
+let activeLearningSupportTimerId = null;
 let gpsTestWatchId = null;
 let gpsTestLastPoint = null;
 let gpsTestDistanceKm = 0;
@@ -2884,6 +2901,64 @@ function renderActiveEstimateCountdown(){
   el.innerHTML = html;
   el.classList.remove('hidden');
   el.classList.toggle('queue-alert', Number(state.active.estimatedEndAt || 0) < Date.now());
+}
+
+function setActiveLearningSupport(message, durationMs){
+  if(!state.active || !message) return;
+  const ms = Number.isFinite(Number(durationMs)) ? Number(durationMs) : 10000;
+  state.active.learningSupportMessage = String(message || '').trim();
+  state.active.learningSupportUntil = Date.now() + Math.max(1000, ms);
+  scheduleActiveLearningSupportHide();
+}
+
+function clearActiveLearningSupport(job){
+  if(!job) return;
+  delete job.learningSupportMessage;
+  delete job.learningSupportUntil;
+}
+
+function scheduleActiveLearningSupportHide(){
+  if(activeLearningSupportTimerId !== null){
+    clearTimeout(activeLearningSupportTimerId);
+    activeLearningSupportTimerId = null;
+  }
+  if(!state.active) return;
+  const until = Number(state.active.learningSupportUntil || 0);
+  if(!Number.isFinite(until) || until <= 0) return;
+  const delay = Math.max(0, until - Date.now()) + 80;
+  activeLearningSupportTimerId = setTimeout(() => {
+    activeLearningSupportTimerId = null;
+    if(state.active && Number(state.active.learningSupportUntil || 0) <= Date.now()){
+      clearActiveLearningSupport(state.active);
+      saveState();
+      renderActive();
+    }
+  }, delay);
+}
+
+function getActiveLearningSupportHtml(job){
+  if(!job) return '';
+  const until = Number(job.learningSupportUntil || 0);
+  const message = String(job.learningSupportMessage || '').trim();
+  if(!message || !Number.isFinite(until) || until <= Date.now()){
+    if(message || until) clearActiveLearningSupport(job);
+    return '';
+  }
+  return formatMultiLineTextHtml(message);
+}
+
+function renderActiveLearningSupport(){
+  const el = document.getElementById('activeLearningSupport');
+  if(!el) return;
+  const html = getActiveLearningSupportHtml(state.active);
+  if(!html){
+    el.innerHTML = '';
+    el.classList.add('hidden');
+    return;
+  }
+  el.innerHTML = html;
+  el.classList.remove('hidden');
+  scheduleActiveLearningSupportHide();
 }
 
 function getEstimateStartAddonMinutes(estimate){
@@ -3918,7 +3993,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-35';
+const APP_VERSION = 'Stadslass v2026-05-07-01-36';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -3946,6 +4021,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
+  {name:'Stödruta efter vikt', status:'Aktiv', purpose:'Visar aktuell inlärningsregel i aktivt jobb i 10 sekunder efter Ange vikt.', changeRule:'Får ändras visuellt men ska inte ändra tidslogiken utan separat beslut.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
   {name:'Startsträcka i aktiv uppskattad tid', status:'Aktiv', purpose:'Aktivt jobb bakar in kartberäknad startsträcka från faktisk startplats till Från-plats och räknar bort den när Lastar trycks.', changeRule:'Startsträckans faktiska tid ska inte användas som lärdata för materialflödet.'},
   {name:'Fasdata Lastar/Vikt', status:'Aktiv', purpose:'Knappen Lastar startar ett lass/materialdel. Ange vikt avslutar lasset och kan ge flerlassdata utan att startsträckan används som lärdata.', changeRule:'Får byggas vidare men ska inte blanda startsträcka med lassdata.'},
@@ -4154,7 +4230,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-35') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-35'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-36') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-36'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4180,6 +4256,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Transportlägen v33 finns', functionExists('isMultiLoadLearningMode') && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Retur pågår'), 'Tre lägen: utan returkrav, med returkrav och flerlass utan returkrav.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v34 finns', functionExists('formatActiveReturnRequirementHtml') && functionExists('scrollToActiveJobTop') && functionSourceIncludes('startQueuedJob', 'scrollToActiveJobTop'), 'Aktivt arbete döljer tekniska rader och Start från kö scrollar upp.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v35 finns', functionExists('formatActiveOverviewHtml') && functionExists('formatActiveEstimateCardHtml') && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml') && functionSourceIncludes('getActiveEstimateCountdownHtml', 'Uppskattad tid kvar'), 'Från/Till/Returkrav/Mtrl kod visas strukturerat och uppskattad tid kvar visas större.');
+  addFunctionCheck(results, 'Nivå 2', 'Stödruta v36 efter vikt finns', !!document.getElementById('activeLearningSupport') && functionExists('setActiveLearningSupport') && functionExists('renderActiveLearningSupport') && functionSourceIncludes('addLoadToCurrent', 'Inlärning avslutad vid vikt') && functionSourceIncludes('addLoadToCurrent', 'Returkrav gäller'), 'Stödruta visas i 10 sekunder efter Ange vikt och förklarar aktuell inlärningsregel.');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', functionSourceIncludes('moveToTrash', 'JSON.stringify') && functionSourceIncludes('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
   addFunctionCheck(results, 'Nivå 2', 'Returkrav och beräkningsstart finns i startflödet', functionSourceIncludes('startJob', 'calculationStartPlace') && functionSourceIncludes('startJob', 'returnRequiredAtStart'), 'startJob');
   addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet paus/återstart finns', functionSourceIncludes('startJob', 'pausedOtherWork') && functionExists('resumePausedOtherWorkIfPossible'), 'startJob + resumePausedOtherWorkIfPossible');
@@ -4284,7 +4361,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-35') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-35'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-36') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-36'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -4300,6 +4377,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Transportlägen v33', typeof isMultiLoadLearningMode === 'function' && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav'), 'Utan returkrav, returkrav och flerlass utan returkrav skiljs åt'),
     systemCheck('Aktiv vy v34', typeof formatActiveReturnRequirementHtml === 'function' && typeof scrollToActiveJobTop === 'function', 'Aktiv vy döljer tekniska rader och köstart scrollar upp'),
     systemCheck('Aktiv vy v35', typeof formatActiveOverviewHtml === 'function' && typeof formatActiveEstimateCardHtml === 'function' && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml'), 'Strukturerad Från/Till/Returkrav/Mtrl kod och större uppskattad tid kvar'),
+    systemCheck('Stödruta v36', !!document.getElementById('activeLearningSupport') && typeof setActiveLearningSupport === 'function' && typeof renderActiveLearningSupport === 'function', '10 sekunders stödruta efter Ange vikt'),
     systemCheck('Uppskattad tid med karttjänst', typeof getTimeEstimateForQueuedJob === 'function' && typeof scheduleSmartEstimateForJob === 'function', 'karttjänst/historik bakom enkel uppskattad tid'),
     systemCheck('Startsträcka i aktiv tid', typeof getVisibleEstimateMinutesForPhase === 'function' && typeof getEstimateStartAddonMinutes === 'function', 'kartad startsträcka ingår före Lastar och räknas bort efter Lastar'),
     systemCheck('Fasdata Lastar/Vikt', !!document.getElementById('activePhaseButton') && typeof toggleActiveTransportPhase === 'function' && typeof getFinishedMaterialFlowDurationMs === 'function', 'lassdata kan sparas utan startsträcka som lärdata'),
@@ -7226,6 +7304,8 @@ function addLoadToCurrent(){
     return;
   }
 
+  let learningSupportMessage = '';
+
   if(!Array.isArray(state.active.loads)) state.active.loads = [];
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
@@ -7244,6 +7324,7 @@ function addLoadToCurrent(){
         state.active.returnRequirementWeight = n;
         state.active.transportPhase = 'returning';
         state.active.phaseDataVersion = 3;
+        learningSupportMessage = 'Vikt registrerad.\nReturkrav gäller: inlärningen fortsätter till Klart.';
       } else {
         // Utan returkrav: vikt avslutar aktuellt lass för inlärningen.
         const segments = ensureLoadSegments(state.active);
@@ -7259,15 +7340,20 @@ function addLoadToCurrent(){
         state.active.phaseDataVersion = 3;
         if(segments.length > 1) state.active.multiLoadJob = true;
         if(multiLoadMode) state.active.canBeMultiLoad = true;
+        learningSupportMessage = multiLoadMode
+          ? 'Lass registrerat vid vikt.\nFlerlass: tryck Lastar för nästa lass eller Klart om uppdraget är färdigt.'
+          : 'Inlärning avslutad vid vikt.\nKörning efter vikt påverkar inte uppskattad tid.\nDu kan avsluta uppdraget senare.';
         updateTransportPhaseDurations(state.active, now);
       }
     } else if(!Number(state.active.loadedAt || 0)){
       state.active.weightWithoutLoadStart = true;
       if(multiLoadMode) state.active.canBeMultiLoad = true;
+      learningSupportMessage = 'Vikt registrerad utan Lastar.\nUppdraget kan sparas, men tidsinlärningen blir osäker.';
     }
   }
 
   if(input) input.value = '';
+  if(learningSupportMessage) setActiveLearningSupport(learningSupportMessage, 10000);
   applyEstimatedCountdownAtStart(state.active);
   saveState(); render();
 }
@@ -7664,7 +7750,7 @@ function switchJob(){
 function renderActive(){
   const none = document.getElementById('activeNone');
   const box = document.getElementById('activeBox');
-  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); renderActiveEstimateCountdown(); renderActiveTransportPhaseControl(); return; }
+  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
 
   const isOtherWork = state.active.type === 'Övrig verksamhet';
@@ -7684,6 +7770,7 @@ function renderActive(){
   document.getElementById('activeLoads').textContent = String((state.active.loads||[]).length);
   document.getElementById('activeWeight').textContent = (state.active.totalWeight||0).toFixed(1)+' ton';
   renderActiveEstimateCountdown();
+  renderActiveLearningSupport();
   renderActiveTransportPhaseControl();
 
   const distanceStat = document.getElementById('activeDistanceStat');
