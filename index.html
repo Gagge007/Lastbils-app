@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-42
+- Nuvarande version: Stadslass v2026-05-07-01-44
+- v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -35,6 +36,7 @@ Stadslass versionskontroll
   - GPS-zoner v41: Från-zoner kan bara ändra visuell knappstatus från Lastning/rangering till Transport pågår; de ändrar aldrig mätpunkter, tider eller inlärning
   - Aktiv fasknapp v41: Lastar/lastning har ljusblå färg och Transport pågår visas ljus orange
   - Kö-system v42: GitHub-kö visas överst före Dela kö-fil och Importera kö-fil i kööverföringen
+  - Jobbtyper v43: Inställningar kan ange Flerlass bredvid Returkrav; valen utesluter varandra och påverkar flerlassläge utan returkrav
   - Aktiv vy v35: Aktivt jobb har strukturerad översikt för Från, Till, Returkrav och Mtrl kod samt större nedräkning för uppskattad tid.
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb visar en större huvudtext för uppskattad tid kvar och mindre klar cirka-tid utan att blockera Klart
@@ -1190,7 +1192,7 @@ button{
 <div class="row" style="margin-top:12px; align-items:flex-end">
         <div style="display:flex; flex-direction:column; gap:10px; flex:1; min-width:0">
           <div class="row" id="activeWeightRow" style="gap:10px; align-items:flex-start; flex-direction:column">
-            <input id="weightInput" inputmode="decimal" pattern="[0-9,]*" autocomplete="off" placeholder="Ange vikt i ton" oninput="sanitizeWeightInput(this)" style="width:100%; max-width:none; min-height:64px; font-size:18px">
+            <input id="weightInput" inputmode="decimal" enterkeyhint="done" pattern="[0-9,]*" autocomplete="off" placeholder="Ange vikt i ton" oninput="sanitizeWeightInput(this)" onkeydown="handleWeightInputKey(event)" style="width:100%; max-width:none; min-height:64px; font-size:18px">
             <div class="row" style="gap:10px; align-items:center">
               <button class="active-weight-btn" onclick="addLoadToCurrent()">Ange vikt</button>
               <button class="active-no-empty-btn" onclick="markNoEmptying()">Ingen tömning</button>
@@ -1398,7 +1400,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-42</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-44</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1825,13 +1827,16 @@ button{
       </div>
     </div>
     <div id="jobTypeManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper, ta bort jobbtyper, ange Mtrl kod, returkrav och krav/varningar.</div>
+      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper, ta bort jobbtyper, ange Mtrl kod, returkrav, flerlass och krav/varningar.</div>
 
       <div class="place-row">
         <div class="place-key">Ny jobbtyp</div>
         <input id="newManagedJobTypeName" placeholder="Namn på jobbtyp">
         <input id="newManagedJobTypeCode" placeholder="Mtrl kod (valfritt)">
-        <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="newManagedJobTypeReturnRequired" type="checkbox" style="width:auto"> Returkrav</label>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:8px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="newManagedJobTypeReturnRequired" type="checkbox" style="width:auto" onchange="handleNewJobTypeModeToggle('return')"> Returkrav</label>
+          <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="newManagedJobTypeMultiLoad" type="checkbox" style="width:auto" onchange="handleNewJobTypeModeToggle('multi')"> Flerlass</label>
+        </div>
         <textarea id="newManagedJobTypeRequirements" placeholder="Krav/varningar, ett per rad"></textarea>
         <div class="multi-help">Exempel: HJÄLMKRAV, TRANSPORTDOKUMENT, TA MED TOMT FLAK.</div>
         <div class="row">
@@ -2740,8 +2745,10 @@ function normalizeJobTypeMeta(meta){
     const materialCode = String(raw.materialCode || raw.code || raw.mtrlCode || '').trim();
     const requirements = normalizeRequirements(raw.requirements || raw.krav || raw.requirement || '');
     const returnRequired = raw.returnRequired === true || raw.returkrav === true || raw.returnRequired === 'true' || raw.returkrav === 'ja' || raw.returkrav === 'JA' || raw.returkrav === 1 || raw.returnRequired === 1;
-    if(materialCode || requirements.length || returnRequired){
-      next[cleanType] = { materialCode, requirements, returnRequired };
+    const rawMultiLoad = raw.multiLoad === true || raw.flerlass === true || raw.multiLoad === 'true' || raw.flerlass === 'ja' || raw.flerlass === 'JA' || raw.multiLoad === 1 || raw.flerlass === 1 || raw.multiLoadAllowed === true || raw.multiLoadAllowed === 'true' || raw.multiLoadAllowed === 1;
+    const multiLoad = returnRequired ? false : rawMultiLoad;
+    if(materialCode || requirements.length || returnRequired || multiLoad){
+      next[cleanType] = { materialCode, requirements, returnRequired, multiLoad };
     }
   });
   return next;
@@ -2910,22 +2917,25 @@ function getJobTypeMeta(type){
     state.jobTypeMeta = {};
   }
   const meta = state.jobTypeMeta[type] || {};
+  const returnRequired = meta.returnRequired === true;
   return {
     materialCode: String(meta.materialCode || '').trim(),
     requirements: normalizeRequirements(meta.requirements || []),
-    returnRequired: meta.returnRequired === true
+    returnRequired,
+    multiLoad: returnRequired ? false : meta.multiLoad === true
   };
 }
 
-function setJobTypeMeta(type, materialCode, requirements, returnRequired){
+function setJobTypeMeta(type, materialCode, requirements, returnRequired, multiLoad){
   if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)){
     state.jobTypeMeta = {};
   }
   const code = String(materialCode || '').trim();
   const reqs = normalizeRequirements(requirements || []);
   const ret = returnRequired === true;
-  if(code || reqs.length || ret){
-    state.jobTypeMeta[type] = { materialCode: code, requirements: reqs, returnRequired: ret };
+  const multi = ret ? false : multiLoad === true;
+  if(code || reqs.length || ret || multi){
+    state.jobTypeMeta[type] = { materialCode: code, requirements: reqs, returnRequired: ret, multiLoad: multi };
   } else if(state.jobTypeMeta[type]){
     delete state.jobTypeMeta[type];
   }
@@ -2941,6 +2951,10 @@ function getJobTypeRequirements(type){
 
 function getJobTypeReturnRequired(type){
   return !!getJobTypeMeta(type).returnRequired;
+}
+
+function getJobTypeMultiLoad(type){
+  return !!getJobTypeMeta(type).multiLoad;
 }
 
 function getJobReturnRequiredValue(job){
@@ -4250,12 +4264,13 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-42';
+const APP_VERSION = 'Stadslass v2026-05-07-01-44';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
   {name:'Ange vikt tvåstegsfunktion', status:'Skyddad', purpose:'Första tryck fokuserar viktfältet, nästa sparar vikt.', changeRule:'Beteendet ska bevaras eller ersättas dokumenterat.'},
+  {name:'Viktfält Enter/Gå v44', status:'Aktiv', purpose:'Tryck på Gå/Enter i viktfältet kör samma logik som knappen Ange vikt.', changeRule:'Får ändras visuellt men får inte ändra viktregistrering, returkrav, flerlass eller tidsinlärning.'},
   {name:'Ingen tömning', status:'Skyddad', purpose:'Markerar Ej behov av tömning och exkluderar från uppskattad tid.', changeRule:'Får ändras bara om samma syfte behålls.'},
   {name:'Uppdrag i kö', status:'Skyddad men får byggas om', purpose:'Planera, starta, pausa, återuppta och ta bort uppdrag.', changeRule:'Arbetsflödet får utvecklas men köfunktionen ska inte tappas.'},
   {name:'Uppdrag i kö efter start/klart', status:'Skyddad beteenderegel', purpose:'Efter start, paus och klart visas Uppdrag i kö istället för Idag.', changeRule:'Får ändras endast om nytt arbetsflöde ersätter regeln.'},
@@ -4294,6 +4309,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Fasnamn och missad fasdata v31', status:'Aktiv', purpose:'Fasknappen heter Lastar så lastningstid räknas som materialtransport. Missad Lastar gör att jobbet sparas men undantas från uppskattad tid och GPS-inlärning.', changeRule:'Får byggas vidare med bättre dialog, men ska inte låta osäker fasdata påverka inlärningen.'},
   {name:'Flerlassdata v32', status:'Aktiv', purpose:'Sopsand från von Utfallsgatan och stenflis kan registrera flera lass i samma uppdrag. Lastar startar ett lass och Ange vikt avslutar lasset.', changeRule:'Flerlassdata ska hållas separat från vanliga 1-lassuppdrag i uppskattning/inlärning.'},
   {name:'Transportlägen v33', status:'Aktiv', purpose:'Skiljer på utan returkrav, med returkrav och flerlass utan returkrav. Vid returkrav är Ange vikt bara viktregistrering och inlärningen går till Klart/Avslutat.', changeRule:'Flerlasslogik ska inte köras när returkrav är aktivt.'},
+  {name:'Jobbtyper flerlassval v43', status:'Aktiv', purpose:'Inställningar → Jobbtyper har Flerlass bredvid Returkrav på samma rad. Valen utesluter varandra och Flerlass ger flerlass utan returkrav.', changeRule:'Får inte tillåta Flerlass och Returkrav samtidigt.'},
   {name:'Aktiv vy v34', status:'Aktiv', purpose:'Aktivt arbete döljer tekniska raderna Materialflöde och Starttillägg, visar Returkrav/Uppskattad tid bredare och scrollar upp när köuppdrag startas.', changeRule:'Får ändras visuellt men ska inte påverka tidslogik, Lastar, Ange vikt eller returkrav.'},
   {name:'Aktiv vy v35', status:'Aktiv', purpose:'Aktivt arbete visar Från, Till, Returkrav och Mtrl kod i en strukturerad översikt och använder större nedräkningskort för uppskattad tid.', changeRule:'Ren vyändring; får inte ändra tidslogik, Lastar, Ange vikt, returkrav eller flerlass.'},
   {name:'Tillfällig kvittoimport filimport v39', status:'Tillfällig funktion', purpose:'Importerar färdiga kvittofiler/rader som redan är tolkade utanför appen till historiska sammanställningsrader med Datum, Jobbtyp, Från, Till och Vikt.', changeRule:'Ska ligga separat och kunna tas bort utan att påverka GPS, aktivt arbete, tider, kö, papperskorg eller localStorage för huvudappen.'},
@@ -4472,6 +4488,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Uppdrag i kö-panel finns', !!document.getElementById('queueList'), 'queueList');
   addFunctionCheck(results, 'Nivå 1', 'Idag-panel finns', !!document.getElementById('todayList'), 'todayList');
   addFunctionCheck(results, 'Nivå 1', 'Viktfält och Ange vikt finns', !!document.getElementById('weightInput') && functionExists('addLoadToCurrent'), 'weightInput + addLoadToCurrent');
+  addFunctionCheck(results, 'Nivå 1', 'Viktfält Enter/Gå v44 finns', !!document.getElementById('weightInput') && functionExists('handleWeightInputKey'), 'Enter/Gå i viktfältet kör addLoadToCurrent.');
   addFunctionCheck(results, 'Nivå 1', 'Ingen tömning finns', functionExists('markNoEmptying'), 'markNoEmptying');
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning dold i aktivt jobb', !!document.getElementById('activeRouteGps') && document.getElementById('activeRouteGps').classList.contains('hidden') && functionExists('renderActiveRouteGps') && !functionSourceIncludes('renderActiveRouteGps', 'Starta GPS-inspelning'), 'GPS-rutan finns kvar tekniskt men visas inte i aktivt jobb');
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!document.getElementById('activeStartPoint') && functionExists('requestActiveStartPointAddress'), 'activeStartPoint + requestActiveStartPointAddress');
@@ -4495,7 +4512,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-41') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-41'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-43') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-43'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4524,6 +4541,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Missad fasdata undantas från uppskattad tid och GPS-inlärning', functionExists('markJobExcludedFromEstimateLearning') && functionSourceIncludes('prepareJobForCompletionWithPhaseGuard', 'Missad Lastar') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'excludeFromGpsLearning') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isExcludedFromTimeEstimate'), 'Jobbet sparas i historik men saknad Lastar/osäker tid/GPS används inte som lärdata.');
   addFunctionCheck(results, 'Nivå 2', 'Flerlassdata v32 finns', functionExists('isMultiLoadSensitiveJob') && functionExists('getFinishedMaterialFlowDurationSamples') && functionExists('getMultiLoadTurnEstimateForJob') && functionSourceIncludes('addLoadToCurrent', 'currentLoadStartedAt'), 'Sopsand von Utfallsgatan och stenflis kan spara Lastar -> Vikt samt Vikt -> nästa Lastar som separat flerlassdata.');
   addFunctionCheck(results, 'Nivå 2', 'Transportlägen v33 finns', functionExists('isMultiLoadLearningMode') && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Retur pågår'), 'Tre lägen: utan returkrav, med returkrav och flerlass utan returkrav.');
+  addFunctionCheck(results, 'Nivå 2', 'Jobbtyper flerlassval v43 finns', functionExists('getJobTypeMultiLoad') && functionExists('handleManagedJobTypeModeToggle') && functionSourceIncludes('renderJobTypeManager', 'Flerlass') && functionSourceIncludes('setJobTypeMeta', 'multiLoad'), 'Returkrav och Flerlass visas på samma rad och utesluter varandra.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v34 finns', functionExists('formatActiveReturnRequirementHtml') && functionExists('scrollToActiveJobTop') && functionSourceIncludes('startQueuedJob', 'scrollToActiveJobTop'), 'Aktivt arbete döljer tekniska rader och Start från kö scrollar upp.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v35 finns', functionExists('formatActiveOverviewHtml') && functionExists('formatActiveEstimateCardHtml') && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml') && functionSourceIncludes('getActiveEstimateCountdownHtml', 'Uppskattad tid kvar'), 'Från/Till/Returkrav/Mtrl kod visas strukturerat och uppskattad tid kvar visas större.');
   addFunctionCheck(results, 'Nivå 2', 'Stödruta v36 efter vikt finns', !!document.getElementById('activeLearningSupport') && functionExists('setActiveLearningSupport') && functionExists('renderActiveLearningSupport') && functionSourceIncludes('addLoadToCurrent', 'Inlärning avslutad vid vikt') && functionSourceIncludes('addLoadToCurrent', 'Returkrav gäller'), 'Stödruta visas i 10 sekunder efter Ange vikt och förklarar aktuell inlärningsregel.');
@@ -4631,7 +4649,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-41') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-41'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-43') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-43'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -4646,6 +4664,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Fasnamn och missad fasdata v31', !!document.getElementById('activePhaseButton') && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar + undantag från uppskattad tid/GPS-inlärning vid missad Lastar'),
     systemCheck('Flerlassdata v32', typeof isMultiLoadSensitiveJob === 'function' && typeof getMultiLoadTurnEstimateForJob === 'function' && typeof getFinishedMaterialFlowDurationSamples === 'function', 'Sopsand von Utfallsgatan och stenflis kan lära per lass/varv'),
     systemCheck('Transportlägen v33', typeof isMultiLoadLearningMode === 'function' && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav'), 'Utan returkrav, returkrav och flerlass utan returkrav skiljs åt'),
+    systemCheck('Jobbtyper flerlassval v43', typeof getJobTypeMultiLoad === 'function' && functionSourceIncludes('renderJobTypeManager', 'Flerlass') && functionSourceIncludes('setJobTypeMeta', 'multiLoad'), 'Flerlass kan anges per jobbtyp utan att kombineras med returkrav'),
     systemCheck('Aktiv vy v34', typeof formatActiveReturnRequirementHtml === 'function' && typeof scrollToActiveJobTop === 'function', 'Aktiv vy döljer tekniska rader och köstart scrollar upp'),
     systemCheck('Aktiv vy v35', typeof formatActiveOverviewHtml === 'function' && typeof formatActiveEstimateCardHtml === 'function' && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml'), 'Strukturerad Från/Till/Returkrav/Mtrl kod och större uppskattad tid kvar'),
     systemCheck('Stödruta v36', !!document.getElementById('activeLearningSupport') && typeof setActiveLearningSupport === 'function' && typeof renderActiveLearningSupport === 'function', '10 sekunders stödruta efter Ange vikt'),
@@ -6685,6 +6704,20 @@ function importFinishedJobsFile(){
   reader.onerror = function(){ alert('Kunde inte läsa filen.'); };
   reader.readAsText(file);
 }
+function handleNewJobTypeModeToggle(mode){
+  const returnEl = document.getElementById('newManagedJobTypeReturnRequired');
+  const multiEl = document.getElementById('newManagedJobTypeMultiLoad');
+  if(mode === 'return' && returnEl && returnEl.checked && multiEl) multiEl.checked = false;
+  if(mode === 'multi' && multiEl && multiEl.checked && returnEl) returnEl.checked = false;
+}
+
+function handleManagedJobTypeModeToggle(typeName, mode){
+  const returnEl = document.querySelector('#jobTypeManagerList input[data-jobtype-return="'+cssEscape(typeName)+'"]');
+  const multiEl = document.querySelector('#jobTypeManagerList input[data-jobtype-multiload="'+cssEscape(typeName)+'"]');
+  if(mode === 'return' && returnEl && returnEl.checked && multiEl) multiEl.checked = false;
+  if(mode === 'multi' && multiEl && multiEl.checked && returnEl) returnEl.checked = false;
+}
+
 function toggleJobTypeManager(){
   toggleSettingsPanel('jobTypeManagerWrap', () => {
     renderJobTypeManager();
@@ -6695,6 +6728,7 @@ function addManagedJobType(){
   const nameEl = document.getElementById('newManagedJobTypeName');
   const codeEl = document.getElementById('newManagedJobTypeCode');
   const returnRequiredEl = document.getElementById('newManagedJobTypeReturnRequired');
+  const multiLoadEl = document.getElementById('newManagedJobTypeMultiLoad');
   const requirementsEl = document.getElementById('newManagedJobTypeRequirements');
   if(!nameEl) return;
   const name = (nameEl.value || '').trim();
@@ -6709,10 +6743,11 @@ function addManagedJobType(){
   }
   state.jobTypes.push(name);
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
-  setJobTypeMeta(name, codeEl ? codeEl.value : '', requirementsEl ? requirementsEl.value : '', !!(returnRequiredEl && returnRequiredEl.checked));
+  setJobTypeMeta(name, codeEl ? codeEl.value : '', requirementsEl ? requirementsEl.value : '', !!(returnRequiredEl && returnRequiredEl.checked), !!(multiLoadEl && multiLoadEl.checked));
   nameEl.value = '';
   if(codeEl) codeEl.value = '';
   if(returnRequiredEl) returnRequiredEl.checked = false;
+  if(multiLoadEl) multiLoadEl.checked = false;
   if(requirementsEl) requirementsEl.value = '';
   saveState();
   refreshJobTypeSelects();
@@ -6772,6 +6807,7 @@ function saveManagedJobType(oldName){
   const input = document.querySelector('#jobTypeManagerList input[data-jobtype-name="'+cssEscape(oldName)+'"]');
   const codeInput = document.querySelector('#jobTypeManagerList input[data-jobtype-code="'+cssEscape(oldName)+'"]');
   const returnRequiredInput = document.querySelector('#jobTypeManagerList input[data-jobtype-return="'+cssEscape(oldName)+'"]');
+  const multiLoadInput = document.querySelector('#jobTypeManagerList input[data-jobtype-multiload="'+cssEscape(oldName)+'"]');
   const requirementsInput = document.querySelector('#jobTypeManagerList textarea[data-jobtype-requirements="'+cssEscape(oldName)+'"]');
   if(!input) return;
   const nextName = (input.value || '').trim();
@@ -6789,7 +6825,7 @@ function saveManagedJobType(oldName){
     replaceJobTypeReferences(oldName, nextName);
   }
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
-  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '', !!(returnRequiredInput && returnRequiredInput.checked));
+  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '', !!(returnRequiredInput && returnRequiredInput.checked), !!(multiLoadInput && multiLoadInput.checked));
   saveState();
   refreshJobTypeSelects();
   renderJobTypeManager();
@@ -6830,7 +6866,10 @@ function renderJobTypeManager(){
       '<input data-jobtype-name="'+escapeHtml(type)+'" value="'+escapeHtml(type)+'">'+
       '<label>Mtrl kod</label>'+
       '<input data-jobtype-code="'+escapeHtml(type)+'" value="'+escapeHtml(meta.materialCode || '')+'" placeholder="Mtrl kod (valfritt)">'+
-      '<label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input data-jobtype-return="'+escapeHtml(type)+'" type="checkbox" style="width:auto" '+(meta.returnRequired ? 'checked' : '')+'> Returkrav</label>'+
+      '<div style="display:flex;align-items:center;gap:16px;margin-top:8px;flex-wrap:wrap">'+
+        '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-return="'+escapeHtml(type)+'" type="checkbox" style="width:auto" onchange="handleManagedJobTypeModeToggle(\''+escapeJsSingle(type)+'\', \'return\')" '+(meta.returnRequired ? 'checked' : '')+'> Returkrav</label>'+ 
+        '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-multiload="'+escapeHtml(type)+'" type="checkbox" style="width:auto" onchange="handleManagedJobTypeModeToggle(\''+escapeJsSingle(type)+'\', \'multi\')" '+(meta.multiLoad ? 'checked' : '')+'> Flerlass</label>'+ 
+      '</div>'+
       '<label>Krav/varningar</label>'+
       '<textarea data-jobtype-requirements="'+escapeHtml(type)+'" placeholder="Ett krav per rad">'+escapeHtml((meta.requirements || []).join('\n'))+'</textarea>'+
       '<div class="row">'+
@@ -7585,6 +7624,15 @@ function getWeightInputNumber(input){
   return Number(raw);
 }
 
+function handleWeightInputKey(event){
+  const key = event && (event.key || event.code);
+  if(key === 'Enter' || key === 'NumpadEnter'){
+    event.preventDefault();
+    event.stopPropagation();
+    addLoadToCurrent();
+  }
+}
+
 function focusWeightInput(){
   const input = document.getElementById('weightInput');
   if(!input) return;
@@ -7691,6 +7739,8 @@ function isStenflisJob(job){
 }
 
 function isMultiLoadSensitiveJob(job){
+  if(!job) return false;
+  if(getJobTypeMultiLoad(job.type)) return true;
   return isSopsandVonUtfallJob(job) || isStenflisJob(job);
 }
 
