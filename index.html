@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-41
+- Nuvarande version: Stadslass v2026-05-07-01-42
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -34,6 +34,7 @@ Stadslass versionskontroll
   - Tillfällig kartanropsrad v40: uppdrag kan visa hur många nya kartanrop/cacheträffar kartberäkningen gav, utan att påverka arbetsflödet
   - GPS-zoner v41: Från-zoner kan bara ändra visuell knappstatus från Lastning/rangering till Transport pågår; de ändrar aldrig mätpunkter, tider eller inlärning
   - Aktiv fasknapp v41: Lastar/lastning har ljusblå färg och Transport pågår visas ljus orange
+  - Kö-system v42: GitHub-kö visas överst före Dela kö-fil och Importera kö-fil i kööverföringen
   - Aktiv vy v35: Aktivt jobb har strukturerad översikt för Från, Till, Returkrav och Mtrl kod samt större nedräkning för uppskattad tid.
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb visar en större huvudtext för uppskattad tid kvar och mindre klar cirka-tid utan att blockera Klart
@@ -1397,7 +1398,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-41</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-42</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1769,6 +1770,22 @@ button{
       <div class="place-help">Skicka eller ta emot uppdrag i kö mellan telefon och surfplatta. Import lägger bara till uppdrag i befintlig kö och skriver inte över något.</div>
 
       <div class="place-row">
+        <div class="place-key">GitHub-kö</div>
+        <div class="multi-help">Skapa en köfil för uppladdning till GitHub, eller hämta kö från GitHub till den här enheten. Interna kommentarer följer inte med i GitHub-köfilen.</div>
+        <label>Filnamn när du skapar GitHub-köfil</label>
+        <select id="githubQueueFileName">
+          <option value="queue.json">queue.json</option>
+          <option value="queue-extra.json">queue-extra.json</option>
+          <option value="queue-extra-2.json">queue-extra-2.json</option>
+        </select>
+        <div id="githubQueueInfo" class="multi-help" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="primary inline" onclick="createGithubQueueFile()">Skapa GitHub-köfil</button>
+          <button class="primary inline" onclick="importGithubQueueFiles()">Hämta GitHub-kö</button>
+        </div>
+      </div>
+
+      <div class="place-row">
         <div class="place-key">Dela kö-fil</div>
         <div class="multi-help">Skapar en kö-fil med uppdragen som ligger i kö. Interna kommentarer följer med. Filnamn: lastbil-ko-ÅÅÅÅ-MM-DD-HHMM.json.</div>
         <div id="queueTransferExportInfo" class="multi-help"></div>
@@ -1783,22 +1800,6 @@ button{
         <input id="queueImportFile" type="file" accept=".json,application/json">
         <div class="row">
           <button class="primary inline" onclick="importQueueFile()">Importera kö-fil</button>
-        </div>
-      </div>
-
-      <div class="place-row">
-        <div class="place-key">GitHub-kö</div>
-        <div class="multi-help">Skapa en köfil för uppladdning till GitHub, eller hämta kö från GitHub till den här enheten. Interna kommentarer följer inte med i GitHub-köfilen.</div>
-        <label>Filnamn när du skapar GitHub-köfil</label>
-        <select id="githubQueueFileName">
-          <option value="queue.json">queue.json</option>
-          <option value="queue-extra.json">queue-extra.json</option>
-          <option value="queue-extra-2.json">queue-extra-2.json</option>
-        </select>
-        <div id="githubQueueInfo" class="multi-help" style="margin-top:8px"></div>
-        <div class="row" style="margin-top:10px">
-          <button class="primary inline" onclick="createGithubQueueFile()">Skapa GitHub-köfil</button>
-          <button class="primary inline" onclick="importGithubQueueFiles()">Hämta GitHub-kö</button>
         </div>
       </div>
     </div>
@@ -4249,7 +4250,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-41';
+const APP_VERSION = 'Stadslass v2026-05-07-01-42';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4283,6 +4284,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Tillfällig kartanropsrad v40', status:'Testfunktion', purpose:'Visar nya kartanrop och cacheträffar per uppdrag för att utvärdera nyckelbelastning.', changeRule:'Kan tas bort när anropsnivån är verifierad.'},
   {name:'GPS-zoner visuell status v41', status:'Aktiv', purpose:'Från-zoner för Ringön, Slottskogen komprimator, Säldammen, Flaklager Skräppekärr och von Utfallsgatan kan ändra fasknappens visuella text/färg från Lastning/rangering till Transport pågår.', changeRule:'Får aldrig ändra mätpunkter, sparade tider, tidsinlärning eller fasdata automatiskt.'},
   {name:'Fasknapp färger v41', status:'Aktiv', purpose:'Lastar/Lastning/rangering använder ljusblå färg och Transport pågår använder ljus orange.', changeRule:'Får ändras visuellt men ska inte påverka Lastar, Ange vikt, returkrav eller GPS-/tidsinlärning.'},
+  {name:'Kö-system ordning v42', status:'Aktiv', purpose:'I kööverföringen visas GitHub-kö överst, före Dela kö-fil och Importera kö-fil.', changeRule:'Ren visuell ordningsändring; får inte ändra export/import, filnamn, GitHub-logik eller ködata.'},
   {name:'Stödruta efter vikt', status:'Aktiv', purpose:'Visar aktuell inlärningsregel i aktivt jobb i 10 sekunder efter Ange vikt.', changeRule:'Får ändras visuellt men ska inte ändra tidslogiken utan separat beslut.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
   {name:'Startsträcka i aktiv uppskattad tid', status:'Aktiv', purpose:'Aktivt jobb bakar in kartberäknad startsträcka från faktisk startplats till Från-plats och räknar bort den när Lastar trycks.', changeRule:'Startsträckans faktiska tid ska inte användas som lärdata för materialflödet.'},
