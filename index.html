@@ -3,11 +3,12 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-47
+- Nuvarande version: Stadslass v2026-05-07-01-48
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
+- v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1417,7 +1418,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-47</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-48</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -4395,7 +4396,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-47';
+const APP_VERSION = 'Stadslass v2026-05-07-01-48';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4450,6 +4451,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Övrig verksamhet paus/återstart', status:'Skyddad', purpose:'Pausar automatiskt vid annat uppdrag och återstartar efter avslut.', changeRule:'Får ändras endast med nytt godkänt arbetsflöde.'},
   {name:'Online/offline-indikator', status:'Skyddad beteenderegel', purpose:'Visar Online eller Offline-text med att uppdrag sparas lokalt. Offline är nödläge för att behålla Excel-underlag, inte full uppskattningslogik.', changeRule:'Texten får ändras men offlinebudskapet ska finnas.'},
   {name:'GitHub-kö export/import markeringar', status:'Skyddad men får byggas om', purpose:'Visar Överförd till GitHub och Hämtad från GitHub.', changeRule:'Får ersättas av bättre synkstatus.'},
+  {name:'GitHub-kö hämtning öppnar kö v48', status:'Aktiv', purpose:'Efter Hämta GitHub-kö och OK på bekräftelsen öppnas Uppdrag i kö om minst ett nytt uppdrag lades till.', changeRule:'Om inga nya uppdrag hittas ska appen inte tvinga användaren från Inställningar.'},
   {name:'Intern kommentar-regel', status:'Skyddad', purpose:'Intern kommentar bara för Äta, Övriga jobb och Övrig verksamhet.', changeRule:'Får ändras endast som medveten regeländring.'},
   {name:'Funktionslista', status:'Skyddad men får byggas om', purpose:'Dokumenterar aktiva, skyddade, ersatta och borttagna funktioner.', changeRule:'Ska uppdateras vid varje version.'},
   {name:'Snabbval Slottskogen/Säldammen', status:'Aktiv', purpose:'Visar underrubriken Säldammen under Slottskogen och knappen Sopsand utan att ändra faktisk Från-plats.', changeRule:'Visningen får ändras, men Säldammen ska sparas tekniskt separat när snabbvalet används.'},
@@ -4665,6 +4667,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Till-geofence Lossning v45 ändrar bara visuell fasknapp', functionExists('getToGeofenceForJob') && typeof ACTIVE_TO_GEOFENCE_ZONES !== 'undefined' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5 && functionSourceIncludes('getActivePhaseVisualState', 'Lossning'), 'Till-zoner styr bara visuell status till Lossning.');
   addFunctionCheck(results, 'Nivå 2', 'Automatiska kartanrop v46', typeof MAP_AUTO_RECALC_INTERVAL_MINUTES === 'number' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && functionExists('scheduleActiveAutoMapRecalculation') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'inside_geofence') && functionSourceIncludes('requestGoogleRouteByPointsForActiveAuto', 'Kartanrop är spärrade efter 14:00'), '5 minuter, geofence-skydd och spärr efter 14:00.');
   addFunctionCheck(results, 'Nivå 2', 'Kö-anrop v47', !!document.getElementById('queueTimeCalcStatus') && functionExists('calculateQueueTimesFromCurrentGps') && functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'getCurrentGpsPointForQueueTime') && functionSourceIncludes('scheduleSmartEstimateForVisibleQueue', 'inga nya kö-anrop i bakgrunden'), 'knapp beräknar alla köuppdrag från aktuell GPS-position; inga bakgrundsanrop.');
+  addFunctionCheck(results, 'Nivå 2', 'GitHub-kö hämtning öppnar kö v48', functionExists('importGithubQueueFiles') && functionSourceIncludes('importGithubQueueFiles', "showTab('ko')") && functionSourceIncludes('importGithubQueueFiles', 'imported.length'), 'OK efter nya GitHub-uppdrag öppnar Uppdrag i kö.');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kartanropsrad finns v40', functionExists('formatMapCallCounterHtml') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'countMapResultsForJob') && functionSourceIncludes('applySmartMapTotalsToJob', 'smartMapNewCallCount'), 'nya anrop/cache sparas per uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
   addFunctionCheck(results, 'Nivå 2', 'Startsträcka ingår i aktiv uppskattad tid', functionExists('getVisibleEstimateMinutesForPhase') && functionExists('getCachedStartAddonMinutesForJob') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart'), 'kartad startsträcka ingår före Lastar och räknas bort efter Lastar');
@@ -4795,6 +4798,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Kartcache', typeof getMapRouteCache === 'function' && typeof getCachedMapRoute === 'function' && typeof setCachedMapRoute === 'function', 'cache används för upprepade rutter samma dag'),
     systemCheck('Automatiska kartanrop v46', typeof scheduleActiveAutoMapRecalculation === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && MAP_AFTER_HOURS_BLOCK_HOUR === 14, 'max var 5:e minut, spärr efter 14 och geofence-skydd'),
     systemCheck('Kö-anrop v47', !!document.getElementById('queueTimeCalcStatus') && typeof calculateQueueTimesFromCurrentGps === 'function' && typeof getCurrentGpsPointForQueueTime === 'function', 'manuell köberäkning från aktuell GPS-position'),
+    systemCheck('GitHub-kö hämtning v48', typeof importGithubQueueFiles === 'function' && functionSourceIncludes('importGithubQueueFiles', "showTab('ko')") && functionSourceIncludes('importGithubQueueFiles', 'imported.length'), 'OK efter nya GitHub-uppdrag öppnar Uppdrag i kö'),
     systemCheck('Platser/koordinater', !!ringon && !!save && countMapUsablePlaces() >= 10, 'routebara platser: ' + countMapUsablePlaces()),
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
@@ -6834,9 +6838,15 @@ async function importGithubQueueFiles(){
     render();
   }
 
-  const message = imported.length + ' uppdrag hämtades från GitHub.';
+  const message = imported.length
+    ? (imported.length === 1 ? '1 uppdrag hämtades från GitHub och lades till i kön.' : imported.length + ' uppdrag hämtades från GitHub och lades till i kön.')
+    : 'Inga nya uppdrag hittades i GitHub-kön.';
   setGithubQueueInfo(message);
   alert(message);
+
+  if(imported.length){
+    showTab('ko');
+  }
 }
 
 
