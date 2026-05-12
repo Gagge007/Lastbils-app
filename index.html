@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-51
+- Nuvarande version: Stadslass v2026-05-07-01-52
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -12,6 +12,7 @@ Stadslass versionskontroll
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
 - v50: Köberäkning blandar färsk GPS-startsträcka med historik/känd data för materialflödet så okända startplatser utanför Göteborg kan få rimlig total tid.
 - v51: Häv spärr kör om samma köberäkning efter 14:00, visar felorsak och återanvänder befintlig enkel kötid som materialdel när GPS-starten är okänd.
+- v52: Kö-anrop skickar framtida departure timestamp och bevarar tidigare uppskattning om köberäkning misslyckas.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1421,7 +1422,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-51</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-52</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -4431,6 +4432,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Köberäkning GPS-start v49', status:'Aktiv', purpose:'Beräkna tider i kö använder aktuell GPS-position som full startpunkt för varje köuppdrag och använder trafikanpassad rutt för köberäkningen.', changeRule:'Startsträckan från GPS-position till Från får inte kapas, ersättas av sparad plats eller blandas ihop med tidigare platscache.'},
   {name:'Köberäkning hybrid v50', status:'Aktiv', purpose:'Beräkna tider i kö kan använda nytt kartanrop för aktuell GPS-position till Från och kombinera det med historik eller karttid för Från-Till-retur.', changeRule:'Okänd startplats får inte kräva historik. Startsträckan räknas med karttjänst och materialflödet får använda befintlig historik när sådan finns.'},
   {name:'Köberäkning efter 14 v51', status:'Aktiv', purpose:'Häv spärr i köberäkningen kör om samma beräkning med sparad GPS-position. Om materialflödet redan har en enkel uppskattad tid används den som materialdel och ny GPS-startsträcka läggs ovanpå.', changeRule:'Köberäkning får inte visa klar vid 0 uppdaterade utan felorsak. Tidigare fungerande uppskattning ska inte raderas vid misslyckat anrop.'},
+  {name:'Kö-anrop timestamp v52', status:'Aktiv', purpose:'Köberäkningens trafikanpassade kartanrop skickar avgångstid fem minuter framåt så Google inte stoppar anropet som passerad tid.', changeRule:'Om kö-anrop misslyckas ska tidigare fungerande uppskattning behållas och felet visas tydligt.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
@@ -4676,6 +4678,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning GPS-start v49', functionExists('buildQueueTrafficAwareRouteCacheKey') && functionSourceIncludes('requestQueueRouteByPoints', 'TRAFFIC_AWARE') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'buildQueueGpsStartPoint'), 'köberäkning använder aktuell GPS-position som full startpunkt och egen trafikanpassad köcache.');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning hybrid v50', functionExists('getStoredQueueGpsEstimateForJob') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'getMaterialFlowEstimateForJob') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'startMinutes'), 'köberäkning blandar kartberäknad startsträcka med historik/karttid för materialflödet.');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning efter 14 v51', functionExists('getBaselineQueueEstimateForMaterialWithoutGps') && functionSourceIncludes('continueQueueTimeAfterHoursBlock', 'allowAfterHours:true') && functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'Köberäkning misslyckades'), 'Häv spärr kör om köberäkning och fel visas tydligt.');
+  addFunctionCheck(results, 'Nivå 2', 'Kö-anrop timestamp v52', functionSourceIncludes('requestQueueRouteByPoints', 'Date.now() + 5 * 60 * 1000') && functionExists('restoreQueueJobAfterFailedEstimate'), 'kö-anrop använder framtida avgångstid och återställer uppdrag vid misslyckad beräkning.');
   addFunctionCheck(results, 'Nivå 2', 'GitHub-kö hämtning öppnar kö v48', functionExists('importGithubQueueFiles') && functionSourceIncludes('importGithubQueueFiles', "showTab('ko')") && functionSourceIncludes('importGithubQueueFiles', 'imported.length'), 'OK efter nya GitHub-uppdrag öppnar Uppdrag i kö.');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kartanropsrad finns v40', functionExists('formatMapCallCounterHtml') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'countMapResultsForJob') && functionSourceIncludes('applySmartMapTotalsToJob', 'smartMapNewCallCount'), 'nya anrop/cache sparas per uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
@@ -4810,6 +4813,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Köberäkning GPS-start v49', typeof buildQueueTrafficAwareRouteCacheKey === 'function' && functionSourceIncludes('requestQueueRouteByPoints', 'TRAFFIC_AWARE'), 'trafikanpassad köberäkning från aktuell GPS-position'),
     systemCheck('Köberäkning hybrid v50', typeof getStoredQueueGpsEstimateForJob === 'function' && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'getMaterialFlowEstimateForJob'), 'kartanrop för GPS-start kan kombineras med historik för materialflödet'),
     systemCheck('Köberäkning efter 14 v51', typeof getBaselineQueueEstimateForMaterialWithoutGps === 'function' && functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'Köberäkning misslyckades'), 'spärrhävning och felorsak för köberäkning'),
+    systemCheck('Kö-anrop timestamp v52', functionSourceIncludes('requestQueueRouteByPoints', 'Date.now() + 5 * 60 * 1000') && typeof restoreQueueJobAfterFailedEstimate === 'function', 'framtida timestamp och bevarad uppskattning vid fel'),
     systemCheck('GitHub-kö hämtning v48', typeof importGithubQueueFiles === 'function' && functionSourceIncludes('importGithubQueueFiles', "showTab('ko')") && functionSourceIncludes('importGithubQueueFiles', 'imported.length'), 'OK efter nya GitHub-uppdrag öppnar Uppdrag i kö'),
     systemCheck('Platser/koordinater', !!ringon && !!save && countMapUsablePlaces() >= 10, 'routebara platser: ' + countMapUsablePlaces()),
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
@@ -9292,9 +9296,10 @@ async function requestQueueRouteByPoints(fromPoint, toPoint, allowAfterHours){
   if(isAfterMapAutoBlockHour() && !allowAfterHours){
     throw new Error('Kartanrop är spärrade efter 14:00.');
   }
+  const queueDepartureTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
   return requestGoogleRouteByPointsWithCacheKey(fromPoint, toPoint, cacheKey, {
     routingPreference:'TRAFFIC_AWARE',
-    departureTime:new Date().toISOString()
+    departureTime:queueDepartureTime
   });
 }
 
@@ -9349,6 +9354,7 @@ async function calculateQueueMapTotalsFromGps(job, point, allowAfterHours){
   const toPoint = buildMapPointFromPlace(job.dest, 'Till-platsen');
 
   // v51: aktuell GPS-position används alltid för hela startsträckan till Från.
+  // v52: om ett kartanrop misslyckas ska tidigare köuppskattning återställas av anroparen.
   // Om appen redan kan visa en enkel uppskattad tid för Från -> Till/retur används
   // den som materialdel. Då behöver okänd startplats bara nytt anrop för GPS -> Från.
   const startResult = await requestQueueRouteByPoints(startPoint, fromPoint, allowAfterHours);
@@ -9395,6 +9401,20 @@ async function calculateQueueMapTotalsFromGps(job, point, allowAfterHours){
 }
 
 
+
+function snapshotQueueJobForFailedEstimate(job){
+  if(!job || typeof job !== 'object') return null;
+  const snapshot = {};
+  Object.keys(job).forEach(key => { snapshot[key] = job[key]; });
+  return snapshot;
+}
+
+function restoreQueueJobAfterFailedEstimate(job, snapshot){
+  if(!job || !snapshot) return;
+  Object.keys(job).forEach(key => { if(!Object.prototype.hasOwnProperty.call(snapshot, key)) delete job[key]; });
+  Object.keys(snapshot).forEach(key => { job[key] = snapshot[key]; });
+}
+
 async function calculateQueueTimesFromCurrentGps(options){
   const opts = options || {};
   const jobs = getQueueTimeJobsForCalculation();
@@ -9431,12 +9451,14 @@ async function calculateQueueTimesFromCurrentGps(options){
     let failed = 0;
     const errors = [];
     for(const job of jobs){
+      const jobSnapshotBeforeQueueEstimate = snapshotQueueJobForFailedEstimate(job);
       try{
         const totals = await calculateQueueMapTotalsFromGps(job, point, !!opts.allowAfterHours);
         applyQueueGpsEstimateToJob(job, totals);
         if(Number(job.queueGpsEstimatedMinutes || 0) > 0) updated += 1;
         else throw new Error('Beräkningen gav ingen sparad tid.');
       }catch(e){
+        restoreQueueJobAfterFailedEstimate(job, jobSnapshotBeforeQueueEstimate);
         failed += 1;
         const message = e && e.message ? e.message : 'Okänt fel.';
         errors.push(getQueueJobLabelForError(job) + ': ' + message);
