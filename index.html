@@ -3,9 +3,10 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-45
+- Nuvarande version: Stadslass v2026-05-07-01-46
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
+- v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1189,6 +1190,7 @@ button{
       </div>
       <div id="activeRouteGps" class="muted hidden" style="margin-top:8px"></div>
       <div id="activeMapCallCounter" class="muted" style="margin-top:6px"></div>
+      <div id="activeMapAutoStatus" class="map-test-result hidden" style="margin-top:8px"></div>
       <div class="stats" style="margin-top:12px">
         <div class="stat"><small>Tid</small><strong id="activeTime">0 min</strong></div>
         <div class="stat" id="activeDistanceStat"><small>Sträcka</small><strong id="activeDistance">0.0 km</strong></div>
@@ -1412,7 +1414,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-45</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-46</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -1521,7 +1523,7 @@ button{
       <div class="place-row">
         <div class="place-key">Kartskydd</div>
         <div id="mapGuardStatus" class="multi-help">Status kontrolleras.</div>
-        <div class="multi-help">Lokalt skydd på denna enhet: max 10 kartanrop per minut, max 200 per dag och minsta intervall 3 minuter för framtida automatisk kartuppdatering. Samma rutt kan återanvändas från cache i stället för att fråga Google igen.</div>
+        <div class="multi-help">Lokalt skydd på denna enhet: max 10 kartanrop per minut, max 200 per dag och minsta intervall 5 minuter för automatisk kartuppdatering under transport/retur. Samma rutt kan återanvändas från cache i stället för att fråga Google igen.</div>
         <div class="row" style="margin-top:12px">
           <button class="inline" onclick="resetMapGuardCountersFromSettings()">Rensa anropsräknare</button>
           <button class="inline" onclick="resetMapRouteCacheFromSettings()">Rensa kartcache</button>
@@ -1962,9 +1964,11 @@ const MAP_ROUTE_CACHE_STORAGE_KEY = 'stadslass_map_route_cache_local_v1';
 const MAP_GUARD_LIMITS = {
   maxPerMinute: 10,
   maxPerDay: 200,
-  minAutoIntervalMinutes: 3,
+  minAutoIntervalMinutes: 5,
   cacheMaxAgeMs: 24 * 60 * 60 * 1000
 };
+const MAP_AUTO_RECALC_INTERVAL_MINUTES = 5;
+const MAP_AFTER_HOURS_BLOCK_HOUR = 14;
 const SMART_ESTIMATE_DEFAULT_OVERHEAD_MINUTES = 15;
 const smartEstimateInFlight = new Set();
 const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avfall','Tryckimpregnerat','Komprimator','Kompost','Ris','Flis','Maskintransport','Snö','Annat','Övriga jobb'];
@@ -2199,6 +2203,26 @@ function isPointInsideGeofence(point, zone){
   if(!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon)) || !zone) return false;
   if(zone.type === 'polygon') return isPointInsideGeofencePolygon(point, zone);
   return isPointInsideGeofenceCircle(point, zone);
+}
+
+function getKnownGeofenceForPoint(point){
+  if(!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon))) return null;
+  const zones = [].concat(ACTIVE_FROM_GEOFENCE_ZONES || [], ACTIVE_TO_GEOFENCE_ZONES || []);
+  return zones.find(zone => isPointInsideGeofence(point, zone)) || null;
+}
+
+function isPointInsideKnownGeofence(point){
+  return !!getKnownGeofenceForPoint(point);
+}
+
+function getActiveKnownPointForGeofence(job){
+  if(lastGpsPoint && Number.isFinite(Number(lastGpsPoint.lat)) && Number.isFinite(Number(lastGpsPoint.lon))) return lastGpsPoint;
+  const lat = Number(job && job.startLat);
+  const lon = Number(job && job.startLon);
+  if(Number.isFinite(lat) && Number.isFinite(lon)){
+    return {lat, lon, accuracy:Number(job.startAccuracy || 0), ts:Number(job.startPointCapturedAt || Date.now())};
+  }
+  return null;
 }
 
 function updateActiveGeofenceVisualStatus(point){
@@ -2774,6 +2798,7 @@ function startDistanceTracking(){
       ensureActiveMotionFields();
       captureRouteGpsPoint(point);
       updateActiveGeofenceVisualStatus(point);
+      scheduleActiveAutoMapRecalculation(point, {reason:'gps'});
 
       if(lastGpsPoint){
         const delta = haversineKm(lastGpsPoint.lat, lastGpsPoint.lon, point.lat, point.lon);
@@ -4367,7 +4392,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-45';
+const APP_VERSION = 'Stadslass v2026-05-07-01-46';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4394,6 +4419,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Aktivt jobb radbrytning', status:'Aktiv', purpose:'Startpunkt/materialflöde/returkrav/starttillägg visas utan synlig HTML-kod som <br>.', changeRule:'Får ändras visuellt men får inte visa tekniska HTML-taggar för användaren.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
+  {name:'Automatiska kartanrop v46', status:'Aktiv', purpose:'Automatisk kartomräkning får ske max var 5:e minut under Transport pågår och Retur pågår. Inga nya automatiska anrop görs inne i kända geofence, utom returberäkning direkt efter Ange vikt vid returkrav. Efter 14:00 krävs Häv spärr för nya automatiska anrop.', changeRule:'Får justeras efter test av faktisk anropsförbrukning men ska fortsatt respektera cache, 200-anropsgräns och geofence-regler.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
@@ -4616,7 +4642,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-45') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-45'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-46') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-46'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4633,6 +4659,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning grupperas på Från/Till/transportläge v40', functionSourceIncludes('materialFlowEstimateKey', 'getTimeLearningTransportMode') && functionSourceIncludes('materialFlowEstimateKey', 'job.place') && functionSourceIncludes('materialFlowEstimateKey', 'job.dest'), 'Jobbtyp + Från + Till + transportläge');
   addFunctionCheck(results, 'Nivå 2', 'GPS-zoner v41 ändrar bara visuell fasknapp', functionExists('getFromGeofenceForJob') && functionExists('updateActiveGeofenceVisualStatus') && functionSourceIncludes('updateActiveGeofenceVisualStatus', 'geofenceVisual') && functionSourceIncludes('renderActiveTransportPhaseControl', 'getActivePhaseVisualState'), 'Från-zoner styr visuell status, inte mätpunkter.');
   addFunctionCheck(results, 'Nivå 2', 'Till-geofence Lossning v45 ändrar bara visuell fasknapp', functionExists('getToGeofenceForJob') && typeof ACTIVE_TO_GEOFENCE_ZONES !== 'undefined' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5 && functionSourceIncludes('getActivePhaseVisualState', 'Lossning'), 'Till-zoner styr bara visuell status till Lossning.');
+  addFunctionCheck(results, 'Nivå 2', 'Automatiska kartanrop v46', typeof MAP_AUTO_RECALC_INTERVAL_MINUTES === 'number' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && functionExists('scheduleActiveAutoMapRecalculation') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'inside_geofence') && functionSourceIncludes('requestGoogleRouteByPointsForActiveAuto', 'Kartanrop är spärrade efter 14:00'), '5 minuter, geofence-skydd och spärr efter 14:00.');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kartanropsrad finns v40', functionExists('formatMapCallCounterHtml') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'countMapResultsForJob') && functionSourceIncludes('applySmartMapTotalsToJob', 'smartMapNewCallCount'), 'nya anrop/cache sparas per uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
   addFunctionCheck(results, 'Nivå 2', 'Startsträcka ingår i aktiv uppskattad tid', functionExists('getVisibleEstimateMinutesForPhase') && functionExists('getCachedStartAddonMinutesForJob') && functionSourceIncludes('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart'), 'kartad startsträcka ingår före Lastar och räknas bort efter Lastar');
@@ -4754,13 +4781,14 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-45') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-45'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-46') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-46'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
     systemCheck('Kartnyckel lokalt', !!mapKey, mapKey ? 'finns på denna enhet (' + maskMapApiKey(mapKey) + ')' : 'saknas på denna enhet'),
     systemCheck('Kartskydd', !!guardStatus && guardStatus.maxPerMinute === MAP_GUARD_LIMITS.maxPerMinute && guardStatus.maxPerDay === MAP_GUARD_LIMITS.maxPerDay, guardStatus ? ('idag ' + guardStatus.dayCount + '/' + guardStatus.maxPerDay + ', senaste minuten ' + guardStatus.minuteCount + '/' + guardStatus.maxPerMinute) : 'saknas'),
     systemCheck('Kartcache', typeof getMapRouteCache === 'function' && typeof getCachedMapRoute === 'function' && typeof setCachedMapRoute === 'function', 'cache används för upprepade rutter samma dag'),
+    systemCheck('Automatiska kartanrop v46', typeof scheduleActiveAutoMapRecalculation === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && MAP_AFTER_HOURS_BLOCK_HOUR === 14, 'max var 5:e minut, spärr efter 14 och geofence-skydd'),
     systemCheck('Platser/koordinater', !!ringon && !!save && countMapUsablePlaces() >= 10, 'routebara platser: ' + countMapUsablePlaces()),
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
@@ -5534,6 +5562,220 @@ function formatMapCallCounterHtml(job){
   return '<div class="muted" style="margin-top:6px">' + escapeHtml(parts.join(' · ')) + '</div>';
 }
 
+function isAfterMapAutoBlockHour(){
+  return new Date().getHours() >= MAP_AFTER_HOURS_BLOCK_HOUR;
+}
+
+function hasActiveMapAfterHoursOverride(job){
+  return !!(job && job.mapAfterHoursOverride === true && job.mapAfterHoursOverrideDayKey === getLocalDateKey(new Date()));
+}
+
+function setActiveMapAfterHoursBlocked(job, reason){
+  if(!job) return;
+  job.mapAutoBlockedAfterHoursAt = Date.now();
+  job.mapAutoBlockedReason = reason || 'auto';
+  job.mapAutoBlockMessage = 'Kartanrop är spärrade efter 14:00.';
+}
+
+function clearActiveMapAfterHoursBlocked(job){
+  if(!job) return;
+  delete job.mapAutoBlockedAfterHoursAt;
+  delete job.mapAutoBlockedReason;
+  delete job.mapAutoBlockMessage;
+}
+
+function enableActiveMapAfterHoursOverride(){
+  if(!state.active) return;
+  const pendingReason = state.active.mapAutoBlockedReason || '';
+  state.active.mapAfterHoursOverride = true;
+  state.active.mapAfterHoursOverrideDayKey = getLocalDateKey(new Date());
+  clearActiveMapAfterHoursBlocked(state.active);
+  saveState();
+  renderActive();
+  scheduleActiveAutoMapRecalculation(lastGpsPoint, {
+    reason: pendingReason || 'after_hours_override',
+    force:true,
+    allowInsideGeofence: pendingReason === 'return_weight'
+  });
+}
+
+function keepActiveMapAfterHoursBlock(){
+  if(!state.active) return;
+  state.active.mapAfterHoursPromptDismissedDayKey = getLocalDateKey(new Date());
+  clearActiveMapAfterHoursBlocked(state.active);
+  saveState();
+  renderActive();
+}
+
+function getActiveAutoMapMode(job, reason){
+  if(!job || !isTransportPhaseTrackingAllowed(job)) return '';
+  initializeTransportPhaseForJob(job);
+  if(reason === 'return_weight' && getJobReturnRequiredValue(job)) return 'return';
+  const phase = getTransportPhase(job);
+  if(phase === 'returning') return 'return';
+  if(phase === 'loading'){
+    const visualState = getActivePhaseVisualState(job);
+    if(visualState && visualState.label === 'Transport pågår') return 'outbound';
+  }
+  return '';
+}
+
+function buildMapPointFromGpsPoint(point, label){
+  if(!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon))) throw new Error('GPS-position saknas för automatisk kartomräkning.');
+  const lat = Number(point.lat);
+  const lon = Number(point.lon);
+  return {
+    lat,
+    lon,
+    label:label || 'Aktuell GPS-position',
+    cacheKey:'gps:auto:' + lat.toFixed(5) + ',' + lon.toFixed(5)
+  };
+}
+
+function buildActiveAutoMapRoutePoints(job, point, reason){
+  const mode = getActiveAutoMapMode(job, reason);
+  if(!mode) return null;
+  if(reason === 'return_weight' && mode === 'return'){
+    return {
+      mode,
+      fromPoint:buildMapPointFromPlace(job.dest, 'Till-platsen'),
+      toPoint:buildMapPointFromPlace(job.place, 'Returplatsen')
+    };
+  }
+  return {
+    mode,
+    fromPoint:buildMapPointFromGpsPoint(point, 'Aktuell GPS-position'),
+    toPoint: mode === 'return' ? buildMapPointFromPlace(job.place, 'Returplatsen') : buildMapPointFromPlace(job.dest, 'Till-platsen')
+  };
+}
+
+function shouldRunActiveAutoMapRecalculation(job, point, options){
+  const opts = options || {};
+  if(!job || state.active !== job) return {ok:false, reason:'no_active'};
+  if(!hasLocalMapApiKey()) return {ok:false, reason:'no_key'};
+  const mode = getActiveAutoMapMode(job, opts.reason);
+  if(!mode) return {ok:false, reason:'not_transport'};
+  const now = Date.now();
+  const last = Number(job.autoMapLastAttemptAt || 0);
+  if(!opts.force && Number.isFinite(last) && last > 0 && now - last < MAP_AUTO_RECALC_INTERVAL_MINUTES * 60000){
+    return {ok:false, reason:'interval'};
+  }
+  const knownZone = point ? getKnownGeofenceForPoint(point) : null;
+  if(knownZone && !opts.allowInsideGeofence){
+    return {ok:false, reason:'inside_geofence', zone:knownZone.label};
+  }
+  return {ok:true, mode};
+}
+
+async function requestGoogleRouteByPointsForActiveAuto(fromPoint, toPoint, job, reason){
+  if(fromPoint && toPoint && fromPoint.cacheKey && toPoint.cacheKey && fromPoint.cacheKey === toPoint.cacheKey){
+    return buildZeroMapRouteResult();
+  }
+  const cacheKey = buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
+  const cached = getCachedMapRouteByKey(cacheKey);
+  if(cached) return cached;
+  if(isAfterMapAutoBlockHour() && !hasActiveMapAfterHoursOverride(job)){
+    setActiveMapAfterHoursBlocked(job, reason);
+    saveState();
+    renderActiveAutoMapStatus();
+    throw new Error('Kartanrop är spärrade efter 14:00.');
+  }
+  return requestGoogleRouteByPoints(fromPoint, toPoint);
+}
+
+function addMapCallCountsToJob(job, results){
+  if(!job) return;
+  const counts = countMapResultsForJob(results || []);
+  job.smartMapNewCallCount = Math.max(0, Number(job.smartMapNewCallCount || 0)) + counts.newCalls;
+  job.smartMapCacheHitCount = Math.max(0, Number(job.smartMapCacheHitCount || 0)) + counts.cacheHits;
+  job.smartMapSkippedRouteCount = Math.max(0, Number(job.smartMapSkippedRouteCount || 0)) + counts.skipped;
+}
+
+function applyActiveAutoMapRouteResult(job, result, routeInfo){
+  if(!job || !result || !routeInfo) return;
+  const minutes = mapSecondsToEstimateMinutes(Number(result.durationSeconds || 0));
+  if(minutes > 0){
+    job.estimatedMinutesAtStart = minutes;
+    job.estimatedEndAt = Date.now() + minutes * 60000;
+    job.autoMapRemainingMinutes = minutes;
+  }
+  job.autoMapLastResultAt = Date.now();
+  job.autoMapLastMode = routeInfo.mode;
+  job.autoMapLastRouteText = (routeInfo.fromPoint.label || 'Aktuell position') + ' → ' + (routeInfo.toPoint.label || 'mål');
+  job.autoMapLastSource = result.skippedSamePoint ? 'samma plats' : (result.fromCache ? 'cache' : 'nytt kartanrop');
+  addMapCallCountsToJob(job, [result]);
+}
+
+function scheduleActiveAutoMapRecalculation(point, options){
+  if(!state.active) return;
+  const job = state.active;
+  const opts = options || {};
+  const checkPoint = point || getActiveKnownPointForGeofence(job);
+  const check = shouldRunActiveAutoMapRecalculation(job, checkPoint, opts);
+  if(!check.ok) return;
+  let routeInfo = null;
+  try{
+    routeInfo = buildActiveAutoMapRoutePoints(job, checkPoint, opts.reason);
+  }catch(e){
+    return;
+  }
+  if(!routeInfo) return;
+  const activeId = job.id;
+  job.autoMapLastAttemptAt = Date.now();
+  job.autoMapLastAttemptMode = routeInfo.mode;
+  job.autoMapLastAttemptReason = opts.reason || 'auto';
+  requestGoogleRouteByPointsForActiveAuto(routeInfo.fromPoint, routeInfo.toPoint, job, opts.reason || 'auto').then(result => {
+    if(!state.active || state.active.id !== activeId) return;
+    applyActiveAutoMapRouteResult(state.active, result, routeInfo);
+    saveState();
+    render();
+  }).catch(() => {
+    saveState();
+    renderActive();
+  });
+}
+
+function renderActiveAutoMapStatus(){
+  const el = document.getElementById('activeMapAutoStatus');
+  if(!el) return;
+  if(!state.active){
+    el.innerHTML = '';
+    el.classList.add('hidden');
+    return;
+  }
+  const job = state.active;
+  const today = getLocalDateKey(new Date());
+  const blocked = Number(job.mapAutoBlockedAfterHoursAt || 0) > 0 && job.mapAfterHoursPromptDismissedDayKey !== today && !hasActiveMapAfterHoursOverride(job);
+  if(blocked){
+    el.innerHTML = '<strong>Kartanrop är spärrade efter 14:00.</strong>' +
+      '<div class="muted" style="margin-top:4px">Gäller nya automatiska kartanrop för aktuellt uppdrag. Cache, GPS och geofence fungerar fortfarande.</div>' +
+      '<div class="row" style="margin-top:10px">' +
+        '<button class="primary inline" onclick="enableActiveMapAfterHoursOverride()">Häv spärr</button>' +
+        '<button class="inline" onclick="keepActiveMapAfterHoursBlock()">Behåll spärr</button>' +
+      '</div>';
+    el.classList.remove('hidden', 'is-ok');
+    el.classList.add('is-error');
+    return;
+  }
+  const parts = [];
+  if(isAfterMapAutoBlockHour() && hasActiveMapAfterHoursOverride(job)){
+    parts.push('Kartanropsspärr efter 14:00 är hävd för detta uppdrag.');
+  }
+  if(job.autoMapLastResultAt){
+    const modeText = job.autoMapLastMode === 'return' ? 'Retur pågår' : 'Transport pågår';
+    parts.push('Automatisk karttid uppdaterad ' + clockTime(job.autoMapLastResultAt) + ' · ' + modeText + ' · ' + (job.autoMapLastSource || 'karttjänst'));
+  }
+  if(!parts.length){
+    el.innerHTML = '';
+    el.classList.add('hidden');
+    el.classList.remove('is-error', 'is-ok');
+    return;
+  }
+  el.innerHTML = escapeHtml(parts.join(' '));
+  el.classList.remove('hidden', 'is-error');
+  el.classList.add('is-ok');
+}
+
 async function requestGoogleRouteByPointsForTotal(fromPoint, toPoint){
   if(fromPoint && toPoint && fromPoint.cacheKey && toPoint.cacheKey && fromPoint.cacheKey === toPoint.cacheKey){
     return buildZeroMapRouteResult();
@@ -5812,7 +6054,7 @@ function renderMapGuardStatus(){
     '<br>Anrop senaste minuten: ' + escapeHtml(String(status.minuteCount)) + ' / ' + escapeHtml(String(status.maxPerMinute)) +
     '<br>Anrop idag: ' + escapeHtml(String(status.dayCount)) + ' / ' + escapeHtml(String(status.maxPerDay)) +
     '<br>Cache idag: ' + escapeHtml(String(cacheCount)) + ' rutter' +
-    '<br>Framtida automatisk uppdatering: minst ' + escapeHtml(String(status.minAutoIntervalMinutes)) + ' minuter mellan anrop.';
+    '<br>Automatisk uppdatering transport/retur: minst ' + escapeHtml(String(status.minAutoIntervalMinutes)) + ' minuter mellan anrop.';
 }
 
 function resetMapGuardCountersFromSettings(){
@@ -7811,8 +8053,12 @@ function addLoadToCurrent(){
 
   if(input) input.value = '';
   if(learningSupportMessage) setActiveLearningSupport(learningSupportMessage, 10000);
+  const shouldRequestReturnMap = getJobReturnRequiredValue(state.active) && getTransportPhase(state.active) === 'returning';
   applyEstimatedCountdownAtStart(state.active);
   saveState(); render();
+  if(shouldRequestReturnMap){
+    scheduleActiveAutoMapRecalculation(lastGpsPoint, {reason:'return_weight', force:true, allowInsideGeofence:true});
+  }
 }
 
 function isTransportPhaseTrackingAllowed(job){
@@ -8201,7 +8447,7 @@ function switchJob(){
 function renderActive(){
   const none = document.getElementById('activeNone');
   const box = document.getElementById('activeBox');
-  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); const activeMapCallCounterEl = document.getElementById('activeMapCallCounter'); if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = ''; renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); return; }
+  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); const activeMapCallCounterEl = document.getElementById('activeMapCallCounter'); if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = ''; renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); renderActiveAutoMapStatus(); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
 
   const isOtherWork = state.active.type === 'Övrig verksamhet';
@@ -8217,6 +8463,7 @@ function renderActive(){
   renderActiveMapRoutePanel();
   const activeMapCallCounterEl = document.getElementById('activeMapCallCounter');
   if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = formatMapCallCounterHtml(state.active);
+  renderActiveAutoMapStatus();
 
   document.getElementById('activeTime').textContent = mins(Date.now() - state.active.start);
   document.getElementById('activeDistance').textContent = km(state.active.distanceKm || 0);
@@ -8745,6 +8992,15 @@ async function calculateSmartMapTotalsForJob(job){
 function shouldScheduleSmartEstimate(job){
   if(!job || !isTimeEstimateAllowedForJob(job)) return false;
   if(!hasLocalMapApiKey()) return false;
+  const isActiveJob = !!(state.active && job && state.active.id === job.id);
+  if(isAfterMapAutoBlockHour() && !(isActiveJob && hasActiveMapAfterHoursOverride(job))){
+    if(isActiveJob) setActiveMapAfterHoursBlocked(job, 'smart_estimate');
+    return false;
+  }
+  if(isActiveJob){
+    const geofencePoint = getActiveKnownPointForGeofence(job);
+    if(isPointInsideKnownGeofence(geofencePoint)) return false;
+  }
   const routeKey = buildSmartMapRouteKey(job);
   if(!routeKey) return false;
   if(job.smartMapRouteKey === routeKey && Number(job.smartMapTotalMinutes || 0) > 0) return false;
