@@ -3,12 +3,13 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-48
+- Nuvarande version: Stadslass v2026-05-07-01-49
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
+- v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -1418,7 +1419,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-48</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-49</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Hantera arbetsflöden</h4>
@@ -4396,7 +4397,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-48';
+const APP_VERSION = 'Stadslass v2026-05-07-01-49';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4425,6 +4426,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
   {name:'Automatiska kartanrop v46', status:'Aktiv', purpose:'Automatisk kartomräkning får ske max var 5:e minut under Transport pågår och Retur pågår. Inga nya automatiska anrop görs inne i kända geofence, utom returberäkning direkt efter Ange vikt vid returkrav. Efter 14:00 krävs Häv spärr för nya automatiska anrop.', changeRule:'Får justeras efter test av faktisk anropsförbrukning men ska fortsatt respektera cache, 200-anropsgräns och geofence-regler.'},
   {name:'Kö-anrop v47', status:'Aktiv', purpose:'Uppdrag i kö har manuell knapp som beräknar uppskattad tid individuellt för alla köuppdrag från aktuell GPS-position. Kölistan visar bara enkel uppskattad tid, inte källa/cache/anrop.', changeRule:'Nya kö-anrop ska inte köras automatiskt i bakgrunden; funktionen ska respektera cache, dagsgräns och spärr efter 14:00.'},
+  {name:'Köberäkning GPS-start v49', status:'Aktiv', purpose:'Beräkna tider i kö använder aktuell GPS-position som full startpunkt för varje köuppdrag och använder trafikanpassad rutt för köberäkningen.', changeRule:'Startsträckan från GPS-position till Från får inte kapas, ersättas av sparad plats eller blandas ihop med tidigare platscache.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
@@ -4648,7 +4650,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-47') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-47'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-49') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-49'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4667,6 +4669,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Till-geofence Lossning v45 ändrar bara visuell fasknapp', functionExists('getToGeofenceForJob') && typeof ACTIVE_TO_GEOFENCE_ZONES !== 'undefined' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5 && functionSourceIncludes('getActivePhaseVisualState', 'Lossning'), 'Till-zoner styr bara visuell status till Lossning.');
   addFunctionCheck(results, 'Nivå 2', 'Automatiska kartanrop v46', typeof MAP_AUTO_RECALC_INTERVAL_MINUTES === 'number' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && functionExists('scheduleActiveAutoMapRecalculation') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'inside_geofence') && functionSourceIncludes('requestGoogleRouteByPointsForActiveAuto', 'Kartanrop är spärrade efter 14:00'), '5 minuter, geofence-skydd och spärr efter 14:00.');
   addFunctionCheck(results, 'Nivå 2', 'Kö-anrop v47', !!document.getElementById('queueTimeCalcStatus') && functionExists('calculateQueueTimesFromCurrentGps') && functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'getCurrentGpsPointForQueueTime') && functionSourceIncludes('scheduleSmartEstimateForVisibleQueue', 'inga nya kö-anrop i bakgrunden'), 'knapp beräknar alla köuppdrag från aktuell GPS-position; inga bakgrundsanrop.');
+  addFunctionCheck(results, 'Nivå 2', 'Köberäkning GPS-start v49', functionExists('buildQueueTrafficAwareRouteCacheKey') && functionSourceIncludes('requestQueueRouteByPoints', 'TRAFFIC_AWARE') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'buildQueueGpsStartPoint'), 'köberäkning använder aktuell GPS-position som full startpunkt och egen trafikanpassad köcache.');
   addFunctionCheck(results, 'Nivå 2', 'GitHub-kö hämtning öppnar kö v48', functionExists('importGithubQueueFiles') && functionSourceIncludes('importGithubQueueFiles', "showTab('ko')") && functionSourceIncludes('importGithubQueueFiles', 'imported.length'), 'OK efter nya GitHub-uppdrag öppnar Uppdrag i kö.');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kartanropsrad finns v40', functionExists('formatMapCallCounterHtml') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'countMapResultsForJob') && functionSourceIncludes('applySmartMapTotalsToJob', 'smartMapNewCallCount'), 'nya anrop/cache sparas per uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid med karttjänst och historik finns', functionExists('materialFlowEstimateKey') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getBestSmartMapTotalsForJob') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'getHistoricalPracticalAddonMinutes'), 'kartberäknad kördel + historiskt praktiktillägg');
@@ -4789,7 +4792,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-47') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-47'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-49') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-49'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -4798,6 +4801,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Kartcache', typeof getMapRouteCache === 'function' && typeof getCachedMapRoute === 'function' && typeof setCachedMapRoute === 'function', 'cache används för upprepade rutter samma dag'),
     systemCheck('Automatiska kartanrop v46', typeof scheduleActiveAutoMapRecalculation === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && MAP_AFTER_HOURS_BLOCK_HOUR === 14, 'max var 5:e minut, spärr efter 14 och geofence-skydd'),
     systemCheck('Kö-anrop v47', !!document.getElementById('queueTimeCalcStatus') && typeof calculateQueueTimesFromCurrentGps === 'function' && typeof getCurrentGpsPointForQueueTime === 'function', 'manuell köberäkning från aktuell GPS-position'),
+    systemCheck('Köberäkning GPS-start v49', typeof buildQueueTrafficAwareRouteCacheKey === 'function' && functionSourceIncludes('requestQueueRouteByPoints', 'TRAFFIC_AWARE'), 'trafikanpassad köberäkning från aktuell GPS-position'),
     systemCheck('GitHub-kö hämtning v48', typeof importGithubQueueFiles === 'function' && functionSourceIncludes('importGithubQueueFiles', "showTab('ko')") && functionSourceIncludes('importGithubQueueFiles', 'imported.length'), 'OK efter nya GitHub-uppdrag öppnar Uppdrag i kö'),
     systemCheck('Platser/koordinater', !!ringon && !!save && countMapUsablePlaces() >= 10, 'routebara platser: ' + countMapUsablePlaces()),
     systemCheck('Startpunkt', typeof buildMapPointFromStartAddonValue === 'function' && typeof getMapStartAddonStartOptions === 'function', 'startpunkt kan användas i kartberäkning'),
@@ -6116,8 +6120,9 @@ function formatMapDistanceMeters(meters){
   return Math.round(value) + ' m';
 }
 
-function buildGoogleRoutesRequestBody(fromCoord, toCoord){
-  return {
+function buildGoogleRoutesRequestBody(fromCoord, toCoord, options){
+  const opts = options || {};
+  const body = {
     origin:{
       location:{
         latLng:{ latitude:fromCoord.lat, longitude:fromCoord.lon }
@@ -6129,10 +6134,12 @@ function buildGoogleRoutesRequestBody(fromCoord, toCoord){
       }
     },
     travelMode:'DRIVE',
-    routingPreference:'TRAFFIC_UNAWARE',
+    routingPreference:opts.routingPreference || 'TRAFFIC_UNAWARE',
     languageCode:'sv-SE',
     units:'METRIC'
   };
+  if(opts.departureTime) body.departureTime = opts.departureTime;
+  return body;
 }
 
 function buildMapPointFromPlace(place, roleLabel){
@@ -6167,14 +6174,14 @@ function buildMapPointFromStartAddonValue(value){
   return buildMapPointFromPlace(value, 'Startpunkten');
 }
 
-async function requestGoogleRouteByPoints(fromPoint, toPoint){
+async function requestGoogleRouteByPointsWithCacheKey(fromPoint, toPoint, cacheKey, options){
   const key = getLocalMapApiKey();
   if(!key) throw new Error('Kartnyckel saknas på denna enhet. Spara kartnyckel först.');
   if(!fromPoint || !Number.isFinite(Number(fromPoint.lat)) || !Number.isFinite(Number(fromPoint.lon))) throw new Error('Startpunkten saknar giltiga koordinater.');
   if(!toPoint || !Number.isFinite(Number(toPoint.lat)) || !Number.isFinite(Number(toPoint.lon))) throw new Error('Målplatsen saknar giltiga koordinater.');
 
-  const cacheKey = buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
-  const cached = getCachedMapRouteByKey(cacheKey);
+  const routeCacheKey = cacheKey || buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
+  const cached = getCachedMapRouteByKey(routeCacheKey);
   if(cached) return cached;
 
   const guardCheck = canMakeMapRequest();
@@ -6188,7 +6195,7 @@ async function requestGoogleRouteByPoints(fromPoint, toPoint){
       'X-Goog-Api-Key':key,
       'X-Goog-FieldMask':'routes.duration,routes.distanceMeters'
     },
-    body:JSON.stringify(buildGoogleRoutesRequestBody(fromPoint, toPoint))
+    body:JSON.stringify(buildGoogleRoutesRequestBody(fromPoint, toPoint, options || {}))
   });
 
   let data = null;
@@ -6206,8 +6213,13 @@ async function requestGoogleRouteByPoints(fromPoint, toPoint){
     distanceMeters:Number(route.distanceMeters || 0),
     fromCache:false
   };
-  setCachedMapRouteByKey(cacheKey, result);
+  setCachedMapRouteByKey(routeCacheKey, result);
   return result;
+}
+
+async function requestGoogleRouteByPoints(fromPoint, toPoint){
+  const cacheKey = buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
+  return requestGoogleRouteByPointsWithCacheKey(fromPoint, toPoint, cacheKey, {routingPreference:'TRAFFIC_UNAWARE'});
 }
 
 async function requestGoogleRouteTest(fromPlace, toPlace){
@@ -9174,14 +9186,24 @@ function hasCachedOrSamePointRoute(fromPoint, toPoint){
   return !!getCachedMapRouteByKey(buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey));
 }
 
+function buildQueueTrafficAwareRouteCacheKey(fromPoint, toPoint){
+  return buildMapRouteCacheKeyFromParts('queue_v49_traffic:' + String(fromPoint && fromPoint.cacheKey || ''), 'queue_v49_traffic:' + String(toPoint && toPoint.cacheKey || ''));
+}
+
+function hasCachedQueueTrafficAwareRouteOrSamePoint(fromPoint, toPoint){
+  if(!fromPoint || !toPoint) return false;
+  if(fromPoint.cacheKey && toPoint.cacheKey && fromPoint.cacheKey === toPoint.cacheKey) return true;
+  return !!getCachedMapRouteByKey(buildQueueTrafficAwareRouteCacheKey(fromPoint, toPoint));
+}
+
 function queueJobNeedsNewMapCallFromGps(job, point){
   try{
     const startPoint = buildQueueGpsStartPoint(point);
     const fromPoint = buildMapPointFromPlace(job.place, 'Från-platsen');
     const toPoint = buildMapPointFromPlace(job.dest, 'Till-platsen');
-    if(!hasCachedOrSamePointRoute(startPoint, fromPoint)) return true;
-    if(!hasCachedOrSamePointRoute(fromPoint, toPoint)) return true;
-    if(getJobReturnRequiredValue(job) && !hasCachedOrSamePointRoute(toPoint, fromPoint)) return true;
+    if(!hasCachedQueueTrafficAwareRouteOrSamePoint(startPoint, fromPoint)) return true;
+    if(!hasCachedQueueTrafficAwareRouteOrSamePoint(fromPoint, toPoint)) return true;
+    if(getJobReturnRequiredValue(job) && !hasCachedQueueTrafficAwareRouteOrSamePoint(toPoint, fromPoint)) return true;
     return false;
   }catch(e){
     return false;
@@ -9196,13 +9218,16 @@ async function requestQueueRouteByPoints(fromPoint, toPoint, allowAfterHours){
   if(fromPoint && toPoint && fromPoint.cacheKey && toPoint.cacheKey && fromPoint.cacheKey === toPoint.cacheKey){
     return buildZeroMapRouteResult();
   }
-  const cacheKey = buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
+  const cacheKey = buildQueueTrafficAwareRouteCacheKey(fromPoint, toPoint);
   const cached = getCachedMapRouteByKey(cacheKey);
   if(cached) return cached;
   if(isAfterMapAutoBlockHour() && !allowAfterHours){
     throw new Error('Kartanrop är spärrade efter 14:00.');
   }
-  return requestGoogleRouteByPoints(fromPoint, toPoint);
+  return requestGoogleRouteByPointsWithCacheKey(fromPoint, toPoint, cacheKey, {
+    routingPreference:'TRAFFIC_AWARE',
+    departureTime:new Date().toISOString()
+  });
 }
 
 async function calculateQueueMapTotalsFromGps(job, point, allowAfterHours){
