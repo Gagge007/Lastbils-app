@@ -3,10 +3,12 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-58
+- Nuvarande version: Stadslass v2026-05-07-01-60
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
+- v59: Flaklager Skräppekärr fungerar även som Till-geofence. Aktivt jobb stoppar nya automatiska kartanrop när GPS är inom eller nära aktuell Från-/Till-zon.
+- v60: Dynamisk anropsspärr använder bara aktuell Från-/Till-plats geofence. Ingen spärr skapas av koordinater eller av andra kända zoner, men nya geofence i platsregistret används automatiskt.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -1437,7 +1439,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-58</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-60</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -2113,11 +2115,12 @@ const ACTIVE_FROM_GEOFENCE_ZONES = [
     placeKeys:['flaklager skräppekärr','flaklager skrappekarr'],
     type:'polygon',
     defaultOutsideDelayMs:45000,
+    toleranceMeters:35,
     points:[
       {lat:57.7508157, lon:12.0039596},
       {lat:57.7504031, lon:12.0039451},
-      {lat:57.7505072, lon:12.0056510},
-      {lat:57.7509373, lon:12.0054509}
+      {lat:57.7505072, lon:12.0057800},
+      {lat:57.7509373, lon:12.0057600}
     ]
   },
   {
@@ -2165,6 +2168,19 @@ const ACTIVE_TO_GEOFENCE_ZONES = [
     radiusMeters:100
   },
   {
+    id:'flaklager_skrappekarr_tillzon',
+    label:'Flaklager Skräppekärr',
+    placeKeys:['flaklager skräppekärr','flaklager skrappekarr'],
+    type:'polygon',
+    toleranceMeters:35,
+    points:[
+      {lat:57.7508157, lon:12.0039596},
+      {lat:57.7504031, lon:12.0039451},
+      {lat:57.7505072, lon:12.0057800},
+      {lat:57.7509373, lon:12.0057600}
+    ]
+  },
+  {
     id:'renova_skrappekarr_lossning',
     label:'Renova Skräppekärr',
     placeKeys:['renova skräppekärr','renova skrappekarr'],
@@ -2197,18 +2213,99 @@ function normalizeGeofencePlaceKey(value){
   return String(value || '').trim().toLocaleLowerCase('sv-SE').replace(/\s+/g, ' ');
 }
 
+function getGeofenceLookupKeysForPlace(value, label){
+  const raw = String(value || '').trim();
+  const values = [raw, label || '', getPlaceLabel(raw) || ''];
+  try{
+    const normalized = normalizePlaceMapKey(raw);
+    if(normalized) values.push(normalized, getPlaceLabel(normalized) || '');
+  }catch(e){}
+  return Array.from(new Set(values.map(normalizeGeofencePlaceKey).filter(Boolean)));
+}
+
+function isValidGeofenceZone(zone){
+  if(!zone || typeof zone !== 'object') return false;
+  if(zone.type === 'polygon'){
+    return Array.isArray(zone.points) && zone.points.length >= 3 && zone.points.every(pt => Number.isFinite(Number(pt && pt.lat)) && Number.isFinite(Number(pt && pt.lon)));
+  }
+  if(zone.type === 'circle' || zone.center){
+    return !!zone.center && Number.isFinite(Number(zone.center.lat)) && Number.isFinite(Number(zone.center.lon)) && Number(zone.radiusMeters || zone.radius || 0) > 0;
+  }
+  return false;
+}
+
+function normalizeStoredGeofenceZone(raw, fallback){
+  if(!raw || typeof raw !== 'object') return null;
+  const fallbackInfo = fallback || {};
+  let zone = null;
+  if(Array.isArray(raw.points)){
+    zone = Object.assign({}, raw, {type:'polygon', points:raw.points.map(pt => ({lat:Number(pt.lat), lon:Number(pt.lon)}))});
+  } else if(Array.isArray(raw.polygon)){
+    zone = Object.assign({}, raw, {type:'polygon', points:raw.polygon.map(pt => ({lat:Number(pt.lat), lon:Number(pt.lon)}))});
+  } else if(raw.center || (Number.isFinite(Number(raw.lat)) && Number.isFinite(Number(raw.lon)) && Number(raw.radiusMeters || raw.radius || 0) > 0)){
+    const center = raw.center ? {lat:Number(raw.center.lat), lon:Number(raw.center.lon)} : {lat:Number(raw.lat), lon:Number(raw.lon)};
+    zone = Object.assign({}, raw, {type:'circle', center, radiusMeters:Number(raw.radiusMeters || raw.radius || 0)});
+  }
+  if(!isValidGeofenceZone(zone)) return null;
+  zone.id = zone.id || fallbackInfo.id || ('stored_geofence_' + normalizeGeofencePlaceKey(fallbackInfo.label || fallbackInfo.key || 'plats').replace(/[^a-z0-9åäö]+/gi, '_'));
+  zone.label = zone.label || fallbackInfo.label || fallbackInfo.key || 'Platsgeofence';
+  zone.placeKeys = Array.isArray(zone.placeKeys) && zone.placeKeys.length ? zone.placeKeys : (fallbackInfo.placeKeys || [fallbackInfo.key || fallbackInfo.label || '']);
+  return zone;
+}
+
+function getStoredGeofenceCandidatesForPlace(value, direction){
+  const raw = String(value || '').trim();
+  if(!raw) return [];
+  const keys = getGeofenceLookupKeysForPlace(raw);
+  const out = [];
+  const pushFromValue = (candidate, fallbackKey) => {
+    if(!candidate) return;
+    if(Array.isArray(candidate)){
+      candidate.forEach((item, index) => pushFromValue(item, fallbackKey + '_' + index));
+      return;
+    }
+    if(candidate.geofence || candidate.geofences){
+      if(candidate.geofence) pushFromValue(candidate.geofence, fallbackKey);
+      const geofences = candidate.geofences || {};
+      if(direction && geofences[direction]) pushFromValue(geofences[direction], fallbackKey + '_' + direction);
+      if(geofences.any) pushFromValue(geofences.any, fallbackKey + '_any');
+      if(geofences.default) pushFromValue(geofences.default, fallbackKey + '_default');
+      return;
+    }
+    const zone = normalizeStoredGeofenceZone(candidate, {id:fallbackKey, key:raw, label:getPlaceLabel(raw), placeKeys:keys});
+    if(zone) out.push(zone);
+  };
+  const maps = [state && state.placeGeofences, state && state.placeGeofenceZones, state && state.placeConfigs];
+  maps.forEach(map => {
+    if(!map || typeof map !== 'object' || Array.isArray(map)) return;
+    Object.keys(map).forEach(key => {
+      const normalized = normalizeGeofencePlaceKey(key);
+      if(keys.includes(normalized)) pushFromValue(map[key], 'stored_' + normalized.replace(/[^a-z0-9åäö]+/gi, '_'));
+    });
+  });
+  const custom = getCustomPlaceByKey(raw);
+  if(custom) pushFromValue(custom, 'custom_' + normalizeGeofencePlaceKey(raw).replace(/[^a-z0-9åäö]+/gi, '_'));
+  return out;
+}
+
+function getStaticGeofenceForPlace(value, label, zones){
+  const keys = getGeofenceLookupKeysForPlace(value, label);
+  if(!keys.length) return null;
+  return (zones || []).find(zone => (zone.placeKeys || []).some(zoneKey => keys.includes(normalizeGeofencePlaceKey(zoneKey)))) || null;
+}
+
 function getFromGeofenceForJob(job){
   if(!job) return null;
-  const keys = [job.place, job.placeLabel, getItemPlaceLabel(job, 'place')].map(normalizeGeofencePlaceKey).filter(Boolean);
-  if(!keys.length) return null;
-  return ACTIVE_FROM_GEOFENCE_ZONES.find(zone => (zone.placeKeys || []).some(zoneKey => keys.includes(normalizeGeofencePlaceKey(zoneKey)))) || null;
+  const stored = getStoredGeofenceCandidatesForPlace(job.place, 'from');
+  if(stored.length) return stored[0];
+  return getStaticGeofenceForPlace(job.place, job.placeLabel || getItemPlaceLabel(job, 'place'), ACTIVE_FROM_GEOFENCE_ZONES);
 }
 
 function getToGeofenceForJob(job){
   if(!job) return null;
-  const keys = [job.dest, job.destLabel, getItemPlaceLabel(job, 'dest')].map(normalizeGeofencePlaceKey).filter(Boolean);
-  if(!keys.length) return null;
-  return ACTIVE_TO_GEOFENCE_ZONES.find(zone => (zone.placeKeys || []).some(zoneKey => keys.includes(normalizeGeofencePlaceKey(zoneKey)))) || null;
+  const stored = getStoredGeofenceCandidatesForPlace(job.dest, 'to');
+  if(stored.length) return stored[0];
+  return getStaticGeofenceForPlace(job.dest, job.destLabel || getItemPlaceLabel(job, 'dest'), ACTIVE_TO_GEOFENCE_ZONES);
 }
 
 function isPointInsideGeofenceCircle(point, zone){
@@ -2230,6 +2327,95 @@ function isPointInsideGeofencePolygon(point, zone){
     if(intersect) inside = !inside;
   }
   return inside;
+}
+
+function metersPerLonAtLat(lat){
+  return 111320 * Math.cos(Number(lat || 0) * Math.PI / 180);
+}
+
+function distancePointToSegmentMeters(point, a, b){
+  if(!point || !a || !b) return Infinity;
+  const lat0 = Number(point.lat || 0);
+  const mx = metersPerLonAtLat(lat0) || 1;
+  const my = 110540;
+  const px = Number(point.lon) * mx;
+  const py = Number(point.lat) * my;
+  const ax = Number(a.lon) * mx;
+  const ay = Number(a.lat) * my;
+  const bx = Number(b.lon) * mx;
+  const by = Number(b.lat) * my;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if(!Number.isFinite(len2) || len2 <= 0){
+    return Math.hypot(px - ax, py - ay);
+  }
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  const sx = ax + t * dx;
+  const sy = ay + t * dy;
+  return Math.hypot(px - sx, py - sy);
+}
+
+function distanceToGeofencePolygonMeters(point, zone){
+  const pts = zone && Array.isArray(zone.points) ? zone.points : [];
+  if(!point || pts.length < 3) return Infinity;
+  if(isPointInsideGeofencePolygon(point, zone)) return 0;
+  let minDistance = Infinity;
+  for(let i = 0; i < pts.length; i++){
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    const d = distancePointToSegmentMeters(point, a, b);
+    if(Number.isFinite(d) && d < minDistance) minDistance = d;
+  }
+  return minDistance;
+}
+
+function distanceToGeofenceMeters(point, zone){
+  if(!point || !zone) return Infinity;
+  if(zone.type === 'polygon') return distanceToGeofencePolygonMeters(point, zone);
+  if(zone.center){
+    const centerDistance = haversineKm(point.lat, point.lon, zone.center.lat, zone.center.lon) * 1000;
+    return Math.max(0, centerDistance - Number(zone.radiusMeters || 0));
+  }
+  return Infinity;
+}
+
+function getGeofenceExtraToleranceMeters(point, zone, options){
+  const opts = options || {};
+  const baseTolerance = Math.max(0, Number(zone && zone.toleranceMeters || 0));
+  const accuracy = Number(opts.accuracyMeters !== undefined ? opts.accuracyMeters : (point && point.accuracy));
+  const accuracyTolerance = Number.isFinite(accuracy) ? Math.max(0, Math.min(60, accuracy - 50)) : 0;
+  return baseTolerance + accuracyTolerance;
+}
+
+function isPointInsideOrNearGeofence(point, zone, options){
+  if(!point || !zone) return false;
+  if(isPointInsideGeofence(point, zone)) return true;
+  const distanceMeters = distanceToGeofenceMeters(point, zone);
+  const toleranceMeters = getGeofenceExtraToleranceMeters(point, zone, options);
+  return Number.isFinite(distanceMeters) && distanceMeters <= toleranceMeters;
+}
+
+function getActiveGeofenceHitForPoint(job, point, options){
+  if(!job || !point) return null;
+  const zones = [];
+  const fromZone = getFromGeofenceForJob(job);
+  const toZone = getToGeofenceForJob(job);
+  if(fromZone) zones.push({kind:'Från-zon', zone:fromZone});
+  if(toZone) zones.push({kind:'Till-zon', zone:toZone});
+  for(const item of zones){
+    if(isPointInsideOrNearGeofence(point, item.zone, options || {})){
+      return {kind:item.kind, zone:item.zone, label:item.zone.label};
+    }
+  }
+  return null;
+}
+
+function hasActiveGeofenceVisualStop(job){
+  if(!job) return false;
+  const fromVisual = job.geofenceVisual || null;
+  const toVisual = job.toGeofenceVisual || null;
+  return !!((fromVisual && fromVisual.status === 'inside') || (toVisual && toVisual.status === 'unloading'));
 }
 
 function isPointInsideGeofence(point, zone){
@@ -2258,17 +2444,19 @@ function getActiveKnownPointForGeofence(job){
   return null;
 }
 
-function updateActiveGeofenceVisualStatus(point){
+function updateActiveGeofenceVisualStatus(point, options){
   if(!state.active || !point) return;
   initializeTransportPhaseForJob(state.active);
   if(getTransportPhase(state.active) !== 'loading') return;
+  const opts = options || {};
   const accuracy = Number(point.accuracy || 9999);
-  if(!Number.isFinite(accuracy) || accuracy > 50) return;
+  const maxAccuracy = opts.allowLowAccuracy ? 120 : 50;
+  if(!Number.isFinite(accuracy) || accuracy > maxAccuracy) return;
 
   const now = Number(point.ts || Date.now());
 
   const fromZone = getFromGeofenceForJob(state.active);
-  if(fromZone){
+  if(fromZone && accuracy <= 50){
     const insideFrom = isPointInsideGeofence(point, fromZone);
     if(!state.active.geofenceVisual || state.active.geofenceVisual.zoneId !== fromZone.id){
       state.active.geofenceVisual = {
@@ -2308,7 +2496,7 @@ function updateActiveGeofenceVisualStatus(point){
 
   const toZone = getToGeofenceForJob(state.active);
   if(toZone){
-    const insideTo = isPointInsideGeofence(point, toZone);
+    const insideTo = isPointInsideOrNearGeofence(point, toZone, {accuracyMeters:accuracy});
     if(insideTo){
       state.active.toGeofenceVisual = {
         zoneId:toZone.id,
@@ -2825,6 +3013,10 @@ function startDistanceTracking(){
       };
 
       if(point.accuracy > 50){
+        updateActiveGeofenceVisualStatus(point, {allowLowAccuracy:true});
+        scheduleActiveAutoMapRecalculation(point, {reason:'gps'});
+        saveState();
+        renderActive();
         return;
       }
 
@@ -4487,7 +4679,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-58';
+const APP_VERSION = 'Stadslass v2026-05-07-01-60';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4529,7 +4721,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Tillfällig kartanropsrad v40', status:'Testfunktion', purpose:'Visar nya kartanrop och cacheträffar per uppdrag för att utvärdera nyckelbelastning.', changeRule:'Kan tas bort när anropsnivån är verifierad.'},
   {name:'GPS-zoner visuell status v41', status:'Aktiv', purpose:'Från-zoner för Ringön, Slottskogen komprimator, Säldammen, Flaklager Skräppekärr och von Utfallsgatan kan ändra fasknappens visuella text/färg från Lastning/rangering till Transport pågår.', changeRule:'Får aldrig ändra mätpunkter, sparade tider, tidsinlärning eller fasdata automatiskt.'},
   {name:'Fasknapp färger v41', status:'Aktiv', purpose:'Lastar/Lastning/rangering använder ljusblå färg och Transport pågår använder ljus orange.', changeRule:'Får ändras visuellt men ska inte påverka Lastar, Ange vikt, returkrav eller GPS-/tidsinlärning.'},
-  {name:'Till-geofence Lossning v45', status:'Aktiv', purpose:'Till-zoner för Renova Sävenäs, Sortera Torslanda, Renova Högsbo, Renova Skräppekärr och Stena Metall kan ändra fasknappens visuella status till Lossning med ljusgrön färg.', changeRule:'Får aldrig registrera vikt, avsluta lass, ändra mätpunkter, tidsinlärning eller fasdata automatiskt.'},
+  {name:'Till-geofence Lossning v45', status:'Aktiv', purpose:'Till-zoner för Renova Sävenäs, Sortera Torslanda, Renova Högsbo, Renova Skräppekärr, Flaklager Skräppekärr och Stena Metall kan ändra fasknappens visuella status till Lossning med ljusgrön färg.', changeRule:'Får aldrig registrera vikt, avsluta lass, ändra mätpunkter, tidsinlärning eller fasdata automatiskt.'},
   {name:'Kö-system ordning v42', status:'Aktiv', purpose:'I kööverföringen visas GitHub-kö överst, före Dela kö-fil och Importera kö-fil.', changeRule:'Ren visuell ordningsändring; får inte ändra export/import, filnamn, GitHub-logik eller ködata.'},
   {name:'Stödruta efter vikt', status:'Aktiv', purpose:'Visar aktuell inlärningsregel i aktivt jobb i 10 sekunder efter Ange vikt.', changeRule:'Får ändras visuellt men ska inte ändra tidslogiken utan separat beslut.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
@@ -4554,6 +4746,8 @@ const APP_FEATURE_MANIFEST = [
   {name:'Inställningar struktur v56', status:'Testfunktion', purpose:'Delar tydligare på Platser, Jobbtyper och Snabbval. Platser kan bära platskrav och jobbtyper bär transportinstruktioner/jobbkrav.', changeRule:'Får justeras efter praktisk test men ska inte blanda platskrav och jobbtypskrav utan beslut.'},
   {name:'Inställningar platsknappar v57', status:'Testfunktion', purpose:'Varje platsrad har egen Spara/Ta bort. Standardplatser döljs vid borttagning, egna platser tas bort.', changeRule:'Får justeras efter praktisk test men ska inte påverka gamla jobb eller historik.'},
   {name:'Viktfält tangentbord v57', status:'Aktiv', purpose:'Efter OK/Ange vikt töms viktfältet och tappar fokus så mobilt tangentbord stängs.', changeRule:'Får ändras visuellt men ska inte påverka viktregistrering, returkrav eller tidsinlärning.'},
+  {name:'Flaklager Till-geofence v59', status:'Aktiv', purpose:'Flaklager Skräppekärr fungerar även som Till-zon. När aktivt jobb är inom eller nära aktuell Från-/Till-zon stoppas nya automatiska kartanrop och status visas i aktiv vy.', changeRule:'Får justeras i zonens storlek/tolerans efter praktisk test, men geofence får fortsatt bara påverka visuell status och anropsskydd, inte mätpunkter eller tidsinlärning.'},
+  {name:'Dynamisk geofence-spärr v60', status:'Aktiv', purpose:'Automatiska kartanrop spärras bara av aktuell Från-/Till-plats geofence. Saknas geofence fortsätter anrop som vanligt; läggs geofence till i platsregistret används den automatiskt.', changeRule:'Får byggas ut med fler geofencefält i Platser men får inte skapa spärr enbart från koordinater eller andra orelaterade zoner.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -4747,7 +4941,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-58') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-58'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-59') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-59'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4764,6 +4958,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning grupperas på Från/Till/transportläge v40', functionSourceIncludes('materialFlowEstimateKey', 'getTimeLearningTransportMode') && functionSourceIncludes('materialFlowEstimateKey', 'job.place') && functionSourceIncludes('materialFlowEstimateKey', 'job.dest'), 'Jobbtyp + Från + Till + transportläge');
   addFunctionCheck(results, 'Nivå 2', 'GPS-zoner v41 ändrar bara visuell fasknapp', functionExists('getFromGeofenceForJob') && functionExists('updateActiveGeofenceVisualStatus') && functionSourceIncludes('updateActiveGeofenceVisualStatus', 'geofenceVisual') && functionSourceIncludes('renderActiveTransportPhaseControl', 'getActivePhaseVisualState'), 'Från-zoner styr visuell status, inte mätpunkter.');
   addFunctionCheck(results, 'Nivå 2', 'Till-geofence Lossning v45 ändrar bara visuell fasknapp', functionExists('getToGeofenceForJob') && typeof ACTIVE_TO_GEOFENCE_ZONES !== 'undefined' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5 && functionSourceIncludes('getActivePhaseVisualState', 'Lossning'), 'Till-zoner styr bara visuell status till Lossning.');
+  addFunctionCheck(results, 'Nivå 2', 'Flaklager Till-geofence v59', typeof ACTIVE_TO_GEOFENCE_ZONES !== 'undefined' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.some(zone => zone && zone.id === 'flaklager_skrappekarr_tillzon') && functionExists('getActiveGeofenceHitForPoint') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'mapAutoGeofenceBlockedAt'), 'Flaklager kan stoppa nya automatiska kartanrop som aktuell Till-zon.');
+  addFunctionCheck(results, 'Nivå 2', 'Dynamisk geofence-spärr v60', functionExists('getStoredGeofenceCandidatesForPlace') && functionExists('getStaticGeofenceForPlace') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'const activeZoneHit') && !functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'getKnownGeofenceForPoint(point)'), 'Spärren använder bara aktuell Från-/Till-plats geofence, inte valfri känd zon eller koordinatfallback.');
   addFunctionCheck(results, 'Nivå 2', 'Automatiska kartanrop v46', typeof MAP_AUTO_RECALC_INTERVAL_MINUTES === 'number' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && functionExists('scheduleActiveAutoMapRecalculation') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'inside_geofence') && functionSourceIncludes('requestGoogleRouteByPointsForActiveAuto', 'Kartanrop är spärrade efter 14:00'), '5 minuter, geofence-skydd och spärr efter 14:00.');
   addFunctionCheck(results, 'Nivå 2', 'Kö-anrop v47', !!document.getElementById('queueTimeCalcStatus') && functionExists('calculateQueueTimesFromCurrentGps') && functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'getCurrentGpsPointForQueueTime') && functionSourceIncludes('scheduleSmartEstimateForVisibleQueue', 'inga nya kö-anrop i bakgrunden'), 'knapp beräknar alla köuppdrag från aktuell GPS-position; inga bakgrundsanrop.');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning GPS-start v49', functionExists('buildQueueTrafficAwareRouteCacheKey') && functionSourceIncludes('requestQueueRouteByPoints', 'TRAFFIC_AWARE') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'buildQueueGpsStartPoint'), 'köberäkning använder aktuell GPS-position som full startpunkt och egen trafikanpassad köcache.');
@@ -4898,7 +5094,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-58') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-58'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-59') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-59'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -4920,6 +5116,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Aktivt jobb knappfärger v30', !!document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && !!document.querySelector('button.active-weight-btn') && !!document.querySelector('button.active-no-empty-btn'), 'Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange'),
     systemCheck('GPS-zoner visuell status v41', typeof getFromGeofenceForJob === 'function' && typeof updateActiveGeofenceVisualStatus === 'function' && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5, 'Från-zoner styr bara visuell knappstatus'),
     systemCheck('Till-geofence Lossning v45', typeof getToGeofenceForJob === 'function' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5, 'Till-zoner kan visa Lossning utan att registrera vikt'),
+    systemCheck('Flaklager Till-geofence v59', Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.some(zone => zone && zone.id === 'flaklager_skrappekarr_tillzon') && typeof getActiveGeofenceHitForPoint === 'function', 'Flaklager stoppar kartanrop som aktiv Till-zon'),
+    systemCheck('Dynamisk geofence-spärr v60', typeof getStoredGeofenceCandidatesForPlace === 'function' && typeof getStaticGeofenceForPlace === 'function' && typeof shouldRunActiveAutoMapRecalculation === 'function', 'Bara aktuell Från-/Till-geofence stoppar nya automatiska kartanrop'),
     systemCheck('Fasnamn och missad fasdata v31', !!document.getElementById('activePhaseButton') && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar + undantag från uppskattad tid/GPS-inlärning vid missad Lastar'),
     systemCheck('Flerlassdata v32', typeof isMultiLoadSensitiveJob === 'function' && typeof getMultiLoadTurnEstimateForJob === 'function' && typeof getFinishedMaterialFlowDurationSamples === 'function', 'Sopsand von Utfallsgatan och stenflis kan lära per lass/varv'),
     systemCheck('Transportlägen v33', typeof isMultiLoadLearningMode === 'function' && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav'), 'Utan returkrav, returkrav och flerlass utan returkrav skiljs åt'),
@@ -5789,10 +5987,16 @@ function shouldRunActiveAutoMapRecalculation(job, point, options){
   if(!opts.force && Number.isFinite(last) && last > 0 && now - last < MAP_AUTO_RECALC_INTERVAL_MINUTES * 60000){
     return {ok:false, reason:'interval'};
   }
-  const knownZone = point ? getKnownGeofenceForPoint(point) : null;
-  if(knownZone && !opts.allowInsideGeofence){
-    return {ok:false, reason:'inside_geofence', zone:knownZone.label};
+  const activeZoneHit = point ? getActiveGeofenceHitForPoint(job, point, {accuracyMeters:Number(point.accuracy || 0)}) : null;
+  if(activeZoneHit && !opts.allowInsideGeofence){
+    job.mapAutoGeofenceBlockedAt = Date.now();
+    job.mapAutoGeofenceBlockedZone = activeZoneHit.label;
+    job.mapAutoGeofenceBlockedKind = activeZoneHit.kind;
+    return {ok:false, reason:'inside_geofence', zone:job.mapAutoGeofenceBlockedZone};
   }
+  delete job.mapAutoGeofenceBlockedAt;
+  delete job.mapAutoGeofenceBlockedZone;
+  delete job.mapAutoGeofenceBlockedKind;
   return {ok:true, mode};
 }
 
@@ -5832,6 +6036,9 @@ function applyActiveAutoMapRouteResult(job, result, routeInfo){
   job.autoMapLastMode = routeInfo.mode;
   job.autoMapLastRouteText = (routeInfo.fromPoint.label || 'Aktuell position') + ' → ' + (routeInfo.toPoint.label || 'mål');
   job.autoMapLastSource = result.skippedSamePoint ? 'samma plats' : (result.fromCache ? 'cache' : 'nytt kartanrop');
+  delete job.mapAutoGeofenceBlockedAt;
+  delete job.mapAutoGeofenceBlockedZone;
+  delete job.mapAutoGeofenceBlockedKind;
   addMapCallCountsToJob(job, [result]);
 }
 
@@ -5887,6 +6094,11 @@ function renderActiveAutoMapStatus(){
     return;
   }
   const parts = [];
+  const geofenceBlockedAt = Number(job.mapAutoGeofenceBlockedAt || 0);
+  if(geofenceBlockedAt && Date.now() - geofenceBlockedAt < 10 * 60000){
+    const zoneText = [job.mapAutoGeofenceBlockedKind || 'geofence', job.mapAutoGeofenceBlockedZone || 'känd zon'].filter(Boolean).join(' – ');
+    parts.push('Automatiska kartanrop stoppade: inom/nära aktuell ' + zoneText + '.');
+  }
   if(isAfterMapAutoBlockHour() && hasActiveMapAfterHoursOverride(job)){
     parts.push('Kartanropsspärr efter 14:00 är hävd för detta uppdrag.');
   }
@@ -9435,8 +9647,10 @@ function shouldScheduleSmartEstimate(job){
     return false;
   }
   if(isActiveJob){
+    if(hasActiveGeofenceVisualStop(job)) return false;
     const geofencePoint = getActiveKnownPointForGeofence(job);
-    if(isPointInsideKnownGeofence(geofencePoint)) return false;
+    const activeZoneHit = geofencePoint ? getActiveGeofenceHitForPoint(job, geofencePoint, {accuracyMeters:Number(geofencePoint.accuracy || 0)}) : null;
+    if(activeZoneHit || isPointInsideKnownGeofence(geofencePoint)) return false;
   }
   const routeKey = buildSmartMapRouteKey(job);
   if(!routeKey) return false;
