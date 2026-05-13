@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-65
+- Nuvarande version: Stadslass v2026-05-07-01-66
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -12,6 +12,7 @@ Stadslass versionskontroll
 - v61: Uppskattad tid visas direkt vid aktiv start även som vänteläge; Returkrav styrs från Jobbtyper i Inställningar och maskintransport-varianter ärver Maskintransport.
 - v62: Köberäkning gör smart delberäkning för uppdrag med Annan plats/destination: nyttiga GPS-delar beräknas utan kartanrop på oklara materialdelar.
 - v65: Aktiv bottenbakgrund följer fasknappens visuella lägen med samma färgstyrka: Lastning/rangering blå, Transport pågår orange och Lossning grön.
+- v66: Uppdrag i kö kan redigeras i separat kömodal utan att påverka aktivt jobb, historik, GPS, fasdata, vikt eller tidsinlärning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -46,6 +47,7 @@ Stadslass versionskontroll
   - Uppskattad tid: visas enkelt i aktivt jobb och kö; karttjänst + historik används bakom kulisserna
   - Smart delberäkning v62: köberäkning får räkna GPS→fysisk plats även om Annan plats/destination gör hela uppdraget omöjligt att fullberäkna
   - Aktiv bottenbakgrund v65: följer endast fasknappens visuella lägen Lastning/rangering, Transport pågår och Lossning med samma färgstyrka som knappen; korten ligger kvar vita
+  - Köredigering v66: uppdrag i kö kan redigeras utan att påverka aktivt jobb, avslutade jobb, GPS, vikt, fasdata eller tidsinlärning
   - Fasdata tid: aktivt jobb har knappen Lastar som startar ett lass/materialdel; sparad vikt avslutar lasset och kan ge flerlassdata
   - Startsträcka i aktiv tid: aktivt jobb bakar in kartberäknad startsträcka i uppskattad tid och räknar bort den när Lastar trycks
   - Aktivt jobb knappfärger: Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa fortsatt gul och Klart oförändrad röd
@@ -1446,9 +1448,36 @@ button{
   </div>
 </div>
 
+<div id="editQueueJobModal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3>Redigera köuppdrag</h3>
+    <input type="hidden" id="editQueueJobId">
+    <label>Datum för uppdrag</label>
+    <input id="editQueueDate" type="date">
+    <label style="margin-top:10px">Jobbtyp</label>
+    <select id="editQueueType"></select>
+    <label style="margin-top:10px">Från</label>
+    <select id="editQueuePlace"></select>
+    <label style="margin-top:10px">Till</label>
+    <select id="editQueueDest"></select>
+    <label style="margin-top:10px">Visas som (valfritt)</label>
+    <input id="editQueueDisplayType" placeholder="Ex. Komprimator 41099">
+    <label style="margin-top:10px">Kommentar</label>
+    <textarea id="editQueueComment"></textarea>
+    <div id="editQueuePrivateCommentWrap">
+      <label style="margin-top:10px">Intern kommentar (exporteras inte)</label>
+      <textarea id="editQueuePrivateComment" placeholder="Ex. namn på beställare eller känslig anteckning"></textarea>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary inline" onclick="saveEditedQueueJob()">Spara</button>
+      <button class="inline" onclick="closeEditQueueJob()">Avbryt</button>
+    </div>
+  </div>
+</div>
+
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-65</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-66</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -4153,6 +4182,17 @@ function updateEditPrivateCommentVisibility(){
   }
 }
 
+function updateEditQueuePrivateCommentVisibility(){
+  const typeEl = document.getElementById('editQueueType');
+  const wrap = document.getElementById('editQueuePrivateCommentWrap');
+  const input = document.getElementById('editQueuePrivateComment');
+  const allowed = typeEl ? allowsPrivateCommentForType(typeEl.value) : false;
+  if(wrap) wrap.classList.toggle('hidden', !allowed);
+  if(input && !allowed && document.activeElement !== input){
+    input.value = '';
+  }
+}
+
 
 function getCustomPlaceByKey(key){
   return (state.customPlaces || []).find(p => p.key === key) || null;
@@ -4615,6 +4655,39 @@ function updateNewJobPlaceSelects(preserveValues){
   }
 }
 
+function ensureSelectHasOption(idName, value, label){
+  const el = document.getElementById(idName);
+  if(!el || !value) return;
+  if(!Array.from(el.options).some(o => o.value === value)){
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label || getPlaceLabel(value) || value;
+    el.appendChild(option);
+  }
+}
+
+function updateEditQueuePlaceSelects(preserveValues){
+  const typeEl = document.getElementById('editQueueType');
+  const placeEl = document.getElementById('editQueuePlace');
+  const destEl = document.getElementById('editQueueDest');
+  if(!typeEl || !placeEl || !destEl) return;
+
+  const type = typeEl.value;
+  const previousPlace = preserveValues !== false ? placeEl.value : '';
+  const previousDest = preserveValues !== false ? destEl.value : '';
+
+  const fromValues = getFilteredPlaceValuesForJobType(type, 'from', previousPlace);
+  fillSelect('editQueuePlace', fromValues, true, '----');
+  ensureSelectHasOption('editQueuePlace', previousPlace, getStoredPlaceLabel(previousPlace) || previousPlace);
+  if(previousPlace) placeEl.value = previousPlace;
+
+  const selectedPlace = placeEl.value || previousPlace;
+  const toValues = getFilteredPlaceValuesForJobType(type, 'to', selectedPlace);
+  fillSelect('editQueueDest', toValues, true, '----');
+  ensureSelectHasOption('editQueueDest', previousDest, getStoredPlaceLabel(previousDest) || previousDest);
+  if(previousDest) destEl.value = previousDest;
+}
+
 function refreshPlaceSelects(){
   updateNewJobPlaceSelects(true);
   updateQuickDatalists();
@@ -4633,6 +4706,7 @@ function refreshJobTypeSelects(){
   refreshTruckTypesFromState();
   refillSelectKeepingValue('newType', sortedTruckTypes, true, '----');
   refillSelectKeepingValue('editType', sortedTruckTypes);
+  refillSelectKeepingValue('editQueueType', sortedTruckTypes);
   refillSelectKeepingValue('newQuickType', sortedTruckTypes);
   fillSelectKeepingSelections('newManagedPlaceFromJobType', sortedTruckTypes);
   fillSelectKeepingSelections('newManagedPlaceToJobType', sortedTruckTypes);
@@ -4739,7 +4813,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-65';
+const APP_VERSION = 'Stadslass v2026-05-07-01-66';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4748,6 +4822,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Viktfält Enter/Gå v44', status:'Aktiv', purpose:'Tryck på Gå/Enter i viktfältet kör samma logik som knappen Ange vikt.', changeRule:'Får ändras visuellt men får inte ändra viktregistrering, returkrav, flerlass eller tidsinlärning.'},
   {name:'Ingen tömning', status:'Skyddad', purpose:'Markerar Ej behov av tömning och exkluderar från uppskattad tid.', changeRule:'Får ändras bara om samma syfte behålls.'},
   {name:'Uppdrag i kö', status:'Skyddad men får byggas om', purpose:'Planera, starta, pausa, återuppta och ta bort uppdrag.', changeRule:'Arbetsflödet får utvecklas men köfunktionen ska inte tappas.'},
+  {name:'Köredigering v66', status:'Aktiv', purpose:'Uppdrag i kö kan redigeras i separat kömodal med datum, jobbtyp, Från, Till, visas som, kommentar och tillåten intern kommentar.', changeRule:'Får bara ändra köposten. Får inte påverka aktivt jobb, avslutade jobb, GPS, vikt, fasdata eller tidsinlärning.'},
   {name:'Uppdrag i kö efter start/klart', status:'Skyddad beteenderegel', purpose:'Efter start, paus och klart visas Uppdrag i kö istället för Idag.', changeRule:'Får ändras endast om nytt arbetsflöde ersätter regeln.'},
   {name:'Idag', status:'Aktiv', purpose:'Visar dagens avslutade uppdrag.', changeRule:'Får utvecklas och filtreras men ska följa papperskorgsregeln.'},
   {name:'Historik kalender', status:'Aktiv', purpose:'Visa och söka avslutade jobb via kalender.', changeRule:'Får byggas om, ska följa papperskorgsregeln.'},
@@ -4979,6 +5054,7 @@ function runFunctionControlChecks(){
 
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb-panel finns', !!document.getElementById('activeJobCard'), 'activeJobCard');
   addFunctionCheck(results, 'Nivå 1', 'Uppdrag i kö-panel finns', !!document.getElementById('queueList'), 'queueList');
+  addFunctionCheck(results, 'Nivå 1', 'Köredigering v66 finns', !!document.getElementById('editQueueJobModal') && functionExists('openEditQueueJob') && functionExists('saveEditedQueueJob'), 'editQueueJobModal + openEditQueueJob/saveEditedQueueJob');
   addFunctionCheck(results, 'Nivå 1', 'Idag-panel finns', !!document.getElementById('todayList'), 'todayList');
   addFunctionCheck(results, 'Nivå 1', 'Viktfält och Ange vikt finns', !!document.getElementById('weightInput') && functionExists('addLoadToCurrent'), 'weightInput + addLoadToCurrent');
   addFunctionCheck(results, 'Nivå 1', 'Viktfält Enter/Gå v44 finns', !!document.getElementById('weightInput') && functionExists('handleWeightInputKey'), 'Enter/Gå i viktfältet kör addLoadToCurrent.');
@@ -5005,7 +5081,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-62') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-62'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-66') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-66'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -5027,6 +5103,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Dynamisk geofence-spärr v60', functionExists('getStoredGeofenceCandidatesForPlace') && functionExists('getStaticGeofenceForPlace') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'const activeZoneHit') && !functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'getKnownGeofenceForPoint(point)'), 'Spärren använder bara aktuell Från-/Till-plats geofence, inte valfri känd zon eller koordinatfallback.');
   addFunctionCheck(results, 'Nivå 2', 'Automatiska kartanrop v46', typeof MAP_AUTO_RECALC_INTERVAL_MINUTES === 'number' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 5 && functionExists('scheduleActiveAutoMapRecalculation') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'inside_geofence') && functionSourceIncludes('requestGoogleRouteByPointsForActiveAuto', 'Kartanrop är spärrade efter 14:00'), '5 minuter, geofence-skydd och spärr efter 14:00.');
   addFunctionCheck(results, 'Nivå 2', 'Kö-anrop v47', !!document.getElementById('queueTimeCalcStatus') && functionExists('calculateQueueTimesFromCurrentGps') && functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'getCurrentGpsPointForQueueTime') && functionSourceIncludes('scheduleSmartEstimateForVisibleQueue', 'inga nya kö-anrop i bakgrunden'), 'knapp beräknar alla köuppdrag från aktuell GPS-position; inga bakgrundsanrop.');
+  addFunctionCheck(results, 'Nivå 2', 'Köredigering v66 påverkar bara kön', functionExists('openEditQueueJob') && functionExists('saveEditedQueueJob') && functionSourceIncludes('saveEditedQueueJob', 'state.queue') && functionSourceIncludes('saveEditedQueueJob', 'clearQueueEditedEstimateFields') && !functionSourceIncludes('saveEditedQueueJob', 'state.jobs.push') && !functionSourceIncludes('saveEditedQueueJob', 'state.active ='), 'redigerar köpost, rensar gamla uppskattningar och skapar inte aktivt/avslutat jobb.');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning GPS-start v49', functionExists('buildQueueTrafficAwareRouteCacheKey') && functionSourceIncludes('requestQueueRouteByPoints', 'TRAFFIC_AWARE') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'buildQueueGpsStartPoint'), 'köberäkning använder aktuell GPS-position som full startpunkt och egen trafikanpassad köcache.');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning hybrid v50', functionExists('getStoredQueueGpsEstimateForJob') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'getMaterialFlowEstimateForJob') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'startMinutes'), 'köberäkning blandar kartberäknad startsträcka med historik/karttid för materialflödet.');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning efter 14 v51', functionExists('getBaselineQueueEstimateForMaterialWithoutGps') && functionSourceIncludes('continueQueueTimeAfterHoursBlock', 'allowAfterHours:true') && functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'Köberäkning misslyckades'), 'Häv spärr kör om köberäkning och fel visas tydligt.');
@@ -5160,7 +5237,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-62') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-62'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-66') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-66'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -5200,6 +5277,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Startsträcka i aktiv tid', typeof getVisibleEstimateMinutesForPhase === 'function' && typeof getEstimateStartAddonMinutes === 'function', 'kartad startsträcka ingår före Lastar och räknas bort efter Lastar'),
     systemCheck('Fasdata Lastar/Vikt', !!document.getElementById('activePhaseButton') && typeof toggleActiveTransportPhase === 'function' && typeof getFinishedMaterialFlowDurationMs === 'function', 'lassdata kan sparas utan startsträcka som lärdata'),
     systemCheck('Uppdrag i kö', !!document.getElementById('queueList') && typeof renderQueue === 'function', 'kölista finns'),
+    systemCheck('Köredigering v66', !!document.getElementById('editQueueJobModal') && typeof openEditQueueJob === 'function' && typeof saveEditedQueueJob === 'function' && functionSourceIncludes('saveEditedQueueJob', 'sortQueueByPlannedDate'), 'köuppdrag kan redigeras och sorteras om utan historikrad'),
     systemCheck('Idag/historik', typeof renderToday === 'function' && typeof renderHistoryManager === 'function' && !!document.getElementById('historyManagerWrap'), 'dagens jobb och historik finns'),
     systemCheck('Papperskorg', !!document.getElementById('trashManagerWrap') && typeof renderTrashManager === 'function', 'borttagna uppdrag hålls separat'),
     systemCheck('Funktionskontroll', !!document.getElementById('functionControlManagerWrap') && typeof runFunctionControlChecks === 'function', 'nivå 1–3 finns'),
@@ -10449,6 +10527,9 @@ function renderQueue(){
         '<label>Dag för uppdrag</label>'+
         '<input type="text" inputmode="numeric" placeholder="28/4" value="'+escapeHtml(formatShortDate(getQueuedJobDate(x)))+'" onchange="setQueuedJobPlannedDate(\''+x.id+'\', this.value)">'+
       '</div>'+
+      '<div class="row" style="margin-top:10px">'+
+        '<button class="primary inline" onclick="openEditQueueJob(\''+x.id+'\')">Redigera</button>'+
+      '</div>'+
       '<div class="queue-actions">'+
         (x.status === 'pausad' ? '<button class="queue-start" onclick="resumePausedJob(\''+x.id+'\')">Fortsätt</button>' : (x.status === 'köad' ? '<button class="queue-start" onclick="startQueuedJob(\''+x.id+'\')">Start</button>' : '<span></span>'))+
         '<button class="queue-complete" onclick="completeQueuedJob(\''+x.id+'\')">Uppdrag slutfört</button>'+
@@ -10457,6 +10538,106 @@ function renderQueue(){
     '</div>'
   ).join('');
   scheduleSmartEstimateForVisibleQueue(ordered);
+}
+
+
+function clearQueueEditedEstimateFields(job){
+  if(!job) return;
+  [
+    'smartMapRouteKey','smartMapTotalMinutes','smartMapMaterialMinutes','smartMapTotalDistanceMeters','smartMapCalculatedAt','smartMapSource','smartMapNewCallCount','smartMapCacheHitCount','smartMapSkippedRouteCount','smartMapAttemptedAt','smartMapAttemptedRouteKey',
+    'queueEstimateStartLat','queueEstimateStartLon','queueEstimateStartAccuracy','queueEstimateStartCapturedAt','queueGpsEstimateRouteKey','queueGpsEstimatedMinutes','queueGpsStartAddonMinutes','queueGpsMaterialMinutes','queueGpsMaterialCount','queueGpsEstimateSource','queueGpsEstimateCalculatedAt','queueGpsPartialEstimate','queueGpsPartialLabel','queueGpsMissingReason'
+  ].forEach(key => { delete job[key]; });
+}
+
+function openEditQueueJob(jobId){
+  const job = (state.queue || []).find(x => x.id === jobId);
+  if(!job) return;
+  refreshTruckTypesFromState();
+  fillSelect('editQueueType', sortedTruckTypes);
+  ensureSelectHasOption('editQueueType', job.type || '', job.type || '');
+
+  const typeEl = document.getElementById('editQueueType');
+  const placeEl = document.getElementById('editQueuePlace');
+  const destEl = document.getElementById('editQueueDest');
+  if(!typeEl || !placeEl || !destEl) return;
+
+  document.getElementById('editQueueJobId').value = job.id;
+  document.getElementById('editQueueDate').value = getQueuedJobDate(job);
+  typeEl.value = job.type || '';
+  updateEditQueuePlaceSelects(false);
+  ensureSelectHasOption('editQueuePlace', job.place || '', getItemPlaceLabel(job, 'place') || job.place || '');
+  ensureSelectHasOption('editQueueDest', job.dest || '', getItemPlaceLabel(job, 'dest') || job.dest || '');
+  placeEl.value = job.place || '';
+  destEl.value = job.dest || '';
+  updateEditQueuePlaceSelects(true);
+  document.getElementById('editQueueDisplayType').value = job.displayType || '';
+  document.getElementById('editQueueComment').value = job.comment || '';
+  document.getElementById('editQueuePrivateComment').value = getAllowedPrivateComment(job.type, job.privateComment || '');
+  updateEditQueuePrivateCommentVisibility();
+  document.getElementById('editQueueJobModal').classList.add('show');
+}
+
+function closeEditQueueJob(){
+  const modal = document.getElementById('editQueueJobModal');
+  if(modal) modal.classList.remove('show');
+}
+
+function saveEditedQueueJob(){
+  const jobId = document.getElementById('editQueueJobId').value;
+  const job = (state.queue || []).find(x => x.id === jobId);
+  if(!job) return;
+
+  const plannedDate = document.getElementById('editQueueDate').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(plannedDate)){
+    alert('Välj ett giltigt datum.');
+    return;
+  }
+
+  let type = document.getElementById('editQueueType').value;
+  let place = document.getElementById('editQueuePlace').value;
+  let dest = document.getElementById('editQueueDest').value;
+
+  if(type === 'Övrig verksamhet'){
+    place = 'Ringön (BAS)';
+    dest = '';
+  }
+  if(type === 'Ris'){
+    place = 'Ringön (BAS)';
+    dest = 'Ruskvädersgatan (Ristipp)';
+  }
+  if(type === 'Metall'){
+    place = 'Ringön (BAS)';
+    dest = 'Stena Metall';
+  }
+
+  if(!validateNewJobSelection(type, place, dest)) return;
+
+  const displayTypeRaw = document.getElementById('editQueueDisplayType').value.trim();
+  const comment = document.getElementById('editQueueComment').value;
+  const privateCommentInput = document.getElementById('editQueuePrivateComment');
+  const returnRequired = getJobTypeReturnRequired(getJobTypeSettingsKey(type));
+
+  job.type = type;
+  job.displayType = displayTypeRaw || type;
+  job.vehicle = type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
+  job.place = place;
+  job.dest = dest;
+  job.placeLabel = getStoredPlaceLabel(place);
+  job.destLabel = getStoredPlaceLabel(dest);
+  job.comment = comment;
+  job.privateComment = getAllowedPrivateComment(type, privateCommentInput ? privateCommentInput.value : '');
+  job.plannedDate = plannedDate;
+  job.date = job.date || todayStr();
+  job.returnRequired = returnRequired;
+  job.returnRequiredAtStart = returnRequired;
+  job.routeRule = returnRequired ? 'returkrav_ja' : 'returkrav_nej';
+  job.routeEndPlace = returnRequired ? (place || '') : (dest || '');
+  clearQueueEditedEstimateFields(job);
+
+  sortQueueByPlannedDate();
+  saveState();
+  renderQueue();
+  closeEditQueueJob();
 }
 
 
@@ -11718,6 +11899,9 @@ fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
 fillSelect('newDest', getToPlaceValues(), true, '----');
 fillSelect('editType', sortedTruckTypes);
+fillSelect('editQueueType', sortedTruckTypes);
+fillSelect('editQueuePlace', getFromPlaceValues(), true, '----');
+fillSelect('editQueueDest', getToPlaceValues(), true, '----');
 fillSelect('newManagedPlaceFromJobType', sortedTruckTypes);
 fillSelect('newManagedPlaceToJobType', sortedTruckTypes);
 fillSelect('newQuickType', sortedTruckTypes);
@@ -11761,8 +11945,31 @@ if(editTypeEl){
   });
 }
 
+const editQueueTypeEl = document.getElementById('editQueueType');
+if(editQueueTypeEl){
+  editQueueTypeEl.addEventListener('change', function(){
+    updateEditQueuePlaceSelects(false);
+    updateEditQueuePrivateCommentVisibility();
+  });
+}
 
+const editQueuePlaceEl = document.getElementById('editQueuePlace');
+if(editQueuePlaceEl){
+  editQueuePlaceEl.addEventListener('change', function(){
+    applyLinkedJobType('editQueueType', this.value);
+    updateEditQueuePlaceSelects(true);
+    updateEditQueuePrivateCommentVisibility();
+  });
+}
 
+const editQueueDestEl = document.getElementById('editQueueDest');
+if(editQueueDestEl){
+  editQueueDestEl.addEventListener('change', function(){
+    applyLinkedJobType('editQueueType', this.value);
+    updateEditQueuePlaceSelects(true);
+    updateEditQueuePrivateCommentVisibility();
+  });
+}
 
 
 // TEMP RECEIPT IMPORT MODULE START
