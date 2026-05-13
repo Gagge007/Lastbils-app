@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-56
+- Nuvarande version: Stadslass v2026-05-07-01-57
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -17,6 +17,7 @@ Stadslass versionskontroll
 - v54: Tillfällig mätruta kontrollmäter Från -> Till och retur separat för jämförelse.
 - v55: Gemensam tidsprincip för köberäkning: GPS/kartanrop styr startsträcka, historik styr materialdel och GPS/karta används som avvikelsestöd; tillfällig mätruta är borttagen.
 - v56: Inställningar delas tydligare i Platser, Jobbtyper och Snabbval; platser kan ha platskrav och jobbtyper har transportinstruktioner/jobbkrav.
+- v57: Platser har egna Spara/Ta bort-knappar, Snabbval-fältens etiketter är tydligare visuellt och viktfältet stänger tangentbordet efter OK.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -961,6 +962,12 @@ button{
   border-color:#fca5a5;
 }
 
+
+.quick-manager label{
+  font-weight:800 !important;
+  color:var(--text) !important;
+}
+
 .quick-subheading{
   grid-column:1 / -1;
   margin:4px 0 -2px;
@@ -1428,7 +1435,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-56</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-57</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -1963,9 +1970,6 @@ button{
       </div>
 
       <div id="placeManagerList"></div>
-      <div class="row" style="margin-top:4px">
-        <button class="primary" onclick="saveManagedPlaces()">Spara platser</button>
-      </div>
     </div>
   </div>
 
@@ -2931,6 +2935,7 @@ function normalizeVehicleState(){
   if(!('placeUsage' in state)) state.placeUsage = {};
   if(!('placeAddresses' in state)) state.placeAddresses = {};
   if(!('placeRequirements' in state)) state.placeRequirements = {};
+  if(!Array.isArray(state.hiddenPlaces)) state.hiddenPlaces = [];
   state.placeRequirements = normalizeRequirementMap(state.placeRequirements);
   if(!('lastWorkPoint' in state)) state.lastWorkPoint = null;
   if(!Array.isArray(state.trash)) state.trash = [];
@@ -3012,6 +3017,7 @@ function loadState(){
       if(!('placeUsage' in parsed)) parsed.placeUsage = {};
       if(!('placeAddresses' in parsed)) parsed.placeAddresses = {};
       if(!('placeRequirements' in parsed)) parsed.placeRequirements = {};
+      if(!Array.isArray(parsed.hiddenPlaces)) parsed.hiddenPlaces = [];
       parsed.placeRequirements = normalizeRequirementMap(parsed.placeRequirements);
       if(!('lastWorkPoint' in parsed)) parsed.lastWorkPoint = null;
       if(!Array.isArray(parsed.trash)) parsed.trash = [];
@@ -3023,7 +3029,7 @@ function loadState(){
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeRequirements:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[], trash:[]};
+  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeRequirements:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[], trash:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -4177,12 +4183,17 @@ function getPlaceUsage(value){
   };
 }
 
+function getHiddenPlaceSet(){
+  return new Set(Array.isArray(state.hiddenPlaces) ? state.hiddenPlaces : []);
+}
+
 function getAllPlaceKeys(){
+  const hidden = getHiddenPlaceSet();
   return Array.from(new Set([
     ...(places || []),
     ...(dests || []),
     ...((state.customPlaces || []).map(p => p.key))
-  ]));
+  ])).filter(key => !hidden.has(key));
 }
 
 function sortPlaceValues(values, pinnedFirst, pinnedLast){
@@ -4207,8 +4218,13 @@ function getToPlaceValues(){
 }
 
 function getManageablePlaces(){
-  const builtIn = Array.from(new Set([...(places || []), ...(dests || [])])).map(key => ({ key, custom:false }));
-  const custom = (state.customPlaces || []).map(p => ({ key:p.key, custom:true }));
+  const hidden = getHiddenPlaceSet();
+  const builtIn = Array.from(new Set([...(places || []), ...(dests || [])]))
+    .filter(key => !hidden.has(key))
+    .map(key => ({ key, custom:false }));
+  const custom = (state.customPlaces || [])
+    .filter(p => p && !hidden.has(p.key))
+    .map(p => ({ key:p.key, custom:true }));
   return [...builtIn, ...custom];
 }
 
@@ -4458,7 +4474,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-56';
+const APP_VERSION = 'Stadslass v2026-05-07-01-57';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4523,6 +4539,8 @@ const APP_FEATURE_MANIFEST = [
   {name:'Funktionslista', status:'Skyddad men får byggas om', purpose:'Dokumenterar aktiva, skyddade, ersatta och borttagna funktioner.', changeRule:'Ska uppdateras vid varje version.'},
   {name:'Snabbval Slottskogen/Säldammen', status:'Aktiv', purpose:'Visar underrubriken Säldammen under Slottskogen och knappen Sopsand utan att ändra faktisk Från-plats.', changeRule:'Visningen får ändras, men Säldammen ska sparas tekniskt separat när snabbvalet används.'},
   {name:'Inställningar struktur v56', status:'Testfunktion', purpose:'Delar tydligare på Platser, Jobbtyper och Snabbval. Platser kan bära platskrav och jobbtyper bär transportinstruktioner/jobbkrav.', changeRule:'Får justeras efter praktisk test men ska inte blanda platskrav och jobbtypskrav utan beslut.'},
+  {name:'Inställningar platsknappar v57', status:'Testfunktion', purpose:'Varje platsrad har egen Spara/Ta bort. Standardplatser döljs vid borttagning, egna platser tas bort.', changeRule:'Får justeras efter praktisk test men ska inte påverka gamla jobb eller historik.'},
+  {name:'Viktfält tangentbord v57', status:'Aktiv', purpose:'Efter OK/Ange vikt töms viktfältet och tappar fokus så mobilt tangentbord stängs.', changeRule:'Får ändras visuellt men ska inte påverka viktregistrering, returkrav eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -4716,7 +4734,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-56') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-56'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-57') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-57'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4756,6 +4774,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Flerlassdata v32 finns', functionExists('isMultiLoadSensitiveJob') && functionExists('getFinishedMaterialFlowDurationSamples') && functionExists('getMultiLoadTurnEstimateForJob') && functionSourceIncludes('addLoadToCurrent', 'currentLoadStartedAt'), 'Sopsand von Utfallsgatan och stenflis kan spara Lastar -> Vikt samt Vikt -> nästa Lastar som separat flerlassdata.');
   addFunctionCheck(results, 'Nivå 2', 'Transportlägen v33 finns', functionExists('isMultiLoadLearningMode') && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Retur pågår'), 'Tre lägen: utan returkrav, med returkrav och flerlass utan returkrav.');
   addFunctionCheck(results, 'Nivå 2', 'Inställningar struktur v56 finns', functionExists('getPlaceRequirements') && functionExists('getCombinedRequirementsForJob') && !!document.getElementById('newManagedPlaceRequirements') && functionSourceIncludes('renderPlaceManager', 'Platskrav') && functionSourceIncludes('renderJobTypeManager', 'Transportinstruktioner'), 'Platser har platskrav och jobbtyper har transportinstruktioner/jobbkrav.');
+  addFunctionCheck(results, 'Nivå 2', 'Platsknappar v57 finns', functionExists('saveSingleManagedPlace') && functionExists('removeManagedPlace') && functionSourceIncludes('renderPlaceManager', 'saveSingleManagedPlace') && functionSourceIncludes('renderPlaceManager', 'Ta bort'), 'Varje platsrad har egna Spara/Ta bort-knappar.');
+  addFunctionCheck(results, 'Nivå 1', 'Viktfält stänger tangentbord v57 finns', functionSourceIncludes('addLoadToCurrent', 'input.blur'), 'Ange vikt/OK tar bort fokus från viktfältet efter godkänd vikt.');
   addFunctionCheck(results, 'Nivå 2', 'Jobbtyper flerlassval v43 finns', functionExists('getJobTypeMultiLoad') && functionExists('handleManagedJobTypeModeToggle') && functionSourceIncludes('renderJobTypeManager', 'Flerlass') && functionSourceIncludes('setJobTypeMeta', 'multiLoad'), 'Returkrav och Flerlass visas på samma rad och utesluter varandra.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v34 finns', functionExists('formatActiveReturnRequirementHtml') && functionExists('scrollToActiveJobTop') && functionSourceIncludes('startQueuedJob', 'scrollToActiveJobTop'), 'Aktivt arbete döljer tekniska rader och Start från kö scrollar upp.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v35 finns', functionExists('formatActiveOverviewHtml') && functionExists('formatActiveEstimateCardHtml') && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml') && functionSourceIncludes('getActiveEstimateCountdownHtml', 'Uppskattad tid kvar'), 'Från/Till/Returkrav/Mtrl kod visas strukturerat och uppskattad tid kvar visas större.');
@@ -4864,7 +4884,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-56') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-56'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-57') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-57'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -4890,6 +4910,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Flerlassdata v32', typeof isMultiLoadSensitiveJob === 'function' && typeof getMultiLoadTurnEstimateForJob === 'function' && typeof getFinishedMaterialFlowDurationSamples === 'function', 'Sopsand von Utfallsgatan och stenflis kan lära per lass/varv'),
     systemCheck('Transportlägen v33', typeof isMultiLoadLearningMode === 'function' && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav'), 'Utan returkrav, returkrav och flerlass utan returkrav skiljs åt'),
     systemCheck('Inställningar struktur v56', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements'), 'Platser, jobbtyper och snabbval hålls isär med platskrav och transportinstruktioner'),
+    systemCheck('Platsknappar v57', typeof saveSingleManagedPlace === 'function' && typeof removeManagedPlace === 'function', 'Varje platsrad kan sparas eller tas bort separat'),
+    systemCheck('Viktfält tangentbord v57', typeof addLoadToCurrent === 'function' && addLoadToCurrent.toString().includes('input.blur'), 'Tangentbordet stängs efter godkänd vikt'),
     systemCheck('Jobbtyper flerlassval v43', typeof getJobTypeMultiLoad === 'function' && functionSourceIncludes('renderJobTypeManager', 'Flerlass') && functionSourceIncludes('setJobTypeMeta', 'multiLoad'), 'Flerlass kan anges per jobbtyp utan att kombineras med returkrav'),
     systemCheck('Aktiv vy v34', typeof formatActiveReturnRequirementHtml === 'function' && typeof scrollToActiveJobTop === 'function', 'Aktiv vy döljer tekniska rader och köstart scrollar upp'),
     systemCheck('Aktiv vy v35', typeof formatActiveOverviewHtml === 'function' && typeof formatActiveEstimateCardHtml === 'function' && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml'), 'Strukturerad Från/Till/Returkrav/Mtrl kod och större uppskattad tid kvar'),
@@ -8157,7 +8179,10 @@ function addLoadToCurrent(){
     }
   }
 
-  if(input) input.value = '';
+  if(input){
+    input.value = '';
+    try{ input.blur(); }catch(e){}
+  }
   if(learningSupportMessage) setActiveLearningSupport(learningSupportMessage, 10000);
   const shouldRequestReturnMap = getJobReturnRequiredValue(state.active) && getTransportPhase(state.active) === 'returning';
   applyEstimatedCountdownAtStart(state.active);
@@ -8467,7 +8492,11 @@ function addLoadToLatest(){
   latest.loads = latest.loads || [];
   latest.loads.push(n);
   latest.totalWeight = latest.loads.reduce((a,b)=>a+b,0);
-  document.getElementById('weightInput').value = '';
+  const latestWeightInput = document.getElementById('weightInput');
+  if(latestWeightInput){
+    latestWeightInput.value = '';
+    try{ latestWeightInput.blur(); }catch(e){}
+  }
   saveState(); render();
 }
 
@@ -10763,9 +10792,86 @@ function addManagedPlace(){
   render();
 }
 
+
+function cssEscapeValue(value){
+  const raw = String(value || '');
+  if(window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(raw);
+  return raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function saveSingleManagedPlace(key){
+  if(!key) return;
+  if(!state.placeLabels || typeof state.placeLabels !== 'object' || Array.isArray(state.placeLabels)) state.placeLabels = {};
+  if(!state.placeAddresses || typeof state.placeAddresses !== 'object' || Array.isArray(state.placeAddresses)) state.placeAddresses = {};
+  if(!state.placeRequirements || typeof state.placeRequirements !== 'object' || Array.isArray(state.placeRequirements)) state.placeRequirements = {};
+  if(!state.placeConfigs || typeof state.placeConfigs !== 'object' || Array.isArray(state.placeConfigs)) state.placeConfigs = {};
+
+  const labelInput = document.querySelector('#placeManagerList input[data-place-key="' + cssEscapeValue(key) + '"]');
+  const addressInput = document.querySelector('#placeManagerList input[data-place-address-key="' + cssEscapeValue(key) + '"]');
+  const requirementsInput = document.querySelector('#placeManagerList textarea[data-place-requirements-key="' + cssEscapeValue(key) + '"]');
+  const fromSelect = document.querySelector('#placeManagerList select[data-place-from-job-key="' + cssEscapeValue(key) + '"]');
+  const toSelect = document.querySelector('#placeManagerList select[data-place-to-job-key="' + cssEscapeValue(key) + '"]');
+  const custom = getCustomPlaceByKey(key);
+
+  if(labelInput){
+    const value = labelInput.value.trim();
+    if(custom){
+      custom.label = value || custom.label;
+    } else if(value && value !== key){
+      state.placeLabels[key] = value;
+    } else {
+      delete state.placeLabels[key];
+    }
+  }
+
+  if(addressInput){
+    const address = addressInput.value.trim();
+    if(address){
+      state.placeAddresses[key] = address;
+    } else {
+      delete state.placeAddresses[key];
+    }
+  }
+
+  if(requirementsInput){
+    const requirements = normalizeRequirements(requirementsInput.value || '');
+    if(requirements.length){
+      state.placeRequirements[key] = requirements;
+    } else {
+      delete state.placeRequirements[key];
+    }
+  }
+
+  const fromJobTypes = getSelectedValues(fromSelect);
+  const toJobTypes = getSelectedValues(toSelect);
+  if(fromJobTypes.length || toJobTypes.length){
+    state.placeConfigs[key] = { fromJobTypes, toJobTypes };
+  } else {
+    delete state.placeConfigs[key];
+  }
+
+  saveState();
+  refreshPlaceSelects();
+  renderPlaceManager();
+  render();
+  alert('Plats sparad.');
+}
+
 function removeManagedPlace(key){
-  if(!confirm('Ta bort platsen?')) return;
-  state.customPlaces = (state.customPlaces || []).filter(p => p.key !== key);
+  const custom = getCustomPlaceByKey(key);
+  const label = getPlaceLabel(key) || key;
+  const message = custom
+    ? 'Ta bort platsen "' + label + '"?\n\nPlatsen tas bort från platsregistret. Gamla jobb och historik ändras inte automatiskt.'
+    : 'Ta bort standardplatsen "' + label + '" från platsregistret?\n\nPlatsen döljs i nya val. Gamla jobb och historik ändras inte automatiskt.';
+  if(!confirm(message)) return;
+
+  if(custom){
+    state.customPlaces = (state.customPlaces || []).filter(p => p.key !== key);
+  } else {
+    if(!Array.isArray(state.hiddenPlaces)) state.hiddenPlaces = [];
+    if(!state.hiddenPlaces.includes(key)) state.hiddenPlaces.push(key);
+  }
+
   if(state.placeConfigs && state.placeConfigs[key]){
     delete state.placeConfigs[key];
   }
@@ -10774,6 +10880,12 @@ function removeManagedPlace(key){
   }
   if(state.placeRequirements && state.placeRequirements[key]){
     delete state.placeRequirements[key];
+  }
+  if(state.placeLabels && state.placeLabels[key]){
+    delete state.placeLabels[key];
+  }
+  if(state.placeUsage && state.placeUsage[key]){
+    delete state.placeUsage[key];
   }
   saveState();
   refreshPlaceSelects();
@@ -10851,14 +10963,12 @@ function renderPlaceManager(){
     meta.appendChild(buildJobTypeSelect('Jobbtyper från', 'data-place-from-job-key', getPlaceJobTypesForDirection(entry.key, 'from'), 'Välj vilka jobbtyper som får hämtas/starta från platsen.'));
     meta.appendChild(buildJobTypeSelect('Jobbtyper till', 'data-place-to-job-key', getPlaceJobTypesForDirection(entry.key, 'to'), 'Välj vilka jobbtyper som får köras/lämnas till platsen.'));
 
-    if(entry.custom){
-      const actions = document.createElement('div');
-      actions.className = 'row';
-      actions.style.gap = '12px';
-      actions.style.alignItems = 'center';
-      actions.innerHTML = '<button class="danger inline" onclick="removeManagedPlace(\''+entry.key+'\')">Ta bort</button>';
-      meta.appendChild(actions);
-    }
+    const actions = document.createElement('div');
+    actions.className = 'row';
+    actions.style.gap = '12px';
+    actions.style.alignItems = 'center';
+    actions.innerHTML = '<button class="primary inline" onclick="saveSingleManagedPlace(\''+escapeJsSingle(entry.key)+'\')">Spara</button><button class="danger inline" onclick="removeManagedPlace(\''+escapeJsSingle(entry.key)+'\')">Ta bort</button>';
+    meta.appendChild(actions);
 
     row.appendChild(label);
     row.appendChild(input);
