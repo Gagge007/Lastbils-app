@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-57
+- Nuvarande version: Stadslass v2026-05-07-01-58
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -18,6 +18,7 @@ Stadslass versionskontroll
 - v55: Gemensam tidsprincip för köberäkning: GPS/kartanrop styr startsträcka, historik styr materialdel och GPS/karta används som avvikelsestöd; tillfällig mätruta är borttagen.
 - v56: Inställningar delas tydligare i Platser, Jobbtyper och Snabbval; platser kan ha platskrav och jobbtyper har transportinstruktioner/jobbkrav.
 - v57: Platser har egna Spara/Ta bort-knappar, Snabbval-fältens etiketter är tydligare visuellt och viktfältet stänger tangentbordet efter OK.
+- v58: Avslutade uppdrag kan överföras med kod mellan mobil och surfplatta; import lägger in uppdraget i historiken och passar in tiden mot Övrig verksamhet.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -30,6 +31,7 @@ Stadslass versionskontroll
   - Platser: fysiska platser med adress/Plus Code, jobbtypkoppling och platskrav
   - Jobbtyper: materialkod, returkrav/flerlass och transportinstruktioner/jobbkrav
   - Snabbval: färdiga uppdrag byggda av jobbtyp + Från-plats + Till-plats
+  - Överför avslutat uppdrag: enskilda avslutade uppdrag kan exporteras/importeras med kod och får bryta in i Övrig verksamhet vid tidsöverlapp
   - Snabbval Slottskogen: visar Komprimator, underrubrik Säldammen och knappen Sopsand, men sparar Sopsand från Säldammen tekniskt separat
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
   - Startpunkt: visas i Aktivt jobb och Idag
@@ -1435,7 +1437,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-57</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-58</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -1858,6 +1860,17 @@ button{
         <input id="finishedImportFile" type="file" accept=".json,application/json">
         <div class="row">
           <button class="primary inline" onclick="importFinishedJobsFile()">Importera avslutade jobb</button>
+        </div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Importera överföringskod</div>
+        <div class="multi-help">Klistra in koden från ett enskilt avslutat uppdrag på mobilen. Uppdraget läggs som avslutat jobb och kan bryta in i Övrig verksamhet om tiderna överlappar.</div>
+        <textarea id="singleFinishedTransferCode" placeholder="Klistra in överföringskod här" style="min-height:110px"></textarea>
+        <div id="singleFinishedTransferInfo" class="multi-help"></div>
+        <div class="row">
+          <button class="primary inline" onclick="importSingleFinishedJobTransferCode()">Importera överföringskod</button>
+          <button class="inline" onclick="clearSingleFinishedTransferCode()">Rensa kod</button>
         </div>
       </div>
     </div>
@@ -4474,7 +4487,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-57';
+const APP_VERSION = 'Stadslass v2026-05-07-01-58';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4734,7 +4747,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-57') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-57'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-58') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-58'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4769,6 +4782,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport filimport finns', !!document.getElementById('receiptImportManagerWrap') && !!document.getElementById('receiptImportFileInput') && functionExists('handleReceiptImportFile') && functionExists('normalizeImportedReceiptRow') && functionSourceIncludes('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'Inställningar → Tillfälliga funktioner → Kvittoimport');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkrat underlag', functionSourceIncludes('renderHistoryManager', 'getFinishedJobsForUnderlag') && functionSourceIncludes('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkrat underlag', functionSourceIncludes('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
+  addFunctionCheck(results, 'Nivå 2', 'Överför enskilt uppdrag v58 finns', functionExists('createSingleFinishedJobTransferCode') && functionExists('importSingleFinishedJobTransferCode') && functionExists('insertImportedFinishedJobsWithTimeline') && functionSourceIncludes('fitImportedJobIntoActiveOtherWork', 'Övrig verksamhet'), 'Överföringskod + import med tidsinpassning mot Övrig verksamhet.');
   addFunctionCheck(results, 'Nivå 2', 'GPS-underlag använder papperskorgssäkrat underlag', functionExists('getSavedRouteGpsRecordsForUnderlag') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'getSavedRouteGpsRecordsForUnderlag');
   addFunctionCheck(results, 'Nivå 2', 'Missad fasdata undantas från uppskattad tid och GPS-inlärning', functionExists('markJobExcludedFromEstimateLearning') && functionSourceIncludes('prepareJobForCompletionWithPhaseGuard', 'Missad Lastar') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'excludeFromGpsLearning') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isExcludedFromTimeEstimate'), 'Jobbet sparas i historik men saknad Lastar/osäker tid/GPS används inte som lärdata.');
   addFunctionCheck(results, 'Nivå 2', 'Flerlassdata v32 finns', functionExists('isMultiLoadSensitiveJob') && functionExists('getFinishedMaterialFlowDurationSamples') && functionExists('getMultiLoadTurnEstimateForJob') && functionSourceIncludes('addLoadToCurrent', 'currentLoadStartedAt'), 'Sopsand von Utfallsgatan och stenflis kan spara Lastar -> Vikt samt Vikt -> nästa Lastar som separat flerlassdata.');
@@ -4884,7 +4898,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-57') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-57'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-58') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-58'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -5136,6 +5150,7 @@ function renderHistoryManager(){
       getLearningExclusionHtml(job)+
       (allowsPrivateCommentForType(job.type) && job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment)+'</div>' : '')+
       '<div class="row" style="margin-top:8px">'+
+        '<button class="primary inline" onclick="createSingleFinishedJobTransferCode(\''+escapeJsSingle(job.id)+'\')">Överför</button>'+
         '<button onclick="openEditJob(\''+escapeJsSingle(job.id)+'\')">Redigera</button>'+ 
         '<button class="danger" onclick="deleteFinishedJob(\''+escapeJsSingle(job.id)+'\')">Ta bort</button>'+ 
       '</div>'+ 
@@ -7066,6 +7081,225 @@ async function shareFinishedJobsFile(){
   }
 }
 
+function getFinishedJobById(jobId){
+  const idText = String(jobId || '');
+  return getFinishedJobsForUnderlag().find(job => String(job.id || '') === idText) || null;
+}
+
+function buildSingleFinishedJobTransferPayload(job){
+  return {
+    app:'Stadslass',
+    transferType:'single_finished_job',
+    transferVersion:1,
+    exportedAt:new Date().toISOString(),
+    job:sanitizeFinishedJobForTransfer(job)
+  };
+}
+
+function encodeSingleFinishedTransferPayload(payload){
+  const json = JSON.stringify(payload || {});
+  try{
+    return 'STADSLASS_JOB_V1:' + btoa(unescape(encodeURIComponent(json)));
+  }catch(e){
+    return json;
+  }
+}
+
+function decodeSingleFinishedTransferText(text){
+  const raw = String(text || '').trim();
+  if(!raw) throw new Error('Klistra in en överföringskod först.');
+  let jsonText = raw;
+  if(raw.indexOf('STADSLASS_JOB_V1:') === 0){
+    const encoded = raw.slice('STADSLASS_JOB_V1:'.length).trim();
+    jsonText = decodeURIComponent(escape(atob(encoded)));
+  }
+  const parsed = JSON.parse(jsonText);
+  if(parsed && parsed.transferType === 'single_finished_job' && parsed.job) return parsed.job;
+  const jobs = getFinishedJobsFromTransferPayload(parsed);
+  if(jobs.length === 1) return jobs[0];
+  if(parsed && parsed.type && parsed.start && parsed.end) return parsed;
+  throw new Error('Koden innehåller inget enskilt avslutat uppdrag.');
+}
+
+async function createSingleFinishedJobTransferCode(jobId){
+  const job = getFinishedJobById(jobId);
+  if(!job){
+    alert('Hittar inte det avslutade uppdraget.');
+    return;
+  }
+  const code = encodeSingleFinishedTransferPayload(buildSingleFinishedJobTransferPayload(job));
+  const infoText = 'Överföringskod skapad för ' + (job.displayType || job.type || 'uppdrag') + ' ' + clockTime(job.start) + '-' + clockTime(job.end) + '.';
+  let shared = false;
+  try{
+    if(navigator.share){
+      await navigator.share({title:'Stadslass överför uppdrag', text:code});
+      shared = true;
+    }
+  }catch(e){
+    shared = false;
+  }
+  if(!shared){
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(code);
+        alert(infoText + '\n\nKoden är kopierad. Klistra in den i paddan under Inställningar → Överför avslutade jobb.');
+        return;
+      }
+    }catch(e){}
+    window.prompt(infoText + '\n\nKopiera denna kod och klistra in den i paddan:', code);
+  }
+}
+
+function clearSingleFinishedTransferCode(){
+  const el = document.getElementById('singleFinishedTransferCode');
+  const info = document.getElementById('singleFinishedTransferInfo');
+  if(el) el.value = '';
+  if(info) info.textContent = '';
+}
+
+function getFinishedJobTimeConflicts(job){
+  if(!job || !job.start || !job.end) return [];
+  const start = Number(job.start || 0);
+  const end = Number(job.end || 0);
+  return (state.jobs || []).filter(existing => {
+    if(!existing || isOtherWorkJob(existing)) return false;
+    if(String(existing.id || '') === String(job.id || '')) return false;
+    const a = Number(existing.start || 0);
+    const b = Number(existing.end || 0);
+    return a < end && b > start;
+  });
+}
+
+function cloneOtherWorkSegment(base, start, end, note){
+  if(!base || !(end > start)) return null;
+  const segment = JSON.parse(JSON.stringify(base));
+  segment.id = id();
+  segment.start = start;
+  segment.end = end;
+  segment.date = getLocalDateKey(new Date(start));
+  segment.plannedDate = segment.date;
+  segment.loads = [];
+  segment.totalWeight = 0;
+  segment.distanceKm = 0;
+  segment.motionDrivingMs = 0;
+  segment.motionStillMs = Math.max(0, end - start);
+  segment.importSplitFromOtherWork = true;
+  segment.importSplitNote = note || 'Delad av importerat uppdrag';
+  delete segment.pausedElapsedMs;
+  delete segment.status;
+  return segment;
+}
+
+function splitFinishedOtherWorkAroundImportedJob(importedJob){
+  if(!importedJob || isOtherWorkJob(importedJob)) return 0;
+  const start = Number(importedJob.start || 0);
+  const end = Number(importedJob.end || 0);
+  if(!(end > start)) return 0;
+  let changed = 0;
+  const rebuilt = [];
+  (state.jobs || []).forEach(existing => {
+    if(!isOtherWorkJob(existing)){
+      rebuilt.push(existing);
+      return;
+    }
+    const a = Number(existing.start || 0);
+    const b = Number(existing.end || 0);
+    if(!(a < end && b > start)){
+      rebuilt.push(existing);
+      return;
+    }
+    const before = cloneOtherWorkSegment(existing, a, Math.min(start, b), 'Övrig verksamhet före importerat uppdrag');
+    const after = cloneOtherWorkSegment(existing, Math.max(end, a), b, 'Övrig verksamhet efter importerat uppdrag');
+    if(before) rebuilt.push(before);
+    if(after) rebuilt.push(after);
+    changed++;
+  });
+  if(changed) state.jobs = rebuilt;
+  return changed;
+}
+
+function fitImportedJobIntoActiveOtherWork(importedJob){
+  if(!state.active || !isOtherWorkJob(state.active) || !importedJob || isOtherWorkJob(importedJob)) return 0;
+  const start = Number(importedJob.start || 0);
+  const end = Number(importedJob.end || 0);
+  const activeStart = Number(state.active.start || 0);
+  const now = Date.now();
+  if(!(end > start) || !(activeStart < end && now > start)) return 0;
+
+  const before = cloneOtherWorkSegment(state.active, activeStart, Math.min(start, now), 'Övrig verksamhet före importerat uppdrag');
+  if(before) state.jobs.unshift(before);
+
+  if(end < now){
+    state.active.start = end;
+    state.active.date = getLocalDateKey(new Date(end));
+    state.active.motionStartedAt = end;
+    state.active.motionLastTs = Date.now();
+    state.active.motionLastMode = 'still';
+    state.active.motionDrivingMs = 0;
+    state.active.motionStillMs = Math.max(0, Date.now() - end);
+    refreshEstimatedCountdownAfterResume(state.active);
+  }else{
+    state.active.start = Date.now();
+    state.active.motionStartedAt = Date.now();
+    state.active.motionLastTs = Date.now();
+    state.active.motionDrivingMs = 0;
+    state.active.motionStillMs = 0;
+  }
+  return before ? 1 : 0;
+}
+
+function insertImportedFinishedJobsWithTimeline(toImport){
+  let splitCount = 0;
+  (toImport || []).forEach(job => {
+    splitCount += splitFinishedOtherWorkAroundImportedJob(job);
+    splitCount += fitImportedJobIntoActiveOtherWork(job);
+    job.importedFromTransfer = true;
+    job.importedAt = Date.now();
+    delete job.transferKey;
+    state.jobs.push(job);
+  });
+  state.jobs.sort((a,b) => (b.start || 0) - (a.start || 0));
+  return {splitCount};
+}
+
+function importSingleFinishedJobTransferCode(){
+  const el = document.getElementById('singleFinishedTransferCode');
+  const info = document.getElementById('singleFinishedTransferInfo');
+  try{
+    const rawJob = decodeSingleFinishedTransferText(el ? el.value : '');
+    const job = normalizeImportedFinishedJob(rawJob);
+    if(!job) throw new Error('Koden innehåller inget giltigt avslutat uppdrag.');
+
+    const key = job.transferKey || getFinishedJobTransferKey(job);
+    const exists = (state.jobs || []).some(existing => getFinishedJobTransferKey(existing) === key || String(existing.sourceJobId || existing.id || '') === String(job.sourceJobId || job.id || ''));
+    if(exists){
+      alert('Detta uppdrag verkar redan finnas i appen. Inget importerades.');
+      return;
+    }
+    if((state.jobs || []).some(existing => String(existing.id || '') === String(job.id || ''))) job.id = id();
+
+    const conflicts = getFinishedJobTimeConflicts(job);
+    let message = 'Importera avslutat uppdrag?\n\n' +
+      (job.displayType || job.type) + '\n' +
+      formatShortDate(job.date || getLocalDateKey(new Date(job.start))) + ' ' + clockTime(job.start) + '-' + clockTime(job.end) + '\n\n' +
+      'Om Övrig verksamhet överlappar tiden delas den så att tiden inte dubbelräknas.';
+    if(conflicts.length){
+      message += '\n\nVarning: tiden överlappar ' + conflicts.length + ' annat avslutat uppdrag. Kontrollera innan du importerar.';
+    }
+    if(!confirm(message)) return;
+
+    const result = insertImportedFinishedJobsWithTimeline([job]);
+    saveState();
+    render();
+    updateFinishedTransferInfo();
+    if(el) el.value = '';
+    if(info) info.textContent = 'Importerat: ' + (job.displayType || job.type) + ' ' + clockTime(job.start) + '-' + clockTime(job.end) + '.';
+    alert('Uppdraget importerades.' + (result.splitCount ? ' Övrig verksamhet justerades.' : ''));
+  }catch(e){
+    alert(e && e.message ? e.message : 'Kunde inte läsa överföringskoden.');
+  }
+}
+
 function getFinishedJobsFromTransferPayload(parsed){
   if(!parsed) return [];
   if(Array.isArray(parsed)) return parsed;
@@ -7165,13 +7399,17 @@ function importFinishedJobsFile(){
         '\n\nBefintliga jobb skrivs inte över.';
       if(!confirm(message)) return;
 
-      state.jobs.push(...toImport);
-      state.jobs.sort((a,b) => (b.start || 0) - (a.start || 0));
+      const conflicts = toImport.reduce((sum, job) => sum + getFinishedJobTimeConflicts(job).length, 0);
+      if(conflicts){
+        const ok = confirm('Varning: importerade jobb överlappar ' + conflicts + ' befintliga vanliga uppdrag. Fortsätt ändå?');
+        if(!ok) return;
+      }
+      const timelineResult = insertImportedFinishedJobsWithTimeline(toImport);
       saveState();
       render();
       updateFinishedTransferInfo();
       input.value = '';
-      alert(toImport.length + ' avslutade jobb importerades.' + (skippedDuplicates ? ' ' + skippedDuplicates + ' dubbletter hoppades över.' : ''));
+      alert(toImport.length + ' avslutade jobb importerades.' + (skippedDuplicates ? ' ' + skippedDuplicates + ' dubbletter hoppades över.' : '') + (timelineResult.splitCount ? ' Övrig verksamhet justerades.' : ''));
     }catch(e){
       alert('Kunde inte läsa historikfilen.');
     }
@@ -9949,6 +10187,7 @@ function renderToday(){
       '<div class="row" style="margin-top:8px">'+
         '<button class="restart-yellow" onclick="restartFinishedJob(\''+x.id+'\')">Återstarta</button>'+ 
         (['active','saved'].includes(getRouteGpsStatus(x)) ? '<button class="inline" onclick="discardFinishedRouteGpsData(\''+x.id+'\')">Spara ej GPS-data</button>' : '')+
+        '<button class="primary inline" onclick="createSingleFinishedJobTransferCode(\''+x.id+'\')">Överför</button>'+
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
       '</div>'+
