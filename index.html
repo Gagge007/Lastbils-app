@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-67
+- Nuvarande version: Stadslass v2026-05-07-01-68
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -13,6 +13,7 @@ Stadslass versionskontroll
 - v62: Köberäkning gör smart delberäkning för uppdrag med Annan plats/destination: nyttiga GPS-delar beräknas utan kartanrop på oklara materialdelar.
 - v65: Aktiv bottenbakgrund följer fasknappens visuella lägen med samma färgstyrka: Lastning/rangering blå, Transport pågår orange och Lossning grön.
 - v66: Uppdrag i kö kan redigeras i separat kömodal utan att påverka aktivt jobb, historik, GPS, fasdata, vikt eller tidsinlärning.
+- v68: Pausade uppdrag får arbetspass per datum så sammanställningen kan visa delad tid med kommentaren "Uppdraget delat" utan att paus över natt räknas som arbetstid.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -49,6 +50,7 @@ Stadslass versionskontroll
   - Aktiv bottenbakgrund v65: följer endast fasknappens visuella lägen Lastning/rangering, Transport pågår och Lossning med samma färgstyrka som knappen; korten ligger kvar vita
   - Köredigering v66: uppdrag i kö kan redigeras utan att påverka aktivt jobb, avslutade jobb, GPS, vikt, fasdata eller tidsinlärning
   - Testuppdatering v67: funktionskontroll och systemkontroll är uppdaterade mot dagens appstruktur så gamla namn/textspår inte ger falska fel
+  - Dygnsfördelad uppdragstid v68: pausade/delade uppdrag delas i sammanställningen per utförd dag och får kommentaren "Uppdraget delat"
   - Fasdata tid: aktivt jobb har knappen Lastar som startar ett lass/materialdel; sparad vikt avslutar lasset och kan ge flerlassdata
   - Startsträcka i aktiv tid: aktivt jobb bakar in kartberäknad startsträcka i uppskattad tid och räknar bort den när Lastar trycks
   - Aktivt jobb knappfärger: Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa fortsatt gul och Klart oförändrad röd
@@ -1478,7 +1480,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-67</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-68</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -4814,7 +4816,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-67';
+const APP_VERSION = 'Stadslass v2026-05-07-01-68';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4889,6 +4891,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Returkrav från Jobbtyper v61', status:'Aktiv', purpose:'Returkrav styrs från Inställningar → Jobbtyper. Snabbval ska inte överstyra returkrav och maskintransport-varianter ärver jobbtypen Maskintransport.', changeRule:'Får ändras bara om ny tydlig prioritet dokumenteras.'},
   {name:'Uppskattad tid direkt vid start v61', status:'Aktiv', purpose:'Aktivt jobb visar uppskattad tid direkt vid start, som nedräkning när underlag finns eller som hämtar/saknas-läge tills karttid/historik finns.', changeRule:'Får ändras visuellt men rutan ska inte försvinna tyst när uppdraget startas.'},
   {name:'Smart delberäkning kö v62', status:'Aktiv', purpose:'Köberäkning med Annan plats/destination gör bara kartanrop på meningsfulla fysiska delsträckor, exempelvis GPS→Ringön, och hoppar över oklara materialdelar.', changeRule:'Annan plats/destination får aldrig användas som kartpunkt. Aktuell GPS får användas som startpunkt för delberäkning.'},
+  {name:'Dygnsfördelad uppdragstid v68', status:'Aktiv', purpose:'Pausade och återupptagna uppdrag sparar arbetspass så sammanställningen kan dela tid per utförd dag och märka rader med Uppdraget delat.', changeRule:'Får inte räkna pausad natt/väntetid som arbetstid och får inte ändra GPS, vikt, Lasta, Klart, fasdata eller tidsinlärning utan separat beslut.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -5070,7 +5073,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
-  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67'), 'featureManifestList + v67-post');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68'), 'featureManifestList + v67/v68-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!el('mapKeyManagerWrap') && !!el('mapApiKeyInput') && fn('getLocalMapApiKey') && fn('setLocalMapApiKey') && fn('deleteLocalMapApiKey'), 'kartnyckel sparas separat per enhet');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!el('mapGuardStatus') && fn('getMapGuardStatus') && fn('canMakeMapRequest') && fn('registerMapRequest') && fn('getCachedMapRoute') && fn('setCachedMapRoute'), 'lokala gränser + cache');
@@ -5083,7 +5086,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning är dold i aktiv vy', !!el('activeRouteGps') && el('activeRouteGps').classList.contains('hidden') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', "classList.add('hidden')"), 'gammal GPS-ruta bevaras tekniskt men visas inte');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-67') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-68') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -5124,6 +5127,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet paus/återstart finns', src('startJob', 'pausedOtherWork') && fn('resumePausedOtherWorkIfPossible'), 'startJob + resumePausedOtherWorkIfPossible');
   addFunctionCheck(results, 'Nivå 2', 'Överför enskilt avslutat uppdrag finns', fn('createSingleFinishedJobTransferCode') && fn('importSingleFinishedJobTransferCode') && fn('insertImportedFinishedJobsWithTimeline') && fn('fitImportedJobIntoActiveOtherWork'), 'överföringskod + tidsinpassning mot Övrig verksamhet');
   addFunctionCheck(results, 'Nivå 2', 'Köredigering påverkar bara kön', fn('openEditQueueJob') && fn('saveEditedQueueJob') && fn('clearQueueEditedEstimateFields') && src('saveEditedQueueJob', 'state.queue') && src('saveEditedQueueJob', 'clearQueueEditedEstimateFields') && src('saveEditedQueueJob', 'sortQueueByPlannedDate') && !src('saveEditedQueueJob', 'state.jobs.push') && !src('saveEditedQueueJob', 'state.active ='), 'redigerar köpost, rensar gamla uppskattningar och sorterar om kön');
+  addFunctionCheck(results, 'Nivå 2', 'Dygnsfördelad uppdragstid v68 finns', fn('ensureJobWorkSessions') && fn('closeOpenWorkSession') && fn('appendOpenWorkSession') && fn('buildSummaryRowsForJob') && src('pauseActiveJob', 'closeOpenWorkSession') && src('resumePausedJob', 'appendOpenWorkSession') && src('stopJob', 'closeOpenWorkSession') && src('getFilteredSummaryJobs', 'buildSummaryRowsFromJobs') && src('getSummaryRowComment', 'Uppdraget delat'), 'arbetspass sparas och sammanställningen kan dela tid per datum');
 
   const memoryTest = runMemoryOnlyTestJobCheck();
   addFunctionCheck(results, 'Nivå 3', 'Testuppdrag i minnet utan att spara', memoryTest.ok, memoryTest.detail);
@@ -5227,7 +5231,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-67') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-67'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-68') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-68'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -5247,9 +5251,10 @@ function buildSystemControlInternalChecks(){
     systemCheck('Flerlass och returkrav', typeof isMultiLoadLearningMode === 'function' && typeof getJobReturnRequiredValue === 'function' && typeof updateTransportPhaseDurations === 'function', 'utan returkrav, returkrav och flerlass utan returkrav'),
     systemCheck('Papperskorgssäkrat underlag', typeof getFinishedJobsForUnderlag === 'function' && typeof getSavedRouteGpsRecordsForUnderlag === 'function' && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag'), 'historik/papperskorg hålls isär för statistik och inlärning'),
     systemCheck('Sammanställning/export', typeof getFilteredSummaryJobs === 'function' && typeof exportSummaryExcel === 'function' && typeof buildFinishedTransferPayload === 'function', 'sammanställning och export finns'),
+    systemCheck('Dygnsfördelad uppdragstid v68', typeof ensureJobWorkSessions === 'function' && typeof closeOpenWorkSession === 'function' && typeof buildSummaryRowsForJob === 'function' && functionSourceIncludes('getFilteredSummaryJobs', 'buildSummaryRowsFromJobs'), 'delade uppdrag kan räknas per utförd dag'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67/v68', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -8222,15 +8227,210 @@ function isOtherWorkJob(job){
   return !!job && job.type === 'Övrig verksamhet';
 }
 
+function normalizeWorkSessionTimestamp(value){
+  const n = Number(value || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function createWorkSession(startedAt, endedAt){
+  const start = normalizeWorkSessionTimestamp(startedAt);
+  const end = endedAt === null || endedAt === undefined ? null : normalizeWorkSessionTimestamp(endedAt);
+  return {startedAt:start, endedAt:end && end >= start ? end : null};
+}
+
+function getValidWorkSessions(job, endAt){
+  if(!job) return [];
+  const fallbackEnd = normalizeWorkSessionTimestamp(endAt || job.end || Date.now());
+  if(Array.isArray(job.workSessions) && job.workSessions.length){
+    return job.workSessions.map(session => {
+      const startedAt = normalizeWorkSessionTimestamp(session && (session.startedAt || session.start || session.from));
+      let endedAt = session && (session.endedAt || session.end || session.to);
+      endedAt = endedAt === null || endedAt === undefined ? null : normalizeWorkSessionTimestamp(endedAt);
+      if(!startedAt) return null;
+      if(endedAt && endedAt < startedAt) return null;
+      return {startedAt, endedAt: endedAt || null};
+    }).filter(Boolean);
+  }
+
+  const start = normalizeWorkSessionTimestamp(job.start || job.startedAt);
+  if(!start) return [];
+
+  if(job.status === 'pausad'){
+    const elapsed = Number(job.pausedElapsedMs || 0);
+    if(Number.isFinite(elapsed) && elapsed > 0){
+      return [{startedAt:start, endedAt:start + elapsed}];
+    }
+  }
+
+  const end = normalizeWorkSessionTimestamp(job.end || job.completedAt || fallbackEnd);
+  return [{startedAt:start, endedAt:end && end >= start ? end : null}];
+}
+
+function ensureJobWorkSessions(job, endAt){
+  if(!job) return [];
+  const sessions = getValidWorkSessions(job, endAt);
+  job.workSessions = sessions.map(session => ({startedAt:session.startedAt, endedAt:session.endedAt}));
+  return job.workSessions;
+}
+
+function closeOpenWorkSession(job, endedAt){
+  if(!job) return job;
+  const end = normalizeWorkSessionTimestamp(endedAt || Date.now()) || Date.now();
+  const sessions = ensureJobWorkSessions(job, end);
+  let open = sessions.slice().reverse().find(session => !session.endedAt);
+  if(!open){
+    const start = normalizeWorkSessionTimestamp(job.start || end);
+    open = createWorkSession(start || end, null);
+    sessions.push(open);
+  }
+  if(end >= open.startedAt){
+    open.endedAt = end;
+  }
+  job.workSessions = sessions;
+  return job;
+}
+
+function appendOpenWorkSession(job, startedAt){
+  if(!job) return job;
+  const start = normalizeWorkSessionTimestamp(startedAt || Date.now()) || Date.now();
+  const sessions = ensureJobWorkSessions(job, start);
+  const last = sessions[sessions.length - 1];
+  if(last && !last.endedAt){
+    last.endedAt = start;
+  }
+  sessions.push({startedAt:start, endedAt:null});
+  job.workSessions = sessions;
+  return job;
+}
+
+function getTotalWorkSessionMs(job, endAt){
+  const end = normalizeWorkSessionTimestamp(endAt || Date.now()) || Date.now();
+  return getValidWorkSessions(job, end).reduce((sum, session) => {
+    const sessionEnd = session.endedAt || end;
+    const ms = Math.max(0, sessionEnd - session.startedAt);
+    return sum + ms;
+  }, 0);
+}
+
+function splitTimeRangeByLocalDate(startTs, endTs){
+  const start = normalizeWorkSessionTimestamp(startTs);
+  const end = normalizeWorkSessionTimestamp(endTs);
+  if(!start || !end || end <= start) return [];
+
+  const parts = [];
+  let cursor = start;
+  while(cursor < end){
+    const cursorDate = new Date(cursor);
+    const dateKey = getLocalDateKey(cursorDate);
+    const nextMidnight = new Date(cursorDate);
+    nextMidnight.setHours(24,0,0,0);
+    const partEnd = Math.min(end, nextMidnight.getTime());
+    if(partEnd > cursor){
+      parts.push({date:dateKey, timeMs:partEnd - cursor});
+    }
+    cursor = partEnd;
+  }
+  return parts;
+}
+
+function getJobTimePartsByDate(job){
+  if(!job) return [];
+  const endAt = normalizeWorkSessionTimestamp(job.end || Date.now()) || Date.now();
+  const byDate = {};
+  getValidWorkSessions(job, endAt).forEach(session => {
+    const sessionEnd = session.endedAt || endAt;
+    splitTimeRangeByLocalDate(session.startedAt, sessionEnd).forEach(part => {
+      byDate[part.date] = (byDate[part.date] || 0) + part.timeMs;
+    });
+  });
+  return Object.keys(byDate).sort().map(date => ({date, timeMs:byDate[date]}));
+}
+
+function getSummaryRowTimeMs(job){
+  const override = Number(job && job.summaryTimeMs);
+  if(Number.isFinite(override) && override >= 0) return override;
+  return Math.max(0, ((job && (job.end || Date.now())) - (job && job.start || Date.now())) || 0);
+}
+
+function getSummaryRowLoadCount(job){
+  if(job && job.summaryMetricCarrier === false) return 0;
+  return (job && Array.isArray(job.loads)) ? job.loads.length : 0;
+}
+
+function getSummaryRowWeight(job){
+  if(job && job.summaryMetricCarrier === false) return 0;
+  return Number(job && job.totalWeight || 0);
+}
+
+function getSummaryRowDistance(job){
+  if(job && job.summaryMetricCarrier === false) return 0;
+  return Number(job && job.distanceKm || 0);
+}
+
+function getSummaryRowComment(job){
+  const base = String(job && job.comment || '').trim();
+  const split = job && job.summaryIsSplitPart ? 'Uppdraget delat' : '';
+  if(base && split) return base + ' | ' + split;
+  return base || split;
+}
+
+function buildSummaryRowsForJob(job){
+  if(!job) return [];
+  const parts = getJobTimePartsByDate(job).filter(part => part.timeMs > 0);
+  if(parts.length <= 1){
+    const row = {...job};
+    row.summaryOriginalId = job.id || '';
+    row.summaryTimeMs = parts.length ? parts[0].timeMs : getSummaryRowTimeMs(job);
+    row.summaryMetricCarrier = true;
+    row.summaryIsSplitPart = false;
+    return [row];
+  }
+
+  const completionDate = getLocalDateKey(new Date(normalizeWorkSessionTimestamp(job.end || Date.now()) || Date.now()));
+  const carrierDate = parts.some(part => part.date === completionDate) ? completionDate : parts[parts.length - 1].date;
+  return parts.map((part, index) => {
+    const metricCarrier = part.date === carrierDate;
+    const row = {...job};
+    row.id = String(job.id || 'job') + '_split_' + part.date;
+    row.summaryOriginalId = job.id || row.id;
+    row.summaryIsSplitPart = true;
+    row.summarySplitIndex = index + 1;
+    row.summarySplitCount = parts.length;
+    row.summarySplitDate = part.date;
+    row.summaryTimeMs = part.timeMs;
+    row.summaryMetricCarrier = metricCarrier;
+    row.date = part.date;
+    if(!metricCarrier){
+      row.loads = [];
+      row.totalWeight = 0;
+      row.distanceKm = 0;
+    }
+    return row;
+  });
+}
+
+function buildSummaryRowsFromJobs(jobs){
+  return (jobs || []).flatMap(job => buildSummaryRowsForJob(job));
+}
+
+function countUniqueSummaryJobs(rows){
+  const ids = new Set();
+  (rows || []).forEach(row => ids.add(String((row && row.summaryOriginalId) || (row && row.id) || '')));
+  ids.delete('');
+  return ids.size;
+}
+
 function resumePausedOtherWorkIfPossible(){
   if(state.active || !state.pausedOtherWork) return false;
 
   const resumed = {...state.pausedOtherWork};
-  const pausedElapsedMs = resumed.pausedElapsedMs || 0;
+  ensureJobWorkSessions(resumed, Date.now());
+  const pausedElapsedMs = getTotalWorkSessionMs(resumed, Date.now()) || resumed.pausedElapsedMs || 0;
   delete resumed.pausedElapsedMs;
   delete resumed.status;
   delete resumed._queueIndex;
   resumed.start = Date.now() - pausedElapsedMs;
+  appendOpenWorkSession(resumed, Date.now());
   resumed.motionLastTs = Date.now();
   resumed.motionLastMode = 'still';
   refreshEstimatedCountdownAfterResume(resumed);
@@ -8248,8 +8448,9 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     const nextIsOtherWork = type === 'Övrig verksamhet';
 
     if(activeIsOtherWork && !nextIsOtherWork){
+      closeOpenWorkSession(state.active, Date.now());
       const paused = {...state.active};
-      paused.pausedElapsedMs = Date.now() - (state.active.start || Date.now());
+      paused.pausedElapsedMs = getTotalWorkSessionMs(paused, Date.now());
       state.pausedOtherWork = paused;
       state.active = null;
       stopDistanceTracking();
@@ -8294,7 +8495,8 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     motionStillMs:0,
     motionStartedAt:Date.now(),
     motionLastTs:Date.now(),
-    motionLastMode:'still'
+    motionLastMode:'still',
+    workSessions:[{startedAt:Date.now(), endedAt:null}]
   };
   state.active.canBeMultiLoad = isMultiLoadSensitiveJob(state.active);
   initializeTransportPhaseForJob(state.active);
@@ -8522,6 +8724,7 @@ function pauseActiveJob(){
   if(!state.active) return;
 
   finalizeActiveMotion();
+  closeOpenWorkSession(state.active, Date.now());
 
   const commentInput = document.getElementById('activeCommentInput');
   if(commentInput){
@@ -8537,7 +8740,7 @@ function pauseActiveJob(){
   const paused = {...state.active};
   paused.status = 'pausad';
   paused.plannedDate = paused.plannedDate || paused.date || todayStr();
-  paused.pausedElapsedMs = Date.now() - (paused.start || Date.now());
+  paused.pausedElapsedMs = getTotalWorkSessionMs(paused, Date.now());
 
   const pausedJobWasOtherWork = isOtherWorkJob(paused);
 
@@ -8564,13 +8767,15 @@ function resumePausedJob(qid){
     return;
   }
 
-  const elapsed = q.pausedElapsedMs || 0;
   const resumed = {...q};
+  ensureJobWorkSessions(resumed, Date.now());
+  const elapsed = getTotalWorkSessionMs(resumed, Date.now()) || q.pausedElapsedMs || 0;
   delete resumed.status;
   delete resumed.pausedElapsedMs;
   delete resumed._queueIndex;
   const oldStart = Number(q.start || 0);
   resumed.start = Date.now() - elapsed;
+  appendOpenWorkSession(resumed, Date.now());
   shiftTransportPhaseTimestamps(resumed, Number(resumed.start || 0) - oldStart);
   resumed.loads = resumed.loads || [];
   resumed.totalWeight = resumed.totalWeight || resumed.loads.reduce((a,b)=>a+b,0);
@@ -8597,8 +8802,9 @@ function completeQueuedJob(qid){
   if(!q) return;
 
   if(q.status === 'pausad'){
-    const elapsed = q.pausedElapsedMs || 0;
     const finished = {...q};
+    ensureJobWorkSessions(finished, Date.now());
+    const elapsed = getTotalWorkSessionMs(finished, Date.now()) || q.pausedElapsedMs || 0;
     delete finished.status;
     delete finished.pausedElapsedMs;
     delete finished._queueIndex;
@@ -9139,8 +9345,10 @@ function stopJob(){
   if(!prepareJobForCompletionWithPhaseGuard(state.active)) return;
 
   finalizeActiveMotion();
+  const finishedAt = Date.now();
+  closeOpenWorkSession(state.active, finishedAt);
   finalizeActiveRouteGpsRecording();
-  const finished = {...state.active, end:Date.now()};
+  const finished = {...state.active, end:finishedAt};
   finished.returnRequired = getJobReturnRequiredValue(finished);
   finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
   finished.routeEndPlace = getJobCompletionPlace(finished);
@@ -10672,6 +10880,7 @@ function saveEditedJob(){
   job.comment = document.getElementById('editComment').value;
   job.privateComment = getAllowedPrivateComment(job.type, document.getElementById('editPrivateComment').value);
   job.end = job.start + Math.round(minutes) * 60000;
+  job.workSessions = [{startedAt:job.start, endedAt:job.end}];
   job.totalWeight = weight;
   job.loads = weight > 0 ? [weight] : [];
   saveState();
@@ -10702,6 +10911,7 @@ function restartFinishedJob(jobId){
   const restarted = {...job};
   delete restarted.end;
   restarted.start = Date.now();
+  restarted.workSessions = [{startedAt:restarted.start, endedAt:null}];
   restarted.loads = restarted.loads || [];
   restarted.totalWeight = restarted.totalWeight || restarted.loads.reduce((a,b)=>a+b,0);
   restarted.distanceKm = Number.isFinite(Number(restarted.distanceKm)) ? Number(restarted.distanceKm) : 0;
@@ -10804,12 +11014,7 @@ function populateSummaryMonthOptions(){
 
   const months = new Set();
   months.add(getCurrentMonthValue());
-  getFinishedJobsForUnderlag().forEach(job => {
-    if(job && job.date && job.date.length >= 7){
-      months.add(job.date.slice(0,7));
-    }
-  });
-  getReceiptSummaryJobs().forEach(job => {
+  buildSummaryRowsFromJobs(getFinishedJobsForUnderlag().concat(getReceiptSummaryJobs())).forEach(job => {
     if(job && job.date && job.date.length >= 7){
       months.add(job.date.slice(0,7));
     }
@@ -10840,8 +11045,7 @@ function updateSummaryControls(){
 
 function getFilteredSummaryJobs(){
   const selection = getSummarySelection();
-  return getFinishedJobsForUnderlag()
-    .concat(getReceiptSummaryJobs())
+  return buildSummaryRowsFromJobs(getFinishedJobsForUnderlag().concat(getReceiptSummaryJobs()))
     .filter(x => matchesSummaryPeriod(x, selection));
 }
 
@@ -10864,10 +11068,10 @@ function summarizeJobsByDate(jobs){
     const key = job.date || '';
     if(!byDate[key]) byDate[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
     byDate[key].jobs += 1;
-    byDate[key].loads += (job.loads || []).length;
-    byDate[key].weight += (job.totalWeight || 0);
-    byDate[key].distance += (job.distanceKm || 0);
-    byDate[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
+    byDate[key].loads += getSummaryRowLoadCount(job);
+    byDate[key].weight += getSummaryRowWeight(job);
+    byDate[key].distance += getSummaryRowDistance(job);
+    byDate[key].timeMs += getSummaryRowTimeMs(job);
   });
   return byDate;
 }
@@ -10878,10 +11082,10 @@ function summarizeJobsByType(jobs){
     const key = job.type || '';
     if(!byType[key]) byType[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
     byType[key].jobs += 1;
-    byType[key].loads += (job.loads || []).length;
-    byType[key].weight += (job.totalWeight || 0);
-    byType[key].distance += (job.distanceKm || 0);
-    byType[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
+    byType[key].loads += getSummaryRowLoadCount(job);
+    byType[key].weight += getSummaryRowWeight(job);
+    byType[key].distance += getSummaryRowDistance(job);
+    byType[key].timeMs += getSummaryRowTimeMs(job);
   });
   return byType;
 }
@@ -10893,10 +11097,10 @@ function summarizeJobsByMonth(jobs){
     const key = job.date.slice(0, 7);
     if(!byMonth[key]) byMonth[key] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
     byMonth[key].jobs += 1;
-    byMonth[key].loads += (job.loads || []).length;
-    byMonth[key].weight += (job.totalWeight || 0);
-    byMonth[key].distance += (job.distanceKm || 0);
-    byMonth[key].timeMs += (((job.end || Date.now()) - job.start) || 0);
+    byMonth[key].loads += getSummaryRowLoadCount(job);
+    byMonth[key].weight += getSummaryRowWeight(job);
+    byMonth[key].distance += getSummaryRowDistance(job);
+    byMonth[key].timeMs += getSummaryRowTimeMs(job);
   });
   return byMonth;
 }
@@ -10940,11 +11144,11 @@ function xmlRow(values, types){
 
 function buildExcelWorkbookXml(selection, filtered){
   const label = getSummaryLabel(selection);
-  const totalJobs = filtered.length;
-  const totalLoads = filtered.reduce((a,x)=>a+(x.loads||[]).length,0);
-  const totalWeight = filtered.reduce((a,x)=>a+(x.totalWeight||0),0);
-  const totalDistance = filtered.reduce((a,x)=>a+(x.distanceKm||0),0);
-  const totalTimeMs = filtered.reduce((a,x)=>a+(((x.end||Date.now())-x.start)||0),0);
+  const totalJobs = countUniqueSummaryJobs(filtered);
+  const totalLoads = filtered.reduce((a,x)=>a+getSummaryRowLoadCount(x),0);
+  const totalWeight = filtered.reduce((a,x)=>a+getSummaryRowWeight(x),0);
+  const totalDistance = filtered.reduce((a,x)=>a+getSummaryRowDistance(x),0);
+  const totalTimeMs = filtered.reduce((a,x)=>a+getSummaryRowTimeMs(x),0);
 
   const byDate = summarizeJobsByDate(filtered);
   const byType = summarizeJobsByType(filtered);
@@ -10995,11 +11199,11 @@ function buildExcelWorkbookXml(selection, filtered){
           job.type || '',
           job.place || '',
           job.dest || '',
-          (job.loads || []).length,
-          (job.totalWeight || 0).toFixed(1),
-          (job.distanceKm || 0).toFixed(1),
-          decimalHours((((job.end||Date.now()) - job.start)||0)).toFixed(2),
-          job.comment || ''
+          getSummaryRowLoadCount(job),
+          getSummaryRowWeight(job).toFixed(1),
+          getSummaryRowDistance(job).toFixed(1),
+          decimalHours(getSummaryRowTimeMs(job)).toFixed(2),
+          getSummaryRowComment(job)
         ],
         ['String','String','String','String','String','Number','Number','Number','Number','String']
       );
@@ -11054,11 +11258,11 @@ function renderSummary(){
   document.getElementById('sumTimeLabel').textContent = 'Tid ' + label;
   document.getElementById('sumByTypeTitle').textContent = 'Per jobbtyp – ' + label;
 
-  document.getElementById('sumJobs').textContent = filtered.length;
-  document.getElementById('sumLoads').textContent = filtered.reduce((a,x)=>a+(x.loads||[]).length,0);
-  document.getElementById('sumWeight').textContent = filtered.reduce((a,x)=>a+(x.totalWeight||0),0).toFixed(1)+' ton';
-  document.getElementById('sumDistance').textContent = km(filtered.reduce((a,x)=>a+(x.distanceKm||0),0));
-  document.getElementById('sumTime').textContent = mins(filtered.reduce((a,x)=>a+(((x.end||Date.now())-x.start)||0),0));
+  document.getElementById('sumJobs').textContent = countUniqueSummaryJobs(filtered);
+  document.getElementById('sumLoads').textContent = filtered.reduce((a,x)=>a+getSummaryRowLoadCount(x),0);
+  document.getElementById('sumWeight').textContent = filtered.reduce((a,x)=>a+getSummaryRowWeight(x),0).toFixed(1)+' ton';
+  document.getElementById('sumDistance').textContent = km(filtered.reduce((a,x)=>a+getSummaryRowDistance(x),0));
+  document.getElementById('sumTime').textContent = mins(filtered.reduce((a,x)=>a+getSummaryRowTimeMs(x),0));
 
   const byType = summarizeJobsByType(filtered);
   const el = document.getElementById('sumByType');
