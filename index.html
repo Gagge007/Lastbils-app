@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-55
+- Nuvarande version: Stadslass v2026-05-07-01-56
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -16,6 +16,7 @@ Stadslass versionskontroll
 - v53: Tillfällig mätruta visar hur Beräkna tider i kö mäter startsträcka, materialdel och total uppskattad tid.
 - v54: Tillfällig mätruta kontrollmäter Från -> Till och retur separat för jämförelse.
 - v55: Gemensam tidsprincip för köberäkning: GPS/kartanrop styr startsträcka, historik styr materialdel och GPS/karta används som avvikelsestöd; tillfällig mätruta är borttagen.
+- v56: Inställningar delas tydligare i Platser, Jobbtyper och Snabbval; platser kan ha platskrav och jobbtyper har transportinstruktioner/jobbkrav.
 - Kontrollista efter ändringar:
   - Ange vikt: tvåstegsfunktion, första tryck fokuserar viktfält/tangentbord
   - Ingen tömning: lägger kommentaren "Ej behov av tömning" och exkluderar från framtida uppskattad tid
@@ -25,7 +26,9 @@ Stadslass versionskontroll
   - GitHub-kö import: visar "Hämtad från GitHub"
   - Idag: visar Körning ca / Stillasående ca på avslutade jobb
   - Intern kommentar: bara för Äta, Övriga jobb och Övrig verksamhet
-  - Hantera platser: separata jobbtyper Från och Till
+  - Platser: fysiska platser med adress/Plus Code, jobbtypkoppling och platskrav
+  - Jobbtyper: materialkod, returkrav/flerlass och transportinstruktioner/jobbkrav
+  - Snabbval: färdiga uppdrag byggda av jobbtyp + Från-plats + Till-plats
   - Snabbval Slottskogen: visar Komprimator, underrubrik Säldammen och knappen Sopsand, men sparar Sopsand från Säldammen tekniskt separat
   - Online/offline-indikator: Online eller "Offline – använd appen som vanligt. Uppdrag sparas på den här enheten."
   - Startpunkt: visas i Aktivt jobb och Idag
@@ -1425,13 +1428,13 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-55</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-56</div>
     <div class="settings-groups">
       <div class="settings-group">
-        <h4>Hantera arbetsflöden</h4>
-        <div class="muted">Platser, jobbtyper, maskiner och snabbval som styr hur uppdrag skapas.</div>
+        <h4>Uppdragsregister</h4>
+        <div class="muted">Platser är fysiska platser, jobbtyper är arbets-/materialregler och snabbval är färdiga uppdrag som kombinerar båda.</div>
         <div class="settings-group-actions">
-          <button class="primary" onclick="togglePlaceManager()">Hantera platser</button>
+          <button class="primary" onclick="togglePlaceManager()">Platser</button>
           <button class="primary" onclick="toggleQuickManager()">Snabbval</button>
           <button class="primary" onclick="toggleJobTypeManager()">Jobbtyper</button>
           <button class="primary" onclick="toggleMachineManager()">Maskiner</button>
@@ -1852,7 +1855,7 @@ button{
       </div>
     </div>
     <div id="jobTypeManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du redigera jobbtyperna i appen, lägga till nya jobbtyper, ta bort jobbtyper, ange Mtrl kod, returkrav, flerlass och krav/varningar.</div>
+      <div class="place-help"><strong>Jobbtyper = vad du kör/gör.</strong> Här ligger materialkod, returkrav, flerlass och transportinstruktioner eller jobbkrav. Platskrav som hjälm/varsel ska ligga på platsen i stället.</div>
 
       <div class="place-row">
         <div class="place-key">Ny jobbtyp</div>
@@ -1862,8 +1865,8 @@ button{
           <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="newManagedJobTypeReturnRequired" type="checkbox" style="width:auto" onchange="handleNewJobTypeModeToggle('return')"> Returkrav</label>
           <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="newManagedJobTypeMultiLoad" type="checkbox" style="width:auto" onchange="handleNewJobTypeModeToggle('multi')"> Flerlass</label>
         </div>
-        <textarea id="newManagedJobTypeRequirements" placeholder="Krav/varningar, ett per rad"></textarea>
-        <div class="multi-help">Exempel: HJÄLMKRAV, TRANSPORTDOKUMENT, TA MED TOMT FLAK.</div>
+        <textarea id="newManagedJobTypeRequirements" placeholder="Transportinstruktioner / jobbkrav, ett per rad"></textarea>
+        <div class="multi-help">Exempel: TRANSPORTDOKUMENT, TA MED TOMT FLAK, material ska inte ligga i säck. Hjälm/varsel som beror på anläggningen ska ligga på platsen.</div>
         <div class="row">
           <button class="primary inline" onclick="addManagedJobType()">Lägg till jobbtyp</button>
         </div>
@@ -1889,7 +1892,7 @@ button{
       <div id="machineManagerList"></div>
     </div>
     <div id="quickManagerWrap" class="quick-manager hidden">
-      <div class="place-help">Här kan du redigera snabbvalen i Huvudmeny och i Uppdrag i kö, lägga till nya snabbval eller ta bort snabbval.</div>
+      <div class="place-help"><strong>Snabbval = färdiga uppdrag.</strong> Ett snabbval ska främst kombinera jobbtyp + Från-plats + Till-plats. Krav hämtas från jobbtypen och från platserna så samma regel inte behöver skrivas flera gånger.</div>
 
       <datalist id="quickPlaceOptions"></datalist>
       <datalist id="quickDestOptions"></datalist>
@@ -1935,13 +1938,15 @@ button{
       </div>
     </div>
     <div id="placeManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du ändra visningsnamn på platserna i appen, lägga till nya platser, skriva adress eller Plus Code och valfritt knyta en eller flera jobbtyper till platsen.</div>
+      <div class="place-help"><strong>Platser = fysiska platser.</strong> Här ligger adress/Plus Code, kartreferens, jobbtypkoppling och platskrav som hjälm, varsel, vågrutin eller särskild lossningsrutin. Transportinstruktioner som beror på materialet ska ligga på jobbtypen.</div>
 
       <div class="place-row">
         <div class="place-key">Ny plats</div>
         <input id="newManagedPlaceName" placeholder="Namn på ny plats">
         <input id="newManagedPlaceAddress" placeholder="Adress eller Plus Code">
         <div class="multi-help">Du kan skriva vanlig adress eller Plus Code för framtida Google Maps-koppling.</div>
+        <textarea id="newManagedPlaceRequirements" placeholder="Platskrav, ett per rad"></textarea>
+        <div class="multi-help">Exempel: HJÄLMKRAV, VARSEL, vågrutin, lossning på särskild yta, ring före.</div>
         <div>
           <label>Jobbtyper från</label>
           <select id="newManagedPlaceFromJobType" class="jobtype-select-compact" multiple size="3"></select>
@@ -2874,6 +2879,18 @@ function normalizeRequirements(value){
   return Array.from(new Set(String(value || '').split(/\n|,/).map(item => item.trim()).filter(Boolean)));
 }
 
+function normalizeRequirementMap(map){
+  const next = {};
+  if(!map || typeof map !== 'object' || Array.isArray(map)) return next;
+  Object.keys(map).forEach(key => {
+    const cleanKey = String(key || '').trim();
+    if(!cleanKey) return;
+    const requirements = normalizeRequirements(map[key]);
+    if(requirements.length) next[cleanKey] = requirements;
+  });
+  return next;
+}
+
 function normalizeJobTypeMeta(meta){
   const next = {};
   if(!meta || typeof meta !== 'object' || Array.isArray(meta)) return next;
@@ -2913,6 +2930,8 @@ function normalizeVehicleState(){
   if(!('placeConfigs' in state)) state.placeConfigs = {};
   if(!('placeUsage' in state)) state.placeUsage = {};
   if(!('placeAddresses' in state)) state.placeAddresses = {};
+  if(!('placeRequirements' in state)) state.placeRequirements = {};
+  state.placeRequirements = normalizeRequirementMap(state.placeRequirements);
   if(!('lastWorkPoint' in state)) state.lastWorkPoint = null;
   if(!Array.isArray(state.trash)) state.trash = [];
   if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
@@ -2992,6 +3011,8 @@ function loadState(){
       if(!('placeConfigs' in parsed)) parsed.placeConfigs = {};
       if(!('placeUsage' in parsed)) parsed.placeUsage = {};
       if(!('placeAddresses' in parsed)) parsed.placeAddresses = {};
+      if(!('placeRequirements' in parsed)) parsed.placeRequirements = {};
+      parsed.placeRequirements = normalizeRequirementMap(parsed.placeRequirements);
       if(!('lastWorkPoint' in parsed)) parsed.lastWorkPoint = null;
       if(!Array.isArray(parsed.trash)) parsed.trash = [];
       if(!Array.isArray(parsed.jobTypes)) parsed.jobTypes = cloneDefaultJobTypes();
@@ -3002,7 +3023,7 @@ function loadState(){
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[], trash:[]};
+  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeRequirements:{}, customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), jobs:[], queue:[], trash:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -3210,7 +3231,7 @@ function formatActiveOverviewHtml(job){
   const toLabel = job.dest ? (getItemPlaceLabel(job, 'dest') || job.dest) : 'Ej valt';
   const returnText = getJobReturnRequiredValue(job) ? 'Ja' : 'Nej';
   const materialCode = getMaterialCode(job.type) || 'Ej aktuell';
-  const requirements = getJobTypeRequirements(job.type) || [];
+  const requirements = getCombinedRequirementsForJob(job) || [];
   const extras = requirements.length ? '<div class="active-overview-extra">' + requirements.map(req => '<span class="active-overview-badge active-overview-warning">' + escapeHtml(req) + '</span>').join('') + '</div>' : '';
   return '<div class="active-overview">' +
     '<div class="active-overview-title">' + escapeHtml(title) + '</div>' +
@@ -3966,6 +3987,40 @@ function getPlaceAddress(value){
   return getPlaceMapReference(value);
 }
 
+function getPlaceRequirements(value){
+  const key = String(value || '').trim();
+  if(!key) return [];
+  if(!state.placeRequirements || typeof state.placeRequirements !== 'object' || Array.isArray(state.placeRequirements)){
+    state.placeRequirements = {};
+  }
+  const direct = normalizeRequirements(state.placeRequirements[key] || []);
+  const normalizedKey = normalizePlaceMapKey(key);
+  if(normalizedKey && normalizedKey !== key){
+    const normalized = normalizeRequirements(state.placeRequirements[normalizedKey] || []);
+    return Array.from(new Set([...direct, ...normalized]));
+  }
+  return direct;
+}
+
+function getCombinedRequirementsForJob(job){
+  if(!job) return [];
+  const combined = [];
+  const seen = new Set();
+  const add = (label, req) => {
+    const clean = String(req || '').trim();
+    if(!clean) return;
+    const text = label ? (label + ': ' + clean) : clean;
+    const key = text.toLocaleLowerCase('sv-SE');
+    if(seen.has(key)) return;
+    seen.add(key);
+    combined.push(text);
+  };
+  (getJobTypeRequirements(job.type) || []).forEach(req => add('Jobbtyp', req));
+  (getPlaceRequirements(job.place) || []).forEach(req => add('Från-plats', req));
+  (getPlaceRequirements(job.dest) || []).forEach(req => add('Till-plats', req));
+  return combined;
+}
+
 function formatStartPointText(job){
   if(!job) return '';
   if(job.startAddress) return 'Startpunkt: ' + job.startAddress;
@@ -4403,7 +4458,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-55';
+const APP_VERSION = 'Stadslass v2026-05-07-01-56';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4467,6 +4522,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Intern kommentar-regel', status:'Skyddad', purpose:'Intern kommentar bara för Äta, Övriga jobb och Övrig verksamhet.', changeRule:'Får ändras endast som medveten regeländring.'},
   {name:'Funktionslista', status:'Skyddad men får byggas om', purpose:'Dokumenterar aktiva, skyddade, ersatta och borttagna funktioner.', changeRule:'Ska uppdateras vid varje version.'},
   {name:'Snabbval Slottskogen/Säldammen', status:'Aktiv', purpose:'Visar underrubriken Säldammen under Slottskogen och knappen Sopsand utan att ändra faktisk Från-plats.', changeRule:'Visningen får ändras, men Säldammen ska sparas tekniskt separat när snabbvalet används.'},
+  {name:'Inställningar struktur v56', status:'Testfunktion', purpose:'Delar tydligare på Platser, Jobbtyper och Snabbval. Platser kan bära platskrav och jobbtyper bär transportinstruktioner/jobbkrav.', changeRule:'Får justeras efter praktisk test men ska inte blanda platskrav och jobbtypskrav utan beslut.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -4660,7 +4716,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Fasnamn Lastar v31 finns', !!document.getElementById('activePhaseButton') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Lastar') && functionExists('prepareJobForCompletionWithPhaseGuard'), 'Fasknappen är Lastar och Klart har skydd för missad Lastar.');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-55') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-55'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-56') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-56'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && functionSourceIncludes('sanitizeStateForExport', 'mapApiKey') && functionSourceIncludes('sanitizeStateForExport', 'mapSettings'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd ligger utanför appdata/backup', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && functionSourceIncludes('requestGoogleRouteTest', 'canMakeMapRequest') && functionSourceIncludes('requestGoogleRouteTest', 'getCachedMapRoute'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', functionSourceIncludes('runMapRouteTest', 'requestGoogleRouteTest') && !functionSourceIncludes('runMapRouteTest', 'state.jobs') && !functionSourceIncludes('runMapRouteTest', 'state.queue') && !functionSourceIncludes('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast manuellt testresultat i panel');
@@ -4699,6 +4755,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Missad fasdata undantas från uppskattad tid och GPS-inlärning', functionExists('markJobExcludedFromEstimateLearning') && functionSourceIncludes('prepareJobForCompletionWithPhaseGuard', 'Missad Lastar') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'excludeFromGpsLearning') && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isExcludedFromTimeEstimate'), 'Jobbet sparas i historik men saknad Lastar/osäker tid/GPS används inte som lärdata.');
   addFunctionCheck(results, 'Nivå 2', 'Flerlassdata v32 finns', functionExists('isMultiLoadSensitiveJob') && functionExists('getFinishedMaterialFlowDurationSamples') && functionExists('getMultiLoadTurnEstimateForJob') && functionSourceIncludes('addLoadToCurrent', 'currentLoadStartedAt'), 'Sopsand von Utfallsgatan och stenflis kan spara Lastar -> Vikt samt Vikt -> nästa Lastar som separat flerlassdata.');
   addFunctionCheck(results, 'Nivå 2', 'Transportlägen v33 finns', functionExists('isMultiLoadLearningMode') && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav') && functionSourceIncludes('renderActiveTransportPhaseControl', 'Retur pågår'), 'Tre lägen: utan returkrav, med returkrav och flerlass utan returkrav.');
+  addFunctionCheck(results, 'Nivå 2', 'Inställningar struktur v56 finns', functionExists('getPlaceRequirements') && functionExists('getCombinedRequirementsForJob') && !!document.getElementById('newManagedPlaceRequirements') && functionSourceIncludes('renderPlaceManager', 'Platskrav') && functionSourceIncludes('renderJobTypeManager', 'Transportinstruktioner'), 'Platser har platskrav och jobbtyper har transportinstruktioner/jobbkrav.');
   addFunctionCheck(results, 'Nivå 2', 'Jobbtyper flerlassval v43 finns', functionExists('getJobTypeMultiLoad') && functionExists('handleManagedJobTypeModeToggle') && functionSourceIncludes('renderJobTypeManager', 'Flerlass') && functionSourceIncludes('setJobTypeMeta', 'multiLoad'), 'Returkrav och Flerlass visas på samma rad och utesluter varandra.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v34 finns', functionExists('formatActiveReturnRequirementHtml') && functionExists('scrollToActiveJobTop') && functionSourceIncludes('startQueuedJob', 'scrollToActiveJobTop'), 'Aktivt arbete döljer tekniska rader och Start från kö scrollar upp.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv vy v35 finns', functionExists('formatActiveOverviewHtml') && functionExists('formatActiveEstimateCardHtml') && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml') && functionSourceIncludes('getActiveEstimateCountdownHtml', 'Uppskattad tid kvar'), 'Från/Till/Returkrav/Mtrl kod visas strukturerat och uppskattad tid kvar visas större.');
@@ -4807,7 +4864,7 @@ function buildSystemControlInternalChecks(){
   const ringon = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Ringön (BAS)') : null;
   const save = typeof getPlaceCoordinates === 'function' ? getPlaceCoordinates('Renova Sävenäs') : null;
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-55') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-55'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-56') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-56'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -4832,6 +4889,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Fasnamn och missad fasdata v31', !!document.getElementById('activePhaseButton') && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar + undantag från uppskattad tid/GPS-inlärning vid missad Lastar'),
     systemCheck('Flerlassdata v32', typeof isMultiLoadSensitiveJob === 'function' && typeof getMultiLoadTurnEstimateForJob === 'function' && typeof getFinishedMaterialFlowDurationSamples === 'function', 'Sopsand von Utfallsgatan och stenflis kan lära per lass/varv'),
     systemCheck('Transportlägen v33', typeof isMultiLoadLearningMode === 'function' && functionSourceIncludes('addLoadToCurrent', 'returnRequired') && functionSourceIncludes('updateTransportPhaseDurations', 'Med returkrav'), 'Utan returkrav, returkrav och flerlass utan returkrav skiljs åt'),
+    systemCheck('Inställningar struktur v56', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements'), 'Platser, jobbtyper och snabbval hålls isär med platskrav och transportinstruktioner'),
     systemCheck('Jobbtyper flerlassval v43', typeof getJobTypeMultiLoad === 'function' && functionSourceIncludes('renderJobTypeManager', 'Flerlass') && functionSourceIncludes('setJobTypeMeta', 'multiLoad'), 'Flerlass kan anges per jobbtyp utan att kombineras med returkrav'),
     systemCheck('Aktiv vy v34', typeof formatActiveReturnRequirementHtml === 'function' && typeof scrollToActiveJobTop === 'function', 'Aktiv vy döljer tekniska rader och köstart scrollar upp'),
     systemCheck('Aktiv vy v35', typeof formatActiveOverviewHtml === 'function' && typeof formatActiveEstimateCardHtml === 'function' && functionSourceIncludes('renderActive', 'formatActiveOverviewHtml'), 'Strukturerad Från/Till/Returkrav/Mtrl kod och större uppskattad tid kvar'),
@@ -7266,8 +7324,8 @@ function renderJobTypeManager(){
         '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-return="'+escapeHtml(type)+'" type="checkbox" style="width:auto" onchange="handleManagedJobTypeModeToggle(\''+escapeJsSingle(type)+'\', \'return\')" '+(meta.returnRequired ? 'checked' : '')+'> Returkrav</label>'+ 
         '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-multiload="'+escapeHtml(type)+'" type="checkbox" style="width:auto" onchange="handleManagedJobTypeModeToggle(\''+escapeJsSingle(type)+'\', \'multi\')" '+(meta.multiLoad ? 'checked' : '')+'> Flerlass</label>'+ 
       '</div>'+
-      '<label>Krav/varningar</label>'+
-      '<textarea data-jobtype-requirements="'+escapeHtml(type)+'" placeholder="Ett krav per rad">'+escapeHtml((meta.requirements || []).join('\n'))+'</textarea>'+
+      '<label>Transportinstruktioner / jobbkrav</label>'+
+      '<textarea data-jobtype-requirements="'+escapeHtml(type)+'" placeholder="Transportinstruktioner / jobbkrav, ett per rad">'+escapeHtml((meta.requirements || []).join('\n'))+'</textarea>'+
       '<div class="row">'+
         '<button class="primary inline" onclick="saveManagedJobType(\''+escapeJsSingle(type)+'\')">Spara</button>'+
         '<button class="danger inline" onclick="removeManagedJobType(\''+escapeJsSingle(type)+'\')">Ta bort</button>'+
@@ -10662,9 +10720,11 @@ function addManagedPlace(){
   const addressEl = document.getElementById('newManagedPlaceAddress');
   const fromJobEl = document.getElementById('newManagedPlaceFromJobType');
   const toJobEl = document.getElementById('newManagedPlaceToJobType');
+  const requirementsEl = document.getElementById('newManagedPlaceRequirements');
 
   const label = (nameEl.value || '').trim();
   const address = addressEl ? (addressEl.value || '').trim() : '';
+  const requirements = normalizeRequirements(requirementsEl ? requirementsEl.value : '');
   if(!label){
     alert('Skriv namn på platsen.');
     return;
@@ -10687,9 +10747,14 @@ function addManagedPlace(){
   if(address){
     state.placeAddresses[key] = address;
   }
+  if(requirements.length){
+    if(!state.placeRequirements) state.placeRequirements = {};
+    state.placeRequirements[key] = requirements;
+  }
 
   nameEl.value = '';
   if(addressEl) addressEl.value = '';
+  if(requirementsEl) requirementsEl.value = '';
   clearSelectedValues(fromJobEl);
   clearSelectedValues(toJobEl);
   saveState();
@@ -10706,6 +10771,9 @@ function removeManagedPlace(key){
   }
   if(state.placeAddresses && state.placeAddresses[key]){
     delete state.placeAddresses[key];
+  }
+  if(state.placeRequirements && state.placeRequirements[key]){
+    delete state.placeRequirements[key];
   }
   saveState();
   refreshPlaceSelects();
@@ -10739,6 +10807,18 @@ function renderPlaceManager(){
     const mapInfo = document.createElement('div');
     mapInfo.className = 'multi-help';
     mapInfo.textContent = getPlaceMapStatusText(entry.key);
+
+    const requirementsLabel = document.createElement('label');
+    requirementsLabel.textContent = 'Platskrav';
+
+    const requirementsInput = document.createElement('textarea');
+    requirementsInput.value = getPlaceRequirements(entry.key).join('\n');
+    requirementsInput.setAttribute('data-place-requirements-key', entry.key);
+    requirementsInput.placeholder = 'Platskrav, ett per rad';
+
+    const requirementsHelp = document.createElement('div');
+    requirementsHelp.className = 'multi-help';
+    requirementsHelp.textContent = 'Krav som följer platsen/anläggningen, till exempel hjälm, varsel, vågrutin, lossningsplats eller ring före.';
 
     const meta = document.createElement('div');
     meta.className = 'place-meta';
@@ -10784,6 +10864,9 @@ function renderPlaceManager(){
     row.appendChild(input);
     row.appendChild(addressInput);
     row.appendChild(mapInfo);
+    row.appendChild(requirementsLabel);
+    row.appendChild(requirementsInput);
+    row.appendChild(requirementsHelp);
     row.appendChild(meta);
     listEl.appendChild(row);
   });
@@ -10794,6 +10877,7 @@ function saveManagedPlaces(){
   const nextLabels = {};
   const nextConfigs = {};
   const nextAddresses = {};
+  const nextPlaceRequirements = {};
   const updatedCustomPlaces = (state.customPlaces || []).map(p => ({...p}));
 
   labelInputs.forEach(input => {
@@ -10814,6 +10898,15 @@ function saveManagedPlaces(){
     const value = input.value.trim();
     if(value){
       nextAddresses[key] = value;
+    }
+  });
+
+  const requirementsInputs = document.querySelectorAll('#placeManagerList textarea[data-place-requirements-key]');
+  requirementsInputs.forEach(input => {
+    const key = input.getAttribute('data-place-requirements-key');
+    const requirements = normalizeRequirements(input.value || '');
+    if(key && requirements.length){
+      nextPlaceRequirements[key] = requirements;
     }
   });
 
@@ -10844,6 +10937,7 @@ function saveManagedPlaces(){
 
   state.placeLabels = nextLabels;
   state.placeAddresses = nextAddresses;
+  state.placeRequirements = nextPlaceRequirements;
   state.placeConfigs = nextConfigs;
   state.placeUsage = nextUsage;
   state.customPlaces = updatedCustomPlaces;
