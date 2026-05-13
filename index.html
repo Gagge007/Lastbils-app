@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-62
+- Nuvarande version: Stadslass v2026-05-07-01-65
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -11,6 +11,7 @@ Stadslass versionskontroll
 - v60: Dynamisk anropsspärr använder bara aktuell Från-/Till-plats geofence. Ingen spärr skapas av koordinater eller av andra kända zoner, men nya geofence i platsregistret används automatiskt.
 - v61: Uppskattad tid visas direkt vid aktiv start även som vänteläge; Returkrav styrs från Jobbtyper i Inställningar och maskintransport-varianter ärver Maskintransport.
 - v62: Köberäkning gör smart delberäkning för uppdrag med Annan plats/destination: nyttiga GPS-delar beräknas utan kartanrop på oklara materialdelar.
+- v65: Aktiv bottenbakgrund följer fasknappens visuella lägen med samma färgstyrka: Lastning/rangering blå, Transport pågår orange och Lossning grön.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -44,6 +45,7 @@ Stadslass versionskontroll
   - Beräkningsstart: sparas internt och kan användas bakom kulisserna när karttjänst/historik räknar uppskattad tid
   - Uppskattad tid: visas enkelt i aktivt jobb och kö; karttjänst + historik används bakom kulisserna
   - Smart delberäkning v62: köberäkning får räkna GPS→fysisk plats även om Annan plats/destination gör hela uppdraget omöjligt att fullberäkna
+  - Aktiv bottenbakgrund v65: följer endast fasknappens visuella lägen Lastning/rangering, Transport pågår och Lossning med samma färgstyrka som knappen; korten ligger kvar vita
   - Fasdata tid: aktivt jobb har knappen Lastar som startar ett lass/materialdel; sparad vikt avslutar lasset och kan ge flerlassdata
   - Startsträcka i aktiv tid: aktivt jobb bakar in kartberäknad startsträcka i uppskattad tid och räknar bort den när Lastar trycks
   - Aktivt jobb knappfärger: Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa fortsatt gul och Klart oförändrad röd
@@ -87,6 +89,9 @@ Stadslass versionskontroll
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#cbd5e1;--btn:#e2e8f0;--primary:#0f172a;--danger:#b91c1c}
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+body.phase-loading-bg{background:linear-gradient(90deg,#93c5fd 0,#dbeafe 100%) !important;}
+body.phase-transport-bg{background:linear-gradient(90deg,#fdba74 0,#ffedd5 100%) !important;}
+body.phase-unloading-bg{background:linear-gradient(90deg,#86efac 0,#dcfce7 100%) !important;}
 .wrap{max-width:1100px;margin:0 auto;padding:16px}
 h1,h2,h3{margin:0 0 10px}
 .muted{color:var(--muted);font-size:14px}
@@ -1443,7 +1448,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-62</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-65</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -4734,7 +4739,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-62';
+const APP_VERSION = 'Stadslass v2026-05-07-01-65';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4777,6 +4782,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'GPS-zoner visuell status v41', status:'Aktiv', purpose:'Från-zoner för Ringön, Slottskogen komprimator, Säldammen, Flaklager Skräppekärr och von Utfallsgatan kan ändra fasknappens visuella text/färg från Lastning/rangering till Transport pågår.', changeRule:'Får aldrig ändra mätpunkter, sparade tider, tidsinlärning eller fasdata automatiskt.'},
   {name:'Fasknapp färger v41', status:'Aktiv', purpose:'Lastar/Lastning/rangering använder ljusblå färg och Transport pågår använder ljus orange.', changeRule:'Får ändras visuellt men ska inte påverka Lastar, Ange vikt, returkrav eller GPS-/tidsinlärning.'},
   {name:'Till-geofence Lossning v45', status:'Aktiv', purpose:'Till-zoner för Renova Sävenäs, Sortera Torslanda, Renova Högsbo, Renova Skräppekärr, Flaklager Skräppekärr och Stena Metall kan ändra fasknappens visuella status till Lossning med ljusgrön färg.', changeRule:'Får aldrig registrera vikt, avsluta lass, ändra mätpunkter, tidsinlärning eller fasdata automatiskt.'},
+  {name:'Aktiv bottenbakgrund v65', status:'Aktiv', purpose:'Appens bottenbakgrund följer fasknappens visuella lägen med samma färgstyrka: Lastning/rangering blå, Transport pågår orange och Lossning grön. Korten förblir vita.', changeRule:'Ren visuell ändring. Får aldrig påverka GPS, mätpunkter, fasdata, viktregistrering, returkrav, flerlass eller tidsinlärning.'},
   {name:'Kö-system ordning v42', status:'Aktiv', purpose:'I kööverföringen visas GitHub-kö överst, före Dela kö-fil och Importera kö-fil.', changeRule:'Ren visuell ordningsändring; får inte ändra export/import, filnamn, GitHub-logik eller ködata.'},
   {name:'Stödruta efter vikt', status:'Aktiv', purpose:'Visar aktuell inlärningsregel i aktivt jobb i 10 sekunder efter Ange vikt.', changeRule:'Får ändras visuellt men ska inte ändra tidslogiken utan separat beslut.'},
   {name:'Uppskattad tid med karttjänst + historik', status:'Skyddad beteenderegel', purpose:'Karttjänst räknar kördelen och historik/praktiskt tillägg gör tiden närmare verkligheten.', changeRule:'Detaljerna ska ligga i bakgrunden; aktivt jobb och kö visar bara uppskattad tid.'},
@@ -5015,6 +5021,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum v40', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-11' && functionExists('isTimeLearningSampleAllowed') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'isTimeLearningSampleAllowed'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning grupperas på Från/Till/transportläge v40', functionSourceIncludes('materialFlowEstimateKey', 'getTimeLearningTransportMode') && functionSourceIncludes('materialFlowEstimateKey', 'job.place') && functionSourceIncludes('materialFlowEstimateKey', 'job.dest'), 'Jobbtyp + Från + Till + transportläge');
   addFunctionCheck(results, 'Nivå 2', 'GPS-zoner v41 ändrar bara visuell fasknapp', functionExists('getFromGeofenceForJob') && functionExists('updateActiveGeofenceVisualStatus') && functionSourceIncludes('updateActiveGeofenceVisualStatus', 'geofenceVisual') && functionSourceIncludes('renderActiveTransportPhaseControl', 'getActivePhaseVisualState'), 'Från-zoner styr visuell status, inte mätpunkter.');
+  addFunctionCheck(results, 'Nivå 2', 'Aktiv bottenbakgrund v65', functionExists('updateActivePhaseBackground') && functionSourceIncludes('updateActivePhaseBackground', 'phase-loading-bg') && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg') && functionSourceIncludes('updateActivePhaseBackground', 'phase-unloading-bg') && functionSourceIncludes('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'Bottenbakgrunden följer endast fasknappens visuella lägen.');
   addFunctionCheck(results, 'Nivå 2', 'Till-geofence Lossning v45 ändrar bara visuell fasknapp', functionExists('getToGeofenceForJob') && typeof ACTIVE_TO_GEOFENCE_ZONES !== 'undefined' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5 && functionSourceIncludes('getActivePhaseVisualState', 'Lossning'), 'Till-zoner styr bara visuell status till Lossning.');
   addFunctionCheck(results, 'Nivå 2', 'Flaklager Till-geofence v59', typeof ACTIVE_TO_GEOFENCE_ZONES !== 'undefined' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.some(zone => zone && zone.id === 'flaklager_skrappekarr_tillzon') && functionExists('getActiveGeofenceHitForPoint') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'mapAutoGeofenceBlockedAt'), 'Flaklager kan stoppa nya automatiska kartanrop som aktuell Till-zon.');
   addFunctionCheck(results, 'Nivå 2', 'Dynamisk geofence-spärr v60', functionExists('getStoredGeofenceCandidatesForPlace') && functionExists('getStaticGeofenceForPlace') && functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'const activeZoneHit') && !functionSourceIncludes('shouldRunActiveAutoMapRecalculation', 'getKnownGeofenceForPoint(point)'), 'Spärren använder bara aktuell Från-/Till-plats geofence, inte valfri känd zon eller koordinatfallback.');
@@ -5175,6 +5182,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function', 'aktiv vy finns'),
     systemCheck('Aktivt jobb knappfärger v30', !!document.getElementById('activePhaseButton') && document.getElementById('activePhaseButton').classList.contains('active-phase-btn') && !!document.querySelector('button.active-weight-btn') && !!document.querySelector('button.active-no-empty-btn'), 'Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange'),
     systemCheck('GPS-zoner visuell status v41', typeof getFromGeofenceForJob === 'function' && typeof updateActiveGeofenceVisualStatus === 'function' && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5, 'Från-zoner styr bara visuell knappstatus'),
+    systemCheck('Aktiv bottenbakgrund v65', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg') && functionSourceIncludes('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'Body-bakgrund följer Lastning/rangering, Transport pågår och Lossning visuellt'),
     systemCheck('Till-geofence Lossning v45', typeof getToGeofenceForJob === 'function' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5, 'Till-zoner kan visa Lossning utan att registrera vikt'),
     systemCheck('Flaklager Till-geofence v59', Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.some(zone => zone && zone.id === 'flaklager_skrappekarr_tillzon') && typeof getActiveGeofenceHitForPoint === 'function', 'Flaklager stoppar kartanrop som aktiv Till-zon'),
     systemCheck('Dynamisk geofence-spärr v60', typeof getStoredGeofenceCandidatesForPlace === 'function' && typeof getStaticGeofenceForPlace === 'function' && typeof shouldRunActiveAutoMapRecalculation === 'function', 'Bara aktuell Från-/Till-geofence stoppar nya automatiska kartanrop'),
@@ -8959,16 +8967,33 @@ function getActiveLoadPhaseText(job){
   return 'Tryck Lastar när du börjar lasta/första lasset.';
 }
 
+function updateActivePhaseBackground(visualState){
+  if(typeof document === 'undefined' || !document.body) return;
+  const backgroundClasses = ['phase-loading-bg','phase-transport-bg','phase-unloading-bg'];
+  document.body.classList.remove(...backgroundClasses);
+  if(!state || !state.active || !visualState) return;
+  const label = String(visualState.label || '');
+  if(label === 'Lastning/rangering'){
+    document.body.classList.add('phase-loading-bg');
+  } else if(label === 'Transport pågår'){
+    document.body.classList.add('phase-transport-bg');
+  } else if(label === 'Lossning'){
+    document.body.classList.add('phase-unloading-bg');
+  }
+}
+
 function renderActiveTransportPhaseControl(){
   const wrap = document.getElementById('activePhaseControls');
   const btn = document.getElementById('activePhaseButton');
   if(!wrap || !btn) return;
   if(!state.active || !isTransportPhaseTrackingAllowed(state.active)){
     wrap.classList.add('hidden');
+    updateActivePhaseBackground(null);
     return;
   }
   initializeTransportPhaseForJob(state.active);
   const visualState = getActivePhaseVisualState(state.active);
+  updateActivePhaseBackground(visualState);
   btn.classList.remove('phase-loading','phase-transport','phase-unloading');
   if(visualState.className) btn.classList.add(visualState.className);
   btn.textContent = visualState.label;
