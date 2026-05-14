@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-77
+- Nuvarande version: Stadslass v2026-05-07-01-78
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -20,6 +20,7 @@ Stadslass versionskontroll
 - v72: Pausade uppdrag bevarar senast kända uppskattad tid/nedräkning vid fortsätt och visar inte saknas om ny beräkning saknar underlag.
 - v75: Nytt jobb använder standardförslag men Till-listan är fri; Returkrav och Flerlass kan väljas per uppdrag.
 - v77: Geofence är återanvändbar platsdata. Samma platsgeofence kan användas för Från, Till, startsträcka, lossning och retur utan duplicering per scenario.
+- v78: Startsträcka väger svagt i inlärningen. Startpunkt→Från används för planering/faktisk tid, men kärnflödets tidsinlärning använder i första hand Från→Till/retur efter Lastar.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -82,6 +83,7 @@ Stadslass versionskontroll
   - Aktiv tidsnedräkning: aktiva jobb visar en större huvudtext för uppskattad tid kvar och mindre klar cirka-tid utan att blockera Klart
   - GPS-inspelning v73: automatisk vid aktivt uppdrag, glest sparad med sammanfattning; aktiv vy visar bara diskret text
   - Startsträcka orange v74: startfas med verklig startsträcka använder samma orange body-bakgrund som transport/retur utan extra text eller ändrad faslogik
+  - Startsträcka svag inlärning v78: startsträcka används för planering/faktisk tid men undantas från kärnflödets huvudunderlag när Lastar/fasdata finns.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -1528,7 +1530,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-77</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-78</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -5538,7 +5540,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-77';
+const APP_VERSION = 'Stadslass v2026-05-07-01-78';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -5623,6 +5625,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Friare Nytt jobb v75', status:'Aktiv', purpose:'Nytt jobb föreslår standarddestination men Till-listan är fri. Returkrav och Flerlass kan väljas manuellt per uppdrag och följer med köuppdrag.', changeRule:'Får inte hårdspärra Till-listan i Nytt jobb. Standardförslag får finnas, men manuellt val ska respekteras utan varning.'},
   {name:'Färginställningar fasknapp v76', status:'Aktiv', purpose:'Inställningar innehåller fasta färgval för Lastar/Lastning, Startsträcka/Transport/Retur, Lossning och Lass registrerat. Samma val styr både fasknapp och aktiv bottenbakgrund.', changeRule:'Ren visuell inställning. Får inte påverka GPS, uppskattad tid, nedräkning, returkrav, flerlass, Lasta, Ange vikt, Klart, fasdata, vikt, sammanställning eller tidsinlärning.'},
   {name:'Återanvändbara platsgeofence v77', status:'Aktiv', purpose:'Geofence är platsdata som kan återanvändas av flera scenarion: startsträcka, Från, Till, lastning, transport, lossning och retur. Från-/Till-funktioner använder samma platsgeofence när platsen är densamma.', changeRule:'Får bara ändra hur geofence hittas/återanvänds. Får inte ändra mätpunkter, Lasta, Ange vikt, Klart, GPS-inspelning, uppskattad tid, fasdata, vikt, sammanställning eller tidsinlärning.'},
+  {name:'Startsträcka svag inlärning v78', status:'Aktiv', purpose:'Startsträcka används för dagens planering, faktisk uppdragstid och GPS-sammanfattning men väger inte tungt i kärnflödets tidsinlärning.', changeRule:'Framtida uppskattad tid ska främst lära Från→Till och eventuell retur/hantering efter Lastar. Startpunkt→Från får användas som separat planeringsdel men får inte förlänga materialflödets normalvärde.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -5804,7 +5807,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
-  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77'), 'featureManifestList + v67-v77-poster');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78'), 'featureManifestList + v67-v78-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!el('mapKeyManagerWrap') && !!el('mapApiKeyInput') && fn('getLocalMapApiKey') && fn('setLocalMapApiKey') && fn('deleteLocalMapApiKey'), 'kartnyckel sparas separat per enhet');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!el('mapGuardStatus') && fn('getMapGuardStatus') && fn('canMakeMapRequest') && fn('registerMapRequest') && fn('getCachedMapRoute') && fn('setCachedMapRoute'), 'lokala gränser + cache');
@@ -5817,7 +5820,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-77') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-78') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -5840,6 +5843,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Flaklager Till-geofence v59 finns', Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.some(zone => zone && zone.id === 'flaklager_skrappekarr_tillzon') && fn('getActiveGeofenceHitForPoint'), 'Flaklager kan vara Till-zon/anropsskydd');
   addFunctionCheck(results, 'Nivå 2', 'Dynamisk geofence-spärr v60 finns', fn('getStoredGeofenceCandidatesForPlace') && fn('getStaticGeofenceForPlace') && fn('shouldRunActiveAutoMapRecalculation'), 'bara aktuell Från-/Till-zon stoppar nya automatiska kartanrop');
   addFunctionCheck(results, 'Nivå 2', 'Återanvändbara platsgeofence v77 finns', Array.isArray(PLACE_GEOFENCE_ZONES) && PLACE_GEOFENCE_ZONES.length >= 10 && fn('getPlaceGeofenceForScenario') && fn('getReusablePlaceGeofenceForPlace') && src('getFromGeofenceForJob', 'getPlaceGeofenceForScenario') && src('getToGeofenceForJob', 'getPlaceGeofenceForScenario') && src('getKnownGeofenceForPoint', 'PLACE_GEOFENCE_ZONES'), 'samma platsgeofence kan användas av flera scenarion');
+  addFunctionCheck(results, 'Nivå 2', 'Startsträcka svag inlärning v78 finns', fn('applyStartLegWeakLearningPolicy') && fn('hasReliableMaterialFlowTiming') && fn('isFullDurationLearningSampleAllowed') && src('updateTransportPhaseDurations', 'applyStartLegWeakLearningPolicy') && src('getMaterialFlowEstimateForJob', 'isFullDurationLearningSampleAllowed') && src('getHistoricalPracticalAddonMinutes', 'isFullDurationLearningSampleAllowed'), 'startsträcka markeras svagt och full uppdragstid används inte som fallback när Lastar/fasdata finns');
   addFunctionCheck(results, 'Nivå 2', 'Missad fasdata undantas från inlärning', fn('prepareJobForCompletionWithPhaseGuard') && fn('markJobExcludedFromEstimateLearning') && src('prepareJobForCompletionWithPhaseGuard', 'markJobExcludedFromEstimateLearning') && src('getSavedRouteGpsRecordsForUnderlag', 'excludeFromGpsLearning'), 'jobb kan sparas men osäker tid/GPS används inte som lärdata');
   addFunctionCheck(results, 'Nivå 2', 'Flerlassdata finns', fn('isMultiLoadLearningMode') && fn('getFinishedMaterialFlowDurationSamples') && fn('getMultiLoadTurnEstimateForJob') && src('addLoadToCurrent', 'currentLoadStartedAt'), 'Lastar → vikt och vikt → nästa Lastar kan ge flerlassdata');
   addFunctionCheck(results, 'Nivå 2', 'Transportlägen enligt dagens modell finns', fn('getJobReturnRequiredValue') && fn('getTransportPhase') && fn('initializeTransportPhaseForJob') && fn('updateTransportPhaseDurations') && src('addLoadToCurrent', 'returnRequired') && src('getActivePhaseVisualState', 'Retur pågår'), 'utan returkrav, med returkrav och flerlass utan returkrav');
@@ -5971,7 +5975,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-77') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-77'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-78') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-78'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -5994,6 +5998,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('GPS-zoner visuell status', typeof getFromGeofenceForJob === 'function' && typeof updateActiveGeofenceVisualStatus === 'function' && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5, 'Från-zoner styr visuell status/anropsskydd'),
     systemCheck('Till-geofence Lossning', typeof getToGeofenceForJob === 'function' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5, 'Till-zoner kan visa Lossning utan att registrera vikt'),
     systemCheck('Återanvändbara platsgeofence v77', Array.isArray(PLACE_GEOFENCE_ZONES) && PLACE_GEOFENCE_ZONES.length >= 10 && typeof getPlaceGeofenceForScenario === 'function' && typeof getReusablePlaceGeofenceForPlace === 'function' && !!getPlaceGeofenceForScenario('Ringön (BAS)', 'Ringön (BAS)', 'to') && !!getPlaceGeofenceForScenario('Renova Sävenäs', 'Renova Sävenäs', 'from'), 'platsgeofence kan återanvändas mellan Från/Till/startsträcka/lossning/retur'),
+    systemCheck('Startsträcka svag inlärning v78', typeof applyStartLegWeakLearningPolicy === 'function' && typeof hasReliableMaterialFlowTiming === 'function' && typeof isFullDurationLearningSampleAllowed === 'function' && functionSourceIncludes('updateTransportPhaseDurations', 'applyStartLegWeakLearningPolicy') && functionSourceIncludes('getMaterialFlowEstimateForJob', 'isFullDurationLearningSampleAllowed') && functionSourceIncludes('getHistoricalPracticalAddonMinutes', 'isFullDurationLearningSampleAllowed'), 'startsträcka är separat/weak och materialflödet lär från Lastar när fasdata finns'),
     systemCheck('Fasdata och missad fasdata', typeof toggleActiveTransportPhase === 'function' && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar/Ange vikt + skydd för missad fasdata'),
     systemCheck('Flerlass och returkrav', typeof isMultiLoadLearningMode === 'function' && typeof getJobReturnRequiredValue === 'function' && typeof updateTransportPhaseDurations === 'function', 'utan returkrav, returkrav och flerlass utan returkrav'),
     systemCheck('Papperskorgssäkrat underlag', typeof getFinishedJobsForUnderlag === 'function' && typeof getSavedRouteGpsRecordsForUnderlag === 'function' && functionSourceIncludes('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag'), 'historik/papperskorg hålls isär för statistik och inlärning'),
@@ -9857,6 +9862,7 @@ function updateTransportPhaseDurations(job, endAt){
 
   const totalMs = positiveDurationMs(start, end);
   if(totalMs !== null) job.actualTotalTimeMs = totalMs;
+  applyStartLegWeakLearningPolicy(job);
 
   // Med returkrav är hela uppdraget från Lastar till Klart/Avslutat inlärningen.
   // Ange vikt sparar bara vikt och ska inte bryta tidsinlärningen.
@@ -10368,6 +10374,46 @@ function startAddonEstimateKey(job){
   ].join('|');
 }
 
+
+function getStartLegDurationMsForLearning(job){
+  if(!job) return 0;
+  const start = Number(job.start || 0);
+  const loaded = Number(job.loadedAt || 0);
+  const duration = loaded - start;
+  return Number.isFinite(duration) && duration >= 60000 ? duration : 0;
+}
+
+function hasReliableMaterialFlowTiming(job){
+  if(!job) return false;
+  const segments = getCompletedLoadSegments(job);
+  if(segments.length) return true;
+  const loaded = Number(job.loadedAt || 0);
+  return loaded > 0 && getFinishedMaterialFlowDurationMs(job) !== null;
+}
+
+function applyStartLegWeakLearningPolicy(job){
+  if(!job) return job;
+  const startLegMs = getStartLegDurationMsForLearning(job);
+  if(startLegMs > 0){
+    job.startLegTimeMs = startLegMs;
+    job.startLegLearningPolicy = 'weak';
+    job.startLegExcludedFromCoreLearning = true;
+  } else {
+    delete job.startLegTimeMs;
+    job.startLegLearningPolicy = 'none_or_same_place';
+    delete job.startLegExcludedFromCoreLearning;
+  }
+  return job;
+}
+
+function isFullDurationLearningSampleAllowed(job){
+  if(!job) return false;
+  if(hasReliableMaterialFlowTiming(job)) return false;
+  const calcStart = normalizeEstimatePart(getCalculationStartPlaceForEstimate(job));
+  const from = normalizeEstimatePart(job.place);
+  return !calcStart || calcStart === from;
+}
+
 function getFinishedDurationMs(job){
   const duration = Number(job && job.end || 0) - Number(job && job.start || 0);
   return Number.isFinite(duration) && duration >= 60000 ? duration : null;
@@ -10417,6 +10463,7 @@ function estimateMinutesFromMs(ms){
 
 function isStableMaterialFlowSample(job){
   if(!job) return false;
+  if(hasReliableMaterialFlowTiming(job)) return true;
   const calcStart = normalizeEstimatePart(getCalculationStartPlaceForEstimate(job));
   const from = normalizeEstimatePart(job.place);
   return !calcStart || calcStart === from;
@@ -10489,7 +10536,7 @@ function getMaterialFlowEstimateForJob(job){
     .filter(ms => ms !== null);
   if(durations.length < 3 && !isMultiLoadLearningMode(job)){
     durations = samples
-      .filter(isStableMaterialFlowSample)
+      .filter(isFullDurationLearningSampleAllowed)
       .map(getFinishedDurationMs)
       .filter(ms => ms !== null);
   }
@@ -10637,7 +10684,7 @@ function getHistoricalPracticalAddonMinutes(job, materialEstimate, mapTotals){
     .filter(finished => isTimeLearningSampleAllowed(finished) && materialFlowEstimateKey(finished) === key && Number(finished.smartMapMaterialMinutes || 0) > 0)
     .map(finished => {
       let actualMs = getFinishedMaterialFlowDurationMs(finished);
-      if(actualMs === null && isStableMaterialFlowSample(finished)) actualMs = getFinishedDurationMs(finished);
+      if(actualMs === null && isFullDurationLearningSampleAllowed(finished)) actualMs = getFinishedDurationMs(finished);
       const mapMinutes = Number(finished.smartMapMaterialMinutes || 0);
       if(actualMs === null || !Number.isFinite(mapMinutes) || mapMinutes <= 0) return null;
       return estimateMinutesFromMs(actualMs) - mapMinutes;
