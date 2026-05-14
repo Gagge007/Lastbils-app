@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-81
+- Nuvarande version: Stadslass v2026-05-07-01-82
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -24,6 +24,7 @@ Stadslass versionskontroll
 - v79: Bakgrundsinställningar ryms i inställningsrutan och Startsträcka, Transport pågår och Retur pågår har separata färgval med orange standard.
 - v80: Klar ca följer uppskattad tid kvar. När positiv tid kvar visas räknas Klar ca från aktuell tid + den visade tiden kvar, och klockslaget visas lika stort som tidvärdet.
 - v81: Inställningar layoutfixas så Bakgrundsinställningar ligger som egen bred sektion. Övrig verksamhet startar inte GPS-inspelning och får ingen GPS-sammanfattning.
+- v82: Vägtid och arbetstid skiljs tydligare i Idag-vyn. Avslutade jobb visar Arbetstid totalt, Vägtid ca och Hantering/väntan ca utan att ändra inlärning eller GPS.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -43,7 +44,7 @@ Stadslass versionskontroll
   - Klart: öppnar Uppdrag i kö
   - GitHub-kö export: markerar "Överförd till GitHub"
   - GitHub-kö import: visar "Hämtad från GitHub"
-  - Idag: visar Körning ca / Stillasående ca på avslutade jobb
+  - Idag: visar Arbetstid totalt / Vägtid ca / Hantering-väntan ca på avslutade jobb
   - Intern kommentar: bara för Äta, Övriga jobb och Övrig verksamhet
   - Platser: fysiska platser med adress/Plus Code, jobbtypkoppling och platskrav
   - Jobbtyper: materialkod, returkrav/flerlass och transportinstruktioner/jobbkrav
@@ -91,6 +92,7 @@ Stadslass versionskontroll
   - Klar ca v80: när positiv uppskattad tid kvar visas räknas Klar ca från aktuell tid + visad tid kvar och klockslaget visas lika stort som tidvärdet.
   - Inställningar layout v81: Bakgrundsinställningar ligger som egen bred sektion så övriga inställningsrutor inte trycks ner av den höga färgrutan.
   - GPS-undantag v81: Övrig verksamhet startar inte GPS-inspelning, visar inte Gps inspelning pågår och får ingen GPS-sammanfattning.
+  - Vägtid/arbetstid v82: Idag-vyn visar tydligt Arbetstid totalt, Vägtid ca och Hantering/väntan ca för avslutade jobb; detta är analys/visning och ändrar inte tidsinlärning.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -1610,7 +1612,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-81</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-82</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -3202,37 +3204,61 @@ function finalizeActiveMotion(){
   state.active.motionLastTs = now;
 }
 
-function getMotionSplitHtml(job){
-  if(!job) return '';
+function getRoadWorkTimeSplit(job, endAt){
+  if(!job) return null;
 
-  const totalMs = Math.max(0, Number((job.end || Date.now()) - (job.start || Date.now())));
-  let driving = Number(job.motionDrivingMs || 0);
-  let still = Number(job.motionStillMs || 0);
+  const fallbackEnd = Number(endAt || job.end || Date.now());
+  const totalFromSessions = (typeof getTotalWorkSessionMs === 'function') ? getTotalWorkSessionMs(job, fallbackEnd) : 0;
+  const totalFromStartEnd = Math.max(0, Number((job.end || fallbackEnd || Date.now()) - (job.start || fallbackEnd || Date.now())));
+  const totalMs = totalFromSessions > 0 ? totalFromSessions : totalFromStartEnd;
+  if(!Number.isFinite(totalMs) || totalMs <= 0) return null;
+
+  let roadMs = Number(job.motionDrivingMs || 0);
+  let handlingMs = Number(job.motionStillMs || 0);
   let sourceLabel = '';
+  let source = 'motion';
 
-  if((!Number.isFinite(driving) || driving <= 0) && (!Number.isFinite(still) || still <= 0)){
+  if((!Number.isFinite(roadMs) || roadMs <= 0) && (!Number.isFinite(handlingMs) || handlingMs <= 0)){
     const distance = Number(job.distanceKm || 0);
     if(totalMs > 0 && Number.isFinite(distance) && distance > 0){
       const assumedCitySpeedKmh = 30;
-      driving = Math.min(totalMs, (distance / assumedCitySpeedKmh) * 3600000);
-      still = Math.max(0, totalMs - driving);
-      sourceLabel = ' <span class="muted">(uppskattat från sträcka)</span>';
-    } else if(totalMs > 0){
-      driving = 0;
-      still = totalMs;
-      sourceLabel = ' <span class="muted">(ingen rörelse uppmätt)</span>';
+      roadMs = Math.min(totalMs, (distance / assumedCitySpeedKmh) * 3600000);
+      handlingMs = Math.max(0, totalMs - roadMs);
+      sourceLabel = ' <span class="muted">(vägtid uppskattad från sträcka)</span>';
+      source = 'distance-estimate';
     } else {
-      return '';
+      roadMs = 0;
+      handlingMs = totalMs;
+      sourceLabel = ' <span class="muted">(ingen rörelse uppmätt)</span>';
+      source = 'no-motion';
     }
   } else {
-    driving = Math.max(0, Number.isFinite(driving) ? driving : 0);
-    still = Math.max(0, Number.isFinite(still) ? still : 0);
-    if(totalMs > 0 && (driving + still) < totalMs * 0.75){
-      still += Math.max(0, totalMs - driving - still);
+    roadMs = Math.max(0, Number.isFinite(roadMs) ? roadMs : 0);
+    handlingMs = Math.max(0, Number.isFinite(handlingMs) ? handlingMs : 0);
+    if(totalMs > 0 && (roadMs + handlingMs) < totalMs * 0.75){
+      handlingMs += Math.max(0, totalMs - roadMs - handlingMs);
     }
   }
 
-  return '<div style="margin-top:6px">Körning ca: '+mins(driving)+' · Stillasående ca: '+mins(still)+sourceLabel+'</div>';
+  if((roadMs + handlingMs) > totalMs && totalMs > 0){
+    const scale = totalMs / (roadMs + handlingMs);
+    roadMs = roadMs * scale;
+    handlingMs = handlingMs * scale;
+  }
+
+  return {
+    totalMs,
+    roadMs,
+    handlingMs,
+    source,
+    sourceLabel
+  };
+}
+
+function getMotionSplitHtml(job){
+  const split = getRoadWorkTimeSplit(job, job && job.end);
+  if(!split) return '';
+  return '<div class="work-road-split" style="margin-top:6px"><strong>Arbetstid totalt:</strong> '+mins(split.totalMs)+' · <strong>Vägtid ca:</strong> '+mins(split.roadMs)+' · <strong>Hantering/väntan ca:</strong> '+mins(split.handlingMs)+split.sourceLabel+'</div>';
 }
 
 function stripMotionFields(item){
@@ -5668,7 +5694,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-81';
+const APP_VERSION = 'Stadslass v2026-05-07-01-82';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -5757,6 +5783,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Bakgrundsinställningar delade färger v79', status:'Aktiv', purpose:'Inställningar har separata färgval för Startsträcka, Transport pågår och Retur pågår. Alla tre har orange standard men kan ändras var för sig och layouten ryms i inställningsrutan.', changeRule:'Ren visuell inställning/layoutfix. Får inte påverka GPS, uppskattad tid, nedräkning, faser, Lasta, Ange vikt, Klart, sammanställning eller tidsinlärning.'},
   {name:'Klar ca följer uppskattad tid kvar v80', status:'Aktiv', purpose:'När aktivt jobb visar positiv uppskattad tid kvar räknas Klar ca från aktuell tid + den visade tiden kvar. Klockslaget visas lika stort som tidvärdet.', changeRule:'Får bara påverka aktiv ETA-visning. Får inte ändra GPS, Lasta, Ange vikt, Klart, fasdata, vikt, paus/fortsätt, sammanställning, tidsinlärning, kö, geofence eller färginställningar.'},
   {name:'Inställningar layout och GPS-undantag v81', status:'Aktiv', purpose:'Bakgrundsinställningar visas som egen bred sektion så övriga inställningar inte trycks ner. Övrig verksamhet startar inte GPS-inspelning och får ingen GPS-sammanfattning.', changeRule:'Får bara påverka Inställningar-layout och GPS-undantag för Övrig verksamhet. Får inte ändra GPS-inspelning för körjobb, Klar ca v80, Lasta, Ange vikt, Klart, fasdata, vikt, paus/fortsätt, sammanställning, tidsinlärning, kö, geofence eller färginställningarnas funktion.'},
+  {name:'Vägtid och arbetstid v82', status:'Aktiv', purpose:'Idag-vyn skiljer tydligare på Arbetstid totalt, Vägtid ca och Hantering/väntan ca för avslutade jobb.', changeRule:'Får bara påverka analys/visning. Får inte ändra tidsinlärning, GPS-inspelning, geofence, Lasta, Ange vikt, Klart, paus/fortsätt, kö eller sammanställning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -5938,7 +5965,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
-  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81'), 'featureManifestList + v67-v81-poster');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82'), 'featureManifestList + v67-v82-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!el('mapKeyManagerWrap') && !!el('mapApiKeyInput') && fn('getLocalMapApiKey') && fn('setLocalMapApiKey') && fn('deleteLocalMapApiKey'), 'kartnyckel sparas separat per enhet');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!el('mapGuardStatus') && fn('getMapGuardStatus') && fn('canMakeMapRequest') && fn('registerMapRequest') && fn('getCachedMapRoute') && fn('setCachedMapRoute'), 'lokala gränser + cache');
@@ -5949,12 +5976,13 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Klar ca v80 visas som eget stort klockslag', fn('formatActiveEstimateKlarCaHtml') && src('getActiveEstimateCountdownHtml', 'const klarCaAt = now + diff') && src('getActiveEstimateCountdownHtml', 'formatActiveEstimateKlarCaHtml'), 'Klar ca räknas från visad tid kvar');
   addFunctionCheck(results, 'Nivå 1', 'Inställningar layout v81', !!document.querySelector('#tab-settings .phase-settings-group') && !!document.getElementById('phaseColorSettingsPanel'), 'Bakgrundsinställningar ligger som egen bred sektion');
   addFunctionCheck(results, 'Nivå 1', 'Övrig verksamhet utan GPS-inspelning v81', fn('isRouteGpsRecordingAllowedForJob') && !isRouteGpsRecordingAllowedForJob({type:'Övrig verksamhet'}) && isRouteGpsRecordingAllowedForJob({type:'Komprimator'}) && src('startRouteGpsRecordingForJob', 'clearRouteGpsRecordingFieldsForNotApplicable') && src('startDistanceTracking', 'isOtherWorkJob(state.active)'), 'Övrig verksamhet spärrar GPS-inspelning men körjobb gör inte det');
+  addFunctionCheck(results, 'Nivå 1', 'Vägtid/arbetstid v82 visas i Idag', fn('getRoadWorkTimeSplit') && src('getMotionSplitHtml', 'Arbetstid totalt') && src('getMotionSplitHtml', 'Vägtid ca') && src('getMotionSplitHtml', 'Hantering/väntan ca'), 'Idag skiljer vägtid från arbetstid i avslutade jobb');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte rå HTML i startinfo', fn('formatMultiLineTextHtml') && src('getCalculationStartHtml', 'formatMultiLineTextHtml') && src('renderActive', 'formatMultiLineTextHtml'), 'radbrytning/formatering går via hjälpfunktioner');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb knappfärger finns', !!activePhaseBtn && activePhaseBtn.classList.contains('active-phase-btn') && !!document.querySelector('button.active-weight-btn') && !!document.querySelector('button.active-no-empty-btn') && !!document.querySelector('button.queue-pause') && !!document.querySelector('button.queue-complete'), 'fasknapp, Ange vikt, Ingen tömning, Pausa och Klart har egna knappklasser');
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-81') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-82') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -6009,6 +6037,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Dygnsfördelad uppdragstid v68 finns', fn('ensureJobWorkSessions') && fn('closeOpenWorkSession') && fn('appendOpenWorkSession') && fn('buildSummaryRowsForJob') && src('pauseActiveJob', 'closeOpenWorkSession') && src('resumePausedJob', 'appendOpenWorkSession') && src('stopJob', 'closeOpenWorkSession') && src('getFilteredSummaryJobs', 'buildSummaryRowsFromJobs') && src('getSummaryRowComment', 'Uppdraget delat'), 'arbetspass sparas och sammanställningen kan dela tid per datum');
   addFunctionCheck(results, 'Nivå 2', 'Automatisk GPS-inspelning v73 finns', fn('startRouteGpsRecordingForJob') && fn('pauseRouteGpsRecordingForJob') && fn('resumeRouteGpsRecordingForJob') && fn('finalizeRouteGpsRecordingForJob') && src('startJob', 'startRouteGpsRecordingForJob') && src('pauseActiveJob', 'pauseRouteGpsRecordingForJob') && src('resumePausedJob', 'resumeRouteGpsRecordingForJob') && src('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && src('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning, 10 sek/50 m, paus/fortsätt och sammanfattning i Idag');
   addFunctionCheck(results, 'Nivå 2', 'GPS-undantag Övrig verksamhet v81 finns', fn('isRouteGpsRecordingAllowedForJob') && fn('clearRouteGpsRecordingFieldsForNotApplicable') && src('getRouteGpsStatus', '!isRouteGpsRecordingAllowedForJob(job)') && src('formatRouteGpsSummaryText', '!isRouteGpsRecordingAllowedForJob(job)') && src('startRouteGpsRecordingForJob', '!isRouteGpsRecordingAllowedForJob(job)') && src('captureRouteGpsPoint', '!isRouteGpsRecordingAllowedForJob(state.active)'), 'Övrig verksamhet får ingen aktiv GPS-status, inga sparade ruttpunkter och ingen Idag-sammanfattning');
+  addFunctionCheck(results, 'Nivå 2', 'Vägtid/arbetstid v82 påverkar inte inlärning', fn('getRoadWorkTimeSplit') && src('getRoadWorkTimeSplit', 'getTotalWorkSessionMs') && src('getMotionSplitHtml', 'work-road-split') && !src('isTimeLearningSampleAllowed', 'getRoadWorkTimeSplit'), 'v82 är visning/analys och rör inte tidsinlärning');
 
   const memoryTest = runMemoryOnlyTestJobCheck();
   addFunctionCheck(results, 'Nivå 3', 'Testuppdrag i minnet utan att spara', memoryTest.ok, memoryTest.detail);
@@ -6112,7 +6141,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-81') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-81'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-82') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-82'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -6133,6 +6162,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Klar ca v80', typeof formatActiveEstimateKlarCaHtml === 'function' && functionSourceIncludes('getActiveEstimateCountdownHtml', 'const klarCaAt = now + diff'), 'Klar ca följer positiv uppskattad tid kvar och visas stort'),
     systemCheck('Inställningar layout v81', !!document.querySelector('#tab-settings .phase-settings-group') && !!document.getElementById('phaseColorSettingsPanel'), 'Bakgrundsinställningar ligger som egen bred sektion efter övriga inställningar'),
     systemCheck('GPS-undantag Övrig verksamhet v81', typeof isRouteGpsRecordingAllowedForJob === 'function' && !isRouteGpsRecordingAllowedForJob({type:'Övrig verksamhet'}) && isRouteGpsRecordingAllowedForJob({type:'Komprimator'}) && functionSourceIncludes('startRouteGpsRecordingForJob', 'clearRouteGpsRecordingFieldsForNotApplicable'), 'Övrig verksamhet startar inte GPS-inspelning'),
+    systemCheck('Vägtid/arbetstid v82', typeof getRoadWorkTimeSplit === 'function' && functionSourceIncludes('getMotionSplitHtml', 'Arbetstid totalt') && functionSourceIncludes('getMotionSplitHtml', 'Vägtid ca'), 'Idag-vyn skiljer vägtid och arbetstid i avslutade jobb'),
     systemCheck('Friare Nytt jobb v75', !!document.getElementById('newReturnRequired') && !!document.getElementById('newMultiLoad') && typeof getFreeDestinationValuesWithStandardFirst === 'function' && typeof handleNewJobFlagToggle === 'function' && functionSourceIncludes('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && functionSourceIncludes('startManualJob', 'returnRequiredChoice'), 'fri Till-lista i Nytt jobb + manuellt Returkrav/Flerlass'),
     systemCheck('Bevara uppskattad tid vid paus/fortsätt v72', typeof savePausedEstimateState === 'function' && typeof restorePausedEstimateState === 'function' && typeof applyEstimatedCountdownAtStartPreservingExisting === 'function' && functionSourceIncludes('pauseActiveJob', 'savePausedEstimateState') && functionSourceIncludes('resumePausedJob', 'restorePausedEstimateState'), 'senast kända nedräkning återställs efter paus'),
     systemCheck('Automatisk GPS-inspelning v73', typeof startRouteGpsRecordingForJob === 'function' && typeof pauseRouteGpsRecordingForJob === 'function' && typeof resumeRouteGpsRecordingForJob === 'function' && typeof finalizeRouteGpsRecordingForJob === 'function' && functionSourceIncludes('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && functionSourceIncludes('renderActiveRouteGps', 'Gps inspelning pågår') && functionSourceIncludes('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning med diskret aktivtext och GPS-sammanfattning i Idag'),
@@ -6149,7 +6179,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67-v81', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v82', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
