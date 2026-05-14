@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-69
+- Nuvarande version: Stadslass v2026-05-07-01-70
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -15,6 +15,7 @@ Stadslass versionskontroll
 - v66: Uppdrag i kö kan redigeras i separat kömodal utan att påverka aktivt jobb, historik, GPS, fasdata, vikt eller tidsinlärning.
 - v68: Pausade uppdrag får arbetspass per datum så sammanställningen kan visa delad tid med kommentaren "Uppdraget delat" utan att paus över natt räknas som arbetstid.
 - v69: Köuppdrag kan ha frivilligt klockslag. Tom tid fungerar som tidigare och uppdraget ligger kvar på hög i kön.
+- v70: Delad befintlig nedräkning för returkrav. Samma nedräkningsruta används; total sluttid bevaras bakom etappnedräkningen.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -53,6 +54,7 @@ Stadslass versionskontroll
   - Testuppdatering v67: funktionskontroll och systemkontroll är uppdaterade mot dagens appstruktur så gamla namn/textspår inte ger falska fel
   - Dygnsfördelad uppdragstid v68: pausade/delade uppdrag delas i sammanställningen per utförd dag och får kommentaren "Uppdraget delat"
   - Tidsatta köuppdrag v69: köuppdrag kan få frivilligt klockslag; tom tid fungerar som tidigare och sorteras inte som exakt tid
+  - Delad retunnedräkning v70: befintlig nedräkning delas internt för returkrav utan extra texter
   - Fasdata tid: aktivt jobb har knappen Lastar som startar ett lass/materialdel; sparad vikt avslutar lasset och kan ge flerlassdata
   - Startsträcka i aktiv tid: aktivt jobb bakar in kartberäknad startsträcka i uppskattad tid och räknar bort den när Lastar trycks
   - Aktivt jobb knappfärger: Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa fortsatt gul och Klart oförändrad röd
@@ -1491,7 +1493,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-69</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-70</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -3673,9 +3675,14 @@ function getActiveEstimateCountdownHtml(job){
   const endAt = Number(job.estimatedEndAt || 0);
   if(!Number.isFinite(totalMinutes) || totalMinutes <= 0 || !Number.isFinite(endAt) || endAt <= 0) return getActiveEstimateWaitingHtml(job);
 
-  const diff = endAt - Date.now();
+  const displayEndAt = getActiveEstimateDisplayEndAt(job, endAt);
+  const overallEndAt = getActiveEstimateOverallEndAt(job, endAt);
+  const diff = displayEndAt - Date.now();
   if(diff >= 0){
-    return formatActiveEstimateCardHtml('Uppskattad tid kvar', 'ca ' + formatCountdownMinutes(diff), 'Klar ca ' + clockTime(endAt));
+    return formatActiveEstimateCardHtml('Uppskattad tid kvar', 'ca ' + formatCountdownMinutes(diff), 'Klar ca ' + clockTime(overallEndAt));
+  }
+  if(getReturnSplitCountdownInfo(job)){
+    return formatActiveEstimateCardHtml('Över uppskattad tid', formatCountdownMinutes(Math.abs(diff)), 'Klar ca ' + clockTime(overallEndAt));
   }
   return formatActiveEstimateCardHtml('Över uppskattad tid', formatCountdownMinutes(Math.abs(diff)), 'Beräknad klar: passerad ' + clockTime(endAt));
 }
@@ -3778,6 +3785,94 @@ function getStoredEstimateStartAddonMinutes(job){
   return 0;
 }
 
+
+function getReturnSplitRouteLegMinutes(job){
+  if(!job || !getJobReturnRequiredValue(job)) return null;
+  let outboundMinutes = 0;
+  let returnMinutes = 0;
+
+  try{
+    const fromPoint = buildMapPointFromPlace(job.place, 'Från-platsen');
+    const toPoint = buildMapPointFromPlace(job.dest, 'Till-platsen');
+    const outboundResult = getRouteResultFromCacheOrSamePoint(fromPoint, toPoint);
+    const returnResult = getRouteResultFromCacheOrSamePoint(toPoint, fromPoint);
+    outboundMinutes = outboundResult ? mapSecondsToEstimateMinutes(Number(outboundResult.durationSeconds || 0)) : 0;
+    returnMinutes = returnResult ? mapSecondsToEstimateMinutes(Number(returnResult.durationSeconds || 0)) : 0;
+  }catch(e){
+    outboundMinutes = 0;
+    returnMinutes = 0;
+  }
+
+  if(outboundMinutes > 0 && returnMinutes > 0){
+    return {outboundMinutes, returnMinutes, source:'cache'};
+  }
+
+  const storedMaterial = Number(job.estimatedMapMaterialMinutesAtStart || job.smartMapMaterialMinutes || 0);
+  if(Number.isFinite(storedMaterial) && storedMaterial > 1){
+    outboundMinutes = Math.max(1, Math.round(storedMaterial / 2));
+    returnMinutes = Math.max(1, Math.round(storedMaterial - outboundMinutes));
+    return {outboundMinutes, returnMinutes, source:'stored-split'};
+  }
+
+  const historicalMaterial = Number(job.estimatedMaterialFlowMinutesAtStart || 0);
+  if(Number.isFinite(historicalMaterial) && historicalMaterial > 1){
+    outboundMinutes = Math.max(1, Math.round(historicalMaterial / 2));
+    returnMinutes = Math.max(1, Math.round(historicalMaterial - outboundMinutes));
+    return {outboundMinutes, returnMinutes, source:'history-split'};
+  }
+
+  return null;
+}
+
+function getReturnSplitCountdownMode(job){
+  if(!job || !getJobReturnRequiredValue(job)) return '';
+  const phase = getTransportPhase(job);
+  if(phase === 'returning') return 'return';
+  if(phase === 'loading' && Number(job.loadedAt || job.currentLoadStartedAt || 0) > 0) return 'outbound';
+  return '';
+}
+
+function getReturnSplitCountdownInfo(job){
+  if(!job || !getJobReturnRequiredValue(job)) return null;
+  const mode = getReturnSplitCountdownMode(job);
+  if(!mode) return null;
+  const overallEndAt = Number(job.estimatedOverallEndAt || job.estimatedEndAt || 0);
+
+  const legMode = String(job.estimatedLegMode || '');
+  const legEndAt = Number(job.estimatedLegEndAt || 0);
+  if(legMode === mode && Number.isFinite(legEndAt) && legEndAt > 0){
+    return {mode, endAt:legEndAt, overallEndAt:Number.isFinite(overallEndAt) && overallEndAt > 0 ? overallEndAt : legEndAt, source:'active-leg'};
+  }
+
+  const legs = getReturnSplitRouteLegMinutes(job);
+  if(!legs) return null;
+  if(mode === 'return'){
+    const base = Number(job.returnRequirementWeightAt || 0);
+    if(Number.isFinite(base) && base > 0 && legs.returnMinutes > 0){
+      return {mode, endAt:base + legs.returnMinutes * 60000, overallEndAt:Number.isFinite(overallEndAt) && overallEndAt > 0 ? overallEndAt : base + legs.returnMinutes * 60000, source:legs.source};
+    }
+  }
+  if(mode === 'outbound'){
+    const base = Number(job.loadedAt || job.currentLoadStartedAt || 0);
+    if(Number.isFinite(base) && base > 0 && legs.outboundMinutes > 0){
+      return {mode, endAt:base + legs.outboundMinutes * 60000, overallEndAt:Number.isFinite(overallEndAt) && overallEndAt > 0 ? overallEndAt : base + legs.outboundMinutes * 60000, source:legs.source};
+    }
+  }
+  return null;
+}
+
+function getActiveEstimateDisplayEndAt(job, fallbackEndAt){
+  const split = getReturnSplitCountdownInfo(job);
+  if(split && Number.isFinite(Number(split.endAt)) && Number(split.endAt) > 0) return Number(split.endAt);
+  return Number(fallbackEndAt || 0);
+}
+
+function getActiveEstimateOverallEndAt(job, fallbackEndAt){
+  const split = getReturnSplitCountdownInfo(job);
+  if(split && Number.isFinite(Number(split.overallEndAt)) && Number(split.overallEndAt) > 0) return Number(split.overallEndAt);
+  return Number(fallbackEndAt || 0);
+}
+
 function isTransportStartPhasePassed(job){
   if(!job) return false;
   const phase = getTransportPhase(job);
@@ -3815,6 +3910,8 @@ function applyEstimatedCountdownAtStart(job){
     job.estimatedTotalMinutesAtStart = totalMinutes;
     job.estimatedMinutesAtStart = visibleMinutes;
     job.estimatedEndAt = baseTime + visibleMinutes * 60000;
+    job.estimatedOverallMinutesAtStart = visibleMinutes;
+    job.estimatedOverallEndAt = job.estimatedEndAt;
     job.estimatedCountAtStart = Number(estimate.count || 0);
     job.estimatedMaterialFlowMinutesAtStart = Number(estimate.materialMinutes || 0);
     job.estimatedMaterialFlowCountAtStart = Number(estimate.materialCount || 0);
@@ -3841,6 +3938,11 @@ function applyEstimatedCountdownAtStart(job){
     delete job.estimatedMapTotalMinutesAtStart;
     delete job.estimatedMapMaterialMinutesAtStart;
     delete job.estimatedTotalMinutesAtStart;
+    delete job.estimatedOverallMinutesAtStart;
+    delete job.estimatedOverallEndAt;
+    delete job.estimatedLegMinutesAtStart;
+    delete job.estimatedLegEndAt;
+    delete job.estimatedLegMode;
     delete job.estimatedStartAddonIncludedInActiveTime;
     delete job.estimatedStartAddonRemovedFromRemaining;
   }
@@ -4875,7 +4977,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-69';
+const APP_VERSION = 'Stadslass v2026-05-07-01-70';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -4952,6 +5054,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Smart delberäkning kö v62', status:'Aktiv', purpose:'Köberäkning med Annan plats/destination gör bara kartanrop på meningsfulla fysiska delsträckor, exempelvis GPS→Ringön, och hoppar över oklara materialdelar.', changeRule:'Annan plats/destination får aldrig användas som kartpunkt. Aktuell GPS får användas som startpunkt för delberäkning.'},
   {name:'Dygnsfördelad uppdragstid v68', status:'Aktiv', purpose:'Pausade och återupptagna uppdrag sparar arbetspass så sammanställningen kan dela tid per utförd dag och märka rader med Uppdraget delat.', changeRule:'Får inte räkna pausad natt/väntetid som arbetstid och får inte ändra GPS, vikt, Lasta, Klart, fasdata eller tidsinlärning utan separat beslut.'},
   {name:'Tidsatta köuppdrag v69', status:'Aktiv', purpose:'Köuppdrag kan få frivilligt klockslag i Nytt jobb, Snabbval och köredigering. Tom tid fungerar som tidigare och uppdraget ligger bara på hög i kön.', changeRule:'Klockslaget är bara planeringsdata och får inte påverka verklig starttid, uppdragstid, GPS, fasdata, vikt, sammanställning eller tidsinlärning.'},
+  {name:'Delad retunnedräkning v70', status:'Aktiv', purpose:'Befintlig nedräkningsruta delas internt vid returkrav: Från→Till före vikt och Till→Från efter vikt. Inga extra texter läggs till och total sluttid bevaras.', changeRule:'Får bara ändra visad nedräkning. Får inte påverka faktisk uppdragstid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -5133,7 +5236,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
-  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69'), 'featureManifestList + v67/v68/v69-poster');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70'), 'featureManifestList + v67/v68/v69/v70-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!el('mapKeyManagerWrap') && !!el('mapApiKeyInput') && fn('getLocalMapApiKey') && fn('setLocalMapApiKey') && fn('deleteLocalMapApiKey'), 'kartnyckel sparas separat per enhet');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!el('mapGuardStatus') && fn('getMapGuardStatus') && fn('canMakeMapRequest') && fn('registerMapRequest') && fn('getCachedMapRoute') && fn('setCachedMapRoute'), 'lokala gränser + cache');
@@ -5146,7 +5249,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning är dold i aktiv vy', !!el('activeRouteGps') && el('activeRouteGps').classList.contains('hidden') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', "classList.add('hidden')"), 'gammal GPS-ruta bevaras tekniskt men visas inte');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-69') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-70') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -5188,6 +5291,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Överför enskilt avslutat uppdrag finns', fn('createSingleFinishedJobTransferCode') && fn('importSingleFinishedJobTransferCode') && fn('insertImportedFinishedJobsWithTimeline') && fn('fitImportedJobIntoActiveOtherWork'), 'överföringskod + tidsinpassning mot Övrig verksamhet');
   addFunctionCheck(results, 'Nivå 2', 'Köredigering påverkar bara kön', fn('openEditQueueJob') && fn('saveEditedQueueJob') && fn('clearQueueEditedEstimateFields') && src('saveEditedQueueJob', 'state.queue') && src('saveEditedQueueJob', 'clearQueueEditedEstimateFields') && src('saveEditedQueueJob', 'sortQueueByPlannedDate') && !src('saveEditedQueueJob', 'state.jobs.push') && !src('saveEditedQueueJob', 'state.active ='), 'redigerar köpost, rensar gamla uppskattningar och sorterar om kön');
   addFunctionCheck(results, 'Nivå 2', 'Tidsatta köuppdrag v69 finns', !!el('newPlannedTime') && !!el('quickPlannedTime') && !!el('editQueueTime') && fn('getQueuedJobTime') && fn('setQueuedJobPlannedTime') && fn('compareQueuedJobPlanning') && src('addManualJobToQueue', 'plannedTime') && src('startQuickItem', 'plannedTime') && src('saveEditedQueueJob', 'plannedTime'), 'frivilligt klockslag i nytt jobb, snabbval, kölista och köredigering');
+  addFunctionCheck(results, 'Nivå 2', 'Delad retunnedräkning v70 finns', fn('getReturnSplitRouteLegMinutes') && fn('getReturnSplitCountdownInfo') && fn('getActiveEstimateDisplayEndAt') && fn('getActiveEstimateOverallEndAt') && src('getActiveEstimateCountdownHtml', 'getActiveEstimateDisplayEndAt') && src('getActiveEstimateCountdownHtml', 'getActiveEstimateOverallEndAt') && src('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && src('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'samma nedräkningsruta delas internt för returkrav och total sluttid sparas separat');
   addFunctionCheck(results, 'Nivå 2', 'Dygnsfördelad uppdragstid v68 finns', fn('ensureJobWorkSessions') && fn('closeOpenWorkSession') && fn('appendOpenWorkSession') && fn('buildSummaryRowsForJob') && src('pauseActiveJob', 'closeOpenWorkSession') && src('resumePausedJob', 'appendOpenWorkSession') && src('stopJob', 'closeOpenWorkSession') && src('getFilteredSummaryJobs', 'buildSummaryRowsFromJobs') && src('getSummaryRowComment', 'Uppdraget delat'), 'arbetspass sparas och sammanställningen kan dela tid per datum');
 
   const memoryTest = runMemoryOnlyTestJobCheck();
@@ -5292,7 +5396,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-69') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-69'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-70') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-70'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -5314,9 +5418,10 @@ function buildSystemControlInternalChecks(){
     systemCheck('Sammanställning/export', typeof getFilteredSummaryJobs === 'function' && typeof exportSummaryExcel === 'function' && typeof buildFinishedTransferPayload === 'function', 'sammanställning och export finns'),
     systemCheck('Dygnsfördelad uppdragstid v68', typeof ensureJobWorkSessions === 'function' && typeof closeOpenWorkSession === 'function' && typeof buildSummaryRowsForJob === 'function' && functionSourceIncludes('getFilteredSummaryJobs', 'buildSummaryRowsFromJobs'), 'delade uppdrag kan räknas per utförd dag'),
     systemCheck('Tidsatta köuppdrag v69', document.getElementById('newPlannedTime') && document.getElementById('quickPlannedTime') && document.getElementById('editQueueTime') && typeof getQueuedJobTime === 'function' && typeof setQueuedJobPlannedTime === 'function' && functionSourceIncludes('sortQueueByPlannedDate', 'compareQueuedJobPlanning'), 'frivilligt klockslag i kö utan att tom tid krävs'),
+    systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67/v68/v69', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67/v68/v69/v70', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -6212,9 +6317,18 @@ function applyActiveAutoMapRouteResult(job, result, routeInfo){
   if(!job || !result || !routeInfo) return;
   const minutes = mapSecondsToEstimateMinutes(Number(result.durationSeconds || 0));
   if(minutes > 0){
-    job.estimatedMinutesAtStart = minutes;
-    job.estimatedEndAt = Date.now() + minutes * 60000;
-    job.autoMapRemainingMinutes = minutes;
+    if(getJobReturnRequiredValue(job)){
+      if(!Number(job.estimatedOverallEndAt || 0) && Number(job.estimatedEndAt || 0) > 0) job.estimatedOverallEndAt = Number(job.estimatedEndAt || 0);
+      if(!Number(job.estimatedOverallMinutesAtStart || 0) && Number(job.estimatedMinutesAtStart || 0) > 0) job.estimatedOverallMinutesAtStart = Number(job.estimatedMinutesAtStart || 0);
+      job.estimatedLegMinutesAtStart = minutes;
+      job.estimatedLegEndAt = Date.now() + minutes * 60000;
+      job.estimatedLegMode = routeInfo.mode || getReturnSplitCountdownMode(job);
+      job.autoMapRemainingMinutes = minutes;
+    } else {
+      job.estimatedMinutesAtStart = minutes;
+      job.estimatedEndAt = Date.now() + minutes * 60000;
+      job.autoMapRemainingMinutes = minutes;
+    }
   }
   job.autoMapLastResultAt = Date.now();
   job.autoMapLastMode = routeInfo.mode;
