@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-78
+- Nuvarande version: Stadslass v2026-05-07-01-79
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -21,6 +21,7 @@ Stadslass versionskontroll
 - v75: Nytt jobb använder standardförslag men Till-listan är fri; Returkrav och Flerlass kan väljas per uppdrag.
 - v77: Geofence är återanvändbar platsdata. Samma platsgeofence kan användas för Från, Till, startsträcka, lossning och retur utan duplicering per scenario.
 - v78: Startsträcka väger svagt i inlärningen. Startpunkt→Från används för planering/faktisk tid, men kärnflödets tidsinlärning använder i första hand Från→Till/retur efter Lastar.
+- v79: Bakgrundsinställningar ryms i inställningsrutan och Startsträcka, Transport pågår och Retur pågår har separata färgval med orange standard.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -84,6 +85,7 @@ Stadslass versionskontroll
   - GPS-inspelning v73: automatisk vid aktivt uppdrag, glest sparad med sammanfattning; aktiv vy visar bara diskret text
   - Startsträcka orange v74: startfas med verklig startsträcka använder samma orange body-bakgrund som transport/retur utan extra text eller ändrad faslogik
   - Startsträcka svag inlärning v78: startsträcka används för planering/faktisk tid men undantas från kärnflödets huvudunderlag när Lastar/fasdata finns.
+  - Bakgrundsinställningar v79: Startsträcka, Transport pågår och Retur pågår har separata färgval men orange standard; inställningsraderna ryms i rutan på padda/mobil.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -109,7 +111,9 @@ Stadslass versionskontroll
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
 body.phase-loading-bg{background:linear-gradient(90deg,var(--phase-loading-main,#93c5fd) 0,var(--phase-loading-soft,#dbeafe) 100%) !important;}
+body.phase-start-bg{background:linear-gradient(90deg,var(--phase-start-main,#fdba74) 0,var(--phase-start-soft,#ffedd5) 100%) !important;}
 body.phase-transport-bg{background:linear-gradient(90deg,var(--phase-transport-main,#fdba74) 0,var(--phase-transport-soft,#ffedd5) 100%) !important;}
+body.phase-return-bg{background:linear-gradient(90deg,var(--phase-return-main,#fdba74) 0,var(--phase-return-soft,#ffedd5) 100%) !important;}
 body.phase-unloading-bg{background:linear-gradient(90deg,var(--phase-unloading-main,#86efac) 0,var(--phase-unloading-soft,#dcfce7) 100%) !important;}
 body.phase-complete-bg{background:linear-gradient(90deg,var(--phase-complete-main,#93c5fd) 0,var(--phase-complete-soft,#dbeafe) 100%) !important;}
 .wrap{max-width:1100px;margin:0 auto;padding:16px}
@@ -401,6 +405,17 @@ button{
   font-weight:800 !important;
 }
 
+.active-phase-btn.phase-start{
+  border:1px solid var(--phase-start-main,#fdba74) !important;
+  background:linear-gradient(90deg,var(--phase-start-main,#fdba74) 0,var(--phase-start-soft,#ffedd5) 100%) !important;
+  color:var(--phase-start-text,#7c2d12) !important;
+}
+
+.active-phase-btn.phase-start::before{
+  background:var(--phase-start-strong,#fb923c) !important;
+  color:#fff !important;
+}
+
 .active-phase-btn.phase-transport{
   border:1px solid var(--phase-transport-main,#fdba74) !important;
   background:linear-gradient(90deg,var(--phase-transport-main,#fdba74) 0,var(--phase-transport-soft,#ffedd5) 100%) !important;
@@ -409,6 +424,17 @@ button{
 
 .active-phase-btn.phase-transport::before{
   background:var(--phase-transport-strong,#fb923c) !important;
+  color:#fff !important;
+}
+
+.active-phase-btn.phase-return{
+  border:1px solid var(--phase-return-main,#fdba74) !important;
+  background:linear-gradient(90deg,var(--phase-return-main,#fdba74) 0,var(--phase-return-soft,#ffedd5) 100%) !important;
+  color:var(--phase-return-text,#7c2d12) !important;
+}
+
+.active-phase-btn.phase-return::before{
+  background:var(--phase-return-strong,#fb923c) !important;
   color:#fff !important;
 }
 
@@ -1172,12 +1198,14 @@ button{
 
 
 /* TEMP RECEIPT IMPORT MODULE START */
-.phase-color-settings{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
-.phase-color-row{display:grid;grid-template-columns:1fr minmax(150px,220px);gap:10px;align-items:center;border:1px solid var(--border);border-radius:14px;padding:10px;background:#fff}
-.phase-color-label{font-weight:700}
+.phase-color-settings{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px;min-width:0}
+.phase-color-row{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;border:1px solid var(--border);border-radius:14px;padding:10px;background:#fff;min-width:0;overflow:hidden}
+.phase-color-row>div,.phase-color-row select{min-width:0;max-width:100%}
+.phase-color-row select{width:100%}
+.phase-color-label{font-weight:700;overflow-wrap:anywhere}
 .phase-color-preview{display:inline-block;width:18px;height:18px;border-radius:999px;border:1px solid rgba(15,23,42,.22);vertical-align:-4px;margin-right:6px}
-.phase-color-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-@media(max-width:680px){.phase-color-row{grid-template-columns:1fr}}
+.phase-color-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;min-width:0}
+.phase-color-actions button{max-width:100%;white-space:normal}
 
 .receipt-temp-wrap{border:2px dashed #94a3b8;background:#f8fafc}
 .receipt-hero{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px}
@@ -1530,7 +1558,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-78</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-79</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -2179,13 +2207,17 @@ const PHASE_COLOR_PALETTE = [
 ];
 const DEFAULT_PHASE_COLOR_SETTINGS = {
   loading:'blue_standard',
+  start:'orange_standard',
   transport:'orange_standard',
+  returning:'orange_standard',
   unloading:'green_standard',
   complete:'blue_standard'
 };
 const PHASE_COLOR_GROUPS = [
   {key:'loading', label:'Lastar / Lastning/rangering'},
-  {key:'transport', label:'Startsträcka / Transport pågår / Retur pågår'},
+  {key:'start', label:'Startsträcka'},
+  {key:'transport', label:'Transport pågår'},
+  {key:'returning', label:'Retur pågår'},
   {key:'unloading', label:'Lossning'},
   {key:'complete', label:'Lass registrerat'}
 ];
@@ -2720,7 +2752,7 @@ function getActivePhaseVisualState(job){
     }
     return {label:'Transport pågår', className:'phase-transport', disabled:true};
   }
-  if(phase === 'returning') return {label:'Retur pågår', className:'phase-transport', disabled:true};
+  if(phase === 'returning') return {label:'Retur pågår', className:'phase-return', disabled:true};
   if(phase === 'load_complete') return {label:'Lass registrerat', className:'phase-complete', disabled:true};
   if(phase === 'between_loads') return {label:multiLoadMode ? 'Lastar' : 'Lass registrerat', className:multiLoadMode ? 'phase-loading' : 'phase-complete', disabled:!multiLoadMode};
   return {label:'Lastar', className:'phase-loading', disabled:false};
@@ -3399,6 +3431,12 @@ function normalizePhaseColorSettings(settings){
   const src = (settings && typeof settings === 'object' && !Array.isArray(settings)) ? settings : {};
   const allowed = new Set(PHASE_COLOR_PALETTE.map(item => item.id));
   const out = {...DEFAULT_PHASE_COLOR_SETTINGS};
+  const oldTransportColor = String(src.transport || '').trim();
+  if(allowed.has(oldTransportColor)){
+    out.start = oldTransportColor;
+    out.transport = oldTransportColor;
+    out.returning = oldTransportColor;
+  }
   PHASE_COLOR_GROUPS.forEach(group => {
     const val = String(src[group.key] || '').trim();
     if(allowed.has(val)) out[group.key] = val;
@@ -5540,7 +5578,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-78';
+const APP_VERSION = 'Stadslass v2026-05-07-01-79';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -5618,7 +5656,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Dygnsfördelad uppdragstid v68', status:'Aktiv', purpose:'Pausade och återupptagna uppdrag sparar arbetspass så sammanställningen kan dela tid per utförd dag och märka rader med Uppdraget delat.', changeRule:'Får inte räkna pausad natt/väntetid som arbetstid och får inte ändra GPS, vikt, Lasta, Klart, fasdata eller tidsinlärning utan separat beslut.'},
   {name:'Tidsatta köuppdrag v69', status:'Aktiv', purpose:'Köuppdrag kan få frivilligt klockslag i Nytt jobb, Snabbval och köredigering. Tom tid fungerar som tidigare och uppdraget ligger bara på hög i kön.', changeRule:'Klockslaget är bara planeringsdata och får inte påverka verklig starttid, uppdragstid, GPS, fasdata, vikt, sammanställning eller tidsinlärning.'},
   {name:'Delad retunnedräkning v70', status:'Aktiv', purpose:'Befintlig nedräkningsruta delas internt vid returkrav: Från→Till före vikt och Till→Från efter vikt. Inga extra texter läggs till och total sluttid bevaras.', changeRule:'Får bara ändra visad nedräkning. Får inte påverka faktisk uppdragstid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
-  {name:'Retur orange bottenbakgrund v71', status:'Aktiv', purpose:'Retur pågår använder samma orange body-bakgrund som Transport pågår utan extra text och utan att ändra fasknapp, faslogik eller uppdragstid.', changeRule:'Får bara ändra visuell body-bakgrund. Får inte påverka returkrav, nedräkning, uppskattad tid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
+  {name:'Retur orange bottenbakgrund v71', status:'Aktiv', purpose:'Retur pågår använder egen färggrupp med orange standard utan extra text och utan att ändra fasknapp, faslogik eller uppdragstid.', changeRule:'Får bara ändra visuell body-bakgrund. Får inte påverka returkrav, nedräkning, uppskattad tid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
   {name:'Bevara uppskattad tid vid paus/fortsätt v72', status:'Aktiv', purpose:'Pausade uppdrag sparar senast kända uppskattad tid och återställer nedräkningen vid Fortsätt. Om ny beräkning saknar underlag behålls gammal nedräkning i stället för saknas.', changeRule:'Får inte ändra faktisk uppdragstid, vikt, GPS, fasdata, sammanställning eller tidsinlärning. Endast bevarande/återställning av uppskattad tid vid paus/fortsätt.'},
   {name:'Automatisk GPS-inspelning v73', status:'Aktiv', purpose:'GPS-inspelning startar automatiskt med aktivt uppdrag, pausas vid Pausa, fortsätter vid Fortsätt och sparar bara en GPS-sammanfattning i Idag.', changeRule:'Får inte trycka Lasta, Ange vikt, Pausa eller Klart automatiskt och får inte ändra fasdata, uppskattad tid, sammanställning eller tidsinlärning.'},
   {name:'Startsträcka orange bottenbakgrund v74', status:'Aktiv', purpose:'Startsträcka före Från-plats använder samma orange body-bakgrund som Transport pågår/Retur pågår utan extra text.', changeRule:'Får bara ändra visuell body-bakgrund. Får inte ändra fasknapp, startsträckans tid, GPS, fasdata, Lasta, Ange vikt, Klart, sammanställning eller tidsinlärning.'},
@@ -5626,6 +5664,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Färginställningar fasknapp v76', status:'Aktiv', purpose:'Inställningar innehåller fasta färgval för Lastar/Lastning, Startsträcka/Transport/Retur, Lossning och Lass registrerat. Samma val styr både fasknapp och aktiv bottenbakgrund.', changeRule:'Ren visuell inställning. Får inte påverka GPS, uppskattad tid, nedräkning, returkrav, flerlass, Lasta, Ange vikt, Klart, fasdata, vikt, sammanställning eller tidsinlärning.'},
   {name:'Återanvändbara platsgeofence v77', status:'Aktiv', purpose:'Geofence är platsdata som kan återanvändas av flera scenarion: startsträcka, Från, Till, lastning, transport, lossning och retur. Från-/Till-funktioner använder samma platsgeofence när platsen är densamma.', changeRule:'Får bara ändra hur geofence hittas/återanvänds. Får inte ändra mätpunkter, Lasta, Ange vikt, Klart, GPS-inspelning, uppskattad tid, fasdata, vikt, sammanställning eller tidsinlärning.'},
   {name:'Startsträcka svag inlärning v78', status:'Aktiv', purpose:'Startsträcka används för dagens planering, faktisk uppdragstid och GPS-sammanfattning men väger inte tungt i kärnflödets tidsinlärning.', changeRule:'Framtida uppskattad tid ska främst lära Från→Till och eventuell retur/hantering efter Lastar. Startpunkt→Från får användas som separat planeringsdel men får inte förlänga materialflödets normalvärde.'},
+  {name:'Bakgrundsinställningar delade färger v79', status:'Aktiv', purpose:'Inställningar har separata färgval för Startsträcka, Transport pågår och Retur pågår. Alla tre har orange standard men kan ändras var för sig och layouten ryms i inställningsrutan.', changeRule:'Ren visuell inställning/layoutfix. Får inte påverka GPS, uppskattad tid, nedräkning, faser, Lasta, Ange vikt, Klart, sammanställning eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -5807,7 +5846,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
-  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78'), 'featureManifestList + v67-v78-poster');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79'), 'featureManifestList + v67-v79-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!el('mapKeyManagerWrap') && !!el('mapApiKeyInput') && fn('getLocalMapApiKey') && fn('setLocalMapApiKey') && fn('deleteLocalMapApiKey'), 'kartnyckel sparas separat per enhet');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!el('mapGuardStatus') && fn('getMapGuardStatus') && fn('canMakeMapRequest') && fn('registerMapRequest') && fn('getCachedMapRoute') && fn('setCachedMapRoute'), 'lokala gränser + cache');
@@ -5820,7 +5859,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-78') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-78') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -5833,9 +5872,10 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', src('startJob', 'applyEstimatedCountdownAtStart') && src('renderActive', 'renderActiveEstimateCountdown') && !src('stopJob', 'estimatedEndAt'), 'startJob + renderActive; Klart blockerar inte på nedräkning');
   addFunctionCheck(results, 'Nivå 2', 'Fasknappens visuella lägen finns', fn('getActivePhaseVisualState') && src('getActivePhaseVisualState', 'Lastning/rangering') && src('getActivePhaseVisualState', 'Transport pågår') && src('getActivePhaseVisualState', 'Lossning') && src('getActivePhaseVisualState', 'Lass registrerat') && src('getActivePhaseVisualState', 'Retur pågår'), 'Lastar/Lastning, Transport, Lossning, Lass registrerat och Retur pågår');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv bottenbakgrund v65 finns', fn('updateActivePhaseBackground') && src('updateActivePhaseBackground', 'phase-loading-bg') && src('updateActivePhaseBackground', 'phase-transport-bg') && src('updateActivePhaseBackground', 'phase-unloading-bg') && src('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'body-bakgrund följer fasknappens visuella lägen');
-  addFunctionCheck(results, 'Nivå 2', 'Retur orange bottenbakgrund v71 finns', fn('updateActivePhaseBackground') && src('updateActivePhaseBackground', 'Retur pågår') && src('updateActivePhaseBackground', 'phase-transport-bg'), 'Retur pågår ger samma body-bakgrund som Transport pågår');
-  addFunctionCheck(results, 'Nivå 2', 'Startsträcka orange bottenbakgrund v74 finns', fn('isActiveStartLegVisualTransport') && src('updateActivePhaseBackground', 'isActiveStartLegVisualTransport') && src('updateActivePhaseBackground', 'phase-transport-bg'), 'startfas med startsträcka ger samma body-bakgrund som Transport pågår utan extra text');
+  addFunctionCheck(results, 'Nivå 2', 'Retur orange bottenbakgrund v71 finns', fn('updateActivePhaseBackground') && src('updateActivePhaseBackground', 'Retur pågår') && src('updateActivePhaseBackground', 'phase-return-bg'), 'Retur pågår har egen färggrupp med orange standard');
+  addFunctionCheck(results, 'Nivå 2', 'Startsträcka orange bottenbakgrund v74 finns', fn('isActiveStartLegVisualTransport') && src('updateActivePhaseBackground', 'isActiveStartLegVisualTransport') && src('updateActivePhaseBackground', 'phase-start-bg'), 'startfas med startsträcka använder egen färggrupp med orange standard utan extra text');
   addFunctionCheck(results, 'Nivå 2', 'Färginställningar fasknapp v76 finns', Array.isArray(PHASE_COLOR_PALETTE) && PHASE_COLOR_PALETTE.length >= 10 && fn('renderPhaseColorSettings') && fn('setPhaseColorSetting') && fn('resetPhaseColorSettings') && fn('applyPhaseColorSettings') && !!el('phaseColorSettingsPanel') && src('applyPhaseColorSettings', '--phase-transport-main') && src('renderActiveTransportPhaseControl', 'phase-complete'), 'fasta färgval styr fasknapp och aktiv bottenbakgrund');
+  addFunctionCheck(results, 'Nivå 2', 'Bakgrundsinställningar delade färger v79 finns', PHASE_COLOR_GROUPS.some(group => group.key === 'start') && PHASE_COLOR_GROUPS.some(group => group.key === 'transport') && PHASE_COLOR_GROUPS.some(group => group.key === 'returning') && DEFAULT_PHASE_COLOR_SETTINGS.start === 'orange_standard' && DEFAULT_PHASE_COLOR_SETTINGS.transport === 'orange_standard' && DEFAULT_PHASE_COLOR_SETTINGS.returning === 'orange_standard' && src('updateActivePhaseBackground', 'phase-start-bg') && src('updateActivePhaseBackground', 'phase-return-bg') && src('renderActiveTransportPhaseControl', 'phase-start') && src('renderActiveTransportPhaseControl', 'phase-return'), 'startsträcka/transport/retur har separata färger och layouten hålls inom rutan');
   addFunctionCheck(results, 'Nivå 2', 'Friare Nytt jobb v75 finns', !!el('newReturnRequired') && !!el('newMultiLoad') && !!el('editQueueReturnRequired') && !!el('editQueueMultiLoad') && fn('getFreeDestinationValuesWithStandardFirst') && fn('getStandardDestinationForJobType') && fn('handleNewJobFlagToggle') && fn('handleEditQueueFlagToggle') && src('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && src('startManualJob', 'returnRequiredChoice') && src('addManualJobToQueue', 'multiLoadChoice'), 'Nytt jobb har fri Till-lista, standardförslag, Returkrav och Flerlass');
   addFunctionCheck(results, 'Nivå 2', 'Bevara uppskattad tid vid paus/fortsätt v72 finns', fn('savePausedEstimateState') && fn('restorePausedEstimateState') && fn('applyEstimatedCountdownAtStartPreservingExisting') && src('pauseActiveJob', 'savePausedEstimateState') && src('resumePausedJob', 'restorePausedEstimateState'), 'Pausa sparar senast kända nedräkning och Fortsätt återställer den');
   addFunctionCheck(results, 'Nivå 2', 'GPS-zoner ändrar bara visuell fasknapp', fn('getFromGeofenceForJob') && fn('updateActiveGeofenceVisualStatus') && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5 && src('updateActiveGeofenceVisualStatus', 'geofenceVisual'), 'Från-zoner styr visuell status, inte mätpunkter');
@@ -5989,9 +6029,10 @@ function buildSystemControlInternalChecks(){
     systemCheck('Aktivt jobb', !!document.getElementById('activeJobCard') && typeof renderActive === 'function' && !!document.getElementById('activePhaseButton'), 'aktiv vy och fasknapp finns'),
     systemCheck('Fasknapp visuella lägen', typeof getActivePhaseVisualState === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Lastning/rangering') && functionSourceIncludes('getActivePhaseVisualState', 'Transport pågår') && functionSourceIncludes('getActivePhaseVisualState', 'Lossning'), 'Lastning/rangering, Transport pågår och Lossning finns'),
     systemCheck('Aktiv bottenbakgrund v65', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg') && functionSourceIncludes('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'Body-bakgrund följer fasknappens visuella status'),
-    systemCheck('Retur orange bottenbakgrund v71', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'Retur pågår') && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg'), 'Retur pågår använder samma orange body-bakgrund som Transport pågår'),
-    systemCheck('Startsträcka orange bottenbakgrund v74', typeof isActiveStartLegVisualTransport === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'isActiveStartLegVisualTransport') && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg'), 'startfas med startsträcka använder orange body-bakgrund utan extra text'),
+    systemCheck('Retur orange bottenbakgrund v71', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'Retur pågår') && functionSourceIncludes('updateActivePhaseBackground', 'phase-return-bg'), 'Retur pågår använder egen färggrupp med orange standard'),
+    systemCheck('Startsträcka orange bottenbakgrund v74', typeof isActiveStartLegVisualTransport === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'isActiveStartLegVisualTransport') && functionSourceIncludes('updateActivePhaseBackground', 'phase-start-bg'), 'startfas med startsträcka använder egen färggrupp med orange standard utan extra text'),
     systemCheck('Färginställningar fasknapp v76', Array.isArray(PHASE_COLOR_PALETTE) && PHASE_COLOR_PALETTE.length >= 10 && typeof renderPhaseColorSettings === 'function' && typeof setPhaseColorSetting === 'function' && typeof resetPhaseColorSettings === 'function' && typeof applyPhaseColorSettings === 'function' && !!document.getElementById('phaseColorSettingsPanel'), 'Inställningar styr fasknapp och body-bakgrund med samma färgval'),
+    systemCheck('Bakgrundsinställningar delade färger v79', PHASE_COLOR_GROUPS.some(group => group.key === 'start') && PHASE_COLOR_GROUPS.some(group => group.key === 'transport') && PHASE_COLOR_GROUPS.some(group => group.key === 'returning') && DEFAULT_PHASE_COLOR_SETTINGS.start === 'orange_standard' && DEFAULT_PHASE_COLOR_SETTINGS.transport === 'orange_standard' && DEFAULT_PHASE_COLOR_SETTINGS.returning === 'orange_standard' && functionSourceIncludes('updateActivePhaseBackground', 'phase-start-bg') && functionSourceIncludes('updateActivePhaseBackground', 'phase-return-bg'), 'Startsträcka, Transport pågår och Retur pågår har separata färgval med orange standard'),
     systemCheck('Friare Nytt jobb v75', !!document.getElementById('newReturnRequired') && !!document.getElementById('newMultiLoad') && typeof getFreeDestinationValuesWithStandardFirst === 'function' && typeof handleNewJobFlagToggle === 'function' && functionSourceIncludes('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && functionSourceIncludes('startManualJob', 'returnRequiredChoice'), 'fri Till-lista i Nytt jobb + manuellt Returkrav/Flerlass'),
     systemCheck('Bevara uppskattad tid vid paus/fortsätt v72', typeof savePausedEstimateState === 'function' && typeof restorePausedEstimateState === 'function' && typeof applyEstimatedCountdownAtStartPreservingExisting === 'function' && functionSourceIncludes('pauseActiveJob', 'savePausedEstimateState') && functionSourceIncludes('resumePausedJob', 'restorePausedEstimateState'), 'senast kända nedräkning återställs efter paus'),
     systemCheck('Automatisk GPS-inspelning v73', typeof startRouteGpsRecordingForJob === 'function' && typeof pauseRouteGpsRecordingForJob === 'function' && typeof resumeRouteGpsRecordingForJob === 'function' && typeof finalizeRouteGpsRecordingForJob === 'function' && functionSourceIncludes('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && functionSourceIncludes('renderActiveRouteGps', 'Gps inspelning pågår') && functionSourceIncludes('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning med diskret aktivtext och GPS-sammanfattning i Idag'),
@@ -10030,16 +10071,18 @@ function isActiveStartLegVisualTransport(job){
 
 function updateActivePhaseBackground(visualState){
   if(typeof document === 'undefined' || !document.body) return;
-  const backgroundClasses = ['phase-loading-bg','phase-transport-bg','phase-unloading-bg','phase-complete-bg'];
+  const backgroundClasses = ['phase-loading-bg','phase-start-bg','phase-transport-bg','phase-return-bg','phase-unloading-bg','phase-complete-bg'];
   document.body.classList.remove(...backgroundClasses);
   if(!state || !state.active || !visualState) return;
   const label = String(visualState.label || '');
   if(isActiveStartLegVisualTransport(state.active)){
-    document.body.classList.add('phase-transport-bg');
+    document.body.classList.add('phase-start-bg');
   } else if(label === 'Lastar' || label === 'Lastning/rangering'){
     document.body.classList.add('phase-loading-bg');
-  } else if(label === 'Transport pågår' || label === 'Retur pågår'){
+  } else if(label === 'Transport pågår'){
     document.body.classList.add('phase-transport-bg');
+  } else if(label === 'Retur pågår'){
+    document.body.classList.add('phase-return-bg');
   } else if(label === 'Lossning'){
     document.body.classList.add('phase-unloading-bg');
   } else if(label === 'Lass registrerat'){
@@ -10059,8 +10102,8 @@ function renderActiveTransportPhaseControl(){
   initializeTransportPhaseForJob(state.active);
   const visualState = getActivePhaseVisualState(state.active);
   updateActivePhaseBackground(visualState);
-  btn.classList.remove('phase-loading','phase-transport','phase-unloading','phase-complete');
-  const activeClassName = isActiveStartLegVisualTransport(state.active) ? 'phase-transport' : visualState.className;
+  btn.classList.remove('phase-loading','phase-start','phase-transport','phase-return','phase-unloading','phase-complete');
+  const activeClassName = isActiveStartLegVisualTransport(state.active) ? 'phase-start' : visualState.className;
   if(activeClassName) btn.classList.add(activeClassName);
   btn.textContent = visualState.label;
   btn.disabled = visualState.disabled;
