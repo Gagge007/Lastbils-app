@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-86
+- Nuvarande version: Stadslass v2026-05-07-01-87
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -29,6 +29,7 @@ Stadslass versionskontroll
 - v84: Ruttavvikelse första steg. Appen markerar tydlig avvikelse mellan faktisk GPS-sträcka och kart-/cacheunderlag som analys och spärrar sådant uppdrag från att bli nytt normalvärde automatiskt.
 - v85: Prognos för hela dagen visar aktiv tid kvar, kötid idag, beräknad färdig-tid och osäkerhet som planeringsstöd utan att styra kö eller jobb.
 - v86: Geofence-inställningar gör det möjligt att lägga till, redigera, ta bort och återställa platsgeofence med validering av cirkel/polygonvärden.
+- v87: Geofence layoutfix tar bort synliga radbrytningstecken i Geofence-inställningar utan att ändra geofence-logiken.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -101,6 +102,7 @@ Stadslass versionskontroll
   - Ruttavvikelse v84: tydlig avvikelse mellan faktisk GPS-sträcka och kart-/cacheunderlag visas som analys och används inte som nytt normalvärde automatiskt.
   - Dagsprognos v85: visar aktivt jobb kvar, kö idag, beräknad färdig och osäkerhet som planeringshjälp utan att starta eller sortera uppdrag automatiskt.
   - Geofence-inställningar v86: geofence kan läggas till, redigeras, tas bort och återställas med värdekontroll. Geofence är fortfarande bara platsdata/visuell status och styr inte Lasta, Ange vikt eller Klart.
+  - Geofence layoutfix v87: Geofence-inställningar visar inte synliga \n-tecken i formulär och register.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -1661,7 +1663,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-86</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-87</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -1732,7 +1734,71 @@ button{
         </div>
       </div>
     </div>
-\n    <div id="geofenceManagerWrap" class="place-manager hidden">\n      <div class="place-help"><strong>Geofence-inställningar.</strong> Geofence är platsdata för visuell status, anropsskydd och analys. Appreglerna styr hur informationen får användas. Manuella knappar är fortfarande jobbets sanning: geofence får inte trycka Lasta, Ange vikt eller Klart.</div>\n\n      <div class="place-row">\n        <div class="place-key">Ny plats för geofence</div>\n        <div class="multi-help">Skapa en enkel ny plats om platsen saknas. Själva geofence-värdet sparas i rutan nedanför.</div>\n        <input id="geofenceNewPlaceName" placeholder="Namn på ny plats">\n        <input id="geofenceNewPlaceAddress" placeholder="Adress eller Plus Code (valfritt)">\n        <div class="row" style="margin-top:10px">\n          <button class="primary inline" onclick="createPlaceFromGeofenceManager()">Lägg till plats</button>\n        </div>\n      </div>\n\n      <div class="place-row">\n        <div class="place-key">Lägg till / redigera geofence</div>\n        <label>Plats</label>\n        <select id="geofencePlaceSelect" onchange="loadGeofenceFormForSelectedPlace()"></select>\n        <label style="margin-top:10px">Typ</label>\n        <select id="geofenceTypeSelect" onchange="updateGeofenceFormVisibility()">\n          <option value="circle">Cirkel</option>\n          <option value="polygon">Polygon</option>\n        </select>\n        <div id="geofenceCircleFields" class="quick-edit-grid" style="margin-top:10px">\n          <div>\n            <label>Latitud</label>\n            <input id="geofenceCircleLat" inputmode="decimal" placeholder="57.719437">\n          </div>\n          <div>\n            <label>Longitud</label>\n            <input id="geofenceCircleLon" inputmode="decimal" placeholder="11.969312">\n          </div>\n          <div>\n            <label>Radie meter</label>\n            <input id="geofenceCircleRadius" inputmode="numeric" placeholder="60">\n          </div>\n          <div>\n            <label>Tolerans meter (valfritt)</label>\n            <input id="geofenceTolerance" inputmode="numeric" placeholder="0">\n          </div>\n        </div>\n        <div id="geofencePolygonFields" class="hidden" style="margin-top:10px">\n          <label>Polygonpunkter</label>\n          <textarea id="geofencePolygonPoints" class="geofence-points-input" placeholder="57.7195179, 11.9640439\n57.7178787, 11.9647085\n57.7160681, 11.9669340"></textarea>\n          <div class="multi-help">Minst 3 punkter. En punkt per rad: latitud, longitud.</div>\n          <label style="margin-top:10px">Tolerans meter (valfritt)</label>\n          <input id="geofencePolygonTolerance" inputmode="numeric" placeholder="0">\n        </div>\n        <div class="row" style="margin-top:12px">\n          <button class="primary inline" onclick="saveGeofenceFromForm()">Spara geofence</button>\n          <button class="inline" onclick="clearGeofenceForm()">Rensa formulär</button>\n        </div>\n        <div id="geofenceFormStatus" class="geofence-status-box hidden" style="margin-top:10px"></div>\n      </div>\n\n      <div class="place-row">\n        <div class="place-key">Geofence-register</div>\n        <div class="multi-help">Redigera eller ta bort geofence här. Borttagning tar bara bort/avaktiverar geofence för platsen, inte själva platsen och inte historik.</div>\n        <div class="row" style="margin-top:10px">\n          <button class="inline" onclick="renderGeofenceManager()">Uppdatera lista</button>\n        </div>\n        <div id="geofenceManagerList"></div>\n      </div>\n    </div>\n
+
+    <div id="geofenceManagerWrap" class="place-manager hidden">
+      <div class="place-help"><strong>Geofence-inställningar.</strong> Geofence är platsdata för visuell status, anropsskydd och analys. Appreglerna styr hur informationen får användas. Manuella knappar är fortfarande jobbets sanning: geofence får inte trycka Lasta, Ange vikt eller Klart.</div>
+
+      <div class="place-row">
+        <div class="place-key">Ny plats för geofence</div>
+        <div class="multi-help">Skapa en enkel ny plats om platsen saknas. Själva geofence-värdet sparas i rutan nedanför.</div>
+        <input id="geofenceNewPlaceName" placeholder="Namn på ny plats">
+        <input id="geofenceNewPlaceAddress" placeholder="Adress eller Plus Code (valfritt)">
+        <div class="row" style="margin-top:10px">
+          <button class="primary inline" onclick="createPlaceFromGeofenceManager()">Lägg till plats</button>
+        </div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Lägg till / redigera geofence</div>
+        <label>Plats</label>
+        <select id="geofencePlaceSelect" onchange="loadGeofenceFormForSelectedPlace()"></select>
+        <label style="margin-top:10px">Typ</label>
+        <select id="geofenceTypeSelect" onchange="updateGeofenceFormVisibility()">
+          <option value="circle">Cirkel</option>
+          <option value="polygon">Polygon</option>
+        </select>
+        <div id="geofenceCircleFields" class="quick-edit-grid" style="margin-top:10px">
+          <div>
+            <label>Latitud</label>
+            <input id="geofenceCircleLat" inputmode="decimal" placeholder="57.719437">
+          </div>
+          <div>
+            <label>Longitud</label>
+            <input id="geofenceCircleLon" inputmode="decimal" placeholder="11.969312">
+          </div>
+          <div>
+            <label>Radie meter</label>
+            <input id="geofenceCircleRadius" inputmode="numeric" placeholder="60">
+          </div>
+          <div>
+            <label>Tolerans meter (valfritt)</label>
+            <input id="geofenceTolerance" inputmode="numeric" placeholder="0">
+          </div>
+        </div>
+        <div id="geofencePolygonFields" class="hidden" style="margin-top:10px">
+          <label>Polygonpunkter</label>
+          <textarea id="geofencePolygonPoints" class="geofence-points-input" placeholder="57.7195179, 11.9640439&#10;57.7178787, 11.9647085&#10;57.7160681, 11.9669340"></textarea>
+          <div class="multi-help">Minst 3 punkter. En punkt per rad: latitud, longitud.</div>
+          <label style="margin-top:10px">Tolerans meter (valfritt)</label>
+          <input id="geofencePolygonTolerance" inputmode="numeric" placeholder="0">
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary inline" onclick="saveGeofenceFromForm()">Spara geofence</button>
+          <button class="inline" onclick="clearGeofenceForm()">Rensa formulär</button>
+        </div>
+        <div id="geofenceFormStatus" class="geofence-status-box hidden" style="margin-top:10px"></div>
+      </div>
+
+      <div class="place-row">
+        <div class="place-key">Geofence-register</div>
+        <div class="multi-help">Redigera eller ta bort geofence här. Borttagning tar bara bort/avaktiverar geofence för platsen, inte själva platsen och inte historik.</div>
+        <div class="row" style="margin-top:10px">
+          <button class="inline" onclick="renderGeofenceManager()">Uppdatera lista</button>
+        </div>
+        <div id="geofenceManagerList"></div>
+      </div>
+    </div>
+
     <!-- TEMP RECEIPT IMPORT MODULE START -->
     <div id="receiptImportManagerWrap" class="place-manager hidden receipt-temp-wrap">
       <div class="place-help"><strong>Tillfällig funktion – Kvittoimport.</strong> Appen tolkar inte kvittobilder längre. Importera i stället färdiga kvittofiler/rader som är framtagna utanför appen. Raderna skapar bara historiska sammanställningsrader: Datum, Jobbtyp, Från, Till och Vikt. De påverkar inte GPS, aktivt arbete, pauslogik, uppskattad tid, körsträcka, arbetstid eller tidsinlärning.</div>
@@ -5900,7 +5966,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-86';
+const APP_VERSION = 'Stadslass v2026-05-07-01-87';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -5994,6 +6060,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Ruttavvikelse v84', status:'Aktiv', purpose:'Markerar tydlig avvikelse mellan faktisk GPS-sträcka/tid och kart-/cacheunderlag i aktivt jobb och Idag.', changeRule:'Får bara analysera och markera avvikelse. Avvikande uppdrag får inte automatiskt bli nytt normalvärde. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra GPS/geofence-flöde.'},
   {name:'Dagsprognos v85', status:'Aktiv', purpose:'Visar aktivt jobb kvar, uppskattad kötid idag, beräknad färdig-tid och osäkerhet som planeringshjälp i Uppdrag i kö och Idag.', changeRule:'Får bara visa planeringsprognos. Får inte ändra köordning, starta uppdrag, trycka Lasta/Ange vikt/Klart eller ändra tidsinlärning.'},
   {name:'Geofence-inställningar v86', status:'Aktiv', purpose:'Inställningar kan lägga till, redigera, ta bort och återställa platsgeofence. Formuläret validerar cirkel/polygonvärden innan sparning.', changeRule:'Får bara ändra platsgeofence-data och varningar. Geofence får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, sammanställning eller tidsinlärning automatiskt.'},
+  {name:'Geofence layoutfix v87', status:'Aktiv', purpose:'Geofence-inställningar renderas som riktig HTML utan synliga \\n-tecken i formulär och register.', changeRule:'Ren visningsfix. Får inte ändra geofence-data, validering, Lasta, Ange vikt, Klart, fasdata, GPS, kö, sammanställning eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -6194,7 +6261,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-86') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-87') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -6255,6 +6322,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Dagsprognos v85 är planeringsstöd', fn('buildDayForecast') && fn('renderDayForecasts') && !!el('queueDayForecastBox') && !!el('todayDayForecastBox') && src('getDayForecastHtml', 'ändrar inte köordning') && !src('buildDayForecast', 'startQueuedJob('), 'prognosen visas i kö/Idag utan att starta eller sortera uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Geofence-inställningar v86 finns', !!el('geofenceManagerWrap') && fn('toggleGeofenceManager') && fn('saveGeofenceFromForm') && fn('removeGeofenceForPlace') && fn('restoreDefaultGeofenceForPlace') && fn('buildGeofenceFromForm'), 'geofence kan skapas/redigeras/tas bort/återställas');
   addFunctionCheck(results, 'Nivå 2', 'Geofence-validering v86 finns', fn('parseGeofencePolygonPoints') && src('buildGeofenceFromForm', 'Latitud måste vara ett tal') && src('buildGeofenceFromForm', 'Radie måste vara större än 0') && src('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'felaktiga lat/lon/radie/polygonvärden stoppas innan sparning');
+  addFunctionCheck(results, 'Nivå 2', 'Geofence layoutfix v87 finns', !!el('geofenceManagerWrap') && !el('geofenceManagerWrap').textContent.includes('\\n'), 'Geofence-inställningar ska inte visa synliga \\n-tecken');
 
   const memoryTest = runMemoryOnlyTestJobCheck();
   addFunctionCheck(results, 'Nivå 3', 'Testuppdrag i minnet utan att spara', memoryTest.ok, memoryTest.detail);
@@ -6358,7 +6426,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-86') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-86'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-87') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-87'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -6385,6 +6453,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Dagsprognos v85', typeof buildDayForecast === 'function' && typeof renderDayForecasts === 'function' && !!document.getElementById('queueDayForecastBox') && !!document.getElementById('todayDayForecastBox') && functionSourceIncludes('getDayForecastHtml', 'planeringshjälp'), 'dagsprognos visas i kö/Idag utan att styra uppdrag'),
     systemCheck('Geofence-inställningar v86', typeof toggleGeofenceManager === 'function' && typeof saveGeofenceFromForm === 'function' && typeof removeGeofenceForPlace === 'function' && !!document.getElementById('geofenceManagerWrap'), 'geofence-register finns för lägg till/redigera/ta bort/återställ'),
     systemCheck('Geofence-validering v86', typeof buildGeofenceFromForm === 'function' && typeof parseGeofencePolygonPoints === 'function' && functionSourceIncludes('buildGeofenceFromForm', 'Radie måste vara större än 0') && functionSourceIncludes('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'geofence stoppar uppenbart felaktiga värden'),
+    systemCheck('Geofence layoutfix v87', !!document.getElementById('geofenceManagerWrap') && !document.getElementById('geofenceManagerWrap').textContent.includes('\\n'), 'geofence-inställningar visar inte synliga \\n-tecken'),
     systemCheck('Friare Nytt jobb v75', !!document.getElementById('newReturnRequired') && !!document.getElementById('newMultiLoad') && typeof getFreeDestinationValuesWithStandardFirst === 'function' && typeof handleNewJobFlagToggle === 'function' && functionSourceIncludes('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && functionSourceIncludes('startManualJob', 'returnRequiredChoice'), 'fri Till-lista i Nytt jobb + manuellt Returkrav/Flerlass'),
     systemCheck('Bevara uppskattad tid vid paus/fortsätt v72', typeof savePausedEstimateState === 'function' && typeof restorePausedEstimateState === 'function' && typeof applyEstimatedCountdownAtStartPreservingExisting === 'function' && functionSourceIncludes('pauseActiveJob', 'savePausedEstimateState') && functionSourceIncludes('resumePausedJob', 'restorePausedEstimateState'), 'senast kända nedräkning återställs efter paus'),
     systemCheck('Automatisk GPS-inspelning v73', typeof startRouteGpsRecordingForJob === 'function' && typeof pauseRouteGpsRecordingForJob === 'function' && typeof resumeRouteGpsRecordingForJob === 'function' && typeof finalizeRouteGpsRecordingForJob === 'function' && functionSourceIncludes('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && functionSourceIncludes('renderActiveRouteGps', 'Gps inspelning pågår') && functionSourceIncludes('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning med diskret aktivtext och GPS-sammanfattning i Idag'),
@@ -6401,7 +6470,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67-v86', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v87', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
