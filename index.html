@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-72
+- Nuvarande version: Stadslass v2026-05-07-01-73
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -78,7 +78,7 @@ Stadslass versionskontroll
   - Aktiv vy v35: Aktivt jobb har strukturerad översikt för Från, Till, Returkrav och Mtrl kod samt större nedräkning för uppskattad tid.
   - Materialflöde: utan returkrav Från → Till; med returkrav Från → Till → Från
   - Aktiv tidsnedräkning: aktiva jobb visar en större huvudtext för uppskattad tid kvar och mindre klar cirka-tid utan att blockera Klart
-  - GPS-inspelning/Ruttmätning: dold i aktivt jobb; gammal GPS-data bevaras i gamla uppdrag
+  - GPS-inspelning v73: automatisk vid aktivt uppdrag, glest sparad med sammanfattning; aktiv vy visar bara diskret text
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
   - Karttjänst test: manuellt testanrop kan göras i Inställningar utan att påverka uppdrag eller uppskattad tid
@@ -1497,7 +1497,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-72</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-73</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -2063,6 +2063,9 @@ const MAP_GUARD_LIMITS = {
 const MAP_AUTO_RECALC_INTERVAL_MINUTES = 5;
 const MAP_AFTER_HOURS_BLOCK_HOUR = 14;
 const SMART_ESTIMATE_DEFAULT_OVERHEAD_MINUTES = 15;
+const ROUTE_GPS_MAX_ACCURACY_METERS = 50;
+const ROUTE_GPS_MIN_SAVE_INTERVAL_MS = 10000;
+const ROUTE_GPS_MIN_SAVE_DISTANCE_KM = 0.05;
 const smartEstimateInFlight = new Set();
 const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avfall','Tryckimpregnerat','Komprimator','Kompost','Ris','Flis','Maskintransport','Snö','Annat','Övriga jobb'];
 function cloneDefaultJobTypes(){ return DEFAULT_TRUCK_TYPES.slice(); }
@@ -4118,34 +4121,99 @@ function getRouteGpsStatus(job){
   if(job.routeGpsDiscarded || job.routeGpsStatus === 'discarded') return 'discarded';
   const rec = getRouteGps(job);
   if(rec && rec.status === 'active') return 'active';
+  if(rec && rec.status === 'paused') return 'paused';
   if(rec && rec.status === 'saved') return 'saved';
+  if(rec && rec.status === 'unavailable') return 'unavailable';
   return 'none';
+}
+
+function normalizeRouteGpsSessionTimestamp(value){
+  const n = Number(value || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function getRouteGpsSessions(rec, endAt){
+  if(!rec || typeof rec !== 'object') return [];
+  const fallbackEnd = normalizeRouteGpsSessionTimestamp(endAt || rec.endedAt || Date.now()) || Date.now();
+  if(Array.isArray(rec.sessions) && rec.sessions.length){
+    return rec.sessions.map(session => {
+      const startedAt = normalizeRouteGpsSessionTimestamp(session && (session.startedAt || session.start));
+      let endedAt = session && (session.endedAt || session.end);
+      endedAt = endedAt === null || endedAt === undefined ? null : normalizeRouteGpsSessionTimestamp(endedAt);
+      if(!startedAt) return null;
+      if(endedAt && endedAt < startedAt) return null;
+      return {startedAt, endedAt: endedAt || null};
+    }).filter(Boolean);
+  }
+  const start = normalizeRouteGpsSessionTimestamp(rec.startedAt);
+  if(!start) return [];
+  const end = normalizeRouteGpsSessionTimestamp(rec.endedAt || fallbackEnd);
+  return [{startedAt:start, endedAt:end && end >= start ? end : null}];
+}
+
+function getRouteGpsDurationFromSessions(rec, endAt){
+  const end = normalizeRouteGpsSessionTimestamp(endAt || Date.now()) || Date.now();
+  return getRouteGpsSessions(rec, end).reduce((sum, session) => {
+    const sessionEnd = session.endedAt || end;
+    return sum + Math.max(0, sessionEnd - session.startedAt);
+  }, 0);
 }
 
 function routeGpsDurationMs(job){
   const rec = getRouteGps(job);
-  if(!rec || !rec.startedAt) return 0;
-  const end = rec.endedAt || Date.now();
-  return Math.max(0, Number(end) - Number(rec.startedAt));
+  if(!rec) return 0;
+  if(Number.isFinite(Number(rec.durationMs)) && rec.status === 'saved') return Math.max(0, Number(rec.durationMs));
+  return getRouteGpsDurationFromSessions(rec, rec.endedAt || Date.now());
 }
 
-function formatRouteGpsText(job){
+function getRouteGpsQuality(job){
+  const rec = getRouteGps(job);
+  if(!rec || getRouteGpsStatus(job) === 'discarded') return '';
+  if(rec.quality) return rec.quality;
+  const pointCount = Number(rec.pointCount || (Array.isArray(rec.points) ? rec.points.length : 0));
+  const avgAccuracy = Number(rec.avgAccuracy || rec.averageAccuracy || 0);
+  const bestAccuracy = Number(rec.bestAccuracy || 0);
+  const distanceKm = Number(rec.distanceKm || 0);
+  if(pointCount >= 6 && distanceKm >= 0.2 && ((avgAccuracy && avgAccuracy <= 35) || (bestAccuracy && bestAccuracy <= 25))) return 'Bra';
+  if(pointCount >= 2 && ((avgAccuracy && avgAccuracy <= ROUTE_GPS_MAX_ACCURACY_METERS) || (bestAccuracy && bestAccuracy <= ROUTE_GPS_MAX_ACCURACY_METERS))) return 'Svag';
+  return 'Dålig';
+}
+
+function updateRouteGpsSummary(rec, endAt){
+  if(!rec) return rec;
+  rec.pointCount = Array.isArray(rec.points) ? rec.points.length : Number(rec.pointCount || 0);
+  if(Number(rec.accuracyCount || 0) > 0){
+    rec.avgAccuracy = Math.round(Number(rec.accuracySum || 0) / Number(rec.accuracyCount || 1));
+  } else if(Array.isArray(rec.points) && rec.points.length){
+    const accuracies = rec.points.map(p => Number(p.accuracy || 0)).filter(n => Number.isFinite(n) && n > 0);
+    if(accuracies.length){
+      rec.bestAccuracy = Math.min(...accuracies);
+      rec.worstAccuracy = Math.max(...accuracies);
+      rec.avgAccuracy = Math.round(accuracies.reduce((a,b)=>a+b,0) / accuracies.length);
+      rec.accuracyCount = accuracies.length;
+      rec.accuracySum = accuracies.reduce((a,b)=>a+b,0);
+    }
+  }
+  rec.durationMs = getRouteGpsDurationFromSessions(rec, endAt || rec.endedAt || Date.now());
+  rec.quality = getRouteGpsQuality({routeGps:rec, routeGpsStatus:rec.status});
+  rec.summaryVersion = 'v73';
+  return rec;
+}
+
+function formatRouteGpsSummaryText(job){
   const status = getRouteGpsStatus(job);
-  if(status === 'discarded') return 'GPS-inspelning: sparas ej för detta uppdrag';
-  if(status === 'active'){
-    const rec = getRouteGps(job) || {};
-    return 'GPS-inspelning: aktiv · ' + mins(routeGpsDurationMs(job)) + ' · ' + km(rec.distanceKm || 0);
-  }
-  if(status === 'saved'){
-    const rec = getRouteGps(job) || {};
-    return 'GPS-inspelning: sparad · ' + mins(routeGpsDurationMs(job)) + ' · ' + km(rec.distanceKm || 0);
-  }
-  return 'GPS-inspelning: inte startad';
+  if(status === 'discarded') return 'GPS-sammanfattning: sparas ej';
+  const rec = getRouteGps(job);
+  if(!rec || (status !== 'saved' && status !== 'active' && status !== 'paused')) return '';
+  updateRouteGpsSummary(rec, rec.endedAt || Date.now());
+  const pointCount = Number(rec.pointCount || 0);
+  const quality = getRouteGpsQuality(job) || 'Dålig';
+  return 'GPS-sammanfattning: ' + km(rec.distanceKm || 0) + ' · ' + pointCount + ' punkter · ' + quality;
 }
 
 function getRouteGpsHtml(job){
-  if(!job) return '';
-  return '<div style="margin-top:6px">' + escapeHtml(formatRouteGpsText(job)) + '</div>';
+  const text = formatRouteGpsSummaryText(job);
+  return text ? '<div style="margin-top:6px">' + escapeHtml(text) + '</div>' : '';
 }
 
 function buildRouteGpsMetaForJob(job){
@@ -4167,13 +4235,110 @@ function roundGpsValue(value){
   return Math.round(Number(value) * 1000000) / 1000000;
 }
 
+function ensureRouteGpsOpenSession(rec, startedAt){
+  if(!rec) return rec;
+  const start = normalizeRouteGpsSessionTimestamp(startedAt || Date.now()) || Date.now();
+  if(!Array.isArray(rec.sessions)) rec.sessions = [];
+  const last = rec.sessions[rec.sessions.length - 1];
+  if(last && !last.endedAt) return rec;
+  rec.sessions.push({startedAt:start, endedAt:null});
+  return rec;
+}
+
+function closeRouteGpsOpenSession(rec, endedAt){
+  if(!rec) return rec;
+  const end = normalizeRouteGpsSessionTimestamp(endedAt || Date.now()) || Date.now();
+  if(!Array.isArray(rec.sessions) || !rec.sessions.length){
+    if(rec.startedAt) rec.sessions = [{startedAt:rec.startedAt, endedAt:end}];
+    return rec;
+  }
+  const last = rec.sessions[rec.sessions.length - 1];
+  if(last && !last.endedAt && end >= Number(last.startedAt || 0)) last.endedAt = end;
+  return rec;
+}
+
+function startRouteGpsRecordingForJob(job, startedAt){
+  if(!job || job.routeGpsDiscarded) return job;
+  if(!navigator.geolocation){
+    job.routeGpsStatus = 'unavailable';
+    return job;
+  }
+  const now = normalizeRouteGpsSessionTimestamp(startedAt || Date.now()) || Date.now();
+  let rec = getRouteGps(job);
+  if(!rec || rec.status === 'saved'){
+    rec = {
+      status:'active',
+      autoRecording:true,
+      startedAt:now,
+      endedAt:null,
+      distanceKm:0,
+      points:[],
+      pointCount:0,
+      sessions:[],
+      accuracySum:0,
+      accuracyCount:0,
+      bestAccuracy:null,
+      worstAccuracy:null,
+      ...buildRouteGpsMetaForJob(job)
+    };
+    job.routeGps = rec;
+  }
+  rec.status = 'active';
+  rec.endedAt = null;
+  rec.autoRecording = true;
+  ensureRouteGpsOpenSession(rec, now);
+  job.routeGpsStatus = 'active';
+  job.routeGpsDiscarded = false;
+  delete job.routeGpsDiscardedAt;
+  return job;
+}
+
+function pauseRouteGpsRecordingForJob(job, pausedAt){
+  const rec = getRouteGps(job);
+  if(!rec || rec.status !== 'active') return job;
+  const now = normalizeRouteGpsSessionTimestamp(pausedAt || Date.now()) || Date.now();
+  closeRouteGpsOpenSession(rec, now);
+  rec.status = 'paused';
+  rec.pausedAt = now;
+  updateRouteGpsSummary(rec, now);
+  job.routeGpsStatus = 'paused';
+  return job;
+}
+
+function resumeRouteGpsRecordingForJob(job, resumedAt){
+  if(!job || job.routeGpsDiscarded) return job;
+  const rec = getRouteGps(job);
+  if(rec && (rec.status === 'paused' || rec.status === 'active')){
+    rec.status = 'active';
+    delete rec.pausedAt;
+    ensureRouteGpsOpenSession(rec, resumedAt || Date.now());
+    job.routeGpsStatus = 'active';
+    return job;
+  }
+  return startRouteGpsRecordingForJob(job, resumedAt || Date.now());
+}
+
+function finalizeRouteGpsRecordingForJob(job, endedAt){
+  const rec = getRouteGps(job);
+  if(!rec || (rec.status !== 'active' && rec.status !== 'paused')) return job;
+  const now = normalizeRouteGpsSessionTimestamp(endedAt || Date.now()) || Date.now();
+  closeRouteGpsOpenSession(rec, now);
+  rec.status = 'saved';
+  rec.endedAt = now;
+  delete rec.pausedAt;
+  delete rec.lastPoint;
+  updateRouteGpsSummary(rec, now);
+  job.routeGpsStatus = 'saved';
+  return job;
+}
+
 function captureRouteGpsPoint(point){
   if(!state.active) return;
   const rec = getRouteGps(state.active);
   if(!rec || rec.status !== 'active') return;
   if(!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return;
   const accuracy = Number(point.accuracy || 9999);
-  if(accuracy > 50) return;
+  if(accuracy > ROUTE_GPS_MAX_ACCURACY_METERS) return;
 
   const now = Number(point.ts || Date.now());
   const current = {
@@ -4182,6 +4347,12 @@ function captureRouteGpsPoint(point){
     ts: now,
     accuracy
   };
+
+  rec.lastGpsSeenAt = now;
+  rec.accuracySum = Number(rec.accuracySum || 0) + accuracy;
+  rec.accuracyCount = Number(rec.accuracyCount || 0) + 1;
+  rec.bestAccuracy = rec.bestAccuracy === null || rec.bestAccuracy === undefined ? accuracy : Math.min(Number(rec.bestAccuracy), accuracy);
+  rec.worstAccuracy = rec.worstAccuracy === null || rec.worstAccuracy === undefined ? accuracy : Math.max(Number(rec.worstAccuracy), accuracy);
 
   if(rec.lastPoint && Number.isFinite(rec.lastPoint.lat) && Number.isFinite(rec.lastPoint.lon)){
     const delta = haversineKm(rec.lastPoint.lat, rec.lastPoint.lon, current.lat, current.lon);
@@ -4198,7 +4369,7 @@ function captureRouteGpsPoint(point){
   const lastSaved = rec.points.length ? rec.points[rec.points.length - 1] : null;
   const movedKm = lastSaved ? haversineKm(lastSaved.lat, lastSaved.lon, current.lat, current.lon) : Infinity;
   const elapsedSinceSaved = lastSaved ? now - Number(lastSaved.ts || now) : Infinity;
-  if(!lastSaved || movedKm >= 0.05 || elapsedSinceSaved >= 20000){
+  if(!lastSaved || movedKm >= ROUTE_GPS_MIN_SAVE_DISTANCE_KM || elapsedSinceSaved >= ROUTE_GPS_MIN_SAVE_INTERVAL_MS){
     rec.points.push({
       lat: roundGpsValue(current.lat),
       lon: roundGpsValue(current.lon),
@@ -4210,7 +4381,7 @@ function captureRouteGpsPoint(point){
     }
   }
   rec.updatedAt = now;
-  rec.pointCount = rec.points.length;
+  updateRouteGpsSummary(rec, now);
 }
 
 function captureCurrentRouteGpsPoint(){
@@ -4239,28 +4410,7 @@ function captureCurrentRouteGpsPoint(){
 
 function startActiveRouteGpsRecording(){
   if(!state.active) return;
-  if(!navigator.geolocation){
-    alert('GPS stöds inte på den här enheten.');
-    return;
-  }
-  const status = getRouteGpsStatus(state.active);
-  if(status === 'active') return;
-  if(status === 'saved'){
-    alert('GPS-inspelning är redan sparad för detta uppdrag. Tryck Spara ej GPS-data om den inte ska användas.');
-    return;
-  }
-  state.active.routeGps = {
-    status:'active',
-    startedAt:Date.now(),
-    endedAt:null,
-    distanceKm:0,
-    points:[],
-    pointCount:0,
-    ...buildRouteGpsMetaForJob(state.active)
-  };
-  state.active.routeGpsStatus = 'active';
-  state.active.routeGpsDiscarded = false;
-  delete state.active.routeGpsDiscardedAt;
+  startRouteGpsRecordingForJob(state.active, Date.now());
   saveState();
   renderActive();
   captureCurrentRouteGpsPoint();
@@ -4268,14 +4418,7 @@ function startActiveRouteGpsRecording(){
 
 function finalizeActiveRouteGpsRecording(){
   if(!state.active) return;
-  const rec = getRouteGps(state.active);
-  if(!rec || rec.status !== 'active') return;
-  rec.status = 'saved';
-  rec.endedAt = Date.now();
-  rec.durationMs = Math.max(0, Number(rec.endedAt) - Number(rec.startedAt || rec.endedAt));
-  rec.pointCount = Array.isArray(rec.points) ? rec.points.length : 0;
-  delete rec.lastPoint;
-  state.active.routeGpsStatus = 'saved';
+  finalizeRouteGpsRecordingForJob(state.active, Date.now());
 }
 
 function stopActiveRouteGpsRecording(){
@@ -4320,8 +4463,13 @@ function resetRouteGpsForRestart(job){
 function renderActiveRouteGps(){
   const el = document.getElementById('activeRouteGps');
   if(!el) return;
-  el.innerHTML = '';
-  el.classList.add('hidden');
+  if(state.active && getRouteGpsStatus(state.active) === 'active'){
+    el.textContent = 'Gps inspelning pågår';
+    el.classList.remove('hidden');
+  } else {
+    el.innerHTML = '';
+    el.classList.add('hidden');
+  }
 }
 
 function resetActiveMapRouteUiForJob(jobId){
@@ -5128,7 +5276,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-72';
+const APP_VERSION = 'Stadslass v2026-05-07-01-73';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -5145,7 +5293,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Papperskorg', status:'Skyddad', purpose:'Borttagna uppdrag hamnar i papperskorgen före permanent borttagning.', changeRule:'Får byggas om men borttagen data får inte användas som underlag.'},
   {name:'Papperskorg exkluderas från underlag', status:'Skyddad', purpose:'Papperskorg används inte för sammanställning, export, uppskattad tid eller GPS-lärning.', changeRule:'Får inte brytas utan uttryckligt beslut.'},
   {name:'GPS-data följer uppdraget', status:'Skyddad', purpose:'GPS-/ruttdata följer uppdraget till papperskorgen och försvinner vid permanent borttagning.', changeRule:'Får ändras endast med dokumenterad ny datamodell.'},
-  {name:'GPS-inspelning/Ruttmätning', status:'Dold i aktivt jobb', purpose:'Gammal GPS-data bevaras men manuell GPS-inspelning visas inte längre i aktivt jobb eftersom karttjänsten räknar planerad rutt.', changeRule:'Får återinföras senare som separat avancerad funktion om faktisk körspårning behövs.'},
+  {name:'GPS-inspelning/Ruttmätning', status:'Ersatt av v73', purpose:'Gammal manuell GPS-ruta ersätts av automatisk GPS-inspelning med sammanfattning.', changeRule:'Får inte återinföra detaljerad aktiv ruttvy utan separat beslut.'},
   {name:'Startpunkt', status:'Skyddad men får byggas om', purpose:'Visar adress för startpunkt i aktivt jobb och Idag.', changeRule:'Tekniken kan ändras men informationen ska finnas kvar eller ersättas.'},
   {name:'Kartförberedelse platsdatabas', status:'Aktiv', purpose:'Fasta platser har Plus Code/adress, koordinater, alias och placeholder-status för kommande karttjänst.', changeRule:'Får byggas vidare till kartmotor men ska inte starta Google-anrop utan separat beslut.'},
   {name:'Lokal kartnyckel i Inställningar', status:'Aktiv', purpose:'Google API-nyckel kan sparas och raderas lokalt per enhet utan att ligga i HTML-filen eller följa med backup/export.', changeRule:'Får byggas vidare till kartmotor men nyckeln ska hållas utanför uppdragsdata och backup.'},
@@ -5208,6 +5356,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Delad retunnedräkning v70', status:'Aktiv', purpose:'Befintlig nedräkningsruta delas internt vid returkrav: Från→Till före vikt och Till→Från efter vikt. Inga extra texter läggs till och total sluttid bevaras.', changeRule:'Får bara ändra visad nedräkning. Får inte påverka faktisk uppdragstid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
   {name:'Retur orange bottenbakgrund v71', status:'Aktiv', purpose:'Retur pågår använder samma orange body-bakgrund som Transport pågår utan extra text och utan att ändra fasknapp, faslogik eller uppdragstid.', changeRule:'Får bara ändra visuell body-bakgrund. Får inte påverka returkrav, nedräkning, uppskattad tid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
   {name:'Bevara uppskattad tid vid paus/fortsätt v72', status:'Aktiv', purpose:'Pausade uppdrag sparar senast kända uppskattad tid och återställer nedräkningen vid Fortsätt. Om ny beräkning saknar underlag behålls gammal nedräkning i stället för saknas.', changeRule:'Får inte ändra faktisk uppdragstid, vikt, GPS, fasdata, sammanställning eller tidsinlärning. Endast bevarande/återställning av uppskattad tid vid paus/fortsätt.'},
+  {name:'Automatisk GPS-inspelning v73', status:'Aktiv', purpose:'GPS-inspelning startar automatiskt med aktivt uppdrag, pausas vid Pausa, fortsätter vid Fortsätt och sparar bara en GPS-sammanfattning i Idag.', changeRule:'Får inte trycka Lasta, Ange vikt, Pausa eller Klart automatiskt och får inte ändra fasdata, uppskattad tid, sammanställning eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -5389,7 +5538,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
-  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72'), 'featureManifestList + v67/v68/v69/v70/v71/v72-poster');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73'), 'featureManifestList + v67-v73-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!el('mapKeyManagerWrap') && !!el('mapApiKeyInput') && fn('getLocalMapApiKey') && fn('setLocalMapApiKey') && fn('deleteLocalMapApiKey'), 'kartnyckel sparas separat per enhet');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!el('mapGuardStatus') && fn('getMapGuardStatus') && fn('canMakeMapRequest') && fn('registerMapRequest') && fn('getCachedMapRoute') && fn('setCachedMapRoute'), 'lokala gränser + cache');
@@ -5399,10 +5548,10 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Aktiv nedräkning finns', !!el('activeEstimateCountdown') && fn('renderActiveEstimateCountdown') && fn('getActiveEstimateCountdownHtml'), 'activeEstimateCountdown');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb visar inte rå HTML i startinfo', fn('formatMultiLineTextHtml') && src('getCalculationStartHtml', 'formatMultiLineTextHtml') && src('renderActive', 'formatMultiLineTextHtml'), 'radbrytning/formatering går via hjälpfunktioner');
   addFunctionCheck(results, 'Nivå 1', 'Aktivt jobb knappfärger finns', !!activePhaseBtn && activePhaseBtn.classList.contains('active-phase-btn') && !!document.querySelector('button.active-weight-btn') && !!document.querySelector('button.active-no-empty-btn') && !!document.querySelector('button.queue-pause') && !!document.querySelector('button.queue-complete'), 'fasknapp, Ange vikt, Ingen tömning, Pausa och Klart har egna knappklasser');
-  addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning är dold i aktiv vy', !!el('activeRouteGps') && el('activeRouteGps').classList.contains('hidden') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', "classList.add('hidden')"), 'gammal GPS-ruta bevaras tekniskt men visas inte');
+  addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-71') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-73') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -5448,6 +5597,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tidsatta köuppdrag v69 finns', !!el('newPlannedTime') && !!el('quickPlannedTime') && !!el('editQueueTime') && fn('getQueuedJobTime') && fn('setQueuedJobPlannedTime') && fn('compareQueuedJobPlanning') && src('addManualJobToQueue', 'plannedTime') && src('startQuickItem', 'plannedTime') && src('saveEditedQueueJob', 'plannedTime'), 'frivilligt klockslag i nytt jobb, snabbval, kölista och köredigering');
   addFunctionCheck(results, 'Nivå 2', 'Delad retunnedräkning v70 finns', fn('getReturnSplitRouteLegMinutes') && fn('getReturnSplitCountdownInfo') && fn('getActiveEstimateDisplayEndAt') && fn('getActiveEstimateOverallEndAt') && src('getActiveEstimateCountdownHtml', 'getActiveEstimateDisplayEndAt') && src('getActiveEstimateCountdownHtml', 'getActiveEstimateOverallEndAt') && src('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && src('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'samma nedräkningsruta delas internt för returkrav och total sluttid sparas separat');
   addFunctionCheck(results, 'Nivå 2', 'Dygnsfördelad uppdragstid v68 finns', fn('ensureJobWorkSessions') && fn('closeOpenWorkSession') && fn('appendOpenWorkSession') && fn('buildSummaryRowsForJob') && src('pauseActiveJob', 'closeOpenWorkSession') && src('resumePausedJob', 'appendOpenWorkSession') && src('stopJob', 'closeOpenWorkSession') && src('getFilteredSummaryJobs', 'buildSummaryRowsFromJobs') && src('getSummaryRowComment', 'Uppdraget delat'), 'arbetspass sparas och sammanställningen kan dela tid per datum');
+  addFunctionCheck(results, 'Nivå 2', 'Automatisk GPS-inspelning v73 finns', fn('startRouteGpsRecordingForJob') && fn('pauseRouteGpsRecordingForJob') && fn('resumeRouteGpsRecordingForJob') && fn('finalizeRouteGpsRecordingForJob') && src('startJob', 'startRouteGpsRecordingForJob') && src('pauseActiveJob', 'pauseRouteGpsRecordingForJob') && src('resumePausedJob', 'resumeRouteGpsRecordingForJob') && src('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && src('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning, 10 sek/50 m, paus/fortsätt och sammanfattning i Idag');
 
   const memoryTest = runMemoryOnlyTestJobCheck();
   addFunctionCheck(results, 'Nivå 3', 'Testuppdrag i minnet utan att spara', memoryTest.ok, memoryTest.detail);
@@ -5551,7 +5701,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-71') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-71'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-73') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-73'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -5567,6 +5717,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Aktiv bottenbakgrund v65', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg') && functionSourceIncludes('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'Body-bakgrund följer fasknappens visuella status'),
     systemCheck('Retur orange bottenbakgrund v71', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'Retur pågår') && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg'), 'Retur pågår använder samma orange body-bakgrund som Transport pågår'),
     systemCheck('Bevara uppskattad tid vid paus/fortsätt v72', typeof savePausedEstimateState === 'function' && typeof restorePausedEstimateState === 'function' && typeof applyEstimatedCountdownAtStartPreservingExisting === 'function' && functionSourceIncludes('pauseActiveJob', 'savePausedEstimateState') && functionSourceIncludes('resumePausedJob', 'restorePausedEstimateState'), 'senast kända nedräkning återställs efter paus'),
+    systemCheck('Automatisk GPS-inspelning v73', typeof startRouteGpsRecordingForJob === 'function' && typeof pauseRouteGpsRecordingForJob === 'function' && typeof resumeRouteGpsRecordingForJob === 'function' && typeof finalizeRouteGpsRecordingForJob === 'function' && functionSourceIncludes('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && functionSourceIncludes('renderActiveRouteGps', 'Gps inspelning pågår') && functionSourceIncludes('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning med diskret aktivtext och GPS-sammanfattning i Idag'),
     systemCheck('GPS-zoner visuell status', typeof getFromGeofenceForJob === 'function' && typeof updateActiveGeofenceVisualStatus === 'function' && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5, 'Från-zoner styr visuell status/anropsskydd'),
     systemCheck('Till-geofence Lossning', typeof getToGeofenceForJob === 'function' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5, 'Till-zoner kan visa Lossning utan att registrera vikt'),
     systemCheck('Fasdata och missad fasdata', typeof toggleActiveTransportPhase === 'function' && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar/Ange vikt + skydd för missad fasdata'),
@@ -5578,7 +5729,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67/v68/v69/v70/v71/v72', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v73', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -8770,6 +8921,7 @@ function resumePausedOtherWorkIfPossible(){
   resumed.motionLastTs = Date.now();
   resumed.motionLastMode = 'still';
   refreshEstimatedCountdownAfterResume(resumed);
+  resumeRouteGpsRecordingForJob(resumed, Date.now());
 
   state.active = resumed;
   state.pausedOtherWork = null;
@@ -8784,7 +8936,9 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     const nextIsOtherWork = type === 'Övrig verksamhet';
 
     if(activeIsOtherWork && !nextIsOtherWork){
-      closeOpenWorkSession(state.active, Date.now());
+      const pausedOtherAt = Date.now();
+      closeOpenWorkSession(state.active, pausedOtherAt);
+      pauseRouteGpsRecordingForJob(state.active, pausedOtherAt);
       const paused = {...state.active};
       paused.pausedElapsedMs = getTotalWorkSessionMs(paused, Date.now());
       state.pausedOtherWork = paused;
@@ -8836,6 +8990,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   };
   state.active.canBeMultiLoad = isMultiLoadSensitiveJob(state.active);
   initializeTransportPhaseForJob(state.active);
+  startRouteGpsRecordingForJob(state.active, state.active.start);
   applyEstimatedCountdownAtStart(state.active);
   saveState();
   startDistanceTracking();
@@ -9083,6 +9238,7 @@ function pauseActiveJob(){
   }
 
   const pausedAt = Date.now();
+  pauseRouteGpsRecordingForJob(state.active, pausedAt);
   const paused = {...state.active};
   paused.status = 'pausad';
   paused.plannedDate = paused.plannedDate || paused.date || todayStr();
@@ -9133,6 +9289,7 @@ function resumePausedJob(qid){
   resumed.motionLastMode = 'still';
 
   const restoredEstimate = restorePausedEstimateState(resumed, Date.now());
+  resumeRouteGpsRecordingForJob(resumed, Date.now());
   state.active = resumed;
   if(!restoredEstimate) applyEstimatedCountdownAtStart(state.active);
   scheduleSmartEstimateForActive();
@@ -9161,14 +9318,7 @@ function completeQueuedJob(qid){
     finished.start = finished.end - elapsed;
     shiftTransportPhaseTimestamps(finished, Number(finished.start || 0) - oldStart);
     if(!prepareJobForCompletionWithPhaseGuard(finished)) return;
-    if(finished.routeGps && finished.routeGps.status === 'active'){
-      finished.routeGps.status = 'saved';
-      finished.routeGps.endedAt = finished.end;
-      finished.routeGps.durationMs = Math.max(0, Number(finished.routeGps.endedAt) - Number(finished.routeGps.startedAt || finished.routeGps.endedAt));
-      finished.routeGps.pointCount = Array.isArray(finished.routeGps.points) ? finished.routeGps.points.length : 0;
-      delete finished.routeGps.lastPoint;
-      finished.routeGpsStatus = 'saved';
-    }
+    finalizeRouteGpsRecordingForJob(finished, finished.end);
     finished.returnRequired = getJobReturnRequiredValue(finished);
     finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
     finished.routeEndPlace = getJobCompletionPlace(finished);
@@ -11294,6 +11444,7 @@ function restartFinishedJob(jobId){
   resetTransportPhaseForRestart(restarted);
 
   state.active = restarted;
+  startRouteGpsRecordingForJob(state.active, state.active.start);
   state.jobs = state.jobs.filter(x => x.id !== jobId);
   saveState();
   startDistanceTracking();
