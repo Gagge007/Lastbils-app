@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-71
+- Nuvarande version: Stadslass v2026-05-07-01-72
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -17,6 +17,7 @@ Stadslass versionskontroll
 - v69: Köuppdrag kan ha frivilligt klockslag. Tom tid fungerar som tidigare och uppdraget ligger kvar på hög i kön.
 - v70: Delad befintlig nedräkning för returkrav. Samma nedräkningsruta används; total sluttid bevaras bakom etappnedräkningen.
 - v71: Retur pågår använder samma orange bottenbakgrund som Transport pågår.
+- v72: Pausade uppdrag bevarar senast kända uppskattad tid/nedräkning vid fortsätt och visar inte saknas om ny beräkning saknar underlag.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -57,6 +58,7 @@ Stadslass versionskontroll
   - Tidsatta köuppdrag v69: köuppdrag kan få frivilligt klockslag; tom tid fungerar som tidigare och sorteras inte som exakt tid
   - Delad retunnedräkning v70: befintlig nedräkning delas internt för returkrav utan extra texter
   - Retur orange bottenbakgrund v71: Retur pågår får samma orange body-bakgrund som Transport pågår
+  - Bevara uppskattad tid vid paus/fortsätt v72: senast kända nedräkning sparas vid Pausa och återställs vid Fortsätt
   - Fasdata tid: aktivt jobb har knappen Lastar som startar ett lass/materialdel; sparad vikt avslutar lasset och kan ge flerlassdata
   - Startsträcka i aktiv tid: aktivt jobb bakar in kartberäknad startsträcka i uppskattad tid och räknar bort den när Lastar trycks
   - Aktivt jobb knappfärger: Lastar blå, Ange vikt neutral blågrå, Ingen tömning orange, Pausa fortsatt gul och Klart oförändrad röd
@@ -1495,7 +1497,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-71</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-72</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -3875,6 +3877,169 @@ function getActiveEstimateOverallEndAt(job, fallbackEndAt){
   return Number(fallbackEndAt || 0);
 }
 
+function hasActiveEstimateState(job){
+  if(!job) return false;
+  const minutes = Number(job.estimatedMinutesAtStart || 0);
+  const endAt = Number(job.estimatedEndAt || 0);
+  const legMinutes = Number(job.estimatedLegMinutesAtStart || 0);
+  const legEndAt = Number(job.estimatedLegEndAt || 0);
+  const overallMinutes = Number(job.estimatedOverallMinutesAtStart || 0);
+  const overallEndAt = Number(job.estimatedOverallEndAt || 0);
+  return (
+    (Number.isFinite(minutes) && minutes > 0 && Number.isFinite(endAt) && endAt > 0) ||
+    (Number.isFinite(legMinutes) && legMinutes > 0 && Number.isFinite(legEndAt) && legEndAt > 0) ||
+    (Number.isFinite(overallMinutes) && overallMinutes > 0 && Number.isFinite(overallEndAt) && overallEndAt > 0)
+  );
+}
+
+function clearActiveEstimateState(job){
+  if(!job) return job;
+  delete job.estimatedMinutesAtStart;
+  delete job.estimatedEndAt;
+  delete job.estimatedCountAtStart;
+  delete job.estimatedMaterialFlowMinutesAtStart;
+  delete job.estimatedMaterialFlowCountAtStart;
+  delete job.estimatedStartAddonMinutesAtStart;
+  delete job.estimatedStartAddonCountAtStart;
+  delete job.estimatedStartAddonSafeAtStart;
+  delete job.estimatedStartAddonMissingAtStart;
+  delete job.estimatedSourceAtStart;
+  delete job.estimatedMapTotalMinutesAtStart;
+  delete job.estimatedMapMaterialMinutesAtStart;
+  delete job.estimatedTotalMinutesAtStart;
+  delete job.estimatedOverallMinutesAtStart;
+  delete job.estimatedOverallEndAt;
+  delete job.estimatedLegMinutesAtStart;
+  delete job.estimatedLegEndAt;
+  delete job.estimatedLegMode;
+  delete job.estimatedStartAddonIncludedInActiveTime;
+  delete job.estimatedStartAddonRemovedFromRemaining;
+  delete job.autoMapRemainingMinutes;
+  delete job.activeEstimatePreservedWithoutNewEstimate;
+  return job;
+}
+
+function copyActiveEstimateFields(fromJob, toJob){
+  if(!fromJob || !toJob) return toJob;
+  [
+    'estimatedTotalMinutesAtStart','estimatedMinutesAtStart','estimatedEndAt','estimatedOverallMinutesAtStart','estimatedOverallEndAt',
+    'estimatedCountAtStart','estimatedMaterialFlowMinutesAtStart','estimatedMaterialFlowCountAtStart','estimatedStartAddonMinutesAtStart',
+    'estimatedStartAddonCountAtStart','estimatedStartAddonSafeAtStart','estimatedStartAddonMissingAtStart','estimatedSourceAtStart',
+    'estimatedMapTotalMinutesAtStart','estimatedMapMaterialMinutesAtStart','estimatedStartAddonIncludedInActiveTime',
+    'estimatedStartAddonRemovedFromRemaining','estimatedLegMinutesAtStart','estimatedLegEndAt','estimatedLegMode','autoMapRemainingMinutes'
+  ].forEach(key => {
+    if(fromJob[key] !== undefined) toJob[key] = fromJob[key];
+  });
+  return toJob;
+}
+
+function savePausedEstimateState(job, pausedAt){
+  if(!job || !hasActiveEstimateState(job)) return job;
+  const now = Number(pausedAt || Date.now());
+  const snapshot = {};
+  copyActiveEstimateFields(job, snapshot);
+  const endAt = Number(job.estimatedEndAt || 0);
+  const overallEndAt = Number(job.estimatedOverallEndAt || 0);
+  const legEndAt = Number(job.estimatedLegEndAt || 0);
+  snapshot.pausedAt = now;
+  if(Number.isFinite(endAt) && endAt > 0) snapshot.estimatedRemainingMsAtPause = Math.max(0, endAt - now);
+  if(Number.isFinite(overallEndAt) && overallEndAt > 0) snapshot.estimatedOverallRemainingMsAtPause = Math.max(0, overallEndAt - now);
+  if(Number.isFinite(legEndAt) && legEndAt > 0) snapshot.estimatedLegRemainingMsAtPause = Math.max(0, legEndAt - now);
+  job.pausedEstimateState = snapshot;
+  job.estimatedPausedAt = now;
+  return job;
+}
+
+function getPausedEstimateLegStartTime(job, mode){
+  if(!job) return 0;
+  const m = String(mode || job.estimatedLegMode || getReturnSplitCountdownMode(job) || '');
+  if(m === 'return') return Number(job.returnRequirementWeightAt || 0);
+  if(m === 'outbound') return Number(job.loadedAt || job.currentLoadStartedAt || 0);
+  return 0;
+}
+
+function inferPausedEstimateRemainingMs(job, resumeAt, endKey, minutesKey){
+  if(!job) return null;
+  const resume = Number(resumeAt || Date.now());
+  const minutes = Number(job[minutesKey] || 0);
+  if(!Number.isFinite(minutes) || minutes <= 0) return null;
+  if(minutesKey === 'estimatedLegMinutesAtStart'){
+    const base = getPausedEstimateLegStartTime(job, job.estimatedLegMode);
+    if(Number.isFinite(base) && base > 0){
+      return Math.max(0, Math.round(minutes * 60000 - Math.max(0, resume - base)));
+    }
+    return Math.max(0, Math.round(minutes * 60000));
+  }
+  const elapsed = Number(job.pausedElapsedMs || getTotalWorkSessionMs(job, resume) || 0);
+  if(Number.isFinite(elapsed) && elapsed >= 0) return Math.max(0, Math.round(minutes * 60000 - elapsed));
+  return null;
+}
+
+function restorePausedEstimateState(job, resumeAt){
+  if(!job) return false;
+  const now = Number(resumeAt || Date.now());
+  const snapshot = job.pausedEstimateState && typeof job.pausedEstimateState === 'object' ? job.pausedEstimateState : null;
+  let restored = false;
+
+  if(snapshot){
+    copyActiveEstimateFields(snapshot, job);
+    const remaining = Number(snapshot.estimatedRemainingMsAtPause);
+    if(Number.isFinite(remaining)){
+      job.estimatedEndAt = now + Math.max(0, remaining);
+      restored = true;
+    }
+    const overallRemaining = Number(snapshot.estimatedOverallRemainingMsAtPause);
+    if(Number.isFinite(overallRemaining)){
+      job.estimatedOverallEndAt = now + Math.max(0, overallRemaining);
+      restored = true;
+    }
+    const legRemaining = Number(snapshot.estimatedLegRemainingMsAtPause);
+    if(Number.isFinite(legRemaining)){
+      job.estimatedLegEndAt = now + Math.max(0, legRemaining);
+      restored = true;
+    }
+  }
+
+  if(!restored && hasActiveEstimateState(job)){
+    const remaining = inferPausedEstimateRemainingMs(job, now, 'estimatedEndAt', 'estimatedMinutesAtStart');
+    if(remaining !== null){
+      job.estimatedEndAt = now + remaining;
+      restored = true;
+    }
+    const overallRemaining = inferPausedEstimateRemainingMs(job, now, 'estimatedOverallEndAt', 'estimatedOverallMinutesAtStart');
+    if(overallRemaining !== null){
+      job.estimatedOverallEndAt = now + overallRemaining;
+      restored = true;
+    }
+    const legRemaining = inferPausedEstimateRemainingMs(job, now, 'estimatedLegEndAt', 'estimatedLegMinutesAtStart');
+    if(legRemaining !== null){
+      job.estimatedLegEndAt = now + legRemaining;
+      restored = true;
+    }
+  }
+
+  if(restored){
+    job.activeEstimateRestoredAfterPause = true;
+    job.activeEstimateRestoredAt = now;
+    delete job.activeEstimatePreservedWithoutNewEstimate;
+  }
+  return restored;
+}
+
+function applyEstimatedCountdownAtStartPreservingExisting(job){
+  if(!job) return job;
+  const hadEstimate = hasActiveEstimateState(job);
+  const before = {};
+  if(hadEstimate) copyActiveEstimateFields(job, before);
+  applyEstimatedCountdownAtStart(job);
+  if(hadEstimate && !hasActiveEstimateState(job)){
+    copyActiveEstimateFields(before, job);
+    job.activeEstimatePreservedWithoutNewEstimate = true;
+    job.activeEstimatePreservedAt = Date.now();
+  }
+  return job;
+}
+
 function isTransportStartPhasePassed(job){
   if(!job) return false;
   const phase = getTransportPhase(job);
@@ -3926,27 +4091,11 @@ function applyEstimatedCountdownAtStart(job){
     job.estimatedMapMaterialMinutesAtStart = Number(estimate.mapMaterialMinutes || 0);
     job.estimatedStartAddonIncludedInActiveTime = startAddonMinutes > 0;
     job.estimatedStartAddonRemovedFromRemaining = isTransportStartPhasePassed(job) && startAddonMinutes > 0;
+  } else if(!hasActiveEstimateState(job)){
+    clearActiveEstimateState(job);
   } else {
-    delete job.estimatedMinutesAtStart;
-    delete job.estimatedEndAt;
-    delete job.estimatedCountAtStart;
-    delete job.estimatedMaterialFlowMinutesAtStart;
-    delete job.estimatedMaterialFlowCountAtStart;
-    delete job.estimatedStartAddonMinutesAtStart;
-    delete job.estimatedStartAddonCountAtStart;
-    delete job.estimatedStartAddonSafeAtStart;
-    delete job.estimatedStartAddonMissingAtStart;
-    delete job.estimatedSourceAtStart;
-    delete job.estimatedMapTotalMinutesAtStart;
-    delete job.estimatedMapMaterialMinutesAtStart;
-    delete job.estimatedTotalMinutesAtStart;
-    delete job.estimatedOverallMinutesAtStart;
-    delete job.estimatedOverallEndAt;
-    delete job.estimatedLegMinutesAtStart;
-    delete job.estimatedLegEndAt;
-    delete job.estimatedLegMode;
-    delete job.estimatedStartAddonIncludedInActiveTime;
-    delete job.estimatedStartAddonRemovedFromRemaining;
+    job.activeEstimatePreservedWithoutNewEstimate = true;
+    job.activeEstimatePreservedAt = Date.now();
   }
   return job;
 }
@@ -4979,7 +5128,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-71';
+const APP_VERSION = 'Stadslass v2026-05-07-01-72';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -5058,6 +5207,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Tidsatta köuppdrag v69', status:'Aktiv', purpose:'Köuppdrag kan få frivilligt klockslag i Nytt jobb, Snabbval och köredigering. Tom tid fungerar som tidigare och uppdraget ligger bara på hög i kön.', changeRule:'Klockslaget är bara planeringsdata och får inte påverka verklig starttid, uppdragstid, GPS, fasdata, vikt, sammanställning eller tidsinlärning.'},
   {name:'Delad retunnedräkning v70', status:'Aktiv', purpose:'Befintlig nedräkningsruta delas internt vid returkrav: Från→Till före vikt och Till→Från efter vikt. Inga extra texter läggs till och total sluttid bevaras.', changeRule:'Får bara ändra visad nedräkning. Får inte påverka faktisk uppdragstid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
   {name:'Retur orange bottenbakgrund v71', status:'Aktiv', purpose:'Retur pågår använder samma orange body-bakgrund som Transport pågår utan extra text och utan att ändra fasknapp, faslogik eller uppdragstid.', changeRule:'Får bara ändra visuell body-bakgrund. Får inte påverka returkrav, nedräkning, uppskattad tid, GPS, fasdata, vikt, paus, sammanställning eller tidsinlärning.'},
+  {name:'Bevara uppskattad tid vid paus/fortsätt v72', status:'Aktiv', purpose:'Pausade uppdrag sparar senast kända uppskattad tid och återställer nedräkningen vid Fortsätt. Om ny beräkning saknar underlag behålls gammal nedräkning i stället för saknas.', changeRule:'Får inte ändra faktisk uppdragstid, vikt, GPS, fasdata, sammanställning eller tidsinlärning. Endast bevarande/återställning av uppskattad tid vid paus/fortsätt.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -5239,7 +5389,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
-  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71'), 'featureManifestList + v67/v68/v69/v70/v71-poster');
+  addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72'), 'featureManifestList + v67/v68/v69/v70/v71/v72-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
   addFunctionCheck(results, 'Nivå 1', 'Lokal kartnyckel i Inställningar finns', !!el('mapKeyManagerWrap') && !!el('mapApiKeyInput') && fn('getLocalMapApiKey') && fn('setLocalMapApiKey') && fn('deleteLocalMapApiKey'), 'kartnyckel sparas separat per enhet');
   addFunctionCheck(results, 'Nivå 1', 'Kartskydd och cache finns', !!el('mapGuardStatus') && fn('getMapGuardStatus') && fn('canMakeMapRequest') && fn('registerMapRequest') && fn('getCachedMapRoute') && fn('setCachedMapRoute'), 'lokala gränser + cache');
@@ -5252,7 +5402,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning är dold i aktiv vy', !!el('activeRouteGps') && el('activeRouteGps').classList.contains('hidden') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', "classList.add('hidden')"), 'gammal GPS-ruta bevaras tekniskt men visas inte');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-71') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-71') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -5266,6 +5416,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Fasknappens visuella lägen finns', fn('getActivePhaseVisualState') && src('getActivePhaseVisualState', 'Lastning/rangering') && src('getActivePhaseVisualState', 'Transport pågår') && src('getActivePhaseVisualState', 'Lossning') && src('getActivePhaseVisualState', 'Lass registrerat') && src('getActivePhaseVisualState', 'Retur pågår'), 'Lastar/Lastning, Transport, Lossning, Lass registrerat och Retur pågår');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv bottenbakgrund v65 finns', fn('updateActivePhaseBackground') && src('updateActivePhaseBackground', 'phase-loading-bg') && src('updateActivePhaseBackground', 'phase-transport-bg') && src('updateActivePhaseBackground', 'phase-unloading-bg') && src('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'body-bakgrund följer fasknappens visuella lägen');
   addFunctionCheck(results, 'Nivå 2', 'Retur orange bottenbakgrund v71 finns', fn('updateActivePhaseBackground') && src('updateActivePhaseBackground', 'Retur pågår') && src('updateActivePhaseBackground', 'phase-transport-bg'), 'Retur pågår ger samma body-bakgrund som Transport pågår');
+  addFunctionCheck(results, 'Nivå 2', 'Bevara uppskattad tid vid paus/fortsätt v72 finns', fn('savePausedEstimateState') && fn('restorePausedEstimateState') && fn('applyEstimatedCountdownAtStartPreservingExisting') && src('pauseActiveJob', 'savePausedEstimateState') && src('resumePausedJob', 'restorePausedEstimateState'), 'Pausa sparar senast kända nedräkning och Fortsätt återställer den');
   addFunctionCheck(results, 'Nivå 2', 'GPS-zoner ändrar bara visuell fasknapp', fn('getFromGeofenceForJob') && fn('updateActiveGeofenceVisualStatus') && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5 && src('updateActiveGeofenceVisualStatus', 'geofenceVisual'), 'Från-zoner styr visuell status, inte mätpunkter');
   addFunctionCheck(results, 'Nivå 2', 'Till-geofence Lossning v45 finns', fn('getToGeofenceForJob') && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5 && ACTIVE_TO_GEOFENCE_ZONES.some(zone => zone && zone.id === 'stena_metall_lossning'), 'Till-zoner kan visa Lossning');
   addFunctionCheck(results, 'Nivå 2', 'Flaklager Till-geofence v59 finns', Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.some(zone => zone && zone.id === 'flaklager_skrappekarr_tillzon') && fn('getActiveGeofenceHitForPoint'), 'Flaklager kan vara Till-zon/anropsskydd');
@@ -5415,6 +5566,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Fasknapp visuella lägen', typeof getActivePhaseVisualState === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Lastning/rangering') && functionSourceIncludes('getActivePhaseVisualState', 'Transport pågår') && functionSourceIncludes('getActivePhaseVisualState', 'Lossning'), 'Lastning/rangering, Transport pågår och Lossning finns'),
     systemCheck('Aktiv bottenbakgrund v65', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg') && functionSourceIncludes('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'Body-bakgrund följer fasknappens visuella status'),
     systemCheck('Retur orange bottenbakgrund v71', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', 'Retur pågår') && functionSourceIncludes('updateActivePhaseBackground', 'phase-transport-bg'), 'Retur pågår använder samma orange body-bakgrund som Transport pågår'),
+    systemCheck('Bevara uppskattad tid vid paus/fortsätt v72', typeof savePausedEstimateState === 'function' && typeof restorePausedEstimateState === 'function' && typeof applyEstimatedCountdownAtStartPreservingExisting === 'function' && functionSourceIncludes('pauseActiveJob', 'savePausedEstimateState') && functionSourceIncludes('resumePausedJob', 'restorePausedEstimateState'), 'senast kända nedräkning återställs efter paus'),
     systemCheck('GPS-zoner visuell status', typeof getFromGeofenceForJob === 'function' && typeof updateActiveGeofenceVisualStatus === 'function' && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5, 'Från-zoner styr visuell status/anropsskydd'),
     systemCheck('Till-geofence Lossning', typeof getToGeofenceForJob === 'function' && Array.isArray(ACTIVE_TO_GEOFENCE_ZONES) && ACTIVE_TO_GEOFENCE_ZONES.length >= 5, 'Till-zoner kan visa Lossning utan att registrera vikt'),
     systemCheck('Fasdata och missad fasdata', typeof toggleActiveTransportPhase === 'function' && typeof prepareJobForCompletionWithPhaseGuard === 'function' && typeof markJobExcludedFromEstimateLearning === 'function', 'Lastar/Ange vikt + skydd för missad fasdata'),
@@ -5426,7 +5578,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67/v68/v69/v70/v71', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67/v68/v69/v70/v71/v72', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -8902,7 +9054,7 @@ function startQueuedJob(qid){
     if(q.placeLabel) state.active.placeLabel = q.placeLabel;
     if(q.destLabel) state.active.destLabel = q.destLabel;
     copySmartEstimateFields(q, state.active);
-    applyEstimatedCountdownAtStart(state.active);
+    applyEstimatedCountdownAtStartPreservingExisting(state.active);
     scheduleSmartEstimateForActive();
   }
 
@@ -8930,10 +9082,12 @@ function pauseActiveJob(){
     state.active.privateComment = '';
   }
 
+  const pausedAt = Date.now();
   const paused = {...state.active};
   paused.status = 'pausad';
   paused.plannedDate = paused.plannedDate || paused.date || todayStr();
-  paused.pausedElapsedMs = getTotalWorkSessionMs(paused, Date.now());
+  paused.pausedElapsedMs = getTotalWorkSessionMs(paused, pausedAt);
+  savePausedEstimateState(paused, pausedAt);
 
   const pausedJobWasOtherWork = isOtherWorkJob(paused);
 
@@ -8978,8 +9132,9 @@ function resumePausedJob(qid){
   resumed.motionLastTs = Date.now();
   resumed.motionLastMode = 'still';
 
+  const restoredEstimate = restorePausedEstimateState(resumed, Date.now());
   state.active = resumed;
-  applyEstimatedCountdownAtStart(state.active);
+  if(!restoredEstimate) applyEstimatedCountdownAtStart(state.active);
   scheduleSmartEstimateForActive();
   state.queue = state.queue.filter(x => x.id !== qid);
   saveState();
