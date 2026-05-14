@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-85
+- Nuvarande version: Stadslass v2026-05-07-01-86
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -28,6 +28,7 @@ Stadslass versionskontroll
 - v83: Anropssmart app använder historik/kartcache först och hoppar över nya automatiska smarta kartanrop när befintligt underlag räcker. Aktivt jobb och kö visar tydligare källa för uppskattad tid/kartanrop.
 - v84: Ruttavvikelse första steg. Appen markerar tydlig avvikelse mellan faktisk GPS-sträcka och kart-/cacheunderlag som analys och spärrar sådant uppdrag från att bli nytt normalvärde automatiskt.
 - v85: Prognos för hela dagen visar aktiv tid kvar, kötid idag, beräknad färdig-tid och osäkerhet som planeringsstöd utan att styra kö eller jobb.
+- v86: Geofence-inställningar gör det möjligt att lägga till, redigera, ta bort och återställa platsgeofence med validering av cirkel/polygonvärden.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
@@ -99,6 +100,7 @@ Stadslass versionskontroll
   - Anropssmart v83: historik och kartcache används först, nya automatiska smarta kartanrop hoppas över när befintligt underlag räcker, och uppskattad tid visar tydligare källa/anrop.
   - Ruttavvikelse v84: tydlig avvikelse mellan faktisk GPS-sträcka och kart-/cacheunderlag visas som analys och används inte som nytt normalvärde automatiskt.
   - Dagsprognos v85: visar aktivt jobb kvar, kö idag, beräknad färdig och osäkerhet som planeringshjälp utan att starta eller sortera uppdrag automatiskt.
+  - Geofence-inställningar v86: geofence kan läggas till, redigeras, tas bort och återställas med värdekontroll. Geofence är fortfarande bara platsdata/visuell status och styr inte Lasta, Ange vikt eller Klart.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -932,6 +934,33 @@ button{
     grid-template-columns:repeat(3,minmax(0,1fr));
   }
 }
+
+.geofence-status-box{
+  width:100%;
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:#f8fafc;
+  font-size:14px;
+  line-height:1.35;
+}
+.geofence-status-box.ok{background:#dcfce7;border-color:#86efac;color:#166534;font-weight:700}
+.geofence-status-box.error{background:#fee2e2;border-color:#fecaca;color:#7f1d1d;font-weight:700}
+.geofence-list-row{
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:12px;
+  margin-top:10px;
+  background:#fff;
+}
+.geofence-list-row.disabled{background:#f8fafc;color:var(--muted)}
+.geofence-list-title{font-size:17px;font-weight:900;color:var(--text);margin-bottom:4px}
+.geofence-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.geofence-meta .pill{margin:0 !important}
+.geofence-points-input{font-family:monospace;font-size:14px;min-height:130px}
 .btn-grid button.quick-feedback{
   background:var(--primary) !important;
   color:#fff !important;
@@ -1632,7 +1661,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-85</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-86</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -1661,6 +1690,13 @@ button{
           <button class="primary" onclick="toggleHistoryManager()">Historik kalender</button>
           <button class="primary" onclick="toggleTrashManager()">Papperskorg</button>
           <button class="primary" onclick="toggleCleanupManager()">Rensa arbetsdata</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h4>Geofence</h4>
+        <div class="muted">Platszoner för visuell status och analys. Manuella knappar är fortfarande jobbets sanning.</div>
+        <div class="settings-group-actions">
+          <button class="primary" onclick="toggleGeofenceManager()">Geofence</button>
         </div>
       </div>
       <div class="settings-group phase-settings-group">
@@ -1696,7 +1732,7 @@ button{
         </div>
       </div>
     </div>
-
+\n    <div id="geofenceManagerWrap" class="place-manager hidden">\n      <div class="place-help"><strong>Geofence-inställningar.</strong> Geofence är platsdata för visuell status, anropsskydd och analys. Appreglerna styr hur informationen får användas. Manuella knappar är fortfarande jobbets sanning: geofence får inte trycka Lasta, Ange vikt eller Klart.</div>\n\n      <div class="place-row">\n        <div class="place-key">Ny plats för geofence</div>\n        <div class="multi-help">Skapa en enkel ny plats om platsen saknas. Själva geofence-värdet sparas i rutan nedanför.</div>\n        <input id="geofenceNewPlaceName" placeholder="Namn på ny plats">\n        <input id="geofenceNewPlaceAddress" placeholder="Adress eller Plus Code (valfritt)">\n        <div class="row" style="margin-top:10px">\n          <button class="primary inline" onclick="createPlaceFromGeofenceManager()">Lägg till plats</button>\n        </div>\n      </div>\n\n      <div class="place-row">\n        <div class="place-key">Lägg till / redigera geofence</div>\n        <label>Plats</label>\n        <select id="geofencePlaceSelect" onchange="loadGeofenceFormForSelectedPlace()"></select>\n        <label style="margin-top:10px">Typ</label>\n        <select id="geofenceTypeSelect" onchange="updateGeofenceFormVisibility()">\n          <option value="circle">Cirkel</option>\n          <option value="polygon">Polygon</option>\n        </select>\n        <div id="geofenceCircleFields" class="quick-edit-grid" style="margin-top:10px">\n          <div>\n            <label>Latitud</label>\n            <input id="geofenceCircleLat" inputmode="decimal" placeholder="57.719437">\n          </div>\n          <div>\n            <label>Longitud</label>\n            <input id="geofenceCircleLon" inputmode="decimal" placeholder="11.969312">\n          </div>\n          <div>\n            <label>Radie meter</label>\n            <input id="geofenceCircleRadius" inputmode="numeric" placeholder="60">\n          </div>\n          <div>\n            <label>Tolerans meter (valfritt)</label>\n            <input id="geofenceTolerance" inputmode="numeric" placeholder="0">\n          </div>\n        </div>\n        <div id="geofencePolygonFields" class="hidden" style="margin-top:10px">\n          <label>Polygonpunkter</label>\n          <textarea id="geofencePolygonPoints" class="geofence-points-input" placeholder="57.7195179, 11.9640439\n57.7178787, 11.9647085\n57.7160681, 11.9669340"></textarea>\n          <div class="multi-help">Minst 3 punkter. En punkt per rad: latitud, longitud.</div>\n          <label style="margin-top:10px">Tolerans meter (valfritt)</label>\n          <input id="geofencePolygonTolerance" inputmode="numeric" placeholder="0">\n        </div>\n        <div class="row" style="margin-top:12px">\n          <button class="primary inline" onclick="saveGeofenceFromForm()">Spara geofence</button>\n          <button class="inline" onclick="clearGeofenceForm()">Rensa formulär</button>\n        </div>\n        <div id="geofenceFormStatus" class="geofence-status-box hidden" style="margin-top:10px"></div>\n      </div>\n\n      <div class="place-row">\n        <div class="place-key">Geofence-register</div>\n        <div class="multi-help">Redigera eller ta bort geofence här. Borttagning tar bara bort/avaktiverar geofence för platsen, inte själva platsen och inte historik.</div>\n        <div class="row" style="margin-top:10px">\n          <button class="inline" onclick="renderGeofenceManager()">Uppdatera lista</button>\n        </div>\n        <div id="geofenceManagerList"></div>\n      </div>\n    </div>\n
     <!-- TEMP RECEIPT IMPORT MODULE START -->
     <div id="receiptImportManagerWrap" class="place-manager hidden receipt-temp-wrap">
       <div class="place-help"><strong>Tillfällig funktion – Kvittoimport.</strong> Appen tolkar inte kvittobilder längre. Importera i stället färdiga kvittofiler/rader som är framtagna utanför appen. Raderna skapar bara historiska sammanställningsrader: Datum, Jobbtyp, Från, Till och Vikt. De påverkar inte GPS, aktivt arbete, pauslogik, uppskattad tid, körsträcka, arbetstid eller tidsinlärning.</div>
@@ -2529,6 +2565,7 @@ function normalizeStoredGeofenceZone(raw, fallback){
 }
 
 function getStoredGeofenceCandidatesForPlace(value, direction){
+  if(typeof isPlaceGeofenceDisabled === 'function' && isPlaceGeofenceDisabled(value)) return [];
   const raw = String(value || '').trim();
   if(!raw) return [];
   const keys = getGeofenceLookupKeysForPlace(raw);
@@ -2581,6 +2618,7 @@ function getReusablePlaceGeofenceForPlace(value, label, scenario){
 }
 
 function getPlaceGeofenceForScenario(value, label, scenario){
+  if(typeof isPlaceGeofenceDisabled === 'function' && isPlaceGeofenceDisabled(value)) return null;
   const stored = getStoredGeofenceCandidatesForPlace(value, scenario);
   if(stored.length) return stored[0];
   return getReusablePlaceGeofenceForPlace(value, label, scenario);
@@ -2714,9 +2752,9 @@ function isPointInsideGeofence(point, zone){
 
 function getKnownGeofenceForPoint(point){
   if(!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon))) return null;
-  const zones = (Array.isArray(PLACE_GEOFENCE_ZONES) && PLACE_GEOFENCE_ZONES.length)
-    ? PLACE_GEOFENCE_ZONES
-    : [].concat(ACTIVE_FROM_GEOFENCE_ZONES || [], ACTIVE_TO_GEOFENCE_ZONES || []);
+  const zones = (typeof getAllEffectiveGeofenceZones === 'function')
+    ? getAllEffectiveGeofenceZones()
+    : ((Array.isArray(PLACE_GEOFENCE_ZONES) && PLACE_GEOFENCE_ZONES.length) ? PLACE_GEOFENCE_ZONES : [].concat(ACTIVE_FROM_GEOFENCE_ZONES || [], ACTIVE_TO_GEOFENCE_ZONES || []));
   return zones.find(zone => isPointInsideGeofence(point, zone)) || null;
 }
 
@@ -3459,6 +3497,8 @@ function normalizeVehicleState(){
   state.placeRequirements = normalizeRequirementMap(state.placeRequirements);
   if(!('lastWorkPoint' in state)) state.lastWorkPoint = null;
   if(!Array.isArray(state.trash)) state.trash = [];
+  if(!state.placeGeofences || typeof state.placeGeofences !== 'object' || Array.isArray(state.placeGeofences)) state.placeGeofences = {};
+  if(!state.disabledPlaceGeofences || typeof state.disabledPlaceGeofences !== 'object' || Array.isArray(state.disabledPlaceGeofences)) state.disabledPlaceGeofences = {};
   if(!Array.isArray(state.jobTypes)) state.jobTypes = cloneDefaultJobTypes();
   state.jobTypes = normalizeJobTypesList(state.jobTypes);
   if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)) state.jobTypeMeta = {};
@@ -3605,6 +3645,8 @@ function loadState(){
       parsed.placeRequirements = normalizeRequirementMap(parsed.placeRequirements);
       if(!('lastWorkPoint' in parsed)) parsed.lastWorkPoint = null;
       if(!Array.isArray(parsed.trash)) parsed.trash = [];
+      if(!parsed.placeGeofences || typeof parsed.placeGeofences !== 'object' || Array.isArray(parsed.placeGeofences)) parsed.placeGeofences = {};
+      if(!parsed.disabledPlaceGeofences || typeof parsed.disabledPlaceGeofences !== 'object' || Array.isArray(parsed.disabledPlaceGeofences)) parsed.disabledPlaceGeofences = {};
       if(!Array.isArray(parsed.jobTypes)) parsed.jobTypes = cloneDefaultJobTypes();
       parsed.jobTypes = normalizeJobTypesList(parsed.jobTypes);
       if(!parsed.jobTypeMeta || typeof parsed.jobTypeMeta !== 'object' || Array.isArray(parsed.jobTypeMeta)) parsed.jobTypeMeta = {};
@@ -3614,7 +3656,7 @@ function loadState(){
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeRequirements:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), phaseColorSettings:normalizePhaseColorSettings(null), jobs:[], queue:[], trash:[]};
+  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeRequirements:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeGeofences:{}, disabledPlaceGeofences:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), phaseColorSettings:normalizePhaseColorSettings(null), jobs:[], queue:[], trash:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -5858,7 +5900,7 @@ function renderGpsTestPoint(point, extraStatus){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-85';
+const APP_VERSION = 'Stadslass v2026-05-07-01-86';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -5951,6 +5993,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Anropssmart app v83', status:'Aktiv', purpose:'Aktivt jobb och kö visar tydligare källa för uppskattad tid. Automatiska smarta kartanrop hoppar över nya Google-anrop när historik eller kartcache redan räcker.', changeRule:'Får bara minska onödiga kartanrop och visa källa. Får inte ändra Lasta, Ange vikt, Klart, GPS-inspelning, fasdata, kölogik, sammanställning eller tidsinlärning.'},
   {name:'Ruttavvikelse v84', status:'Aktiv', purpose:'Markerar tydlig avvikelse mellan faktisk GPS-sträcka/tid och kart-/cacheunderlag i aktivt jobb och Idag.', changeRule:'Får bara analysera och markera avvikelse. Avvikande uppdrag får inte automatiskt bli nytt normalvärde. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra GPS/geofence-flöde.'},
   {name:'Dagsprognos v85', status:'Aktiv', purpose:'Visar aktivt jobb kvar, uppskattad kötid idag, beräknad färdig-tid och osäkerhet som planeringshjälp i Uppdrag i kö och Idag.', changeRule:'Får bara visa planeringsprognos. Får inte ändra köordning, starta uppdrag, trycka Lasta/Ange vikt/Klart eller ändra tidsinlärning.'},
+  {name:'Geofence-inställningar v86', status:'Aktiv', purpose:'Inställningar kan lägga till, redigera, ta bort och återställa platsgeofence. Formuläret validerar cirkel/polygonvärden innan sparning.', changeRule:'Får bara ändra platsgeofence-data och varningar. Geofence får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, sammanställning eller tidsinlärning automatiskt.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -6151,7 +6194,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-85') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-86') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -6210,6 +6253,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Anropssmart v83 använder historik/cache först', fn('hasUsefulHistoryOrCacheEstimateForJob') && src('shouldScheduleSmartEstimate', 'hasUsefulHistoryOrCacheEstimateForJob') && src('shouldScheduleSmartEstimate', 'getCachedMapTotalsForJob') && !src('stopJob', 'smartMapSkipReason'), 'nya automatiska smarta kartanrop hoppas över när befintligt underlag räcker');
   addFunctionCheck(results, 'Nivå 2', 'Ruttavvikelse v84 spärrar normalvärde', fn('updateRouteDeviationForJob') && src('updateRouteDeviationForJob', 'excludeFromTimeEstimate') && src('updateRouteDeviationForJob', 'excludeFromGpsLearning') && src('stopJob', 'updateRouteDeviationForJob'), 'tydlig ruttavvikelse används inte automatiskt som nytt normalvärde');
   addFunctionCheck(results, 'Nivå 2', 'Dagsprognos v85 är planeringsstöd', fn('buildDayForecast') && fn('renderDayForecasts') && !!el('queueDayForecastBox') && !!el('todayDayForecastBox') && src('getDayForecastHtml', 'ändrar inte köordning') && !src('buildDayForecast', 'startQueuedJob('), 'prognosen visas i kö/Idag utan att starta eller sortera uppdrag');
+  addFunctionCheck(results, 'Nivå 2', 'Geofence-inställningar v86 finns', !!el('geofenceManagerWrap') && fn('toggleGeofenceManager') && fn('saveGeofenceFromForm') && fn('removeGeofenceForPlace') && fn('restoreDefaultGeofenceForPlace') && fn('buildGeofenceFromForm'), 'geofence kan skapas/redigeras/tas bort/återställas');
+  addFunctionCheck(results, 'Nivå 2', 'Geofence-validering v86 finns', fn('parseGeofencePolygonPoints') && src('buildGeofenceFromForm', 'Latitud måste vara ett tal') && src('buildGeofenceFromForm', 'Radie måste vara större än 0') && src('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'felaktiga lat/lon/radie/polygonvärden stoppas innan sparning');
 
   const memoryTest = runMemoryOnlyTestJobCheck();
   addFunctionCheck(results, 'Nivå 3', 'Testuppdrag i minnet utan att spara', memoryTest.ok, memoryTest.detail);
@@ -6313,7 +6358,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-85') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-85'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-86') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-86'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -6338,6 +6383,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Anropssmart v83', typeof hasUsefulHistoryOrCacheEstimateForJob === 'function' && functionSourceIncludes('shouldScheduleSmartEstimate', 'hasUsefulHistoryOrCacheEstimateForJob') && functionSourceIncludes('formatMapCallCounterHtml', 'Anropssmart'), 'historik/cache prioriteras och källa visas tydligare'),
     systemCheck('Ruttavvikelse v84', typeof evaluateRouteDeviation === 'function' && typeof updateRouteDeviationForJob === 'function' && functionSourceIncludes('updateRouteDeviationForJob', 'excludeFromTimeEstimate') && functionSourceIncludes('renderToday', 'getRouteDeviationHtml'), 'avvikelse markeras och blir inte normalvärde automatiskt'),
     systemCheck('Dagsprognos v85', typeof buildDayForecast === 'function' && typeof renderDayForecasts === 'function' && !!document.getElementById('queueDayForecastBox') && !!document.getElementById('todayDayForecastBox') && functionSourceIncludes('getDayForecastHtml', 'planeringshjälp'), 'dagsprognos visas i kö/Idag utan att styra uppdrag'),
+    systemCheck('Geofence-inställningar v86', typeof toggleGeofenceManager === 'function' && typeof saveGeofenceFromForm === 'function' && typeof removeGeofenceForPlace === 'function' && !!document.getElementById('geofenceManagerWrap'), 'geofence-register finns för lägg till/redigera/ta bort/återställ'),
+    systemCheck('Geofence-validering v86', typeof buildGeofenceFromForm === 'function' && typeof parseGeofencePolygonPoints === 'function' && functionSourceIncludes('buildGeofenceFromForm', 'Radie måste vara större än 0') && functionSourceIncludes('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'geofence stoppar uppenbart felaktiga värden'),
     systemCheck('Friare Nytt jobb v75', !!document.getElementById('newReturnRequired') && !!document.getElementById('newMultiLoad') && typeof getFreeDestinationValuesWithStandardFirst === 'function' && typeof handleNewJobFlagToggle === 'function' && functionSourceIncludes('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && functionSourceIncludes('startManualJob', 'returnRequiredChoice'), 'fri Till-lista i Nytt jobb + manuellt Returkrav/Flerlass'),
     systemCheck('Bevara uppskattad tid vid paus/fortsätt v72', typeof savePausedEstimateState === 'function' && typeof restorePausedEstimateState === 'function' && typeof applyEstimatedCountdownAtStartPreservingExisting === 'function' && functionSourceIncludes('pauseActiveJob', 'savePausedEstimateState') && functionSourceIncludes('resumePausedJob', 'restorePausedEstimateState'), 'senast kända nedräkning återställs efter paus'),
     systemCheck('Automatisk GPS-inspelning v73', typeof startRouteGpsRecordingForJob === 'function' && typeof pauseRouteGpsRecordingForJob === 'function' && typeof resumeRouteGpsRecordingForJob === 'function' && typeof finalizeRouteGpsRecordingForJob === 'function' && functionSourceIncludes('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && functionSourceIncludes('renderActiveRouteGps', 'Gps inspelning pågår') && functionSourceIncludes('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning med diskret aktivtext och GPS-sammanfattning i Idag'),
@@ -6354,7 +6401,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67-v85', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v86', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -6419,7 +6466,7 @@ async function runSystemControlWithMaps(){
 
 
 function hideSettingsPanels(exceptId){
-  ['receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['geofenceManagerWrap','receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
@@ -6580,6 +6627,8 @@ function renderHistoryManager(){
 
 function ensureTrash(){
   if(!Array.isArray(state.trash)) state.trash = [];
+  if(!state.placeGeofences || typeof state.placeGeofences !== 'object' || Array.isArray(state.placeGeofences)) state.placeGeofences = {};
+  if(!state.disabledPlaceGeofences || typeof state.disabledPlaceGeofences !== 'object' || Array.isArray(state.disabledPlaceGeofences)) state.disabledPlaceGeofences = {};
 }
 
 function moveToTrash(source, item){
@@ -13171,6 +13220,324 @@ function saveQuickItems(){
   renderQuickManager();
   alert('Snabbval sparade.');
 }
+
+function ensureGeofenceState(){
+  if(!state.placeGeofences || typeof state.placeGeofences !== 'object' || Array.isArray(state.placeGeofences)) state.placeGeofences = {};
+  if(!state.disabledPlaceGeofences || typeof state.disabledPlaceGeofences !== 'object' || Array.isArray(state.disabledPlaceGeofences)) state.disabledPlaceGeofences = {};
+}
+
+function getDisabledGeofenceKeysForPlace(value){
+  return getGeofenceLookupKeysForPlace(value).map(normalizeGeofencePlaceKey).filter(Boolean);
+}
+
+function isPlaceGeofenceDisabled(value){
+  ensureGeofenceState();
+  return getDisabledGeofenceKeysForPlace(value).some(key => state.disabledPlaceGeofences[key] === true);
+}
+
+function setPlaceGeofenceDisabled(value, disabled){
+  ensureGeofenceState();
+  getDisabledGeofenceKeysForPlace(value).forEach(key => {
+    if(disabled) state.disabledPlaceGeofences[key] = true;
+    else delete state.disabledPlaceGeofences[key];
+  });
+}
+
+function getManualGeofenceForPlace(value){
+  ensureGeofenceState();
+  const keys = getGeofenceLookupKeysForPlace(value);
+  const map = state.placeGeofences || {};
+  for(const rawKey of Object.keys(map)){
+    if(keys.includes(normalizeGeofencePlaceKey(rawKey))){
+      return normalizeStoredGeofenceZone(map[rawKey], {id:'manual_' + normalizeGeofencePlaceKey(rawKey).replace(/[^a-z0-9åäö]+/gi, '_'), key:rawKey, label:getPlaceLabel(rawKey), placeKeys:[rawKey, getPlaceLabel(rawKey)]});
+    }
+  }
+  return null;
+}
+
+function getDefaultStaticGeofenceForPlace(value){
+  return getReusablePlaceGeofenceForPlace(value, getPlaceLabel(value), 'plats');
+}
+
+function isGeofencePlaceholderPlace(value){
+  const key = String(value || '').trim();
+  const lower = key.toLocaleLowerCase('sv-SE');
+  return !key || lower === 'annan plats' || lower === 'annan destination' || isPlaceMapPlaceholder(key);
+}
+
+function getGeofenceManageablePlaces(){
+  return getManageablePlaces().filter(entry => entry && !isGeofencePlaceholderPlace(entry.key));
+}
+
+function getAllEffectiveGeofenceZones(){
+  ensureGeofenceState();
+  const zones = [];
+  const seen = new Set();
+  const add = (placeKey, zone, source) => {
+    if(!zone || !isValidGeofenceZone(zone)) return;
+    if(isPlaceGeofenceDisabled(placeKey)) return;
+    const normalizedKey = normalizeGeofencePlaceKey(placeKey);
+    const cloned = cloneReusableGeofenceZone(zone, source || 'plats') || zone;
+    cloned.managerPlaceKey = placeKey;
+    cloned.placeKeys = Array.from(new Set([].concat(cloned.placeKeys || [], placeKey, getPlaceLabel(placeKey)).filter(Boolean)));
+    const idKey = normalizedKey + '|' + String(cloned.id || cloned.label || source || 'geofence');
+    if(seen.has(idKey)) return;
+    seen.add(idKey);
+    zones.push(cloned);
+  };
+  getGeofenceManageablePlaces().forEach(entry => {
+    const manual = getManualGeofenceForPlace(entry.key);
+    if(manual) add(entry.key, manual, 'manual');
+    else add(entry.key, getDefaultStaticGeofenceForPlace(entry.key), 'standard');
+  });
+  return zones;
+}
+
+function formatGeofenceZoneSummary(zone){
+  if(!zone) return 'Saknas';
+  if(zone.type === 'polygon') return 'Polygon · ' + ((zone.points || []).length) + ' punkter' + (zone.toleranceMeters ? ' · tolerans ' + zone.toleranceMeters + ' m' : '');
+  const radius = Number(zone.radiusMeters || zone.radius || 0);
+  return 'Cirkel · radie ' + (Number.isFinite(radius) ? Math.round(radius) : '-') + ' m' + (zone.toleranceMeters ? ' · tolerans ' + zone.toleranceMeters + ' m' : '');
+}
+
+function fillGeofencePlaceSelect(selectedValue){
+  const select = document.getElementById('geofencePlaceSelect');
+  if(!select) return;
+  select.innerHTML = '';
+  getGeofenceManageablePlaces().forEach(entry => {
+    const opt = document.createElement('option');
+    opt.value = entry.key;
+    opt.textContent = getPlaceLabel(entry.key);
+    select.appendChild(opt);
+  });
+  if(selectedValue && Array.from(select.options).some(opt => opt.value === selectedValue)) select.value = selectedValue;
+}
+
+function toggleGeofenceManager(){
+  toggleSettingsPanel('geofenceManagerWrap', () => {
+    renderGeofenceManager();
+  });
+}
+
+function setGeofenceFormStatus(message, isError){
+  const el = document.getElementById('geofenceFormStatus');
+  if(!el) return;
+  const msg = String(message || '').trim();
+  el.textContent = msg;
+  el.classList.toggle('hidden', !msg);
+  el.classList.toggle('error', !!isError);
+  el.classList.toggle('ok', !!msg && !isError);
+}
+
+function updateGeofenceFormVisibility(){
+  const type = document.getElementById('geofenceTypeSelect') ? document.getElementById('geofenceTypeSelect').value : 'circle';
+  const circle = document.getElementById('geofenceCircleFields');
+  const poly = document.getElementById('geofencePolygonFields');
+  if(circle) circle.classList.toggle('hidden', type !== 'circle');
+  if(poly) poly.classList.toggle('hidden', type !== 'polygon');
+}
+
+function setGeofenceInputValue(idName, value){
+  const el = document.getElementById(idName);
+  if(el) el.value = value === undefined || value === null ? '' : String(value);
+}
+
+function pointsToTextarea(points){
+  return (points || []).map(pt => Number(pt.lat).toFixed(7).replace(/0+$/,'').replace(/\.$/,'') + ', ' + Number(pt.lon).toFixed(7).replace(/0+$/,'').replace(/\.$/,'')).join('\n');
+}
+
+function loadGeofenceFormForPlace(placeKey){
+  fillGeofencePlaceSelect(placeKey);
+  const select = document.getElementById('geofencePlaceSelect');
+  const selected = placeKey || (select ? select.value : '');
+  if(select && selected) select.value = selected;
+  const zone = getManualGeofenceForPlace(selected) || (!isPlaceGeofenceDisabled(selected) ? getDefaultStaticGeofenceForPlace(selected) : null);
+  const typeEl = document.getElementById('geofenceTypeSelect');
+  if(zone && zone.type === 'polygon'){
+    if(typeEl) typeEl.value = 'polygon';
+    setGeofenceInputValue('geofencePolygonPoints', pointsToTextarea(zone.points || []));
+    setGeofenceInputValue('geofencePolygonTolerance', zone.toleranceMeters || '');
+  } else {
+    if(typeEl) typeEl.value = 'circle';
+    const coords = zone && zone.center ? zone.center : (getPlaceCoordinates(selected) || {lat:'', lon:''});
+    setGeofenceInputValue('geofenceCircleLat', coords.lat || '');
+    setGeofenceInputValue('geofenceCircleLon', coords.lon || '');
+    setGeofenceInputValue('geofenceCircleRadius', zone ? (zone.radiusMeters || zone.radius || '') : '60');
+    setGeofenceInputValue('geofenceTolerance', zone ? (zone.toleranceMeters || '') : '');
+  }
+  updateGeofenceFormVisibility();
+  setGeofenceFormStatus(zone ? 'Formuläret visar geofence för ' + getPlaceLabel(selected) + '.' : 'Platsen saknar aktivt geofence. Ange värden och spara.', false);
+}
+
+function loadGeofenceFormForSelectedPlace(){
+  const select = document.getElementById('geofencePlaceSelect');
+  loadGeofenceFormForPlace(select ? select.value : '');
+}
+
+function clearGeofenceForm(){
+  setGeofenceInputValue('geofenceCircleLat', '');
+  setGeofenceInputValue('geofenceCircleLon', '');
+  setGeofenceInputValue('geofenceCircleRadius', '');
+  setGeofenceInputValue('geofenceTolerance', '');
+  setGeofenceInputValue('geofencePolygonPoints', '');
+  setGeofenceInputValue('geofencePolygonTolerance', '');
+  setGeofenceFormStatus('', false);
+}
+
+function parseDecimalInput(value){
+  const n = Number(String(value || '').trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function parseGeofencePolygonPoints(text){
+  const lines = String(text || '').split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const points = [];
+  for(let i = 0; i < lines.length; i++){
+    const parts = lines[i].split(/[;,\s]+/).map(part => part.trim()).filter(Boolean);
+    if(parts.length < 2) return {ok:false, message:'Rad ' + (i + 1) + ' saknar latitud eller longitud.'};
+    const lat = parseDecimalInput(parts[0]);
+    const lon = parseDecimalInput(parts[1]);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return {ok:false, message:'Rad ' + (i + 1) + ' innehåller ogiltiga siffror.'};
+    if(lat < -90 || lat > 90) return {ok:false, message:'Rad ' + (i + 1) + ': latitud måste vara mellan -90 och 90.'};
+    if(lon < -180 || lon > 180) return {ok:false, message:'Rad ' + (i + 1) + ': longitud måste vara mellan -180 och 180.'};
+    points.push({lat, lon});
+  }
+  if(points.length < 3) return {ok:false, message:'Polygon kräver minst 3 punkter.'};
+  const lats = points.map(pt => pt.lat);
+  const lons = points.map(pt => pt.lon);
+  if((Math.max(...lats) - Math.min(...lats)) > 0.08 || (Math.max(...lons) - Math.min(...lons)) > 0.08){
+    return {ok:false, message:'Polygonen verkar orimligt stor. Kontrollera lat/lon och punktordning.'};
+  }
+  return {ok:true, points};
+}
+
+function buildGeofenceFromForm(){
+  const placeEl = document.getElementById('geofencePlaceSelect');
+  const typeEl = document.getElementById('geofenceTypeSelect');
+  const placeKey = placeEl ? placeEl.value : '';
+  const type = typeEl ? typeEl.value : 'circle';
+  if(isGeofencePlaceholderPlace(placeKey)) return {ok:false, message:'Välj en riktig fysisk plats. Annan plats/destination kan inte ha geofence.'};
+  const label = getPlaceLabel(placeKey) || placeKey;
+  const base = {id:'manual_geofence_' + normalizeGeofencePlaceKey(placeKey).replace(/[^a-z0-9åäö]+/gi, '_'), label, placeKeys:[placeKey, label], manuallyEdited:true, updatedAt:Date.now()};
+  if(type === 'polygon'){
+    const parsed = parseGeofencePolygonPoints(document.getElementById('geofencePolygonPoints') ? document.getElementById('geofencePolygonPoints').value : '');
+    if(!parsed.ok) return parsed;
+    const tolerance = parseDecimalInput(document.getElementById('geofencePolygonTolerance') ? document.getElementById('geofencePolygonTolerance').value : '');
+    if(Number.isFinite(tolerance) && (tolerance < 0 || tolerance > 500)) return {ok:false, message:'Tolerans måste vara mellan 0 och 500 meter.'};
+    return {ok:true, placeKey, zone:Object.assign(base, {type:'polygon', points:parsed.points, toleranceMeters:Number.isFinite(tolerance) ? tolerance : 0})};
+  }
+  const lat = parseDecimalInput(document.getElementById('geofenceCircleLat') ? document.getElementById('geofenceCircleLat').value : '');
+  const lon = parseDecimalInput(document.getElementById('geofenceCircleLon') ? document.getElementById('geofenceCircleLon').value : '');
+  const radius = parseDecimalInput(document.getElementById('geofenceCircleRadius') ? document.getElementById('geofenceCircleRadius').value : '');
+  const tolerance = parseDecimalInput(document.getElementById('geofenceTolerance') ? document.getElementById('geofenceTolerance').value : '');
+  if(!Number.isFinite(lat) || lat < -90 || lat > 90) return {ok:false, message:'Latitud måste vara ett tal mellan -90 och 90.'};
+  if(!Number.isFinite(lon) || lon < -180 || lon > 180) return {ok:false, message:'Longitud måste vara ett tal mellan -180 och 180.'};
+  if(!Number.isFinite(radius) || radius <= 0) return {ok:false, message:'Radie måste vara större än 0 meter.'};
+  if(radius > 5000) return {ok:false, message:'Radien är orimligt stor. Skriv meter, inte kilometer.'};
+  if(radius > 1000 && !confirm('Radien är över 1000 meter. Vill du spara ändå?')) return {ok:false, message:'Sparning avbruten.'};
+  if(Number.isFinite(tolerance) && (tolerance < 0 || tolerance > 500)) return {ok:false, message:'Tolerans måste vara mellan 0 och 500 meter.'};
+  return {ok:true, placeKey, zone:Object.assign(base, {type:'circle', center:{lat, lon}, radiusMeters:radius, toleranceMeters:Number.isFinite(tolerance) ? tolerance : 0})};
+}
+
+function saveGeofenceFromForm(){
+  ensureGeofenceState();
+  const built = buildGeofenceFromForm();
+  if(!built.ok){
+    setGeofenceFormStatus(built.message || 'Geofence kunde inte sparas.', true);
+    return;
+  }
+  state.placeGeofences[built.placeKey] = built.zone;
+  setPlaceGeofenceDisabled(built.placeKey, false);
+  saveState();
+  setGeofenceFormStatus('Geofence sparat för ' + getPlaceLabel(built.placeKey) + '.', false);
+  renderGeofenceManager();
+}
+
+function editGeofenceForPlace(placeKey){
+  loadGeofenceFormForPlace(placeKey);
+  const panel = document.getElementById('geofenceManagerWrap');
+  if(panel) scrollToSettingsPanel(panel);
+}
+
+function removeGeofenceForPlace(placeKey){
+  const label = getPlaceLabel(placeKey) || placeKey;
+  if(!confirm('Ta bort geofence för ' + label + '?\n\nSjälva platsen och historiken påverkas inte.')) return;
+  ensureGeofenceState();
+  if(state.placeGeofences && state.placeGeofences[placeKey]) delete state.placeGeofences[placeKey];
+  if(getDefaultStaticGeofenceForPlace(placeKey)) setPlaceGeofenceDisabled(placeKey, true);
+  saveState();
+  renderGeofenceManager();
+  setGeofenceFormStatus('Geofence borttaget/avaktiverat för ' + label + '.', false);
+}
+
+function restoreDefaultGeofenceForPlace(placeKey){
+  ensureGeofenceState();
+  if(state.placeGeofences && state.placeGeofences[placeKey]) delete state.placeGeofences[placeKey];
+  setPlaceGeofenceDisabled(placeKey, false);
+  saveState();
+  renderGeofenceManager();
+  loadGeofenceFormForPlace(placeKey);
+}
+
+function createPlaceFromGeofenceManager(){
+  const nameEl = document.getElementById('geofenceNewPlaceName');
+  const addressEl = document.getElementById('geofenceNewPlaceAddress');
+  const label = nameEl ? String(nameEl.value || '').trim() : '';
+  const address = addressEl ? String(addressEl.value || '').trim() : '';
+  if(!label){
+    setGeofenceFormStatus('Skriv namn på den nya platsen.', true);
+    return;
+  }
+  if(!Array.isArray(state.customPlaces)) state.customPlaces = [];
+  const key = 'custom_' + id();
+  state.customPlaces.push({key, label, from:true, to:true});
+  if(address){
+    if(!state.placeAddresses) state.placeAddresses = {};
+    state.placeAddresses[key] = address;
+  }
+  if(nameEl) nameEl.value = '';
+  if(addressEl) addressEl.value = '';
+  saveState();
+  refreshPlaceSelects();
+  renderGeofenceManager();
+  loadGeofenceFormForPlace(key);
+  setGeofenceFormStatus('Ny plats skapad. Fyll i geofence-värden och tryck Spara geofence.', false);
+}
+
+function renderGeofenceManager(){
+  ensureGeofenceState();
+  fillGeofencePlaceSelect(document.getElementById('geofencePlaceSelect') ? document.getElementById('geofencePlaceSelect').value : '');
+  updateGeofenceFormVisibility();
+  const list = document.getElementById('geofenceManagerList');
+  if(!list) return;
+  const rows = getGeofenceManageablePlaces().map(entry => {
+    const placeKey = entry.key;
+    const label = getPlaceLabel(placeKey) || placeKey;
+    const disabled = isPlaceGeofenceDisabled(placeKey);
+    const manual = getManualGeofenceForPlace(placeKey);
+    const standard = getDefaultStaticGeofenceForPlace(placeKey);
+    const active = disabled ? null : (manual || standard);
+    const source = disabled ? 'Borttaget' : (manual ? 'Eget/redigerat' : (standard ? 'Standard' : 'Saknas'));
+    const hasStandard = !!standard;
+    const canRemove = !!active || manual || hasStandard;
+    const cls = 'geofence-list-row' + (disabled ? ' disabled' : '');
+    const buttons = '<div class="row" style="margin-top:10px">'
+      + '<button class="inline" onclick="editGeofenceForPlace(\'' + escapeJsSingle(placeKey) + '\')">Redigera</button>'
+      + (canRemove ? '<button class="danger inline" onclick="removeGeofenceForPlace(\'' + escapeJsSingle(placeKey) + '\')">Ta bort geofence</button>' : '')
+      + ((manual || disabled) && hasStandard ? '<button class="inline" onclick="restoreDefaultGeofenceForPlace(\'' + escapeJsSingle(placeKey) + '\')">Återställ standard</button>' : '')
+      + '</div>';
+    return '<div class="' + cls + '">'
+      + '<div class="geofence-list-title">' + escapeHtml(label) + '</div>'
+      + '<div class="muted">' + escapeHtml(formatGeofenceZoneSummary(active)) + '</div>'
+      + '<div class="geofence-meta">'
+      + '<span class="pill">' + escapeHtml(source) + '</span>'
+      + '<span class="pill">Påverkar bara visuell status/analys</span>'
+      + (hasStandard ? '<span class="pill">Har standardzon</span>' : '<span class="pill">Ingen standardzon</span>')
+      + '</div>' + buttons + '</div>';
+  });
+  list.innerHTML = rows.join('') || '<div class="muted">Inga fysiska platser finns att geofence-koppla.</div>';
+}
+
 function toggleSettingsSummary(){
   toggleSettingsPanel('settingsSummaryWrap', () => {
     updateSummaryControls();
@@ -13498,7 +13865,7 @@ function saveManagedPlaces(){
   alert('Platser sparade.');
 }
 
-function render(){ applyPhaseColorSettings(); renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); renderPhaseColorSettings(); saveState(); }
+function render(){ applyPhaseColorSettings(); renderActive(); renderQueue(); renderToday(); renderSummary(); renderQuickSelections(); renderHistoryManager(); renderTrashManager(); renderPhaseColorSettings(); renderGeofenceManager(); saveState(); }
 
 fillSelect('newType', sortedTruckTypes, true, '----');
 fillSelect('newPlace', getFromPlaceValues(), true, '----');
