@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-91
+- Nuvarande version: Stadslass v2026-05-07-01-92
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -33,6 +33,7 @@ Stadslass versionskontroll
 - v88: Tillfällig aktiv övervakning ligger under Tillfälliga funktioner och skapar utförliga felsökningsrapporter utan att påverka aktivt jobb.
 - v89: Aktiv övervakning får versionstäckning och en diskret huvudmenyindikator för OK/info/varning/kritisk utan att visa felsökning i vanligt arbete.
 - v91: ETA fastnar inte i hämtar-läge och Från-geofence kräver bekräftad zon innan Transport pågår visas.
+- v92: ETA-anropsdiagnos skiljer på saknat underlag, misslyckat kartförsök och uteblivet kartförsök samt tar bort den stora extra raden "saknas" i aktiv ETA-ruta.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -110,6 +111,7 @@ Stadslass versionskontroll
   - Aktiv övervakning v88: tillfällig passiv kontrollrapport med felkoder, förväntat/faktiskt värde, trolig orsak, råvärden och appregelkontroll.
   - Aktiv övervakning v89: ska uppdateras vid varje ny version och visa diskret huvudmenyindikator om kontrollen hittar något.
   - ETA/geofence kontrollfix v91: uppskattad tid får inte stå kvar i hämtar-läge utan förklaring och Från-geofence måste först bekräftas inne i zonen.
+  - ETA-anropsdiagnos v92: övervakningen skiljer mellan saknat underlag, försök utan svar och uteblivet kartförsök, samt aktiv ETA-ruta visar inte dubbel saknas-text.
   - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
@@ -1688,7 +1690,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-91</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-92</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -4076,6 +4078,15 @@ function formatActiveEstimateCardHtml(label, value, subText){
   '</div>';
 }
 
+function formatActiveEstimateInfoHtml(label, subText){
+  const safeLabel = escapeHtml(label || 'Uppskattad tid saknas');
+  const safeSub = subText ? '<div class="active-estimate-sub">' + escapeHtml(subText) + '</div>' : '';
+  return '<div class="active-estimate-card active-estimate-info-card">' +
+    '<div class="active-estimate-label">' + safeLabel + '</div>' +
+    safeSub +
+  '</div>';
+}
+
 function formatActiveEstimateKlarCaHtml(label, value, klarLabel, klarTime){
   const safeLabel = escapeHtml(label || 'Uppskattad tid kvar');
   const safeValue = escapeHtml(value || 'saknas');
@@ -4215,6 +4226,119 @@ function getActiveEstimateWaitingState(job){
   return {mode:'missing', stuck:false, text:'Ingen tillräcklig historik/karttid ännu.', waitedMs};
 }
 
+function getActiveEtaMapAttemptDiagnosis(job){
+  const result = {
+    hasJob: !!job,
+    mapKey: false,
+    routeKey: '',
+    shouldAttempt: false,
+    attempted: false,
+    calculated: false,
+    notAttemptedButShould: false,
+    attemptWithoutResult: false,
+    normalMissing: false,
+    reason:'inget aktivt uppdrag',
+    skipReason:'',
+    startPointStatus:'',
+    afterHoursBlocked:false,
+    afterHoursOverride:false,
+    geofenceBlocked:false,
+    hasCachedTotals:false,
+    hasUsefulHistory:false,
+    waitingMode:'',
+    waitedMs:0
+  };
+  if(!job) return result;
+  result.reason = '';
+  result.startPointStatus = String(job.startPointStatus || '');
+  result.mapKey = hasLocalMapApiKey();
+  result.attempted = Number(job.smartMapAttemptedAt || 0) > 0;
+  result.calculated = Number(job.smartMapCalculatedAt || 0) > 0;
+  result.skipReason = String(job.smartMapSkipReason || '');
+  const waiting = getActiveEstimateWaitingState(job);
+  result.waitingMode = waiting ? String(waiting.mode || '') : '';
+  result.waitedMs = waiting ? Number(waiting.waitedMs || 0) : 0;
+  if(!isTimeEstimateAllowedForJob(job)){
+    result.reason = 'uppskattad tid är avstängd för jobbtypen';
+    result.normalMissing = true;
+    return result;
+  }
+  if(Number(job.estimatedMinutesAtStart || 0) > 0 && Number(job.estimatedEndAt || 0) > 0){
+    result.reason = 'uppskattad tid finns redan';
+    return result;
+  }
+  if(!result.mapKey){
+    result.reason = 'lokal kartnyckel saknas på enheten';
+    result.normalMissing = true;
+    return result;
+  }
+  if(result.startPointStatus === 'pending' || result.startPointStatus === 'loading'){
+    result.reason = 'startpunkt hämtas fortfarande';
+    result.normalMissing = true;
+    return result;
+  }
+  try{
+    result.routeKey = buildSmartMapRouteKey(job) || '';
+  }catch(e){
+    result.routeKey = '';
+  }
+  if(!result.routeKey){
+    result.reason = 'ruttkey kan inte byggas av startpunkt, Från och Till';
+    result.normalMissing = true;
+    return result;
+  }
+  result.hasCachedTotals = !!(getCachedMapTotalsForJob(job) && Number(getCachedMapTotalsForJob(job).totalMinutes || 0) > 0);
+  result.hasUsefulHistory = hasUsefulHistoryOrCacheEstimateForJob(job);
+  if(result.hasCachedTotals){
+    result.reason = 'kartcache finns men har inte blivit uppskattad tid ännu';
+    return result;
+  }
+  if(result.hasUsefulHistory){
+    result.reason = 'historik/cache verkar finnas men har inte blivit aktiv uppskattad tid ännu';
+    return result;
+  }
+  result.afterHoursOverride = !!(typeof hasActiveMapAfterHoursOverride === 'function' && hasActiveMapAfterHoursOverride(job));
+  result.afterHoursBlocked = !!(typeof isAfterMapAutoBlockHour === 'function' && isAfterMapAutoBlockHour() && !result.afterHoursOverride);
+  if(result.afterHoursBlocked){
+    result.reason = 'automatisk kartberäkning spärrad efter kartanropstid';
+    result.normalMissing = true;
+    return result;
+  }
+  result.geofenceBlocked = !!(typeof hasActiveGeofenceVisualStop === 'function' && hasActiveGeofenceVisualStop(job));
+  if(result.geofenceBlocked){
+    result.reason = 'geofence/anropsskydd stoppar nytt kartförsök nära relevant zon';
+    result.normalMissing = true;
+    return result;
+  }
+  if(result.skipReason){
+    result.reason = 'anropssmart logik har hoppat över: ' + result.skipReason;
+    result.normalMissing = true;
+    return result;
+  }
+  result.shouldAttempt = true;
+  if(result.attempted && !result.calculated){
+    result.attemptWithoutResult = true;
+    result.reason = 'kartförsök startades men gav inget användbart resultat ännu';
+    return result;
+  }
+  if(!result.attempted && !result.calculated){
+    result.notAttemptedButShould = true;
+    result.reason = 'kartförsök borde ha startats men smartMapAttemptedAt saknas';
+    return result;
+  }
+  result.reason = result.calculated ? 'kartberäkning finns men aktiv ETA saknas' : 'ETA saknas av okänd orsak';
+  return result;
+}
+
+function formatActiveEtaMapAttemptDiagnosis(diag){
+  if(!diag) return '-';
+  return 'shouldAttempt=' + activeMonitorBool(diag.shouldAttempt) +
+    '; attempted=' + activeMonitorBool(diag.attempted) +
+    '; calculated=' + activeMonitorBool(diag.calculated) +
+    '; routeKey=' + activeMonitorSafe(diag.routeKey, '-') +
+    '; reason=' + activeMonitorSafe(diag.reason, '-');
+}
+
 function getActiveEstimateWaitingHtml(job){
   if(!job || !isTimeEstimateAllowedForJob(job)) return '';
   const waiting = getActiveEstimateWaitingState(job);
@@ -4225,9 +4349,9 @@ function getActiveEstimateWaitingHtml(job){
     return formatActiveEstimateCardHtml('Uppskattad tid kvar', 'hämtar...', waiting.text || 'Karttjänst/historik förbereds');
   }
   if(waiting.stuck){
-    return formatActiveEstimateCardHtml('Uppskattad tid saknas', 'saknas', waiting.text || 'Ingen historik/cache eller karttid hittades');
+    return formatActiveEstimateInfoHtml('Uppskattad tid saknas', waiting.text || 'Ingen historik/cache eller karttid hittades');
   }
-  return formatActiveEstimateCardHtml('Uppskattad tid saknas', 'saknas', waiting.text || 'Ingen tillräcklig historik/karttid ännu');
+  return formatActiveEstimateInfoHtml('Uppskattad tid saknas', waiting.text || 'Ingen tillräcklig historik/karttid ännu');
 }
 
 function getActiveEstimateCountdownHtml(job){
@@ -6095,8 +6219,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-91';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v91';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-92';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v92';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6108,7 +6232,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v88 Aktiv övervakning',
   'v89 Versionstäckning och huvudmenyindikator',
   'v90 Avslutsrapport vid Klart',
-  'v91 ETA fastnar inte och Från-geofence kräver bekräftad zon'
+  'v91 ETA fastnar inte och Från-geofence kräver bekräftad zon',
+  'v92 ETA-anropsdiagnos och renare ETA-ruta'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -6223,6 +6348,7 @@ function getActiveMonitorSnapshot(){
     displayEndAt,
     remainingMinutes,
     etaWaiting: job && typeof getActiveEstimateWaitingState === 'function' ? getActiveEstimateWaitingState(job) : null,
+    etaMapDiagnosis: job && typeof getActiveEtaMapAttemptDiagnosis === 'function' ? getActiveEtaMapAttemptDiagnosis(job) : null,
     gpsAllowed,
     gpsStatus,
     routeGps: rec || null,
@@ -6300,10 +6426,14 @@ function getActiveMonitorChecks(snapshot){
   } else if(s.estimatedMinutesAtStart > 0 && s.displayEndAt > 0){
     const statusText = s.remainingMinutes !== null ? (s.remainingMinutes + ' min kvar, Klar ca ' + clockTime(s.displayEndAt)) : 'saknar kvarvärde';
     ok('ETA-OV-001', 'Uppskattad tid har rimlig struktur', 'Minuter och sluttid ska finnas tillsammans.', statusText, 'v80 Klar ca', 'estimatedEndAt=' + s.estimatedEndAt + '; displayEndAt=' + s.displayEndAt);
+  } else if(!s.isOtherWork && s.etaMapDiagnosis && s.etaMapDiagnosis.notAttemptedButShould){
+    warn('ETA-OV-005', 'ETA saknas eftersom inget kartförsök verkar ha startats', 'När Från/Till finns, kartanrop är tillåtet och ingen cache/historik finns ska appen antingen försöka räkna karttid eller ange varför den hoppar över.', 'Nya anrop=' + s.mapNewCalls + '; cache=' + s.mapCacheHits + '; smartMapAttemptedAt=' + activeMonitorSafe(s.job.smartMapAttemptedAt, '-') + '; smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-') + '; diagnos=' + formatActiveEtaMapAttemptDiagnosis(s.etaMapDiagnosis), 'Anropssmart/ETA-startlogik startar inte kartberäkning för aktivt uppdrag, eller kopplingen mellan aktivt uppdrag och kartberäkningsfunktionen missas efter att startpunkten hämtats.', 'v92 ETA-anropsdiagnos / v83 Anropssmart app / v80 Klar ca', 'startPointStatus=' + activeMonitorSafe(s.job.startPointStatus, '-') + '; routeKey=' + activeMonitorSafe(s.etaMapDiagnosis.routeKey, '-') + '; waitedMs=' + activeMonitorNumber(s.etaMapDiagnosis.waitedMs, 0));
+  } else if(!s.isOtherWork && s.etaMapDiagnosis && s.etaMapDiagnosis.attemptWithoutResult){
+    warn('ETA-OV-006', 'ETA-försök startades men gav inget användbart resultat', 'När ett kartförsök startats ska det antingen ge ETA, felorsak eller skip-reason.', 'attempted=' + activeMonitorBool(s.etaMapDiagnosis.attempted) + '; calculated=' + activeMonitorBool(s.etaMapDiagnosis.calculated) + '; läge=' + activeMonitorSafe(s.etaWaiting && s.etaWaiting.mode, '-') + '; väntatMs=' + activeMonitorNumber(s.etaMapDiagnosis.waitedMs, 0), 'Karttjänsten kan ha svarat fel, timeoutat, saknat rutt eller så sparas resultatet inte tillbaka på aktivt jobb.', 'v92 ETA-anropsdiagnos / v83 Anropssmart app', 'smartMapAttemptedAt=' + activeMonitorSafe(s.job.smartMapAttemptedAt, '-') + '; smartMapCalculatedAt=' + activeMonitorSafe(s.job.smartMapCalculatedAt, '-'));
   } else if(!s.isOtherWork && s.etaWaiting && s.etaWaiting.stuck){
-    warn('ETA-OV-004', 'Uppskattad tid verkar ha fastnat i hämtar-läge', 'Appen ska antingen använda historik/cache, göra kartanrop eller visa varför ETA saknas.', 'estimatedMinutesAtStart=' + s.estimatedMinutesAtStart + '; estimatedEndAt=' + s.estimatedEndAt + '; cache=' + s.mapCacheHits + '; nyaAnrop=' + s.mapNewCalls + '; läge=' + activeMonitorSafe(s.etaWaiting.mode, '-') + '; väntatMs=' + activeMonitorNumber(s.etaWaiting.waitedMs, 0), 'ETA-startlogiken eller anropssmart logik startar inte beräkning för aktivt uppdrag i aktuell fas eller med aktuell startpunkt.', 'v83 Anropssmart app / v85 Dagsprognos / v80 Klar ca / v91 ETA-fix', 'startPointStatus=' + activeMonitorSafe(s.job.startPointStatus, '-') + '; smartMapAttemptedAt=' + activeMonitorSafe(s.job.smartMapAttemptedAt, '-') + '; smartMapCalculatedAt=' + activeMonitorSafe(s.job.smartMapCalculatedAt, '-') + '; smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-'));
+    warn('ETA-OV-004', 'Uppskattad tid saknas efter väntetid', 'Appen ska efter väntetid visa saknas med tydlig förklaring och övervakningen ska skilja på normal saknad ETA och tekniskt fel.', 'estimatedMinutesAtStart=' + s.estimatedMinutesAtStart + '; estimatedEndAt=' + s.estimatedEndAt + '; cache=' + s.mapCacheHits + '; nyaAnrop=' + s.mapNewCalls + '; läge=' + activeMonitorSafe(s.etaWaiting.mode, '-') + '; väntatMs=' + activeMonitorNumber(s.etaWaiting.waitedMs, 0), 'Det kan vara normalt om kartnyckel/underlag saknas, men kontrollera ETA-anropsdiagnosen för mer exakt orsak.', 'v91 ETA-fix / v92 ETA-anropsdiagnos', 'diagnos=' + formatActiveEtaMapAttemptDiagnosis(s.etaMapDiagnosis));
   } else if(!s.isOtherWork){
-    info('ETA-OV-000', 'Uppskattad tid saknas eller väntar', 'Alla uppdrag har inte historik/kartunderlag ännu.', 'estimatedMinutesAtStart=' + s.estimatedMinutesAtStart + '; källa=' + s.smartSource + '; läge=' + (s.etaWaiting ? activeMonitorSafe(s.etaWaiting.mode, '-') : '-'), 'Detta är normalt om appen saknar underlag, kartnyckel, GPS eller historik.', 'Uppskattad tid / v83 Anropssmart', '');
+    info('ETA-OV-000', 'Uppskattad tid saknas eller väntar', 'Alla uppdrag har inte historik/kartunderlag ännu.', 'estimatedMinutesAtStart=' + s.estimatedMinutesAtStart + '; källa=' + s.smartSource + '; läge=' + (s.etaWaiting ? activeMonitorSafe(s.etaWaiting.mode, '-') : '-') + '; diagnos=' + formatActiveEtaMapAttemptDiagnosis(s.etaMapDiagnosis), 'Detta är normalt om appen saknar underlag, kartnyckel, GPS eller historik.', 'Uppskattad tid / v83 Anropssmart / v92 ETA-anropsdiagnos', '');
   }
 
   if(s.mapNewCalls > 3){
@@ -6455,6 +6585,10 @@ function buildActiveMonitorReport(){
     report.push('ETA vänteläge: ' + activeMonitorSafe(s.etaWaiting.mode, '-') + ' · fastnat=' + activeMonitorBool(s.etaWaiting.stuck) + ' · väntat=' + activeMonitorNumber(s.etaWaiting.waitedMs, 0) + ' ms');
     report.push('ETA förklaring: ' + activeMonitorSafe(s.etaWaiting.text, '-'));
   }
+  if(s.etaMapDiagnosis){
+    report.push('ETA anropsdiagnos: ' + formatActiveEtaMapAttemptDiagnosis(s.etaMapDiagnosis));
+    report.push('ETA anropsorsak: ' + activeMonitorSafe(s.etaMapDiagnosis.reason, '-'));
+  }
   report.push('');
   report.push('GPS');
   report.push('GPS tillåten för jobbtyp: ' + activeMonitorBool(s.gpsAllowed));
@@ -6508,6 +6642,10 @@ function buildActiveMonitorReport(){
   report.push('active.routeGpsDiscarded=' + (s.job ? activeMonitorBool(s.job.routeGpsDiscarded) : '-'));
   report.push('active.estimatedMinutesAtStart=' + (s.job ? activeMonitorSafe(s.job.estimatedMinutesAtStart, '-') : '-'));
   report.push('active.estimatedEndAt=' + (s.job ? activeMonitorSafe(s.job.estimatedEndAt, '-') : '-'));
+  report.push('active.smartMapAttemptedAt=' + (s.job ? activeMonitorSafe(s.job.smartMapAttemptedAt, '-') : '-'));
+  report.push('active.smartMapCalculatedAt=' + (s.job ? activeMonitorSafe(s.job.smartMapCalculatedAt, '-') : '-'));
+  report.push('active.smartMapSkipReason=' + (s.job ? activeMonitorSafe(s.job.smartMapSkipReason, '-') : '-'));
+  report.push('active.etaMapDiagnosis=' + (s.etaMapDiagnosis ? formatActiveEtaMapAttemptDiagnosis(s.etaMapDiagnosis) : '-'));
   return report.join('\n');
 }
 
@@ -6829,7 +6967,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-91';
+const APP_VERSION = 'Stadslass v2026-05-07-01-92';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -6928,6 +7066,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Övervakning version och huvudindikator v89', status:'Tillfällig funktion', purpose:'Aktiv övervakning visar vilken appversion den är uppdaterad för och huvudmenyn visar en diskret OK/info/varning/kritisk-indikator.', changeRule:'Vid varje ny version ska Aktiv övervakning uppdateras samtidigt. Huvudmenyindikatorn får bara signalera status och får inte visa teknisk felsökning eller påverka aktivt jobb.'},
   {name:'Avslutsrapport v90', status:'Tillfällig funktion', purpose:'Aktiv övervakning skapar automatiskt en uppdragsrapport när Klart trycks, behåller rapporten när nytt jobb startas och sparar de senaste 3 rapporterna tillfälligt.', changeRule:'Får bara skriva till övervakningens egna rapportarkiv. Får inte ändra aktivt jobb, historik, GPS-data, vikt, fasdata, kö, sammanställning eller tidsinlärning.'},
   {name:'ETA/geofence kontrollfix v91', status:'Stabiliseringsfix', purpose:'Förhindrar att uppskattad tid står kvar i hämtar-läge utan förklaring och gör att Från-geofence måste vara bekräftad inne i zonen innan Transport pågår visas.', changeRule:'Får bara ändra ETA-visning/övervakningsvarning och visuell geofence-status. Får inte ändra Lasta, Ange vikt, Klart, fasdata, vikt, historik, GPS-inspelning, sammanställning eller tidsinlärning.'},
+  {name:'ETA-anropsdiagnos v92', status:'Stabiliseringsfix', purpose:'Övervakningen skiljer på saknat underlag, kartförsök utan resultat och uteblivet kartförsök. Aktiv ETA-ruta visar inte längre stor dubbel saknas-rad.', changeRule:'Får bara ändra ETA-visning och övervakningsrapport. Får inte ändra Lasta, Ange vikt, Klart, GPS, geofence, fasdata, vikt, historik, kö, sammanställning eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -7129,7 +7268,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-91') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-91') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-92') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-92') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -7195,6 +7334,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Övervakning version och huvudindikator v89 finns', !!el('activeMonitorMenuIndicator') && fn('renderActiveMonitorIndicator') && fn('getActiveMonitorCoverageStatus') && src('getActiveMonitorChecks', 'VERSION-OV-001') && src('buildActiveMonitorReport', 'ÖVERVAKNINGENS VERSIONSTÄCKNING') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89'), 'övervakningen följer appversion och huvudmenyn visar diskret kontrollsignal');
   addFunctionCheck(results, 'Nivå 2', 'Avslutsrapport v90 finns', !!el('activeMonitorEndReportList') && !!el('activeMonitorEndReport') && fn('storeActiveMonitorEndReport') && fn('buildActiveMonitorEndReport') && fn('renderActiveMonitorEndReports') && src('stopJob', 'storeActiveMonitorEndReport') && src('completeQueuedJob', 'storeActiveMonitorEndReport') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90'), 'avslutsrapport skapas vid Klart och sparas i övervakningens senaste 3 rapporter');
   addFunctionCheck(results, 'Nivå 2', 'ETA/geofence kontrollfix v91 finns', fn('getActiveEstimateWaitingState') && src('getActiveMonitorChecks', 'ETA-OV-004') && src('updateActiveGeofenceVisualStatus', 'outside_unconfirmed') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91'), 'ETA fastnar inte i hämtar-läge och Från-geofence kräver bekräftad zon innan Transport pågår visas');
+  addFunctionCheck(results, 'Nivå 2', 'ETA-anropsdiagnos v92 finns', fn('getActiveEtaMapAttemptDiagnosis') && fn('formatActiveEstimateInfoHtml') && src('getActiveMonitorChecks', 'ETA-OV-005') && src('buildActiveMonitorReport', 'ETA anropsdiagnos') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92'), 'övervakningen skiljer på uteblivet kartförsök och aktiv ETA-ruta saknar stor extra saknas-rad');
 
   const memoryTest = runMemoryOnlyTestJobCheck();
   addFunctionCheck(results, 'Nivå 3', 'Testuppdrag i minnet utan att spara', memoryTest.ok, memoryTest.detail);
@@ -7298,7 +7438,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-91') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-89'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-92') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-92'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -7330,6 +7470,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Övervakning version och huvudindikator v89', typeof renderActiveMonitorIndicator === 'function' && typeof getActiveMonitorCoverageStatus === 'function' && !!document.getElementById('activeMonitorMenuIndicator') && functionSourceIncludes('getActiveMonitorChecks', 'VERSION-OV-001') && functionSourceIncludes('buildActiveMonitorReport', 'ÖVERVAKNINGENS VERSIONSTÄCKNING'), 'övervakningen har versionstäckning och huvudmenyindikator'),
     systemCheck('Avslutsrapport v90', typeof storeActiveMonitorEndReport === 'function' && typeof buildActiveMonitorEndReport === 'function' && typeof renderActiveMonitorEndReports === 'function' && !!document.getElementById('activeMonitorEndReport') && functionSourceIncludes('stopJob', 'storeActiveMonitorEndReport') && functionSourceIncludes('completeQueuedJob', 'storeActiveMonitorEndReport'), 'avslutsrapport finns i Aktiv övervakning och kopplas till Klart'),
     systemCheck('ETA/geofence kontrollfix v91', typeof getActiveEstimateWaitingState === 'function' && functionSourceIncludes('getActiveMonitorChecks', 'ETA-OV-004') && functionSourceIncludes('updateActiveGeofenceVisualStatus', 'outside_unconfirmed'), 'ETA får timeout/förklaring och Från-geofence kräver bekräftad inne-zon'),
+    systemCheck('ETA-anropsdiagnos v92', typeof getActiveEtaMapAttemptDiagnosis === 'function' && typeof formatActiveEstimateInfoHtml === 'function' && functionSourceIncludes('getActiveMonitorChecks', 'ETA-OV-005') && functionSourceIncludes('buildActiveMonitorReport', 'ETA anropsdiagnos'), 'övervakningen visar varför ETA/kartförsök saknas och aktiv ruta visar inte dubbel saknas-text'),
     systemCheck('Friare Nytt jobb v75', !!document.getElementById('newReturnRequired') && !!document.getElementById('newMultiLoad') && typeof getFreeDestinationValuesWithStandardFirst === 'function' && typeof handleNewJobFlagToggle === 'function' && functionSourceIncludes('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && functionSourceIncludes('startManualJob', 'returnRequiredChoice'), 'fri Till-lista i Nytt jobb + manuellt Returkrav/Flerlass'),
     systemCheck('Bevara uppskattad tid vid paus/fortsätt v72', typeof savePausedEstimateState === 'function' && typeof restorePausedEstimateState === 'function' && typeof applyEstimatedCountdownAtStartPreservingExisting === 'function' && functionSourceIncludes('pauseActiveJob', 'savePausedEstimateState') && functionSourceIncludes('resumePausedJob', 'restorePausedEstimateState'), 'senast kända nedräkning återställs efter paus'),
     systemCheck('Automatisk GPS-inspelning v73', typeof startRouteGpsRecordingForJob === 'function' && typeof pauseRouteGpsRecordingForJob === 'function' && typeof resumeRouteGpsRecordingForJob === 'function' && typeof finalizeRouteGpsRecordingForJob === 'function' && functionSourceIncludes('captureRouteGpsPoint', 'ROUTE_GPS_MIN_SAVE_INTERVAL_MS') && functionSourceIncludes('renderActiveRouteGps', 'Gps inspelning pågår') && functionSourceIncludes('renderToday', 'getRouteGpsHtml'), 'automatisk inspelning med diskret aktivtext och GPS-sammanfattning i Idag'),
