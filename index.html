@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-103
+- Nuvarande version: Stadslass v2026-05-07-01-104
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -43,8 +43,9 @@ Stadslass versionskontroll
 - v99: Visuell återkomst till Från-plats visar Returlossning vid returkrav och Tillbaka vid Från-plats utan returkrav när uppdraget lämnat Från-geofence och senare träffar samma Från-zon igen.
 - v100: Historik kalender visar importerade kvittorader tillsammans med avslutade jobb, markerar datum med kvitton och håller kvittorader separata från vanliga uppdrag.
 - v101: Badplatser får egen grupp längst ner i Hantera platser och kopplas som Havstång-platser utan att blandas in i vanliga platslistan.
-- v102: Androids bakåtknapp hanteras som intern appnavigering: stäng modal, stäng inställningspanel, gå till Huvudmeny och dubbeltryck för att lämna appen.
-- v103: Androids bakåtknapp stabiliseras med en hårdare historikvakt med egen hash-state, uppdaterad intern bakåtstatus i Aktiv övervakning och samma regel att bakåt bara styr visning/navigering.
+- v102: Övrig verksamhet smälts samman per dag i Idag och sammanställning/export med total tid och samlade kommentarer utan klockslag.
+- v103: Historik kalender använder samma dagsaggregering för Övrig verksamhet som Idag/export. Flera Övrig verksamhet samma datum visas som en samlad historikrad med total tid och samlade kommentarer utan klockslag.
+- v104: Historik kalender hårdspärrar råa Övrig verksamhet-poster i kalenderlistan. Före rendering normaliseras både dagsetikett och kortlista så ÖV alltid visas som en enda dagsrad per datum.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -132,8 +133,8 @@ Stadslass versionskontroll
   - Visuell återkomst till Från-plats v99: Om ett aktivt uppdrag först lämnat Från-geofence och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav. Funktionen är endast visuell och får inte trycka Lasta, Ange vikt eller Klart.
   - Historik kalender kvittorader v100: Historik kalender ska visa både vanliga avslutade jobb och importerade kvittorader. Kvittorader ska markeras som importerade kvittorader och får inte hanteras som vanliga GPS-/tidsinlärningsuppdrag.
   - Badplatser v101: Hantera platser har en separat Badplatser-grupp för jobbtyp Havstång. Badplatser är vanliga fysiska platser med adress/Plus Code, platskrav och jobbtypkoppling, men visas i egen grupp i platsregistret.
-  - Android bakåtknapp v102: Androids bakåtknapp ska backa internt i appen: först stänga öppna rutor/modaler, sedan stänga öppen inställningspanel, sedan gå från Inställningar/Kö/Idag/Nytt jobb till Huvudmeny. Från Huvudmeny krävs dubbeltryck för att lämna appen. Funktionen får inte ändra jobbdata, GPS, geofence, historik, kö, kvittoimport, sammanställning eller tidsinlärning.
-  - Android bakåtknapp stabilisering v103: Bakåtväktaren ska skapa en tydlig intern historikpost med egen hash-state och visa Intern bakåtstatus i Aktiv övervakning. Funktionen får bara påverka navigering/visning.
+  - Övrig verksamhet v103: Historik kalender använder samma samlade dagsrad för Övrig verksamhet som Idag/export så historiska dagar inte visar flera ÖV-poster.
+  - Övrig verksamhet v102: Idag och sammanställning/export visar Övrig verksamhet som en samlad dagsrad med total tid och samlade kommentarer, utan klockslag.
   - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
@@ -1422,30 +1423,6 @@ button{
 .history-receipt-badge{display:inline-flex;align-items:center;border:1px solid #93c5fd;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:13px;font-weight:900;padding:6px 10px;margin:4px 6px 0 0}
 /* TEMP RECEIPT IMPORT MODULE END */
 
-.app-back-toast{
-  position:fixed;
-  left:50%;
-  bottom:24px;
-  transform:translateX(-50%);
-  z-index:100000;
-  max-width:min(92vw,520px);
-  padding:12px 16px;
-  border-radius:999px;
-  background:#0f172a;
-  color:#fff;
-  font-size:15px;
-  font-weight:800;
-  text-align:center;
-  box-shadow:0 8px 22px rgba(15,23,42,.28);
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .18s ease, transform .18s ease;
-}
-.app-back-toast.show{
-  opacity:1;
-  transform:translateX(-50%) translateY(-4px);
-}
-
 </style>
 </head>
 <body>
@@ -1780,7 +1757,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-103</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-104</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -6623,8 +6600,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-103';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v103';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-104';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v104';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6647,8 +6624,9 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v99 Visuell återkomst till Från-plats',
   'v100 Historik kalender visar importerade kvittorader',
   'v101 Badplatser för Havstång',
-  'v102 Android bakåtknapp / intern appnavigering',
-  'v103 Stabilare Android-bakåt med egen historikvakt'
+  'v102 Övrig verksamhet dagsrad',
+  'v103 Historik kalender samlar Övrig verksamhet',
+  'v104 Historik kalender hårdspärrar råa ÖV-poster'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -6790,7 +6768,6 @@ function getActiveMonitorSnapshot(){
     activeForecastRemainingMinutes: typeof getActiveForecastRemainingMinutes === 'function' ? getActiveForecastRemainingMinutes() : null,
     dayForecast: typeof buildDayForecast === 'function' ? buildDayForecast() : null,
     geofencePolygonAudit: typeof getGeofencePolygonAuditSummary === 'function' ? getGeofencePolygonAuditSummary() : null,
-    appBackNavigation: typeof getAppBackNavigationStatus === 'function' ? getAppBackNavigationStatus() : null,
     isOtherWork: job ? isOtherWorkJob(job) : false
   };
 }
@@ -6814,12 +6791,6 @@ function getActiveMonitorChecks(snapshot){
     warn('VERSION-OV-001', 'Övervakningen verkar inte vara uppdaterad för aktuell appversion', 'Övervakningen ska uppdateras samtidigt som varje ny appversion.', 'Appversion=' + coverage.current + '; övervakning uppdaterad för=' + coverage.updated, 'Ny version har byggts utan att Aktiv övervaknings kontrollista/versionstäckning uppdaterats.', 'Aktiv övervakning / funktionskontroll / systemkontroll', 'currentShort=' + coverage.currentShort + '; monitorShort=' + coverage.updatedShort);
   }
 
-
-  if(s.appBackNavigation && s.appBackNavigation.active && s.appBackNavigation.guardActive){
-    ok('BACK-OV-103', 'Intern bakåtstatus: aktiv', 'Android-bakåt ska ha aktiv historikvakt med guard-state.', 'state=' + activeMonitorSafe(s.appBackNavigation.state, '-') + '; tab=' + activeMonitorSafe(s.appBackNavigation.tab, '-') + '; panel=' + activeMonitorSafe(s.appBackNavigation.panel, '-') + '; hash=' + activeMonitorSafe(s.appBackNavigation.hash, '-'), 'v103 Android bakåtknapp stabilisering', 'seq=' + activeMonitorSafe(s.appBackNavigation.seq, '-') + '; reason=' + activeMonitorSafe(s.appBackNavigation.lastReason, '-'));
-  } else {
-    warn('BACK-OV-103', 'Intern bakåtstatus är inte helt aktiv', 'Android-bakåt ska fångas av intern historikvakt innan systemet lämnar appen.', 'status=' + (s.appBackNavigation ? JSON.stringify(s.appBackNavigation) : 'saknas'), 'Bakåtväktaren kan ha missat att skapa guard-state eller webbläsaren tillåter inte history.pushState.', 'v103 Android bakåtknapp stabilisering', 'appBackNavigation=' + (s.appBackNavigation ? JSON.stringify(s.appBackNavigation) : '-'));
-  }
 
   if(s.geofencePolygonAudit){
     const audit = s.geofencePolygonAudit;
@@ -6964,14 +6935,11 @@ function renderActiveMonitor(){
   const warn = checks.filter(item => item.level === 'VARNING').length;
   const info = checks.filter(item => item.level === 'INFO').length;
   if(!snapshot.hasActive){
-    const backText = snapshot.appBackNavigation && snapshot.appBackNavigation.active ? 'aktiv' : 'ej aktiv';
-    const backGuardText = snapshot.appBackNavigation && snapshot.appBackNavigation.guardActive ? 'guard aktiv' : 'guard ej aktiv';
-    summary.innerHTML = '<strong>Aktiv övervakning</strong><br><span class="muted">Inget aktivt uppdrag just nu. Rapporten kan ändå visa att övervakningen fungerar.</span><br><span class="muted">Intern bakåtstatus: ' + escapeHtml(backText) + ' · ' + escapeHtml(backGuardText) + '</span>';
+    summary.innerHTML = '<strong>Aktiv övervakning</strong><br><span class="muted">Inget aktivt uppdrag just nu. Rapporten kan ändå visa att övervakningen fungerar.</span>';
   } else {
     summary.innerHTML = '<strong>Aktiv övervakning</strong><br>' +
       'Jobb: ' + escapeHtml(snapshot.displayType) + ' · Från: ' + escapeHtml(snapshot.from) + ' · Till: ' + escapeHtml(snapshot.to) + '<br>' +
       '<span class="muted">Tid: ' + escapeHtml(mins(snapshot.workedMs)) + ' · GPS: ' + escapeHtml(snapshot.gpsStatus) + ' · Punkter: ' + escapeHtml(String(snapshot.gpsPointCount)) + ' · ETA: ' + escapeHtml(snapshot.remainingMinutes === null ? 'saknas' : snapshot.remainingMinutes + ' min kvar') + '</span><br>' +
-      '<span class="muted">Intern bakåtstatus: ' + escapeHtml(snapshot.appBackNavigation && snapshot.appBackNavigation.active ? 'aktiv' : 'ej aktiv') + ' · ' + escapeHtml(snapshot.appBackNavigation && snapshot.appBackNavigation.guardActive ? 'guard aktiv' : 'guard ej aktiv') + '</span><br>' +
       (critical || warn ? '<strong class="queue-alert">' + critical + ' kritisk · ' + warn + ' varning</strong>' : '<strong style="color:#15803d">Inga kritiska varningar</strong>') + ' · Info: ' + info;
   }
   warnings.innerHTML = renderActiveMonitorCheckRows(checks);
@@ -7118,12 +7086,6 @@ function buildActiveMonitorReport(){
   } else {
     report.push('Dagsprognos kunde inte läsas.');
   }
-  report.push('');
-  report.push('ANDROID BAKÅT / INTERN NAVIGERING');
-  report.push('Intern bakåtstatus: ' + (s.appBackNavigation && s.appBackNavigation.active ? 'aktiv' : 'ej aktiv'));
-  report.push('Guard-state: ' + (s.appBackNavigation && s.appBackNavigation.guardActive ? 'aktiv' : 'ej aktiv'));
-  report.push('Bakåt tab/panel/hash: ' + (s.appBackNavigation ? (activeMonitorSafe(s.appBackNavigation.tab, '-') + ' / ' + activeMonitorSafe(s.appBackNavigation.panel, '-') + ' / ' + activeMonitorSafe(s.appBackNavigation.hash, '-')) : '-'));
-  report.push('Bakåt RAW: ' + (s.appBackNavigation ? JSON.stringify(s.appBackNavigation) : 'saknas'));
   report.push('');
   report.push('APPREGELKONTROLL');
   if(appRuleChecks.length){
@@ -7490,7 +7452,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-103';
+const APP_VERSION = 'Stadslass v2026-05-07-01-104';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -7599,8 +7561,9 @@ const APP_FEATURE_MANIFEST = [
   {name:'Visuell återkomst till Från-plats v99', status:'Aktiv', purpose:'När ett aktivt uppdrag har bekräftat Från-geofence, lämnat zonen och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav.', changeRule:'Får bara påverka visuell status, fasknapp/bottenbakgrund och övervakningsrapport. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, historik, sammanställning, kö eller tidsinlärning.'},
   {name:'Historik kalender visar kvittorader v100', status:'Aktiv', purpose:'Historik kalender läser både avslutade jobb och importerade kvittorader så kvitton markeras på rätt datum och visas i datumlistan/sökresultat.', changeRule:'Får bara visa och söka kvittorader i historikkalendern. Kvittorader får inte bli vanliga GPS-/fas-/tidsinlärningsuppdrag och får inte överföras, redigeras eller raderas som avslutade jobb.'},
   {name:'Badplatser för Havstång v101', status:'Aktiv', purpose:'Hantera platser har en separat Badplatser-grupp för jobbtyp Havstång. Badplatser är vanliga fysiska platser men visas och skapas i egen grupp.', changeRule:'Får bara påverka platsregistret, platslistor och Havstång-koppling. Får inte ändra aktivt jobb, GPS, geofence, historik, kvittoimport, sammanställning eller tidsinlärning.'},
-  {name:'Android bakåtknapp v102', status:'Aktiv', purpose:'Androids bakåtknapp används som intern appnavigering: stänger först modal, sedan inställningspanel, sedan går tillbaka till Huvudmeny och kräver dubbeltryck för att lämna appen.', changeRule:'Får bara påverka visning/navigering. Får inte ändra aktivt jobb, kö, historik, GPS, geofence, kvittoimport, sammanställning, vikt, fasdata eller tidsinlärning.'},
-  {name:'Android bakåtknapp stabilisering v103', status:'Stabiliseringsfix', purpose:'Bakåtknappen får en hårdare intern historikvakt med egen hash-state så Android har ett tydligt appsteg att backa till i stället för att lämna appen direkt.', changeRule:'Får bara påverka intern navigering, hash-state och övervakningsstatus. Får inte ändra aktivt jobb, kö, historik, GPS, geofence, kvittoimport, sammanställning, vikt, fasdata eller tidsinlärning.'},
+  {name:'Övrig verksamhet dagsrad v102', status:'Aktiv', purpose:'Övrig verksamhet smälts samman per datum i Idag och sammanställning/export. Raden visar total tid och samlade kommentarer utan klockslag.', changeRule:'Får bara påverka visning och sammanställningsunderlag. Vanliga uppdrag ska fortsatt visas som enskilda uppdrag med tider.'},
+  {name:'Historik kalender samlar Övrig verksamhet v103', status:'Aktiv', purpose:'Historik kalender visar flera Övrig verksamhet samma datum som en samlad dagsrad med total tid och samlade kommentarer, utan klockslag.', changeRule:'Får bara påverka historikkalenderns visningsunderlag och etiketter. Vanliga uppdrag och kvittorader ska fortsatt visas separat.'},
+  {name:'Historik kalender hårdspärrar råa ÖV-poster v104', status:'Stabiliseringsfix', purpose:'Historik kalender normaliserar både kalenderunderlag, sökresultat och vald dagslista precis före rendering så råa Övrig verksamhet-poster inte kan visas som separata kort.', changeRule:'Får bara påverka historikkalenderns visningsunderlag och kortlista. Vanliga uppdrag och kvittorader ska fortsatt visas separat.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -7804,7 +7767,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-103') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Android bakåtknapp v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Android bakåtknapp stabilisering v103'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-104') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -7840,8 +7803,10 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkert underlag', fn('getFilteredSummaryJobs') && src('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag') && fn('getReceiptSummaryJobs'), 'sammanställning + kvittorader utan papperskorg');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', src('renderHistoryManager', 'getHistoryCalendarJobsForDisplay') && src('renderToday', 'getFinishedJobsForUnderlag'), 'historik använder samlat visningsunderlag, Idag använder avslutade jobb');
   addFunctionCheck(results, 'Nivå 2', 'Historik kalender visar kvittorader v100', fn('getHistoryCalendarJobsForDisplay') && src('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && fn('renderHistoryReceiptJobCard') && src('renderHistoryManager', 'getHistoryDateSubLabel') && src('renderHistoryReceiptJobCard', 'Importerad kvittorad'), 'historik kalender visar och söker importerade kvittorader utan vanlig uppdragslogik');
+  addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet dagsrad v102', fn('aggregateOtherWorkRowsByDate') && fn('renderTodayOtherWorkCard') && src('buildSummaryRowsFromJobs', 'aggregateOtherWorkRowsByDate') && src('getTodayDisplayJobs', 'buildSummaryRowsFromJobs') && src('renderTodayOtherWorkCard', 'Total tid idag'), 'Övrig verksamhet aggregeras per dag i Idag och sammanställning/export');
+  addFunctionCheck(results, 'Nivå 2', 'Historik kalender samlar Övrig verksamhet v103', fn('renderHistoryOtherWorkCard') && src('getHistoryCalendarJobsForDisplay', 'buildSummaryRowsFromJobs') && src('renderHistoryJobCard', 'renderHistoryOtherWorkCard') && src('getHistoryDateSubLabel', 'ÖV') && src('renderHistoryOtherWorkCard', 'Total tid'), 'Historik kalender aggregerar Övrig verksamhet per datum och visar den utan klockslag');
+  addFunctionCheck(results, 'Nivå 2', 'Historik kalender hårdspärrar råa ÖV-poster v104', fn('normalizeHistoryCalendarDisplayJobs') && fn('isHistoryOtherWorkJob') && src('renderHistoryManager', 'normalizeHistoryCalendarDisplayJobs(shownJobs)') && src('getHistoryCalendarJobsForDisplay', 'normalizeHistoryCalendarDisplayJobs') && src('normalizeHistoryCalendarDisplayJobs', 'aggregateOtherWorkRowsByDate'), 'Historik kalender normaliserar råa ÖV-poster precis före rendering');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser för Havstång v101 finns', !!el('newManagedBeachPlaceName') && !!el('beachPlaceManagerList') && fn('addManagedBeachPlace') && fn('renderBeachPlaceManager') && fn('getBeachPlaceEntries') && src('addManagedBeachPlace', "category:'badplats'") && src('addManagedBeachPlace', 'Havstång'), 'badplatser ligger i egen platsgrupp och kopplas till Havstång');
-  addFunctionCheck(results, 'Nivå 2', 'Android bakåtknapp stabilisering v103 finns', fn('initializeAppBackNavigation') && fn('handleAppBackNavigation') && fn('handleAppBackStep') && fn('closeTopOpenAppModal') && fn('closeOpenSettingsPanel') && fn('getAppBackNavigationStatus') && src('refreshAppBackGuard', '#stadslass-back-') && src('handleAppBackStep', "showTab('snabb'") && src('handleAppBackNavigation', 'Tryck bakåt igen för att lämna Stadslass'), 'bakåt använder egen hash-state, stänger modal/panel, går till Huvudmeny och dubbeltryck lämnar appen');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkert underlag', fn('buildFinishedTransferPayload') && src('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport finns men påverkar inte GPS/tid', !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && fn('normalizeImportedReceiptRow') && src('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'kvittoimport skapar historiska sammanställningsrader');
@@ -7981,7 +7946,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-103') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-102'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-104') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-104'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -8036,11 +8001,13 @@ function buildSystemControlInternalChecks(){
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
     systemCheck('Historik kalender kvittorader v100', typeof getHistoryCalendarJobsForDisplay === 'function' && typeof renderHistoryReceiptJobCard === 'function' && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && functionSourceIncludes('renderHistoryManager', 'getHistoryDateSubLabel'), 'historik kalender läser importerade kvittorader tillsammans med avslutade jobb'),
+    systemCheck('Övrig verksamhet dagsrad v102', typeof aggregateOtherWorkRowsByDate === 'function' && typeof renderTodayOtherWorkCard === 'function' && functionSourceIncludes('buildSummaryRowsFromJobs', 'aggregateOtherWorkRowsByDate') && functionSourceIncludes('renderTodayOtherWorkCard', 'Total tid idag'), 'Övrig verksamhet aggregeras per datum i Idag och sammanställning/export'),
+    systemCheck('Historik kalender samlar Övrig verksamhet v103', typeof renderHistoryOtherWorkCard === 'function' && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'buildSummaryRowsFromJobs') && functionSourceIncludes('renderHistoryJobCard', 'renderHistoryOtherWorkCard') && functionSourceIncludes('renderHistoryOtherWorkCard', 'Total tid'), 'historik kalender visar en samlad Övrig verksamhet per datum'),
+    systemCheck('Historik kalender hårdspärrar råa ÖV-poster v104', typeof normalizeHistoryCalendarDisplayJobs === 'function' && typeof isHistoryOtherWorkJob === 'function' && functionSourceIncludes('renderHistoryManager', 'normalizeHistoryCalendarDisplayJobs(shownJobs)') && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'normalizeHistoryCalendarDisplayJobs'), 'historik kalender normaliserar valda poster före kortlistan visas'),
     systemCheck('Badplatser för Havstång v101', !!document.getElementById('newManagedBeachPlaceName') && !!document.getElementById('beachPlaceManagerList') && typeof addManagedBeachPlace === 'function' && typeof renderBeachPlaceManager === 'function' && typeof getBeachPlaceEntries === 'function' && functionSourceIncludes('addManagedBeachPlace', "category:'badplats'") && functionSourceIncludes('getManageablePlaces', "category !== 'badplats'"), 'badplatser har egen grupp i Hantera platser och kopplas till Havstång'),
-    systemCheck('Android bakåtknapp stabilisering v103', typeof initializeAppBackNavigation === 'function' && typeof handleAppBackNavigation === 'function' && typeof handleAppBackStep === 'function' && typeof getAppBackNavigationStatus === 'function' && functionSourceIncludes('refreshAppBackGuard', '#stadslass-back-') && functionSourceIncludes('handleAppBackStep', "showTab('snabb'") && functionSourceIncludes('handleAppBackNavigation', 'Tryck bakåt igen för att lämna Stadslass'), 'intern appnavigering använder egen hash-state utan att ändra arbetsdata'),
     systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
     systemCheck('Visuell återkomst till Från-plats v99', typeof updateReturnToFromGeofenceVisualStatus === 'function' && typeof getReturnToFromVisualLabel === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Returlossning') && functionSourceIncludes('getActivePhaseVisualState', 'Tillbaka vid Från-plats') && functionSourceIncludes('updateActivePhaseBackground', 'Returlossning'), 'visar Returlossning/Tillbaka vid Från-plats utan att trycka manuella knappar'),
-    systemCheck('Funktionskontroll v67-v103', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v104', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -8104,10 +8071,8 @@ async function runSystemControlWithMaps(){
 }
 
 
-const APP_SETTINGS_PANEL_IDS = ['geofenceManagerWrap','activeMonitorWrap','receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','storageControlManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'];
-
 function hideSettingsPanels(exceptId){
-  APP_SETTINGS_PANEL_IDS.forEach(panelId => {
+  ['geofenceManagerWrap','activeMonitorWrap','receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','storageControlManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
@@ -8137,7 +8102,6 @@ function toggleSettingsPanel(panelId, onShow){
   } else {
     wrap.classList.add('hidden');
   }
-  if(typeof refreshAppBackGuard === 'function') refreshAppBackGuard('settings-panel-' + (willShow ? panelId : 'closed'));
 }
 
 
@@ -8188,16 +8152,65 @@ function jobSearchText(job){
   ].join(' ').toLocaleLowerCase('sv-SE');
 }
 
+function isHistoryOtherWorkJob(job){
+  if(!job) return false;
+  const value = String(job.type || job.displayType || job.jobType || '').trim().toLocaleLowerCase('sv-SE');
+  return value === 'övrig verksamhet' || value === 'ovrig verksamhet';
+}
+
+function normalizeHistoryOtherWorkJob(job){
+  const row = {...(job || {})};
+  row.type = 'Övrig verksamhet';
+  row.displayType = 'Övrig verksamhet';
+  row.vehicle = 'övrigt arbete';
+  if(!row.date){
+    row.date = getLocalDateKey(new Date(row.start || row.end || Date.now()));
+  }
+  return row;
+}
+
+function normalizeHistoryCalendarDisplayJobs(jobs){
+  const regularRows = [];
+  const otherWorkRows = [];
+  const receiptRows = [];
+
+  (Array.isArray(jobs) ? jobs : []).forEach(job => {
+    if(!job) return;
+    if(job.receiptImported){
+      receiptRows.push(job);
+      return;
+    }
+    if(isHistoryOtherWorkJob(job)){
+      otherWorkRows.push(normalizeHistoryOtherWorkJob(job));
+      return;
+    }
+    regularRows.push(job);
+  });
+
+  const expandedOtherWorkRows = otherWorkRows.flatMap(row => row && row.summaryAggregatedOtherWork ? [row] : buildSummaryRowsForJob(row));
+  const aggregatedOtherWorkRows = aggregateOtherWorkRowsByDate(expandedOtherWorkRows);
+  return regularRows.concat(aggregatedOtherWorkRows).concat(receiptRows).sort((a,b) => {
+    const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
+    if(dateCmp) return dateCmp;
+    const aIsOther = isHistoryOtherWorkJob(a) ? 1 : 0;
+    const bIsOther = isHistoryOtherWorkJob(b) ? 1 : 0;
+    if(aIsOther !== bIsOther) return aIsOther - bIsOther;
+    return Number(a.start || 0) - Number(b.start || 0);
+  });
+}
+
 function getHistoryCalendarJobsForDisplay(){
-  return getFinishedJobsForUnderlag().concat(getReceiptSummaryJobs());
+  return normalizeHistoryCalendarDisplayJobs(getFinishedJobsForUnderlag().concat(getReceiptSummaryJobs()));
 }
 
 function getHistoryDateSubLabel(items, fallbackText){
   const list = Array.isArray(items) ? items : [];
   const receiptCount = list.filter(job => job && job.receiptImported).length;
-  const regularCount = list.length - receiptCount;
+  const otherWorkCount = list.filter(job => job && !job.receiptImported && isHistoryOtherWorkJob(job)).length;
+  const regularCount = list.length - receiptCount - otherWorkCount;
   const parts = [];
   if(regularCount) parts.push(regularCount + ' jobb');
+  if(otherWorkCount) parts.push(otherWorkCount > 1 ? otherWorkCount + ' ÖV' : 'ÖV');
   if(receiptCount) parts.push(receiptCount + ' kvitto');
   return parts.length ? parts.join(' + ') : fallbackText;
 }
@@ -8213,6 +8226,18 @@ function renderHistoryReceiptJobCard(job){
     '<div class="row" style="margin-top:8px">'+
       '<button class="danger" onclick="deleteReceiptRowFromHistory(\''+escapeJsSingle(rowId)+'\')">Ta bort kvittorad</button>'+ 
     '</div>'+ 
+  '</div>';
+}
+
+function renderHistoryOtherWorkCard(job){
+  const count = Number(job && job.summaryOtherWorkCount || 0);
+  const countText = count > 1 ? ' · Sammanslaget från ' + count + ' delar' : '';
+  return '<div class="job">'+
+    '<div><span class="pill pill-type">Övrig verksamhet</span></div>'+
+    '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Total tid: '+mins(getSummaryRowTimeMs(job))+countText+'</div>'+
+    (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment).replace(/\n/g,'<br>')+'</div>' : '')+
+    (allowsPrivateCommentForType(job.type) && job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment).replace(/\n/g,'<br>')+'</div>' : '')+
+    '<div class="muted" style="margin-top:6px">Historik kalender visar Övrig verksamhet som en samlad dagsrad. Klockslag visas inte för denna jobbtyp.</div>'+
   '</div>';
 }
 
@@ -8234,7 +8259,9 @@ function renderHistoryRegularJobCard(job){
 }
 
 function renderHistoryJobCard(job){
-  return job && job.receiptImported ? renderHistoryReceiptJobCard(job) : renderHistoryRegularJobCard(job);
+  if(job && job.receiptImported) return renderHistoryReceiptJobCard(job);
+  if(isHistoryOtherWorkJob(job)) return renderHistoryOtherWorkCard(job);
+  return renderHistoryRegularJobCard(job);
 }
 
 function renderHistoryManager(){
@@ -8289,13 +8316,25 @@ function renderHistoryManager(){
   let shownJobs = [];
   if(query){
     shownJobs = allHistoryJobs.filter(job => job && job.date && job.date.slice(0,7) === monthValue && jobSearchText(job).includes(query));
-    info.textContent = 'Sökresultat i ' + monthValue + ': ' + shownJobs.length + ' poster.';
+    info.textContent = 'Sökresultat i ' + monthValue + ': ' + getHistoryDateSubLabel(shownJobs, shownJobs.length + ' poster') + '.';
   } else {
     shownJobs = (jobsByDate[historySelectedDate] || []).slice();
     info.textContent = 'Valt datum: ' + formatShortDate(historySelectedDate) + ' · ' + getHistoryDateSubLabel(shownJobs, '0 poster') + '.';
   }
 
-  shownJobs.sort((a,b) => (a.start || 0) - (b.start || 0));
+  shownJobs = normalizeHistoryCalendarDisplayJobs(shownJobs);
+  shownJobs.sort((a,b) => {
+    const aIsOther = isHistoryOtherWorkJob(a) ? 1 : 0;
+    const bIsOther = isHistoryOtherWorkJob(b) ? 1 : 0;
+    if(aIsOther !== bIsOther) return aIsOther - bIsOther;
+    return (a.start || 0) - (b.start || 0);
+  });
+  if(query){
+    info.textContent = 'Sökresultat i ' + monthValue + ': ' + getHistoryDateSubLabel(shownJobs, shownJobs.length + ' poster') + '.';
+  } else {
+    info.textContent = 'Valt datum: ' + formatShortDate(historySelectedDate) + ' · ' + getHistoryDateSubLabel(shownJobs, '0 poster') + '.';
+  }
+
   if(!shownJobs.length){
     list.innerHTML = '<div class="muted" style="margin-top:10px">Inga avslutade jobb eller kvittorader att visa.</div>';
     return;
@@ -11329,189 +11368,9 @@ function scrollToActiveJobTop(){
   }
 }
 
-
-let appCurrentTab = 'snabb';
-let appBackNavigationReady = false;
-let appBackExitArmedAt = 0;
-let appBackToastTimerId = null;
-let appAllowBrowserBack = false;
-let appBackGuardSeq = 0;
-let appBackGuardLastReason = 'inte startad';
-
-function getAppBackBaseUrl(){
-  try{
-    return window.location.pathname + window.location.search;
-  }catch(e){
-    return window.location.href.split('#')[0];
-  }
-}
-
-function getAppBackGuardUrl(){
-  appBackGuardSeq += 1;
-  return getAppBackBaseUrl() + '#stadslass-back-' + appBackGuardSeq;
-}
-
-function buildAppBackGuardState(reason){
-  let panel = '';
-  try{ panel = getOpenSettingsPanelId(); }catch(e){ panel = ''; }
-  return {
-    stadslassBackGuard:true,
-    stadslassBackVersion:'v103',
-    seq:appBackGuardSeq,
-    tab:appCurrentTab || 'snabb',
-    panel:panel || '',
-    reason:String(reason || appBackGuardLastReason || 'guard'),
-    createdAt:Date.now()
-  };
-}
-
-function getVisibleAppModal(){
-  const modals = Array.from(document.querySelectorAll('.modal-backdrop.show'));
-  return modals.length ? modals[modals.length - 1] : null;
-}
-
-function closeTopOpenAppModal(){
-  const modal = getVisibleAppModal();
-  if(!modal) return false;
-  const idName = modal.id || '';
-  if(idName === 'jobDateCalendarModal' && typeof closeJobDateCalendar === 'function') closeJobDateCalendar();
-  else if(idName === 'quickDateCalendarModal' && typeof closeQuickDateCalendar === 'function') closeQuickDateCalendar();
-  else if(idName === 'machineTransportModal' && typeof closeMachineTransport === 'function') closeMachineTransport();
-  else if(idName === 'editJobModal' && typeof closeEditJob === 'function') closeEditJob();
-  else if(idName === 'editQueueJobModal' && typeof closeEditQueueJob === 'function') closeEditQueueJob();
-  else modal.classList.remove('show');
-  return true;
-}
-
-function getOpenSettingsPanelId(){
-  if(appCurrentTab !== 'settings') return '';
-  for(const panelId of APP_SETTINGS_PANEL_IDS){
-    const panel = document.getElementById(panelId);
-    if(panel && !panel.classList.contains('hidden')) return panelId;
-  }
-  return '';
-}
-
-function closeOpenSettingsPanel(){
-  const panelId = getOpenSettingsPanelId();
-  if(!panelId) return false;
-  hideSettingsPanels('');
-  return true;
-}
-
-function showAppBackToast(message){
-  const text = String(message || '').trim();
-  if(!text) return;
-  let toast = document.getElementById('appBackToast');
-  if(!toast){
-    toast = document.createElement('div');
-    toast.id = 'appBackToast';
-    toast.className = 'app-back-toast';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = text;
-  toast.classList.add('show');
-  if(appBackToastTimerId) clearTimeout(appBackToastTimerId);
-  appBackToastTimerId = setTimeout(() => {
-    const existing = document.getElementById('appBackToast');
-    if(existing) existing.classList.remove('show');
-  }, 1800);
-}
-
-function refreshAppBackGuard(reason){
-  if(!appBackNavigationReady || appAllowBrowserBack) return;
-  try{
-    appBackGuardLastReason = String(reason || 'refresh');
-    const url = getAppBackGuardUrl();
-    const nextState = buildAppBackGuardState(appBackGuardLastReason);
-    if(history && history.state && history.state.stadslassBackGuard){
-      history.replaceState(nextState, document.title, url);
-    } else {
-      history.pushState(nextState, document.title, url);
-    }
-  }catch(e){}
-}
-
-function handleAppBackStep(){
-  if(closeTopOpenAppModal()) return true;
-  if(closeOpenSettingsPanel()) return true;
-  if(appCurrentTab !== 'snabb'){
-    showTab('snabb', {fromBack:true});
-    return true;
-  }
-  return false;
-}
-
-function handleAppBackNavigation(event){
-  if(!appBackNavigationReady || appAllowBrowserBack) return;
-  try{ if(event && typeof event.preventDefault === 'function') event.preventDefault(); }catch(e){}
-
-  const handled = handleAppBackStep();
-  if(handled){
-    appBackExitArmedAt = 0;
-    refreshAppBackGuard('handled-back-step');
-    return;
-  }
-
-  const now = Date.now();
-  if(now - appBackExitArmedAt < 2000){
-    appAllowBrowserBack = true;
-    try{
-      const toast = document.getElementById('appBackToast');
-      if(toast) toast.classList.remove('show');
-    }catch(e){}
-    try{ history.replaceState({stadslassBackExit:true}, document.title, getAppBackBaseUrl()); }catch(e){}
-    setTimeout(() => {
-      try{ history.back(); }catch(e){}
-    }, 0);
-    return;
-  }
-
-  appBackExitArmedAt = now;
-  showAppBackToast('Tryck bakåt igen för att lämna Stadslass');
-  refreshAppBackGuard('exit-armed');
-}
-
-function initializeAppBackNavigation(){
-  if(appBackNavigationReady) return;
-  if(typeof window === 'undefined' || !window.history || typeof history.pushState !== 'function') return;
-  try{
-    appBackGuardSeq = Math.floor(Date.now() % 1000000);
-    window.addEventListener('popstate', handleAppBackNavigation);
-    window.addEventListener('pageshow', () => setTimeout(() => refreshAppBackGuard('pageshow'), 150));
-    appBackNavigationReady = true;
-    history.replaceState({stadslassBackBase:true, stadslassBackVersion:'v103', tab:appCurrentTab || 'snabb', createdAt:Date.now()}, document.title, getAppBackBaseUrl());
-    refreshAppBackGuard('init');
-    setTimeout(() => refreshAppBackGuard('delayed-init'), 350);
-  }catch(e){
-    appBackNavigationReady = false;
-  }
-}
-
-function getAppBackNavigationStatus(){
-  let panel = '';
-  try{ panel = getOpenSettingsPanelId(); }catch(e){ panel = ''; }
-  let stateSummary = 'okänd';
-  try{
-    stateSummary = history && history.state && history.state.stadslassBackGuard ? 'guard' : (history && history.state && history.state.stadslassBackBase ? 'base' : 'annan');
-  }catch(e){ stateSummary = 'fel'; }
-  return {
-    active:appBackNavigationReady === true,
-    guardActive:stateSummary === 'guard',
-    state:stateSummary,
-    tab:appCurrentTab || '',
-    panel:panel || '',
-    hash:String((window.location && window.location.hash) || ''),
-    seq:appBackGuardSeq,
-    lastReason:appBackGuardLastReason || ''
-  };
-}
-
-function showTab(tab, options){
-  const opts = options || {};
+function showTab(tab){
   ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
   document.getElementById('tab-'+tab).classList.remove('hidden');
-  appCurrentTab = tab;
 
   const isSettings = tab === 'settings';
   const activeCard = document.getElementById('activeJobCard');
@@ -11531,8 +11390,6 @@ function showTab(tab, options){
   if(isSettings){
     hideSettingsPanels('');
   }
-
-  if(!opts.fromBack && typeof refreshAppBackGuard === 'function') refreshAppBackGuard('showTab-' + tab);
 }
 
 function isOtherWorkJob(job){
@@ -11734,8 +11591,86 @@ function buildSummaryRowsForJob(job){
   });
 }
 
+function joinUniqueNonEmptyLines(values){
+  const seen = new Set();
+  const lines = [];
+  (values || []).forEach(value => {
+    String(value || '').split(/\n+/).forEach(part => {
+      const clean = part.trim();
+      if(!clean) return;
+      const key = clean.toLocaleLowerCase('sv-SE');
+      if(seen.has(key)) return;
+      seen.add(key);
+      lines.push(clean);
+    });
+  });
+  return lines.join('\n');
+}
+
+function aggregateOtherWorkRowsByDate(rows){
+  const normalRows = [];
+  const groups = {};
+
+  (rows || []).forEach(row => {
+    if(!isOtherWorkJob(row)){
+      normalRows.push(row);
+      return;
+    }
+
+    const date = row.date || getLocalDateKey(new Date(row.start || row.end || Date.now()));
+    if(!groups[date]) groups[date] = [];
+    groups[date].push(row);
+  });
+
+  const otherWorkRows = Object.keys(groups).sort().map(date => {
+    const items = groups[date].slice().sort((a,b) => (a.start || 0) - (b.start || 0));
+    const first = items[0] || {};
+    const starts = items.map(item => Number(item.start || 0)).filter(value => Number.isFinite(value) && value > 0);
+    const ends = items.map(item => Number(item.end || item.start || 0)).filter(value => Number.isFinite(value) && value > 0);
+    const totalTimeMs = items.reduce((sum, item) => sum + getSummaryRowTimeMs(item), 0);
+    const sourceIds = items.flatMap(item => Array.isArray(item.summaryOtherWorkSourceIds) && item.summaryOtherWorkSourceIds.length ? item.summaryOtherWorkSourceIds : [String(item.summaryOriginalId || item.id || '')]).filter(Boolean);
+    const sourceCount = items.reduce((sum, item) => {
+      const count = Number(item && item.summaryOtherWorkCount);
+      return sum + (Number.isFinite(count) && count > 0 ? count : 1);
+    }, 0);
+
+    return {
+      ...first,
+      id:'other_work_day_' + date,
+      summaryOriginalId:'other_work_day_' + date,
+      summaryAggregatedOtherWork:true,
+      summaryOtherWorkCount:sourceCount,
+      summaryOtherWorkSourceIds:sourceIds,
+      summaryMetricCarrier:true,
+      summaryIsSplitPart:false,
+      vehicle:'övrigt arbete',
+      type:'Övrig verksamhet',
+      displayType:'Övrig verksamhet',
+      place:'',
+      dest:'',
+      date:date,
+      start:starts.length ? Math.min(...starts) : (first.start || Date.now()),
+      end:ends.length ? Math.max(...ends) : (first.end || first.start || Date.now()),
+      loads:[],
+      totalWeight:0,
+      distanceKm:0,
+      summaryTimeMs:totalTimeMs,
+      comment:joinUniqueNonEmptyLines(items.map(item => item.comment)),
+      privateComment:joinUniqueNonEmptyLines(items.map(item => item.privateComment)),
+      routeGpsDiscarded:true
+    };
+  });
+
+  return normalRows.concat(otherWorkRows).sort((a,b) => {
+    const dateCmp = String(a.date || '').localeCompare(String(b.date || ''));
+    if(dateCmp) return dateCmp;
+    return Number(a.start || 0) - Number(b.start || 0);
+  });
+}
+
 function buildSummaryRowsFromJobs(jobs){
-  return (jobs || []).flatMap(job => buildSummaryRowsForJob(job));
+  const rows = (jobs || []).flatMap(job => buildSummaryRowsForJob(job));
+  return aggregateOtherWorkRowsByDate(rows);
 }
 
 function countUniqueSummaryJobs(rows){
@@ -14712,17 +14647,28 @@ function restartFinishedJob(jobId){
   showTab('ko');
 }
 
-function renderToday(){
+function getTodayDisplayJobs(){
   const today = todayStr();
-  const todays = getFinishedJobsForUnderlag().filter(x => x.date === today);
-  const el = document.getElementById('todayList');
-  renderDayForecasts();
-  if(!todays.length){
-    el.innerHTML = '<div class="muted">Inga avslutade jobb idag.</div>';
-    return;
-  }
-  el.innerHTML = todays.map(x =>
-    '<div class="job">'+
+  const jobs = getFinishedJobsForUnderlag().filter(x => x && x.date === today);
+  const normalJobs = jobs.filter(x => !isOtherWorkJob(x));
+  const otherWorkRows = buildSummaryRowsFromJobs(jobs.filter(isOtherWorkJob)).filter(x => x.date === today);
+  return normalJobs.concat(otherWorkRows).sort((a,b) => Number(a.start || 0) - Number(b.start || 0));
+}
+
+function renderTodayOtherWorkCard(job){
+  const count = Number(job && job.summaryOtherWorkCount || 0);
+  const countText = count > 1 ? ' · Sammanslaget från ' + count + ' delar' : '';
+  return '<div class="job">'+
+      '<div><span class="pill pill-type">Övrig verksamhet</span></div>'+
+      '<div style="margin-top:6px">Total tid idag: '+mins(getSummaryRowTimeMs(job))+countText+'</div>'+
+      (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment).replace(/\n/g,'<br>')+'</div>' : '')+
+      (allowsPrivateCommentForType(job.type) && job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment).replace(/\n/g,'<br>')+'</div>' : '')+
+      '<div class="muted" style="margin-top:6px">Övrig verksamhet visas som en samlad dagsrad. Klockslag visas inte för denna jobbtyp.</div>'+
+    '</div>';
+}
+
+function renderTodayRegularJobCard(x){
+  return '<div class="job">'+
       '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
@@ -14742,8 +14688,18 @@ function renderToday(){
         '<button onclick="openEditJob(\''+x.id+'\')">Redigera</button>'+
         '<button class="danger" onclick="deleteFinishedJob(\''+x.id+'\')">Ta bort</button>'+
       '</div>'+
-    '</div>'
-  ).join('');
+    '</div>';
+}
+
+function renderToday(){
+  const todays = getTodayDisplayJobs();
+  const el = document.getElementById('todayList');
+  renderDayForecasts();
+  if(!todays.length){
+    el.innerHTML = '<div class="muted">Inga avslutade jobb idag.</div>';
+    return;
+  }
+  el.innerHTML = todays.map(x => x.summaryAggregatedOtherWork ? renderTodayOtherWorkCard(x) : renderTodayRegularJobCard(x)).join('');
 }
 
 
@@ -16868,7 +16824,6 @@ initializeHistoryControls();
 renderReceiptHistory();
 setQuickMode('start');
 showTab('snabb');
-initializeAppBackNavigation();
 render();
 
 function saveActiveComment(){
