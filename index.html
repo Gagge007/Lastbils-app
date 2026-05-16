@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-97
+- Nuvarande version: Stadslass v2026-05-07-01-98
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -39,6 +39,7 @@ Stadslass versionskontroll
 - v95: Geofence observerar transportstart för ETA efter bekräftad Från-zon och säkert utträde utan att ändra manuella fasdata.
 - v96: Geofence får egenskapen Lossningslås. Rollen Från/Till bestäms av aktivt uppdrag och lossningslås gäller bara när platsen används som Till-zon.
 - v97: Polygonvarning i geofence kontrollerar nya och befintliga polygoner så fel punktordning, korsande linjer och konstiga ytor syns innan de lurar appen.
+- v98: Lagringskontroll visar sparad data/localStorage uppdelat på huvuddata, historik, kö, papperskorg, GPS, geofence, kartcache och kvittohistorik utan att ändra arbetsdata.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -122,6 +123,7 @@ Stadslass versionskontroll
   - Geofence observerad transportstart v95: när Från-zon bekräftats och lämnas säkert sparas observerad transportstart för ETA/analys utan att ändra manuella fasdata.
   - Geofence lossningslås v96: geofence får egenskapen Lossningslås som bara används när platsen är Till-zon. Låset håller kvar visuell lossning tills ny vikt registreras.
   - Polygonvarning geofence v97: nya och redan sparade polygon-geofence kontrolleras för punktordning, korsande linjer, dubbla punkter och orimlig form utan att appen flyttar punkterna automatiskt.
+  - Lagringskontroll v98: Inställningar visar hur mycket data som är sparad lokalt och delar upp huvuddata, historik, kö, papperskorg, GPS, geofence, kartcache och kvittohistorik. Funktionen är läsande och får inte rensa, ändra eller flytta data.
   - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
@@ -1742,7 +1744,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-97</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-98</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -1771,6 +1773,7 @@ button{
           <button class="primary" onclick="toggleHistoryManager()">Historik kalender</button>
           <button class="primary" onclick="toggleTrashManager()">Papperskorg</button>
           <button class="primary" onclick="toggleCleanupManager()">Rensa arbetsdata</button>
+          <button class="primary" onclick="toggleStorageControlManager()">Lagringskontroll</button>
         </div>
       </div>
       <div class="settings-group">
@@ -2148,6 +2151,23 @@ button{
           <button class="inline" onclick="renderCleanupPreview()">Beräkna</button>
           <button class="danger inline" onclick="performCleanupData()">Rensa vald arbetsdata</button>
         </div>
+      </div>
+    </div>
+    <div id="storageControlManagerWrap" class="place-manager hidden">
+      <div class="place-help"><strong>Lagringskontroll.</strong> Visar hur mycket data som är sparad på den här enheten. Funktionen läser bara localStorage och appens minne. Den får inte rensa, skriva om, flytta eller ändra uppdrag, GPS, geofence, kartcache, historik, kö, papperskorg eller tidsinlärning.</div>
+
+      <div class="place-row">
+        <div class="place-key">Sparad data på enheten</div>
+        <div class="multi-help">Använd kontrollen när appen börjar bli stor, när du vill se om gammal data ligger kvar eller innan eventuell kodstädning/rensning diskuteras.</div>
+        <div class="row" style="margin-top:10px">
+          <button class="primary inline" onclick="renderStorageControl()">Uppdatera lagringskontroll</button>
+          <button class="inline" onclick="copyStorageControlReport()">Kopiera rapport</button>
+        </div>
+        <div id="storageControlSummary" class="map-test-result" style="margin-top:10px">Inte körd.</div>
+        <div id="storageControlBreakdown" style="margin-top:10px"></div>
+        <label style="margin-top:12px">Kopierbar lagringsrapport</label>
+        <textarea id="storageControlReport" class="geofence-points-input" readonly placeholder="Tryck Uppdatera lagringskontroll."></textarea>
+        <div id="storageControlCopyStatus" class="multi-help"></div>
       </div>
     </div>
     <div id="systemControlManagerWrap" class="place-manager hidden">
@@ -6438,8 +6458,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-97';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v97';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-98';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v98';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6457,7 +6477,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v94 Tydligare ETA-källa och kartanropsspärr',
   'v95 Geofence observerad transportstart för ETA',
   'v96 Geofence lossningslås och dynamisk Från/Till-roll',
-  'v97 Polygonvarning för nya och befintliga geofence'
+  'v97 Polygonvarning för nya och befintliga geofence',
+  'v98 Lagringskontroll / sparad data'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -7272,7 +7293,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-97';
+const APP_VERSION = 'Stadslass v2026-05-07-01-98';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -7377,6 +7398,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Geofence observerad transportstart v95', status:'Stabiliseringsfix', purpose:'Geofence får spara observerad transportstart när uppdraget först varit inne i Från-zon och sedan lämnat zonen säkert. ETA kan använda detta för att skilja hantering före transport från transportdel.', changeRule:'Får bara skapa intern observation och påverka ETA/analys. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra manuella fasdata, vikt, GPS-inspelning, historik, sammanställning eller tidsinlärning.'},
   {name:'Geofence lossningslås v96', status:'Stabiliseringsfix', purpose:'Geofence får egenskapen Lossningslås. När samma platsgeofence används som Till-zon kan visuell lossning/invägning hållas kvar tills ny vikt registreras.', changeRule:'Får bara påverka geofence-egenskap, visuell Till-zonstatus och övervakning. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, historik, sammanställning eller tidsinlärning.'},
   {name:'Polygonvarning geofence v97', status:'Stabiliseringsfix', purpose:'Nya och befintliga polygon-geofence kontrolleras för punktordning, korsande linjer, dubbla punkter och orimlig form. Varning visas i geofence-registret och vid sparning.', changeRule:'Får bara varna och visa kontrollstatus. Appen får inte flytta punkter automatiskt och får inte påverka Lasta, Ange vikt, Klart, GPS-inspelning, lossningslås, transportstart, historik, sammanställning eller tidsinlärning.'},
+  {name:'Lagringskontroll v98', status:'Aktiv', purpose:'Visar hur mycket data som är sparad lokalt på enheten och delar upp localStorage/appdata på huvuddata, avslutade jobb, kö, papperskorg, GPS, geofence, kartcache, kvittohistorik, register och övriga nycklar.', changeRule:'Får bara läsa och visa lagringsstorlek/status. Får inte rensa, skriva om, komprimera, flytta eller ändra aktivt jobb, kö, historik, papperskorg, GPS-data, geofence, kartcache, kvittohistorik, sammanställning eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -7558,6 +7580,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Ingen tömning finns', fn('markNoEmptying') && !!document.querySelector('button.active-no-empty-btn'), 'markNoEmptying + orange knapp');
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
+  addFunctionCheck(results, 'Nivå 1', 'Lagringskontroll v98 finns', !!el('storageControlManagerWrap') && !!el('storageControlSummary') && !!el('storageControlBreakdown') && fn('renderStorageControl') && fn('buildStorageControlReportData') && fn('copyStorageControlReport'), 'läser sparad data/localStorage utan att ändra arbetsdata');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
   addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85'), 'featureManifestList + v67-v85-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
@@ -7578,7 +7601,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-97') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-98') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -7752,7 +7775,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-97') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-97'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-98') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-98'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -7806,7 +7829,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
-    systemCheck('Funktionskontroll v67-v87', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
+    systemCheck('Funktionskontroll v67-v98', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -7871,7 +7895,7 @@ async function runSystemControlWithMaps(){
 
 
 function hideSettingsPanels(exceptId){
-  ['geofenceManagerWrap','activeMonitorWrap','receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  ['geofenceManagerWrap','activeMonitorWrap','receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','storageControlManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
@@ -8149,6 +8173,278 @@ function renderTrashManager(){
   }).join('');
 }
 
+
+
+function toggleStorageControlManager(){
+  toggleSettingsPanel('storageControlManagerWrap', () => {
+    renderStorageControl();
+  });
+}
+
+function storageControlByteLength(value){
+  const text = String(value === undefined || value === null ? '' : value);
+  try{ return new Blob([text]).size; }catch(e){ return unescape(encodeURIComponent(text)).length; }
+}
+
+function storageControlSafeStringify(value){
+  try{ return JSON.stringify(value === undefined ? null : value) || ''; }
+  catch(e){ return ''; }
+}
+
+function storageControlFormatBytes(bytes){
+  const n = Number(bytes || 0);
+  if(!Number.isFinite(n) || n <= 0) return '0 B';
+  if(n < 1024) return Math.round(n) + ' B';
+  if(n < 1024 * 1024) return (n / 1024).toFixed(n < 10 * 1024 ? 1 : 0).replace('.', ',') + ' KB';
+  return (n / (1024 * 1024)).toFixed(2).replace('.', ',') + ' MB';
+}
+
+function storageControlArrayCount(value){
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function storageControlObjectKeyCount(value){
+  return value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).length : 0;
+}
+
+function storageControlGetLocalStorageKeys(){
+  const keys = [];
+  try{
+    for(let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if(key) keys.push(key);
+    }
+  }catch(e){}
+  return keys.sort((a,b) => a.localeCompare(b, 'sv-SE'));
+}
+
+function storageControlLocalStorageItemSize(key){
+  let raw = '';
+  let exists = false;
+  try{
+    raw = localStorage.getItem(key);
+    exists = raw !== null;
+  }catch(e){ raw = ''; }
+  return {key, exists, bytes: storageControlByteLength(raw || ''), raw: raw || ''};
+}
+
+function storageControlDataSize(value){
+  return storageControlByteLength(storageControlSafeStringify(value));
+}
+
+function storageControlGetKnownKeySet(){
+  return new Set([KEY, RECEIPT_TEMP_STORAGE_KEY, MAP_GUARD_STORAGE_KEY, MAP_ROUTE_CACHE_STORAGE_KEY, MAP_API_KEY_STORAGE_KEY]);
+}
+
+function storageControlCollectRouteGps(){
+  const sourceGroups = [
+    {label:'Aktivt jobb', jobs: state && state.active ? [state.active] : []},
+    {label:'Avslutade jobb', jobs: Array.isArray(state && state.jobs) ? state.jobs : []},
+    {label:'Kö/paus', jobs: [].concat(Array.isArray(state && state.queue) ? state.queue : [], state && state.pausedOtherWork ? [state.pausedOtherWork] : [])},
+    {label:'Papperskorg', jobs: Array.isArray(state && state.trash) ? state.trash.map(entry => entry && entry.item ? entry.item : entry).filter(Boolean) : []}
+  ];
+  const records = [];
+  sourceGroups.forEach(group => {
+    group.jobs.forEach(job => {
+      const rec = job && job.routeGps && typeof job.routeGps === 'object' ? job.routeGps : null;
+      if(rec) records.push({group:group.label, jobId:job.id || '', status:job.routeGpsStatus || rec.status || '', routeGps:rec});
+    });
+  });
+  const pointCount = records.reduce((sum, item) => sum + (Array.isArray(item.routeGps && item.routeGps.points) ? item.routeGps.points.length : 0), 0);
+  return {records, recordCount:records.length, pointCount, bytes:storageControlDataSize(records)};
+}
+
+function storageControlCountStoredGeofences(){
+  const map = state && state.placeGeofences && typeof state.placeGeofences === 'object' ? state.placeGeofences : {};
+  let count = 0;
+  Object.keys(map).forEach(key => {
+    const value = map[key];
+    if(!value) return;
+    if(Array.isArray(value)) count += value.length;
+    else count += 1;
+  });
+  return count;
+}
+
+function storageControlBuildCategory(label, value, countText, note){
+  return {
+    label,
+    bytes:storageControlDataSize(value),
+    countText:String(countText || ''),
+    note:String(note || '')
+  };
+}
+
+function storageControlParseJson(raw, fallback){
+  try{ return raw ? JSON.parse(raw) : fallback; }catch(e){ return fallback; }
+}
+
+function buildStorageControlReportData(){
+  const localKeys = storageControlGetLocalStorageKeys();
+  const keyItems = localKeys.map(storageControlLocalStorageItemSize);
+  const totalLocalBytes = keyItems.reduce((sum, item) => sum + item.bytes, 0);
+  const mainItem = storageControlLocalStorageItemSize(KEY);
+  const receiptItem = storageControlLocalStorageItemSize(RECEIPT_TEMP_STORAGE_KEY);
+  const mapGuardItem = storageControlLocalStorageItemSize(MAP_GUARD_STORAGE_KEY);
+  const mapCacheItem = storageControlLocalStorageItemSize(MAP_ROUTE_CACHE_STORAGE_KEY);
+  const mapKeyItem = storageControlLocalStorageItemSize(MAP_API_KEY_STORAGE_KEY);
+  const receiptRows = storageControlParseJson(receiptItem.raw, []);
+  const mapCache = storageControlParseJson(mapCacheItem.raw, {});
+  const mapGuard = storageControlParseJson(mapGuardItem.raw, {});
+  const gps = storageControlCollectRouteGps();
+  const knownKeys = storageControlGetKnownKeySet();
+  const otherKeyItems = keyItems.filter(item => !knownKeys.has(item.key));
+  const otherKeyBytes = otherKeyItems.reduce((sum, item) => sum + item.bytes, 0);
+  const setupData = {
+    jobTypes: state && state.jobTypes,
+    jobTypeMeta: state && state.jobTypeMeta,
+    machines: state && state.machines,
+    quickItems: state && state.quickItems,
+    customPlaces: state && state.customPlaces,
+    placeConfigs: state && state.placeConfigs,
+    placeLabels: state && state.placeLabels,
+    placeAddresses: state && state.placeAddresses,
+    placeRequirements: state && state.placeRequirements,
+    placeUsage: state && state.placeUsage,
+    hiddenPlaces: state && state.hiddenPlaces,
+    phaseColorSettings: state && state.phaseColorSettings
+  };
+  const geofenceData = {
+    placeGeofences: state && state.placeGeofences,
+    disabledPlaceGeofences: state && state.disabledPlaceGeofences
+  };
+  const queueData = {
+    queue: state && state.queue,
+    pausedOtherWork: state && state.pausedOtherWork
+  };
+  const categories = [
+    {label:'All localStorage på enheten', bytes:totalLocalBytes, countText:localKeys.length + ' nycklar', note:'All lokal webblagring för denna sida.'},
+    {label:'Stadslass huvuddata', bytes:mainItem.bytes, countText:mainItem.exists ? '1 nyckel' : 'saknas', note:KEY},
+    storageControlBuildCategory('Avslutade jobb', state && state.jobs, storageControlArrayCount(state && state.jobs) + ' jobb', 'Historik som används av Idag/sammanställning/underlag.'),
+    storageControlBuildCategory('Aktivt jobb', state && state.active, state && state.active ? '1 aktivt jobb' : 'inget aktivt jobb', 'Pågående uppdrag.'),
+    storageControlBuildCategory('Kö och pausade jobb', queueData, storageControlArrayCount(state && state.queue) + ' köuppdrag' + (state && state.pausedOtherWork ? ' + pausad Övrig verksamhet' : ''), 'Uppdrag som inte är avslutade.'),
+    storageControlBuildCategory('Papperskorg', state && state.trash, storageControlArrayCount(state && state.trash) + ' poster', 'Används inte som underlag.'),
+    {label:'GPS-data i uppdrag', bytes:gps.bytes, countText:gps.recordCount + ' GPS-poster / ' + gps.pointCount + ' punkter', note:'Ligger inne i aktivt jobb, historik, kö/paus eller papperskorg.'},
+    storageControlBuildCategory('Geofence sparade i appdata', geofenceData, storageControlCountStoredGeofences() + ' sparade zoner', 'Endast användarinlagda/avaktiverade geofence i appdata.'),
+    {label:'Kartcache', bytes:mapCacheItem.bytes, countText:storageControlObjectKeyCount(mapCache) + ' cacheposter', note:MAP_ROUTE_CACHE_STORAGE_KEY},
+    {label:'Kartskydd/räknare', bytes:mapGuardItem.bytes, countText:storageControlObjectKeyCount(mapGuard) + ' fält', note:MAP_GUARD_STORAGE_KEY},
+    {label:'Kartnyckel', bytes:mapKeyItem.exists ? mapKeyItem.bytes : 0, countText:mapKeyItem.exists ? 'sparad på enheten' : 'saknas', note:'Värdet visas inte och exporteras inte.'},
+    {label:'Kvittohistorik', bytes:receiptItem.bytes, countText:(Array.isArray(receiptRows) ? receiptRows.length : 0) + ' kvittorader', note:RECEIPT_TEMP_STORAGE_KEY},
+    storageControlBuildCategory('Register/upplägg', setupData, storageControlArrayCount(state && state.quickItems) + ' snabbval / ' + storageControlArrayCount(state && state.jobTypes) + ' jobbtyper / ' + storageControlArrayCount(state && state.machines) + ' maskiner', 'Platser, jobbtyper, snabbval, maskiner och inställningar.'),
+    storageControlBuildCategory('Aktiv övervakningsrapporter', state && state.activeMonitorEndReports, storageControlArrayCount(state && state.activeMonitorEndReports) + ' rapporter', 'Senaste avslutsrapporter från Aktiv övervakning.'),
+    {label:'Övriga localStorage-nycklar', bytes:otherKeyBytes, countText:otherKeyItems.length + ' nycklar', note:otherKeyItems.map(item => item.key).join(', ') || 'inga'}
+  ];
+  const percentOfFiveMb = totalLocalBytes > 0 ? Math.round((totalLocalBytes / (5 * 1024 * 1024)) * 100) : 0;
+  let level = 'ok';
+  let levelText = 'OK';
+  if(totalLocalBytes > 4.5 * 1024 * 1024){ level = 'critical'; levelText = 'KRITISK – nära vanlig webblagringsgräns'; }
+  else if(totalLocalBytes > 3 * 1024 * 1024){ level = 'warning'; levelText = 'VARNING – mycket lokal data'; }
+  else if(totalLocalBytes > 1 * 1024 * 1024){ level = 'info'; levelText = 'INFO – märkbar mängd data'; }
+  return {
+    version: APP_VERSION,
+    generatedAt: Date.now(),
+    totalLocalBytes,
+    mainBytes: mainItem.bytes,
+    localKeyCount: localKeys.length,
+    percentOfFiveMb,
+    level,
+    levelText,
+    categories,
+    localKeys:keyItems.map(item => ({key:item.key, bytes:item.bytes, protectedValue:item.key === MAP_API_KEY_STORAGE_KEY})),
+    gps,
+    counts:{
+      jobs:storageControlArrayCount(state && state.jobs),
+      queue:storageControlArrayCount(state && state.queue),
+      trash:storageControlArrayCount(state && state.trash),
+      receiptRows:Array.isArray(receiptRows) ? receiptRows.length : 0,
+      geofences:storageControlCountStoredGeofences(),
+      mapCache:storageControlObjectKeyCount(mapCache)
+    }
+  };
+}
+
+function storageControlLevelClass(level){
+  if(level === 'critical') return 'is-error';
+  if(level === 'warning') return 'is-error';
+  if(level === 'info') return 'is-ok';
+  return 'is-ok';
+}
+
+function renderStorageControlCategoryRows(categories){
+  return (categories || []).map(item => {
+    const bytes = Number(item.bytes || 0);
+    return '<div class="job">' +
+      '<div class="row" style="align-items:flex-start;justify-content:space-between;gap:10px">' +
+        '<div style="min-width:0"><strong>' + escapeHtml(item.label) + '</strong><div class="multi-help">' + escapeHtml(item.countText || '') + (item.note ? ' · ' + escapeHtml(item.note) : '') + '</div></div>' +
+        '<div class="pill pill-code" style="margin-left:0 !important;min-width:110px !important;text-align:center">' + storageControlFormatBytes(bytes) + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function buildStorageControlTextReport(data){
+  const d = data || buildStorageControlReportData();
+  const lines = [];
+  lines.push('STADSLASS LAGRINGSKONTROLL');
+  lines.push('Version: ' + d.version);
+  lines.push('Skapad: ' + new Date(d.generatedAt || Date.now()).toLocaleString('sv-SE'));
+  lines.push('Status: ' + d.levelText);
+  lines.push('Total localStorage: ' + storageControlFormatBytes(d.totalLocalBytes) + ' (' + d.percentOfFiveMb + '% av 5 MB riktvärde)');
+  lines.push('Stadslass huvuddata: ' + storageControlFormatBytes(d.mainBytes));
+  lines.push('Nycklar: ' + d.localKeyCount);
+  lines.push('');
+  lines.push('Uppdelning:');
+  (d.categories || []).forEach(item => {
+    lines.push('- ' + item.label + ': ' + storageControlFormatBytes(item.bytes) + ' · ' + (item.countText || '-') + (item.note ? ' · ' + item.note : ''));
+  });
+  lines.push('');
+  lines.push('LocalStorage-nycklar:');
+  (d.localKeys || []).forEach(item => {
+    lines.push('- ' + item.key + ': ' + storageControlFormatBytes(item.bytes) + (item.protectedValue ? ' · värde dolt' : ''));
+  });
+  lines.push('');
+  lines.push('Regel: Lagringskontroll är läsande och ska inte ändra/rensa arbetsdata.');
+  return lines.join('\n');
+}
+
+function renderStorageControl(){
+  const summary = document.getElementById('storageControlSummary');
+  const breakdown = document.getElementById('storageControlBreakdown');
+  const report = document.getElementById('storageControlReport');
+  const status = document.getElementById('storageControlCopyStatus');
+  const data = buildStorageControlReportData();
+  if(summary){
+    summary.classList.remove('is-error','is-ok');
+    summary.classList.add(storageControlLevelClass(data.level));
+    summary.innerHTML = '<strong>Lagringskontroll: ' + escapeHtml(data.levelText) + '</strong>' +
+      '<div class="map-test-section">Total localStorage: <strong>' + storageControlFormatBytes(data.totalLocalBytes) + '</strong> · Stadslass huvuddata: <strong>' + storageControlFormatBytes(data.mainBytes) + '</strong> · Nycklar: <strong>' + data.localKeyCount + '</strong> · ca <strong>' + data.percentOfFiveMb + '%</strong> av 5 MB riktvärde.</div>' +
+      '<div class="map-test-section">Jobb: ' + data.counts.jobs + ' · Kö: ' + data.counts.queue + ' · Papperskorg: ' + data.counts.trash + ' · GPS-punkter: ' + data.gps.pointCount + ' · Geofence: ' + data.counts.geofences + ' · Kvittorader: ' + data.counts.receiptRows + ' · Kartcache: ' + data.counts.mapCache + '</div>';
+  }
+  if(breakdown){
+    breakdown.innerHTML = renderStorageControlCategoryRows(data.categories);
+  }
+  if(report){
+    report.value = buildStorageControlTextReport(data);
+  }
+  if(status) status.textContent = 'Kontrollen uppdaterad. Inget har rensats eller ändrats.';
+}
+
+function copyStorageControlReport(){
+  const area = document.getElementById('storageControlReport');
+  const status = document.getElementById('storageControlCopyStatus');
+  if(!area || !area.value) renderStorageControl();
+  const text = area ? area.value : buildStorageControlTextReport(buildStorageControlReportData());
+  const done = () => { if(status) status.textContent = 'Lagringsrapport kopierad.'; };
+  const failed = () => {
+    try{ if(area){ area.focus(); area.select(); document.execCommand('copy'); done(); return; } }catch(e){}
+    if(status) status.textContent = 'Kunde inte kopiera automatiskt. Markera rapporten och kopiera manuellt.';
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(failed);
+  } else {
+    failed();
+  }
+}
 
 function toggleCleanupManager(){
   const wrap = document.getElementById('cleanupManagerWrap');
