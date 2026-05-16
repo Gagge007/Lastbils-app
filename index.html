@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-99
+- Nuvarande version: Stadslass v2026-05-07-01-100
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -41,6 +41,7 @@ Stadslass versionskontroll
 - v97: Polygonvarning i geofence kontrollerar nya och befintliga polygoner så fel punktordning, korsande linjer och konstiga ytor syns innan de lurar appen.
 - v98: Lagringskontroll visar sparad data/localStorage uppdelat på huvuddata, historik, kö, papperskorg, GPS, geofence, kartcache och kvittohistorik utan att ändra arbetsdata.
 - v99: Visuell återkomst till Från-plats visar Returlossning vid returkrav och Tillbaka vid Från-plats utan returkrav när uppdraget lämnat Från-geofence och senare träffar samma Från-zon igen.
+- v100: Historik kalender visar importerade kvittorader tillsammans med avslutade jobb, markerar datum med kvitton och håller kvittorader separata från vanliga uppdrag.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -126,6 +127,7 @@ Stadslass versionskontroll
   - Polygonvarning geofence v97: nya och redan sparade polygon-geofence kontrolleras för punktordning, korsande linjer, dubbla punkter och orimlig form utan att appen flyttar punkterna automatiskt.
   - Lagringskontroll v98: Inställningar visar hur mycket data som är sparad lokalt och delar upp huvuddata, historik, kö, papperskorg, GPS, geofence, kartcache och kvittohistorik. Funktionen är läsande och får inte rensa, ändra eller flytta data.
   - Visuell återkomst till Från-plats v99: Om ett aktivt uppdrag först lämnat Från-geofence och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav. Funktionen är endast visuell och får inte trycka Lasta, Ange vikt eller Klart.
+  - Historik kalender kvittorader v100: Historik kalender ska visa både vanliga avslutade jobb och importerade kvittorader. Kvittorader ska markeras som importerade kvittorader och får inte hanteras som vanliga GPS-/tidsinlärningsuppdrag.
   - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
@@ -1410,6 +1412,8 @@ button{
 .receipt-ready-card{background:linear-gradient(180deg,#f8fafc,#eef6ff);border:1px solid #bfdbfe}
 .receipt-ready-card .place-key{font-size:19px}
 .receipt-format-box{font-family:monospace;font-size:13px;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:10px;overflow:auto;margin-top:8px}
+.history-receipt-job{border-color:#bfdbfe;background:#eff6ff}
+.history-receipt-badge{display:inline-flex;align-items:center;border:1px solid #93c5fd;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:13px;font-weight:900;padding:6px 10px;margin:4px 6px 0 0}
 /* TEMP RECEIPT IMPORT MODULE END */
 
 </style>
@@ -1746,7 +1750,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-99</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-100</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -6536,8 +6540,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-99';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v99';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-100';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v100';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6557,7 +6561,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v96 Geofence lossningslås och dynamisk Från/Till-roll',
   'v97 Polygonvarning för nya och befintliga geofence',
   'v98 Lagringskontroll / sparad data',
-  'v99 Visuell återkomst till Från-plats'
+  'v99 Visuell återkomst till Från-plats',
+  'v100 Historik kalender visar importerade kvittorader'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -7383,7 +7388,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-99';
+const APP_VERSION = 'Stadslass v2026-05-07-01-100';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -7490,6 +7495,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Polygonvarning geofence v97', status:'Stabiliseringsfix', purpose:'Nya och befintliga polygon-geofence kontrolleras för punktordning, korsande linjer, dubbla punkter och orimlig form. Varning visas i geofence-registret och vid sparning.', changeRule:'Får bara varna och visa kontrollstatus. Appen får inte flytta punkter automatiskt och får inte påverka Lasta, Ange vikt, Klart, GPS-inspelning, lossningslås, transportstart, historik, sammanställning eller tidsinlärning.'},
   {name:'Lagringskontroll v98', status:'Aktiv', purpose:'Visar hur mycket data som är sparad lokalt på enheten och delar upp localStorage/appdata på huvuddata, avslutade jobb, kö, papperskorg, GPS, geofence, kartcache, kvittohistorik, register och övriga nycklar.', changeRule:'Får bara läsa och visa lagringsstorlek/status. Får inte rensa, skriva om, komprimera, flytta eller ändra aktivt jobb, kö, historik, papperskorg, GPS-data, geofence, kartcache, kvittohistorik, sammanställning eller tidsinlärning.'},
   {name:'Visuell återkomst till Från-plats v99', status:'Aktiv', purpose:'När ett aktivt uppdrag har bekräftat Från-geofence, lämnat zonen och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav.', changeRule:'Får bara påverka visuell status, fasknapp/bottenbakgrund och övervakningsrapport. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, historik, sammanställning, kö eller tidsinlärning.'},
+  {name:'Historik kalender visar kvittorader v100', status:'Aktiv', purpose:'Historik kalender läser både avslutade jobb och importerade kvittorader så kvitton markeras på rätt datum och visas i datumlistan/sökresultat.', changeRule:'Får bara visa och söka kvittorader i historikkalendern. Kvittorader får inte bli vanliga GPS-/fas-/tidsinlärningsuppdrag och får inte överföras, redigeras eller raderas som avslutade jobb.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -7693,7 +7699,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-99') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-99') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -7727,7 +7733,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum och stabilt underlag', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-11' && fn('isTimeLearningSampleAllowed') && fn('isStableMaterialFlowSample'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkert underlag', fn('getFinishedJobsForUnderlag') && src('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag') && src('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'uppskattad tid/GPS-lärning hämtar underlag via getFinishedJobsForUnderlag');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkert underlag', fn('getFilteredSummaryJobs') && src('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag') && fn('getReceiptSummaryJobs'), 'sammanställning + kvittorader utan papperskorg');
-  addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', src('renderHistoryManager', 'getFinishedJobsForUnderlag') && src('renderToday', 'getFinishedJobsForUnderlag'), 'renderHistoryManager + renderToday');
+  addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', src('renderHistoryManager', 'getHistoryCalendarJobsForDisplay') && src('renderToday', 'getFinishedJobsForUnderlag'), 'historik använder samlat visningsunderlag, Idag använder avslutade jobb');
+  addFunctionCheck(results, 'Nivå 2', 'Historik kalender visar kvittorader v100', fn('getHistoryCalendarJobsForDisplay') && src('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && fn('renderHistoryReceiptJobCard') && src('renderHistoryManager', 'getHistoryDateSubLabel') && src('renderHistoryReceiptJobCard', 'Importerad kvittorad'), 'historik kalender visar och söker importerade kvittorader utan vanlig uppdragslogik');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkert underlag', fn('buildFinishedTransferPayload') && src('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport finns men påverkar inte GPS/tid', !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && fn('normalizeImportedReceiptRow') && src('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'kvittoimport skapar historiska sammanställningsrader');
@@ -7921,9 +7928,10 @@ function buildSystemControlInternalChecks(){
     systemCheck('Delad retunnedräkning v70', typeof getReturnSplitCountdownInfo === 'function' && typeof getActiveEstimateDisplayEndAt === 'function' && typeof getActiveEstimateOverallEndAt === 'function' && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && functionSourceIncludes('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'befintlig nedräkning delas utan extra texter vid returkrav'),
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
+    systemCheck('Historik kalender kvittorader v100', typeof getHistoryCalendarJobsForDisplay === 'function' && typeof renderHistoryReceiptJobCard === 'function' && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && functionSourceIncludes('renderHistoryManager', 'getHistoryDateSubLabel'), 'historik kalender läser importerade kvittorader tillsammans med avslutade jobb'),
     systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
     systemCheck('Visuell återkomst till Från-plats v99', typeof updateReturnToFromGeofenceVisualStatus === 'function' && typeof getReturnToFromVisualLabel === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Returlossning') && functionSourceIncludes('getActivePhaseVisualState', 'Tillbaka vid Från-plats') && functionSourceIncludes('updateActivePhaseBackground', 'Returlossning'), 'visar Returlossning/Tillbaka vid Från-plats utan att trycka manuella knappar'),
-    systemCheck('Funktionskontroll v67-v99', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v100', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -8063,8 +8071,58 @@ function jobSearchText(job){
     job.type || '', job.displayType || '',
     getItemPlaceLabel(job, 'place') || job.place || '',
     getItemPlaceLabel(job, 'dest') || job.dest || '',
-    job.comment || '', job.privateComment || '', job.date || ''
+    job.comment || '', job.privateComment || '', job.date || '',
+    job.receiptImported ? 'importerad kvittorad kvitto kvittoimport' : ''
   ].join(' ').toLocaleLowerCase('sv-SE');
+}
+
+function getHistoryCalendarJobsForDisplay(){
+  return getFinishedJobsForUnderlag().concat(getReceiptSummaryJobs());
+}
+
+function getHistoryDateSubLabel(items, fallbackText){
+  const list = Array.isArray(items) ? items : [];
+  const receiptCount = list.filter(job => job && job.receiptImported).length;
+  const regularCount = list.length - receiptCount;
+  const parts = [];
+  if(regularCount) parts.push(regularCount + ' jobb');
+  if(receiptCount) parts.push(receiptCount + ' kvitto');
+  return parts.length ? parts.join(' + ') : fallbackText;
+}
+
+function renderHistoryReceiptJobCard(job){
+  const rowId = job.receiptRowId || String(job.id || '').replace(/^receipt_/, '');
+  return '<div class="job history-receipt-job">'+
+    '<div><span class="history-receipt-badge">Importerad kvittorad</span><span class="pill pill-type">'+escapeHtml(job.type || '')+'</span><span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(job, 'place'))+'</span>'+(job.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(job, 'dest'))+'</span>' : '')+'</div>'+ 
+    '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Källa: Kvittoimport</div>'+ 
+    '<div style="margin-top:6px">Total vikt i ton: '+(job.totalWeight||0).toFixed(2).replace('.', ',')+' ton</div>'+ 
+    '<div class="muted" style="margin-top:6px">Kvittoraden visas i historik och sammanställning men påverkar inte GPS, fasdata eller tidsinlärning.</div>'+ 
+    (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment)+'</div>' : '')+
+    '<div class="row" style="margin-top:8px">'+
+      '<button class="danger" onclick="deleteReceiptRowFromHistory(\''+escapeJsSingle(rowId)+'\')">Ta bort kvittorad</button>'+ 
+    '</div>'+ 
+  '</div>';
+}
+
+function renderHistoryRegularJobCard(job){
+  return '<div class="job">'+
+    '<div><span class="pill pill-type">'+escapeHtml(job.type || '')+'</span><span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(job, 'place'))+'</span>'+(job.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(job, 'dest'))+'</span>' : '')+'</div>'+ 
+    '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Start: '+clockTime(job.start)+' · Slut: '+clockTime(job.end)+'</div>'+ 
+    '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
+    formatMapCallCounterHtml(job)+
+    (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment)+'</div>' : '')+
+    getLearningExclusionHtml(job)+
+    (allowsPrivateCommentForType(job.type) && job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment)+'</div>' : '')+
+    '<div class="row" style="margin-top:8px">'+
+      '<button class="primary inline" onclick="createSingleFinishedJobTransferCode(\''+escapeJsSingle(job.id)+'\')">Överför</button>'+
+      '<button onclick="openEditJob(\''+escapeJsSingle(job.id)+'\')">Redigera</button>'+ 
+      '<button class="danger" onclick="deleteFinishedJob(\''+escapeJsSingle(job.id)+'\')">Ta bort</button>'+ 
+    '</div>'+ 
+  '</div>';
+}
+
+function renderHistoryJobCard(job){
+  return job && job.receiptImported ? renderHistoryReceiptJobCard(job) : renderHistoryRegularJobCard(job);
 }
 
 function renderHistoryManager(){
@@ -8089,9 +8147,10 @@ function renderHistoryManager(){
   const first = new Date(year, month - 1, 1);
   const firstOffset = (first.getDay() + 6) % 7;
   const lastDay = new Date(year, month, 0).getDate();
+  const allHistoryJobs = getHistoryCalendarJobsForDisplay();
 
   const jobsByDate = {};
-  getFinishedJobsForUnderlag().forEach(job => {
+  allHistoryJobs.forEach(job => {
     if(!job || !job.date || job.date.slice(0,7) !== monthValue) return;
     if(!jobsByDate[job.date]) jobsByDate[job.date] = [];
     jobsByDate[job.date].push(job);
@@ -8102,13 +8161,14 @@ function renderHistoryManager(){
   for(let day=1; day<=lastDay; day++){
     const iso = buildIsoDate(year, month, day);
     const dayInfo = getSwedishDayInfo(iso);
-    const count = (jobsByDate[iso] || []).length;
+    const items = jobsByDate[iso] || [];
+    const count = items.length;
     const cls = ['history-calendar-day'];
     if(dayInfo.type === 'red') cls.push('date-red');
     if(dayInfo.type === 'yellow') cls.push('date-yellow');
     if(iso === historySelectedDate) cls.push('selected');
     if(count) cls.push('has-jobs');
-    const sub = count ? (count + ' jobb') : (dayInfo.name || shortWeekday(parseIsoLocal(iso)));
+    const sub = getHistoryDateSubLabel(items, dayInfo.name || shortWeekday(parseIsoLocal(iso)));
     cells.push('<button class="'+cls.join(' ')+'" onclick="selectHistoryDate(&quot;'+iso+'&quot;)"><span>'+day+'</span><small>'+escapeHtml(sub)+'</small></button>');
   }
   grid.innerHTML = cells.join('');
@@ -8116,35 +8176,20 @@ function renderHistoryManager(){
   const query = String(searchEl ? searchEl.value : '').trim().toLocaleLowerCase('sv-SE');
   let shownJobs = [];
   if(query){
-    shownJobs = getFinishedJobsForUnderlag().filter(job => job && job.date && job.date.slice(0,7) === monthValue && jobSearchText(job).includes(query));
-    info.textContent = 'Sökresultat i ' + monthValue + ': ' + shownJobs.length + ' jobb.';
+    shownJobs = allHistoryJobs.filter(job => job && job.date && job.date.slice(0,7) === monthValue && jobSearchText(job).includes(query));
+    info.textContent = 'Sökresultat i ' + monthValue + ': ' + shownJobs.length + ' poster.';
   } else {
     shownJobs = (jobsByDate[historySelectedDate] || []).slice();
-    info.textContent = 'Valt datum: ' + formatShortDate(historySelectedDate) + ' · ' + shownJobs.length + ' jobb.';
+    info.textContent = 'Valt datum: ' + formatShortDate(historySelectedDate) + ' · ' + getHistoryDateSubLabel(shownJobs, '0 poster') + '.';
   }
 
   shownJobs.sort((a,b) => (a.start || 0) - (b.start || 0));
   if(!shownJobs.length){
-    list.innerHTML = '<div class="muted" style="margin-top:10px">Inga avslutade jobb att visa.</div>';
+    list.innerHTML = '<div class="muted" style="margin-top:10px">Inga avslutade jobb eller kvittorader att visa.</div>';
     return;
   }
 
-  list.innerHTML = shownJobs.map(job =>
-    '<div class="job">'+
-      '<div><span class="pill pill-type">'+escapeHtml(job.type || '')+'</span><span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(job, 'place'))+'</span>'+(job.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(job, 'dest'))+'</span>' : '')+'</div>'+ 
-      '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Start: '+clockTime(job.start)+' · Slut: '+clockTime(job.end)+'</div>'+ 
-      '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
-      formatMapCallCounterHtml(job)+
-      (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment)+'</div>' : '')+
-      getLearningExclusionHtml(job)+
-      (allowsPrivateCommentForType(job.type) && job.privateComment ? '<div class="private-comment-note" style="margin-top:6px">Intern kommentar: '+escapeHtml(job.privateComment)+'</div>' : '')+
-      '<div class="row" style="margin-top:8px">'+
-        '<button class="primary inline" onclick="createSingleFinishedJobTransferCode(\''+escapeJsSingle(job.id)+'\')">Överför</button>'+
-        '<button onclick="openEditJob(\''+escapeJsSingle(job.id)+'\')">Redigera</button>'+ 
-        '<button class="danger" onclick="deleteFinishedJob(\''+escapeJsSingle(job.id)+'\')">Ta bort</button>'+ 
-      '</div>'+ 
-    '</div>'
-  ).join('');
+  list.innerHTML = shownJobs.map(renderHistoryJobCard).join('');
 }
 
 function ensureTrash(){
@@ -16141,6 +16186,7 @@ function getReceiptSummaryJobs(){
     const baseTime = row.date ? new Date(row.date + 'T00:00:00').getTime() : Date.now();
     return {
       id: 'receipt_' + (row.id || index),
+      receiptRowId: row.id || '',
       receiptImported: true,
       source: 'receipt_import',
       vehicle: 'kvittoimport',
@@ -16348,9 +16394,10 @@ function confirmReceiptImportRows(){
   pendingReceiptImportMeta = null;
   renderReceiptImportPreview();
   renderReceiptHistory();
+  renderHistoryManager();
   updateSummaryControls();
   renderSummary();
-  setReceiptImportStatus('Importerade ' + importedCount + ' kvittorader. De ingår nu i sammanställningen.', 'ok');
+  setReceiptImportStatus('Importerade ' + importedCount + ' kvittorader. De ingår nu i sammanställning och historik kalender.', 'ok');
 }
 
 function cancelReceiptImportRows(){
@@ -16365,14 +16412,20 @@ function deleteReceiptRow(rowId){
   const rows = loadReceiptRows().filter(row => row.id !== rowId);
   saveReceiptRows(rows);
   renderReceiptHistory();
+  renderHistoryManager();
   updateSummaryControls();
   renderSummary();
+}
+
+function deleteReceiptRowFromHistory(rowId){
+  deleteReceiptRow(rowId);
 }
 
 function clearAllReceiptRows(){
   if(!confirm('Radera alla tillfälliga kvittorader? Detta påverkar inte vanliga uppdrag.')) return;
   saveReceiptRows([]);
   renderReceiptHistory();
+  renderHistoryManager();
   updateSummaryControls();
   renderSummary();
   setReceiptImportStatus('Alla kvittorader är raderade från den här enheten.', 'ok');
