@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-98
+- Nuvarande version: Stadslass v2026-05-07-01-99
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -40,6 +40,7 @@ Stadslass versionskontroll
 - v96: Geofence får egenskapen Lossningslås. Rollen Från/Till bestäms av aktivt uppdrag och lossningslås gäller bara när platsen används som Till-zon.
 - v97: Polygonvarning i geofence kontrollerar nya och befintliga polygoner så fel punktordning, korsande linjer och konstiga ytor syns innan de lurar appen.
 - v98: Lagringskontroll visar sparad data/localStorage uppdelat på huvuddata, historik, kö, papperskorg, GPS, geofence, kartcache och kvittohistorik utan att ändra arbetsdata.
+- v99: Visuell återkomst till Från-plats visar Returlossning vid returkrav och Tillbaka vid Från-plats utan returkrav när uppdraget lämnat Från-geofence och senare träffar samma Från-zon igen.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -124,6 +125,7 @@ Stadslass versionskontroll
   - Geofence lossningslås v96: geofence får egenskapen Lossningslås som bara används när platsen är Till-zon. Låset håller kvar visuell lossning tills ny vikt registreras.
   - Polygonvarning geofence v97: nya och redan sparade polygon-geofence kontrolleras för punktordning, korsande linjer, dubbla punkter och orimlig form utan att appen flyttar punkterna automatiskt.
   - Lagringskontroll v98: Inställningar visar hur mycket data som är sparad lokalt och delar upp huvuddata, historik, kö, papperskorg, GPS, geofence, kartcache och kvittohistorik. Funktionen är läsande och får inte rensa, ändra eller flytta data.
+  - Visuell återkomst till Från-plats v99: Om ett aktivt uppdrag först lämnat Från-geofence och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav. Funktionen är endast visuell och får inte trycka Lasta, Ange vikt eller Klart.
   - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
@@ -1744,7 +1746,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-98</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-99</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -3073,10 +3075,76 @@ function getObservedTransportStartSummary(job){
   return activeMonitorDateTime(ts) + ' · källa=' + source + (zone ? ' · zon=' + zone : '');
 }
 
+
+function hasConfirmedFromGeofenceDeparture(job){
+  if(!job) return false;
+  const visual = job.geofenceVisual && typeof job.geofenceVisual === 'object' ? job.geofenceVisual : null;
+  if(Number(job.observedTransportStartAt || 0) > 0) return true;
+  if(Number(job.estimatedTransportStartObservedAt || 0) > 0) return true;
+  if(visual){
+    if(Number(visual.confirmedTransportAt || 0) > 0) return true;
+    if(visual.status === 'transport' && visual.hasConfirmedInside === true) return true;
+  }
+  return false;
+}
+
+function getReturnToFromVisualLabel(job){
+  return getJobReturnRequiredValue(job) ? 'Returlossning' : 'Tillbaka vid Från-plats';
+}
+
+function isReturnToFromObservationPhase(job){
+  if(!job || !isTransportPhaseTrackingAllowed(job)) return false;
+  initializeTransportPhaseForJob(job);
+  const phase = getTransportPhase(job);
+  return phase === 'returning' || phase === 'load_complete' || phase === 'between_loads';
+}
+
+function isReturnToFromVisualActive(job){
+  const visual = job && job.returnToFromVisual;
+  return !!(visual && (visual.status === 'return_unloading' || visual.status === 'back_at_from'));
+}
+
+function updateReturnToFromGeofenceVisualStatus(job, point, options){
+  if(!job || !point || !isReturnToFromObservationPhase(job)) return;
+  const fromZone = getFromGeofenceForJob(job);
+  if(!fromZone) return;
+  if(!hasConfirmedFromGeofenceDeparture(job)) return;
+  const opts = options || {};
+  const now = Number(opts.now || point.ts || Date.now());
+  const accuracy = Number(opts.accuracyMeters !== undefined ? opts.accuracyMeters : (point.accuracy || 9999));
+  if(!Number.isFinite(accuracy) || accuracy > 120) return;
+  const insideFromReturn = isPointInsideOrNearGeofence(point, fromZone, {accuracyMeters:accuracy});
+  const returnRequired = getJobReturnRequiredValue(job);
+  const activeStatus = returnRequired ? 'return_unloading' : 'back_at_from';
+  const activeLabel = getReturnToFromVisualLabel(job);
+  const previous = job.returnToFromVisual && job.returnToFromVisual.zoneId === fromZone.id ? job.returnToFromVisual : null;
+  if(insideFromReturn){
+    job.returnToFromVisual = {
+      zoneId:fromZone.id || '',
+      zoneName:fromZone.label || '',
+      status:activeStatus,
+      label:activeLabel,
+      enteredAt:(previous && previous.enteredAt) || now,
+      lastGpsAt:now,
+      lastAccuracy:Number.isFinite(accuracy) ? Math.round(accuracy) : null,
+      returnRequired:returnRequired,
+      phase:getTransportPhase(job),
+      note:returnRequired ? 'Tillbaka vid Från-plats under returkrav. Visar returlossning utan att trycka Klart.' : 'Tillbaka vid Från-plats utan returkrav. Visar endast observation utan att trycka Klart.'
+    };
+  } else if(previous){
+    job.returnToFromVisual = Object.assign({}, previous, {
+      status:'outside',
+      lastGpsAt:now,
+      lastAccuracy:Number.isFinite(accuracy) ? Math.round(accuracy) : null,
+      phase:getTransportPhase(job)
+    });
+  }
+}
+
 function updateActiveGeofenceVisualStatus(point, options){
   if(!state.active || !point) return;
   initializeTransportPhaseForJob(state.active);
-  if(getTransportPhase(state.active) !== 'loading') return;
+  const activePhase = getTransportPhase(state.active);
   const opts = options || {};
   const accuracy = Number(point.accuracy || 9999);
   const maxAccuracy = opts.allowLowAccuracy ? 120 : 50;
@@ -3084,6 +3152,7 @@ function updateActiveGeofenceVisualStatus(point, options){
 
   const now = Number(point.ts || Date.now());
 
+  if(activePhase === 'loading'){
   const fromZone = getFromGeofenceForJob(state.active);
   if(fromZone && accuracy <= 50){
     const insideFrom = isPointInsideGeofence(point, fromZone);
@@ -3177,11 +3246,15 @@ function updateActiveGeofenceVisualStatus(point, options){
       }
     }
   }
+  }
+
+  updateReturnToFromGeofenceVisualStatus(state.active, point, {now, accuracyMeters:accuracy, phase:activePhase});
 }
 
 function clearActiveGeofenceVisualStatus(job){
   if(job && job.geofenceVisual) delete job.geofenceVisual;
   if(job && job.toGeofenceVisual) delete job.toGeofenceVisual;
+  if(job && job.returnToFromVisual) delete job.returnToFromVisual;
   if(job){
     delete job.unloadingLockActive;
     delete job.unloadingLockZoneId;
@@ -3210,6 +3283,11 @@ function getActivePhaseVisualState(job){
   const zone = getFromGeofenceForJob(job);
   const visual = job.geofenceVisual || null;
   const toVisual = job.toGeofenceVisual || null;
+  const returnToFromVisual = job.returnToFromVisual || null;
+
+  if(returnToFromVisual && (returnToFromVisual.status === 'return_unloading' || returnToFromVisual.status === 'back_at_from')){
+    return {label:returnToFromVisual.label || getReturnToFromVisualLabel(job), className:'phase-unloading', disabled:true};
+  }
 
   if(phase === 'loading'){
     if(toVisual && toVisual.status === 'unloading'){
@@ -6458,8 +6536,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-98';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v98';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-99';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v99';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6478,7 +6556,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v95 Geofence observerad transportstart för ETA',
   'v96 Geofence lossningslås och dynamisk Från/Till-roll',
   'v97 Polygonvarning för nya och befintliga geofence',
-  'v98 Lagringskontroll / sparad data'
+  'v98 Lagringskontroll / sparad data',
+  'v99 Visuell återkomst till Från-plats'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -6605,6 +6684,7 @@ function getActiveMonitorSnapshot(){
     gpsQuality: job ? (getRouteGpsQuality(job) || '-') : '-',
     geofenceVisual: job ? (job.geofenceVisual || null) : null,
     toGeofenceVisual: job ? (job.toGeofenceVisual || null) : null,
+    returnToFromVisual: job ? (job.returnToFromVisual || null) : null,
     unloadingLockState: job ? getGeofenceUnloadingLockState(job) : null,
     unloadingLockLastReleasedAt: job ? Number(job.unloadingLockLastReleasedAt || 0) : 0,
     unloadingLockLastReleasedZone: job ? activeMonitorSafe(job.unloadingLockLastReleasedZoneName || job.unloadingLockLastReleasedZoneId, '-') : '-',
@@ -6733,6 +6813,13 @@ function getActiveMonitorChecks(snapshot){
     info('GEOFENCE-OV-006', 'Inget lossningslås aktivt', 'Lossningslås aktiveras bara när aktivt uppdrag når Till-zon där geofence har Lossningslås=Ja.', 'unloadingLockActive=Nej', 'Normalt om Till-zonen saknar Lossningslås eller inte har träffats.', 'v96 Geofence lossningslås', 'toGeofenceVisual=' + (s.toGeofenceVisual ? JSON.stringify(s.toGeofenceVisual) : '-'));
   }
 
+
+  if(s.returnToFromVisual && (s.returnToFromVisual.status === 'return_unloading' || s.returnToFromVisual.status === 'back_at_from')){
+    ok('GEOFENCE-OV-009', 'Återkomst till Från-plats observerad', 'När aktivt uppdrag lämnat Från-geofence och senare kommer tillbaka får appen bara visa visuell status.', 'Status=' + activeMonitorSafe(s.returnToFromVisual.label || s.returnToFromVisual.status, '-') + '; zon=' + activeMonitorSafe(s.returnToFromVisual.zoneName || s.returnToFromVisual.zoneId, '-') + '; returkrav=' + activeMonitorBool(s.returnToFromVisual.returnRequired), 'v99 Visuell återkomst till Från-plats', 'returnToFromVisual=' + JSON.stringify(s.returnToFromVisual));
+  } else if(s.returnToFromVisual && s.returnToFromVisual.status === 'outside'){
+    info('GEOFENCE-OV-009', 'Återkomst till Från-plats ej aktiv just nu', 'Returlossning/Tillbaka vid Från-plats visas bara när GPS är i eller nära Från-zonen efter bekräftad utresa.', 'Senaste status=outside; zon=' + activeMonitorSafe(s.returnToFromVisual.zoneName || s.returnToFromVisual.zoneId, '-'), 'Normalt efter att fordonet lämnat Från-zonen igen eller vid svajig GPS.', 'v99 Visuell återkomst till Från-plats', 'returnToFromVisual=' + JSON.stringify(s.returnToFromVisual));
+  }
+
   if(s.geofenceVisual && typeof s.geofenceVisual === 'object'){
     if(s.geofenceVisual.status === 'outside_unconfirmed'){
       info('GEOFENCE-OV-002', 'Från-geofence är inte bekräftad', 'Transport pågår ska bara visas efter att uppdraget först varit inne i Från-zon och sedan lämnat den.', 'Zon=' + activeMonitorSafe(s.geofenceVisual.zoneName || s.geofenceVisual.zoneLabel || s.geofenceVisual.label || s.geofenceVisual.zoneId, '-') + '; status=outside_unconfirmed; lastInside=' + activeMonitorBool(s.geofenceVisual.lastInside), 'Normalt vid test hemifrån eller start från annan plats än Från. Geofence ska då inte tolka läget som att Från-zon har lämnats.', 'v91 Från-geofence kräver bekräftad zon / v86-v87 Geofence-register', 'geofenceVisual=' + JSON.stringify(s.geofenceVisual));
@@ -6804,6 +6891,7 @@ function getActiveMonitorEvents(snapshot){
   push(job.smartMapAttemptedAt, 'Kartanrop/uppskattning försökte köras');
   push(job.smartMapCalculatedAt, 'Kartanrop/uppskattning beräknades');
   if(job.geofenceVisual) push(job.geofenceVisual.detectedAt || job.geofenceVisual.startedAt || job.geofenceVisual.phaseStartedAt, 'Geofence visuell status uppdaterad');
+  if(job.returnToFromVisual) push(job.returnToFromVisual.enteredAt || job.returnToFromVisual.lastGpsAt, 'Återkomst till Från-plats observerad');
   push(job.unloadingLockStartedAt, 'Lossningslås aktiverat vid Till-zon');
   push(job.unloadingLockLastReleasedAt, 'Lossningslås släppt vid vikt');
   const rec = getRouteGps(job);
@@ -6900,6 +6988,7 @@ function buildActiveMonitorReport(){
   report.push('GEOFENCE');
   report.push('Geofence visuell status: ' + (s.geofenceVisual ? JSON.stringify(s.geofenceVisual) : 'saknas'));
   report.push('Till-geofence visuell status: ' + (s.toGeofenceVisual ? JSON.stringify(s.toGeofenceVisual) : 'saknas'));
+  report.push('Återkomst Från-plats visuell status: ' + (s.returnToFromVisual ? JSON.stringify(s.returnToFromVisual) : 'saknas'));
   report.push('Lossningslås aktivt: ' + activeMonitorBool(!!s.unloadingLockState));
   report.push('Lossningslås zon: ' + (s.unloadingLockState ? activeMonitorSafe(s.unloadingLockState.zoneName || s.unloadingLockState.zoneId, '-') : '-'));
   report.push('Lossningslås startade: ' + (s.unloadingLockState ? activeMonitorDateTime(s.unloadingLockState.startedAt) : '-'));
@@ -7180,6 +7269,7 @@ function buildActiveMonitorEndReport(job, completedFrom){
   lines.push('');
   lines.push('GEOFENCE / RUTT');
   lines.push('Geofence visuell status: ' + (job && job.geofenceVisual ? JSON.stringify(job.geofenceVisual) : 'saknas'));
+  lines.push('Återkomst Från-plats visuell status: ' + (job && job.returnToFromVisual ? JSON.stringify(job.returnToFromVisual) : 'saknas'));
   lines.push('Observerad transportstart: ' + getObservedTransportStartSummary(job));
   lines.push('Ruttavvikelse: ' + activeMonitorSafe(job && (job.routeDeviation || job.routeDeviationStatus || job.routeDeviationWarning), 'saknas'));
   lines.push('Geofence styrde inte fasdata: kontroll enligt appregel, se RULE-END-OV-001');
@@ -7293,7 +7383,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-98';
+const APP_VERSION = 'Stadslass v2026-05-07-01-99';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -7399,6 +7489,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Geofence lossningslås v96', status:'Stabiliseringsfix', purpose:'Geofence får egenskapen Lossningslås. När samma platsgeofence används som Till-zon kan visuell lossning/invägning hållas kvar tills ny vikt registreras.', changeRule:'Får bara påverka geofence-egenskap, visuell Till-zonstatus och övervakning. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, historik, sammanställning eller tidsinlärning.'},
   {name:'Polygonvarning geofence v97', status:'Stabiliseringsfix', purpose:'Nya och befintliga polygon-geofence kontrolleras för punktordning, korsande linjer, dubbla punkter och orimlig form. Varning visas i geofence-registret och vid sparning.', changeRule:'Får bara varna och visa kontrollstatus. Appen får inte flytta punkter automatiskt och får inte påverka Lasta, Ange vikt, Klart, GPS-inspelning, lossningslås, transportstart, historik, sammanställning eller tidsinlärning.'},
   {name:'Lagringskontroll v98', status:'Aktiv', purpose:'Visar hur mycket data som är sparad lokalt på enheten och delar upp localStorage/appdata på huvuddata, avslutade jobb, kö, papperskorg, GPS, geofence, kartcache, kvittohistorik, register och övriga nycklar.', changeRule:'Får bara läsa och visa lagringsstorlek/status. Får inte rensa, skriva om, komprimera, flytta eller ändra aktivt jobb, kö, historik, papperskorg, GPS-data, geofence, kartcache, kvittohistorik, sammanställning eller tidsinlärning.'},
+  {name:'Visuell återkomst till Från-plats v99', status:'Aktiv', purpose:'När ett aktivt uppdrag har bekräftat Från-geofence, lämnat zonen och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav.', changeRule:'Får bara påverka visuell status, fasknapp/bottenbakgrund och övervakningsrapport. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, historik, sammanställning, kö eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -7581,6 +7672,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'Startpunkt finns', !!el('activeStartPoint') && fn('requestActiveStartPointAddress') && fn('formatStartPointText'), 'activeStartPoint + adresshämtning');
   addFunctionCheck(results, 'Nivå 1', 'Papperskorg finns', !!el('trashManagerWrap') && fn('moveToTrash') && fn('restoreTrashItem') && fn('emptyTrash'), 'trashManagerWrap + flytta/återställ/töm');
   addFunctionCheck(results, 'Nivå 1', 'Lagringskontroll v98 finns', !!el('storageControlManagerWrap') && !!el('storageControlSummary') && !!el('storageControlBreakdown') && fn('renderStorageControl') && fn('buildStorageControlReportData') && fn('copyStorageControlReport'), 'läser sparad data/localStorage utan att ändra arbetsdata');
+  addFunctionCheck(results, 'Nivå 1', 'Visuell återkomst till Från-plats v99 finns', fn('updateReturnToFromGeofenceVisualStatus') && fn('hasConfirmedFromGeofenceDeparture') && fn('getReturnToFromVisualLabel') && src('getActivePhaseVisualState', 'Returlossning') && src('getActivePhaseVisualState', 'Tillbaka vid Från-plats'), 'läser Från-geofence efter bekräftad utresa och visar returlossning/tillbaka utan att ändra manuella knappar');
   addFunctionCheck(results, 'Nivå 1', 'Online/offline-indikator finns', !!el('connectionStatus') && fn('updateConnectionStatus'), 'connectionStatus');
   addFunctionCheck(results, 'Nivå 1', 'Funktionslista finns', !!el('featureManifestList') && APP_FEATURE_MANIFEST.length >= 20 && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85'), 'featureManifestList + v67-v85-poster');
   addFunctionCheck(results, 'Nivå 1', 'Kartförberedelse platsdatabas finns', typeof PLACE_MAP_DATA === 'object' && fn('getPlaceCoordinates') && fn('canUsePlaceForMapCalculation') && countMapUsablePlaces() >= 10, 'PLACE_MAP_DATA + routebara platser');
@@ -7601,7 +7693,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-98') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-99') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -7612,7 +7704,7 @@ function runFunctionControlChecks(){
   const saldammenQuick = getQuickItems().find(item => item && item.id === 'quick_saldammen_sopsand');
   addFunctionCheck(results, 'Nivå 2', 'Säldammen visas under Slottskogen men sparas separat', !!saldammenQuick && saldammenQuick.group === 'Slottskogen' && saldammenQuick.subGroup === 'Säldammen' && saldammenQuick.place === 'Säldammen' && saldammenQuick.dest === 'Sortera Torslanda', saldammenQuick ? (saldammenQuick.group + ' / ' + saldammenQuick.subGroup + ' / Från ' + saldammenQuick.place + ' / Till ' + saldammenQuick.dest) : 'snabbval saknas');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv nedräkning kopplas vid start men styr inte Klart', src('startJob', 'applyEstimatedCountdownAtStart') && src('renderActive', 'renderActiveEstimateCountdown') && !src('stopJob', 'estimatedEndAt'), 'startJob + renderActive; Klart blockerar inte på nedräkning');
-  addFunctionCheck(results, 'Nivå 2', 'Fasknappens visuella lägen finns', fn('getActivePhaseVisualState') && src('getActivePhaseVisualState', 'Lastning/rangering') && src('getActivePhaseVisualState', 'Transport pågår') && src('getActivePhaseVisualState', 'Lossning') && src('getActivePhaseVisualState', 'Lass registrerat') && src('getActivePhaseVisualState', 'Retur pågår'), 'Lastar/Lastning, Transport, Lossning, Lass registrerat och Retur pågår');
+  addFunctionCheck(results, 'Nivå 2', 'Fasknappens visuella lägen finns', fn('getActivePhaseVisualState') && src('getActivePhaseVisualState', 'Lastning/rangering') && src('getActivePhaseVisualState', 'Transport pågår') && src('getActivePhaseVisualState', 'Lossning') && src('getActivePhaseVisualState', 'Lass registrerat') && src('getActivePhaseVisualState', 'Retur pågår') && src('getActivePhaseVisualState', 'Returlossning') && src('getActivePhaseVisualState', 'Tillbaka vid Från-plats'), 'Lastar/Lastning, Transport, Lossning, Returlossning, Tillbaka vid Från-plats, Lass registrerat och Retur pågår');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv bottenbakgrund v65 finns', fn('updateActivePhaseBackground') && src('updateActivePhaseBackground', 'phase-loading-bg') && src('updateActivePhaseBackground', 'phase-transport-bg') && src('updateActivePhaseBackground', 'phase-unloading-bg') && src('renderActiveTransportPhaseControl', 'updateActivePhaseBackground'), 'body-bakgrund följer fasknappens visuella lägen');
   addFunctionCheck(results, 'Nivå 2', 'Retur orange bottenbakgrund v71 finns', fn('updateActivePhaseBackground') && src('updateActivePhaseBackground', 'Retur pågår') && src('updateActivePhaseBackground', 'phase-return-bg'), 'Retur pågår har egen färggrupp med orange standard');
   addFunctionCheck(results, 'Nivå 2', 'Startsträcka orange bottenbakgrund v74 finns', fn('isActiveStartLegVisualTransport') && src('updateActivePhaseBackground', 'isActiveStartLegVisualTransport') && src('updateActivePhaseBackground', 'phase-start-bg'), 'startfas med startsträcka använder egen färggrupp med orange standard utan extra text');
@@ -7775,7 +7867,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-98') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-98'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-99') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-99'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -7830,7 +7922,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
     systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
-    systemCheck('Funktionskontroll v67-v98', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Visuell återkomst till Från-plats v99', typeof updateReturnToFromGeofenceVisualStatus === 'function' && typeof getReturnToFromVisualLabel === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Returlossning') && functionSourceIncludes('getActivePhaseVisualState', 'Tillbaka vid Från-plats') && functionSourceIncludes('updateActivePhaseBackground', 'Returlossning'), 'visar Returlossning/Tillbaka vid Från-plats utan att trycka manuella knappar'),
+    systemCheck('Funktionskontroll v67-v99', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -12101,6 +12194,7 @@ function resetTransportPhaseForRestart(job){
   delete job.observedTransportNote;
   delete job.estimatedTransportStartObservedAt;
   delete job.estimatedTransportStartSource;
+  delete job.returnToFromVisual;
   delete job.multiLoadJob;
   delete job.canBeMultiLoad;
   job.transportPhase = isTransportPhaseTrackingAllowed(job) ? 'start' : '';
@@ -12131,6 +12225,9 @@ function getActiveLoadPhaseText(job){
   const phase = getTransportPhase(job);
   const returnRequired = getJobReturnRequiredValue(job);
   const multiLoadMode = isMultiLoadLearningMode(job);
+  if(isReturnToFromVisualActive(job)){
+    return returnRequired ? 'Returlossning observerad vid Från-plats. Tryck Klart själv när uppdraget faktiskt är klart.' : 'Tillbaka vid Från-plats observerad. Detta är bara visuell status – tryck Klart själv om uppdraget är klart.';
+  }
   if(phase === 'loading'){
     const toVisual = job.toGeofenceVisual || {};
     if(toVisual.status === 'unloading') return (toVisual.unloadingLockActive ? 'Lossningslås aktivt vid Till-plats. Visuell lossning hålls kvar tills ny vikt registreras.' : 'Lossning pågår vid Till-plats. Ange vikt är fortfarande manuell mätpunkt när lasset är lossat/vägt.');
@@ -12180,7 +12277,7 @@ function updateActivePhaseBackground(visualState){
     document.body.classList.add('phase-transport-bg');
   } else if(label === 'Retur pågår'){
     document.body.classList.add('phase-return-bg');
-  } else if(label === 'Lossning'){
+  } else if(label === 'Lossning' || label === 'Returlossning' || label === 'Tillbaka vid Från-plats'){
     document.body.classList.add('phase-unloading-bg');
   } else if(label === 'Lass registrerat'){
     document.body.classList.add('phase-complete-bg');
