@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-101
+- Nuvarande version: Stadslass v2026-05-07-01-102
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -43,6 +43,7 @@ Stadslass versionskontroll
 - v99: Visuell återkomst till Från-plats visar Returlossning vid returkrav och Tillbaka vid Från-plats utan returkrav när uppdraget lämnat Från-geofence och senare träffar samma Från-zon igen.
 - v100: Historik kalender visar importerade kvittorader tillsammans med avslutade jobb, markerar datum med kvitton och håller kvittorader separata från vanliga uppdrag.
 - v101: Badplatser får egen grupp längst ner i Hantera platser och kopplas som Havstång-platser utan att blandas in i vanliga platslistan.
+- v102: Androids bakåtknapp hanteras som intern appnavigering: stäng modal, stäng inställningspanel, gå till Huvudmeny och dubbeltryck för att lämna appen.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -130,6 +131,7 @@ Stadslass versionskontroll
   - Visuell återkomst till Från-plats v99: Om ett aktivt uppdrag först lämnat Från-geofence och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav. Funktionen är endast visuell och får inte trycka Lasta, Ange vikt eller Klart.
   - Historik kalender kvittorader v100: Historik kalender ska visa både vanliga avslutade jobb och importerade kvittorader. Kvittorader ska markeras som importerade kvittorader och får inte hanteras som vanliga GPS-/tidsinlärningsuppdrag.
   - Badplatser v101: Hantera platser har en separat Badplatser-grupp för jobbtyp Havstång. Badplatser är vanliga fysiska platser med adress/Plus Code, platskrav och jobbtypkoppling, men visas i egen grupp i platsregistret.
+  - Android bakåtknapp v102: Androids bakåtknapp ska backa internt i appen: först stänga öppna rutor/modaler, sedan stänga öppen inställningspanel, sedan gå från Inställningar/Kö/Idag/Nytt jobb till Huvudmeny. Från Huvudmeny krävs dubbeltryck för att lämna appen. Funktionen får inte ändra jobbdata, GPS, geofence, historik, kö, kvittoimport, sammanställning eller tidsinlärning.
   - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
@@ -1418,6 +1420,30 @@ button{
 .history-receipt-badge{display:inline-flex;align-items:center;border:1px solid #93c5fd;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:13px;font-weight:900;padding:6px 10px;margin:4px 6px 0 0}
 /* TEMP RECEIPT IMPORT MODULE END */
 
+.app-back-toast{
+  position:fixed;
+  left:50%;
+  bottom:24px;
+  transform:translateX(-50%);
+  z-index:100000;
+  max-width:min(92vw,520px);
+  padding:12px 16px;
+  border-radius:999px;
+  background:#0f172a;
+  color:#fff;
+  font-size:15px;
+  font-weight:800;
+  text-align:center;
+  box-shadow:0 8px 22px rgba(15,23,42,.28);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease;
+}
+.app-back-toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(-4px);
+}
+
 </style>
 </head>
 <body>
@@ -1752,7 +1778,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-101</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-102</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -6595,8 +6621,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-101';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v101';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-102';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v102';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6618,7 +6644,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v98 Lagringskontroll / sparad data',
   'v99 Visuell återkomst till Från-plats',
   'v100 Historik kalender visar importerade kvittorader',
-  'v101 Badplatser för Havstång'
+  'v101 Badplatser för Havstång',
+  'v102 Android bakåtknapp / intern appnavigering'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -7444,7 +7471,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-101';
+const APP_VERSION = 'Stadslass v2026-05-07-01-102';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -7553,6 +7580,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Visuell återkomst till Från-plats v99', status:'Aktiv', purpose:'När ett aktivt uppdrag har bekräftat Från-geofence, lämnat zonen och senare kommer tillbaka till samma Från-zon visas Returlossning vid returkrav eller Tillbaka vid Från-plats utan returkrav.', changeRule:'Får bara påverka visuell status, fasknapp/bottenbakgrund och övervakningsrapport. Får inte trycka Lasta, Ange vikt eller Klart och får inte ändra fasdata, vikt, GPS-inspelning, historik, sammanställning, kö eller tidsinlärning.'},
   {name:'Historik kalender visar kvittorader v100', status:'Aktiv', purpose:'Historik kalender läser både avslutade jobb och importerade kvittorader så kvitton markeras på rätt datum och visas i datumlistan/sökresultat.', changeRule:'Får bara visa och söka kvittorader i historikkalendern. Kvittorader får inte bli vanliga GPS-/fas-/tidsinlärningsuppdrag och får inte överföras, redigeras eller raderas som avslutade jobb.'},
   {name:'Badplatser för Havstång v101', status:'Aktiv', purpose:'Hantera platser har en separat Badplatser-grupp för jobbtyp Havstång. Badplatser är vanliga fysiska platser men visas och skapas i egen grupp.', changeRule:'Får bara påverka platsregistret, platslistor och Havstång-koppling. Får inte ändra aktivt jobb, GPS, geofence, historik, kvittoimport, sammanställning eller tidsinlärning.'},
+  {name:'Android bakåtknapp v102', status:'Aktiv', purpose:'Androids bakåtknapp används som intern appnavigering: stänger först modal, sedan inställningspanel, sedan går tillbaka till Huvudmeny och kräver dubbeltryck för att lämna appen.', changeRule:'Får bara påverka visning/navigering. Får inte ändra aktivt jobb, kö, historik, GPS, geofence, kvittoimport, sammanställning, vikt, fasdata eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -7756,7 +7784,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-101') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-102') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Android bakåtknapp v102'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -7793,6 +7821,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', src('renderHistoryManager', 'getHistoryCalendarJobsForDisplay') && src('renderToday', 'getFinishedJobsForUnderlag'), 'historik använder samlat visningsunderlag, Idag använder avslutade jobb');
   addFunctionCheck(results, 'Nivå 2', 'Historik kalender visar kvittorader v100', fn('getHistoryCalendarJobsForDisplay') && src('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && fn('renderHistoryReceiptJobCard') && src('renderHistoryManager', 'getHistoryDateSubLabel') && src('renderHistoryReceiptJobCard', 'Importerad kvittorad'), 'historik kalender visar och söker importerade kvittorader utan vanlig uppdragslogik');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser för Havstång v101 finns', !!el('newManagedBeachPlaceName') && !!el('beachPlaceManagerList') && fn('addManagedBeachPlace') && fn('renderBeachPlaceManager') && fn('getBeachPlaceEntries') && src('addManagedBeachPlace', "category:'badplats'") && src('addManagedBeachPlace', 'Havstång'), 'badplatser ligger i egen platsgrupp och kopplas till Havstång');
+  addFunctionCheck(results, 'Nivå 2', 'Android bakåtknapp v102 finns', fn('initializeAppBackNavigation') && fn('handleAppBackNavigation') && fn('handleAppBackStep') && fn('closeTopOpenAppModal') && fn('closeOpenSettingsPanel') && src('handleAppBackStep', "showTab('snabb'") && src('handleAppBackNavigation', 'Tryck bakåt igen för att lämna Stadslass'), 'bakåt stänger modal/panel, går till Huvudmeny och dubbeltryck lämnar appen');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkert underlag', fn('buildFinishedTransferPayload') && src('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport finns men påverkar inte GPS/tid', !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && fn('normalizeImportedReceiptRow') && src('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'kvittoimport skapar historiska sammanställningsrader');
@@ -7932,7 +7961,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-101') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-101'), APP_VERSION),
+    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-102') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-102'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -7988,9 +8017,10 @@ function buildSystemControlInternalChecks(){
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
     systemCheck('Historik kalender kvittorader v100', typeof getHistoryCalendarJobsForDisplay === 'function' && typeof renderHistoryReceiptJobCard === 'function' && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && functionSourceIncludes('renderHistoryManager', 'getHistoryDateSubLabel'), 'historik kalender läser importerade kvittorader tillsammans med avslutade jobb'),
     systemCheck('Badplatser för Havstång v101', !!document.getElementById('newManagedBeachPlaceName') && !!document.getElementById('beachPlaceManagerList') && typeof addManagedBeachPlace === 'function' && typeof renderBeachPlaceManager === 'function' && typeof getBeachPlaceEntries === 'function' && functionSourceIncludes('addManagedBeachPlace', "category:'badplats'") && functionSourceIncludes('getManageablePlaces', "category !== 'badplats'"), 'badplatser har egen grupp i Hantera platser och kopplas till Havstång'),
+    systemCheck('Android bakåtknapp v102', typeof initializeAppBackNavigation === 'function' && typeof handleAppBackNavigation === 'function' && typeof handleAppBackStep === 'function' && functionSourceIncludes('handleAppBackStep', "showTab('snabb'") && functionSourceIncludes('handleAppBackNavigation', 'Tryck bakåt igen för att lämna Stadslass'), 'intern appnavigering styr Android bakåtknapp utan att ändra arbetsdata'),
     systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
     systemCheck('Visuell återkomst till Från-plats v99', typeof updateReturnToFromGeofenceVisualStatus === 'function' && typeof getReturnToFromVisualLabel === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Returlossning') && functionSourceIncludes('getActivePhaseVisualState', 'Tillbaka vid Från-plats') && functionSourceIncludes('updateActivePhaseBackground', 'Returlossning'), 'visar Returlossning/Tillbaka vid Från-plats utan att trycka manuella knappar'),
-    systemCheck('Funktionskontroll v67-v101', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v102', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -8054,8 +8084,10 @@ async function runSystemControlWithMaps(){
 }
 
 
+const APP_SETTINGS_PANEL_IDS = ['geofenceManagerWrap','activeMonitorWrap','receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','storageControlManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'];
+
 function hideSettingsPanels(exceptId){
-  ['geofenceManagerWrap','activeMonitorWrap','receiptImportManagerWrap','settingsSummaryWrap','historyManagerWrap','trashManagerWrap','cleanupManagerWrap','storageControlManagerWrap','systemControlManagerWrap','gpsTestManagerWrap','mapKeyManagerWrap','functionControlManagerWrap','backupManagerWrap','queueTransferManagerWrap','finishedTransferManagerWrap','jobTypeManagerWrap','machineManagerWrap','quickManagerWrap','placeManagerWrap'].forEach(panelId => {
+  APP_SETTINGS_PANEL_IDS.forEach(panelId => {
     if(panelId === exceptId) return;
     const panel = document.getElementById(panelId);
     if(panel) panel.classList.add('hidden');
@@ -8085,6 +8117,7 @@ function toggleSettingsPanel(panelId, onShow){
   } else {
     wrap.classList.add('hidden');
   }
+  if(typeof refreshAppBackGuard === 'function') refreshAppBackGuard();
 }
 
 
@@ -11276,9 +11309,129 @@ function scrollToActiveJobTop(){
   }
 }
 
-function showTab(tab){
+
+let appCurrentTab = 'snabb';
+let appBackNavigationReady = false;
+let appBackExitArmedAt = 0;
+let appBackToastTimerId = null;
+let appAllowBrowserBack = false;
+
+function getVisibleAppModal(){
+  const modals = Array.from(document.querySelectorAll('.modal-backdrop.show'));
+  return modals.length ? modals[modals.length - 1] : null;
+}
+
+function closeTopOpenAppModal(){
+  const modal = getVisibleAppModal();
+  if(!modal) return false;
+  const idName = modal.id || '';
+  if(idName === 'jobDateCalendarModal' && typeof closeJobDateCalendar === 'function') closeJobDateCalendar();
+  else if(idName === 'quickDateCalendarModal' && typeof closeQuickDateCalendar === 'function') closeQuickDateCalendar();
+  else if(idName === 'machineTransportModal' && typeof closeMachineTransport === 'function') closeMachineTransport();
+  else if(idName === 'editJobModal' && typeof closeEditJob === 'function') closeEditJob();
+  else if(idName === 'editQueueJobModal' && typeof closeEditQueueJob === 'function') closeEditQueueJob();
+  else modal.classList.remove('show');
+  return true;
+}
+
+function getOpenSettingsPanelId(){
+  if(appCurrentTab !== 'settings') return '';
+  for(const panelId of APP_SETTINGS_PANEL_IDS){
+    const panel = document.getElementById(panelId);
+    if(panel && !panel.classList.contains('hidden')) return panelId;
+  }
+  return '';
+}
+
+function closeOpenSettingsPanel(){
+  const panelId = getOpenSettingsPanelId();
+  if(!panelId) return false;
+  hideSettingsPanels('');
+  return true;
+}
+
+function showAppBackToast(message){
+  const text = String(message || '').trim();
+  if(!text) return;
+  let toast = document.getElementById('appBackToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'appBackToast';
+    toast.className = 'app-back-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add('show');
+  if(appBackToastTimerId) clearTimeout(appBackToastTimerId);
+  appBackToastTimerId = setTimeout(() => {
+    const existing = document.getElementById('appBackToast');
+    if(existing) existing.classList.remove('show');
+  }, 1800);
+}
+
+function refreshAppBackGuard(){
+  if(!appBackNavigationReady || appAllowBrowserBack) return;
+  try{
+    if(history && history.state && history.state.stadslassBackGuard) return;
+    history.pushState({stadslassBackGuard:true}, document.title, location.href);
+  }catch(e){}
+}
+
+function handleAppBackStep(){
+  if(closeTopOpenAppModal()) return true;
+  if(closeOpenSettingsPanel()) return true;
+  if(appCurrentTab !== 'snabb'){
+    showTab('snabb', {fromBack:true});
+    return true;
+  }
+  return false;
+}
+
+function handleAppBackNavigation(event){
+  if(!appBackNavigationReady || appAllowBrowserBack) return;
+  const handled = handleAppBackStep();
+  if(handled){
+    appBackExitArmedAt = 0;
+    refreshAppBackGuard();
+    return;
+  }
+
+  const now = Date.now();
+  if(now - appBackExitArmedAt < 2000){
+    appAllowBrowserBack = true;
+    try{
+      const toast = document.getElementById('appBackToast');
+      if(toast) toast.classList.remove('show');
+    }catch(e){}
+    setTimeout(() => {
+      try{ history.back(); }catch(e){}
+    }, 0);
+    return;
+  }
+
+  appBackExitArmedAt = now;
+  showAppBackToast('Tryck bakåt igen för att lämna Stadslass');
+  refreshAppBackGuard();
+}
+
+function initializeAppBackNavigation(){
+  if(appBackNavigationReady) return;
+  if(typeof window === 'undefined' || !window.history || typeof history.pushState !== 'function') return;
+  try{
+    history.replaceState({stadslassBackBase:true}, document.title, location.href);
+    history.pushState({stadslassBackGuard:true}, document.title, location.href);
+    window.addEventListener('popstate', handleAppBackNavigation);
+    appBackNavigationReady = true;
+  }catch(e){
+    appBackNavigationReady = false;
+  }
+}
+
+function showTab(tab, options){
+  const opts = options || {};
   ['snabb','nytt','ko','idag','settings'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
   document.getElementById('tab-'+tab).classList.remove('hidden');
+  appCurrentTab = tab;
 
   const isSettings = tab === 'settings';
   const activeCard = document.getElementById('activeJobCard');
@@ -11298,6 +11451,8 @@ function showTab(tab){
   if(isSettings){
     hideSettingsPanels('');
   }
+
+  if(!opts.fromBack && typeof refreshAppBackGuard === 'function') refreshAppBackGuard();
 }
 
 function isOtherWorkJob(job){
@@ -16633,6 +16788,7 @@ initializeHistoryControls();
 renderReceiptHistory();
 setQuickMode('start');
 showTab('snabb');
+initializeAppBackNavigation();
 render();
 
 function saveActiveComment(){
