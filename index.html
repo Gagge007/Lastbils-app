@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v2026-05-07-01-106
+- Nuvarande version: Stadslass v107
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -48,6 +48,7 @@ Stadslass versionskontroll
 - v104: Historik kalender hårdspärrar råa Övrig verksamhet-poster i kalenderlistan. Före rendering normaliseras både dagsetikett och kortlista så ÖV alltid visas som en enda dagsrad per datum.
 - v105: Geofence-inställningar delar upp registret i Vanliga geofence och Badplats-geofence på samma sätt som Hantera platser. Badplatser kan väljas och redigeras utan att geofence-logiken ändras.
 - v106: Geofence-formuläret kan manuellt hämta latitud/longitud från vald plats fasta koordinater eller adress/Plus Code för både vanliga platser och badplatser. Fälten låses inte och geofence sparas först när användaren trycker Spara geofence.
+- v107: Geofence-formuläret rensar latitud/longitud/radie/tolerans vid ny eller bytt plats om det inte finns en egen sparad geofence. Ringön används inte längre som dold standard i fälten och versionsnamnet förenklas till Stadslass vXXX.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -137,6 +138,7 @@ Stadslass versionskontroll
   - Badplatser v101: Hantera platser har en separat Badplatser-grupp för jobbtyp Havstång. Badplatser är vanliga fysiska platser med adress/Plus Code, platskrav och jobbtypkoppling, men visas i egen grupp i platsregistret.
   - Badplatser i Geofence v105: Geofence-registret har egen Badplats-geofence-grupp och platsväljaren visar badplatser separat, utan att ändra GPS-, fas- eller geofenceberäkning.
   - Geofence koordinathämtning v106: Geofence-formuläret har manuell knapp för att hämta centrumkoordinat från vald plats fasta koordinater eller adress/Plus Code för vanliga platser och badplatser. Hämtningen fyller bara i redigerbara fält och sparar inte geofence automatiskt.
+  - Geofencefält rensas v107: Ny eller bytt geofence-plats visar tomma koordinatfält om platsen saknar egen sparad geofence. Ringön-värden används inte som dold standard och hämtade koordinater är fortsatt redigerbara.
   - Övrig verksamhet v103: Historik kalender använder samma samlade dagsrad för Övrig verksamhet som Idag/export så historiska dagar inte visar flera ÖV-poster.
   - Övrig verksamhet v102: Idag och sammanställning/export visar Övrig verksamhet som en samlad dagsrad med total tid och samlade kommentarer, utan klockslag.
   - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
@@ -1761,7 +1763,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v2026-05-07-01-106</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v107</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -1855,7 +1857,7 @@ button{
         <div class="row" style="margin-top:10px">
           <button class="inline" onclick="fillGeofenceCoordinatesFromSelectedPlace()">Hämta koordinat från vald plats</button>
         </div>
-        <div class="multi-help">Hämtar centrumkoordinat från platsens fasta koordinater eller sparade adress/Plus Code. Fälten låses inte och geofence sparas först när du trycker Spara geofence.</div>
+        <div class="multi-help">Hämtar centrumkoordinat från platsens fasta koordinater eller sparade adress/Plus Code. Nya/bytta platser visar tomma fält tills koordinat hämtas eller fylls i. Fälten låses inte och geofence sparas först när du trycker Spara geofence.</div>
         <label style="margin-top:10px">Typ</label>
         <select id="geofenceTypeSelect" onchange="updateGeofenceFormVisibility()">
           <option value="circle">Cirkel</option>
@@ -1869,15 +1871,15 @@ button{
         <div id="geofenceCircleFields" class="quick-edit-grid" style="margin-top:10px">
           <div>
             <label>Latitud</label>
-            <input id="geofenceCircleLat" inputmode="decimal" placeholder="57.719437">
+            <input id="geofenceCircleLat" inputmode="decimal" placeholder="Hämta eller fyll i">
           </div>
           <div>
             <label>Longitud</label>
-            <input id="geofenceCircleLon" inputmode="decimal" placeholder="11.969312">
+            <input id="geofenceCircleLon" inputmode="decimal" placeholder="Hämta eller fyll i">
           </div>
           <div>
             <label>Radie meter</label>
-            <input id="geofenceCircleRadius" inputmode="numeric" placeholder="60">
+            <input id="geofenceCircleRadius" inputmode="numeric" placeholder="80">
           </div>
           <div>
             <label>Tolerans meter (valfritt)</label>
@@ -6608,8 +6610,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v2026-05-07-01-106';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v106';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v107';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v107';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6636,12 +6638,16 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v103 Historik kalender samlar Övrig verksamhet',
   'v104 Historik kalender hårdspärrar råa ÖV-poster',
   'v105 Badplatser i Geofence',
-  'v106 Geofence koordinathämtning från plats'
+  'v106 Geofence koordinathämtning från plats',
+  'v107 Geofencefält rensas vid ny/bytt plats'
 ];
 
 function activeMonitorShortVersion(versionText){
-  const match = String(versionText || '').match(/-01-(\d+)/);
-  return match ? 'v' + Number(match[1]) : '-';
+  const text = String(versionText || '');
+  const simple = text.match(/v(\d+)/);
+  if(simple) return 'v' + Number(simple[1]);
+  const legacy = text.match(/-01-(\d+)/);
+  return legacy ? 'v' + Number(legacy[1]) : '-';
 }
 
 function getActiveMonitorCoverageStatus(){
@@ -7462,7 +7468,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v2026-05-07-01-106';
+const APP_VERSION = 'Stadslass v107';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -7576,6 +7582,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Historik kalender hårdspärrar råa ÖV-poster v104', status:'Stabiliseringsfix', purpose:'Historik kalender normaliserar både kalenderunderlag, sökresultat och vald dagslista precis före rendering så råa Övrig verksamhet-poster inte kan visas som separata kort.', changeRule:'Får bara påverka historikkalenderns visningsunderlag och kortlista. Vanliga uppdrag och kvittorader ska fortsatt visas separat.'},
   {name:'Badplatser i Geofence v105', status:'Aktiv', purpose:'Geofence-inställningar visar vanliga geofence och badplatsgeofence i separata grupper, och platsväljaren delar upp vanliga platser och badplatser.', changeRule:'Får bara påverka geofence-registrets gruppering och val av plats i formuläret. Får inte ändra GPS, faslogik, aktivt jobb, geofenceberäkning eller historik.'},
   {name:'Geofence koordinathämtning v106', status:'Aktiv', purpose:'Geofence-formuläret kan manuellt hämta latitud/longitud från vald plats fasta koordinater eller adress/Plus Code för både vanliga platser och badplatser.', changeRule:'Får bara fylla i redigerbara geofencefält efter användarens knapptryck. Får inte låsa geofence, spara automatiskt, ändra GPS/faslogik, aktivt jobb, historik, export eller tidsinlärning.'},
+  {name:'Geofencefält rensas v107', status:'Stabiliseringsfix', purpose:'Geofence-formuläret visar tomma koordinat-, radie- och toleransfält vid ny eller bytt plats om det inte finns en egen sparad geofence. Ringön eller andra gamla värden används inte som dold standard.', changeRule:'Får bara rensa formulärfält och status vid geofence-redigering. Får inte ändra sparade geofence, GPS/faslogik, aktivt jobb, historik, export eller tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -7779,7 +7786,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION.includes('v2026-05-07-01-106') && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('v2026-05-07-01-106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v107' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -7820,6 +7827,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Historik kalender hårdspärrar råa ÖV-poster v104', fn('normalizeHistoryCalendarDisplayJobs') && fn('isHistoryOtherWorkJob') && src('renderHistoryManager', 'normalizeHistoryCalendarDisplayJobs(shownJobs)') && src('getHistoryCalendarJobsForDisplay', 'normalizeHistoryCalendarDisplayJobs') && src('normalizeHistoryCalendarDisplayJobs', 'aggregateOtherWorkRowsByDate'), 'Historik kalender normaliserar råa ÖV-poster precis före rendering');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser i Geofence v105', fn('getStandardGeofenceManageablePlaces') && fn('getBeachGeofenceManageablePlaces') && fn('buildGeofenceManagerRowHtml') && src('getGeofenceManageablePlaces', 'getBeachGeofenceManageablePlaces') && src('fillGeofencePlaceSelect', 'Badplatser') && src('renderGeofenceManager', 'Badplats-geofence'), 'geofence-register och platsväljare delar upp vanliga platser och badplatser');
   addFunctionCheck(results, 'Nivå 2', 'Geofence koordinathämtning v106', !!el('geofencePlaceSelect') && fn('fillGeofenceCoordinatesFromSelectedPlace') && fn('requestGoogleGeocodeForPlaceReference') && fn('applyGeofenceCenterCoordinatesToForm') && src('fillGeofenceCoordinatesFromSelectedPlace', 'getPlaceAddress') && src('fillGeofenceCoordinatesFromSelectedPlace', 'getPlaceCoordinates'), 'manuell koordinathämtning från vald plats till redigerbara cirkelfält');
+  addFunctionCheck(results, 'Nivå 2', 'Geofencefält rensas v107', fn('resetGeofenceCoordinateFields') && src('loadGeofenceFormForPlace', 'getManualGeofenceForPlace(selected)') && !src('loadGeofenceFormForPlace', 'getDefaultStaticGeofenceForPlace(selected)') && src('fillGeofenceCoordinatesFromSelectedPlace', 'resetGeofenceCoordinateFields({clearRadius:true, clearPolygon:false})'), 'ny/bytt geofence-plats använder tomma fält om egen sparad geofence saknas');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser för Havstång v101 finns', !!el('newManagedBeachPlaceName') && !!el('beachPlaceManagerList') && fn('addManagedBeachPlace') && fn('renderBeachPlaceManager') && fn('getBeachPlaceEntries') && src('addManagedBeachPlace', "category:'badplats'") && src('addManagedBeachPlace', 'Havstång'), 'badplatser ligger i egen platsgrupp och kopplas till Havstång');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkert underlag', fn('buildFinishedTransferPayload') && src('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
@@ -7960,7 +7968,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION.includes('v2026-05-07-01-106') && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('v2026-05-07-01-106'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass v107' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v107'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -8020,10 +8028,11 @@ function buildSystemControlInternalChecks(){
     systemCheck('Historik kalender hårdspärrar råa ÖV-poster v104', typeof normalizeHistoryCalendarDisplayJobs === 'function' && typeof isHistoryOtherWorkJob === 'function' && functionSourceIncludes('renderHistoryManager', 'normalizeHistoryCalendarDisplayJobs(shownJobs)') && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'normalizeHistoryCalendarDisplayJobs'), 'historik kalender normaliserar valda poster före kortlistan visas'),
     systemCheck('Badplatser i Geofence v105', typeof getStandardGeofenceManageablePlaces === 'function' && typeof getBeachGeofenceManageablePlaces === 'function' && typeof buildGeofenceManagerRowHtml === 'function' && functionSourceIncludes('fillGeofencePlaceSelect', 'Badplatser') && functionSourceIncludes('renderGeofenceManager', 'Badplats-geofence'), 'geofence-registret delar upp vanliga platser och badplatser'),
     systemCheck('Geofence koordinathämtning v106', typeof fillGeofenceCoordinatesFromSelectedPlace === 'function' && typeof requestGoogleGeocodeForPlaceReference === 'function' && typeof applyGeofenceCenterCoordinatesToForm === 'function' && !!document.querySelector('button[onclick="fillGeofenceCoordinatesFromSelectedPlace()"]'), 'manuell knapp fyller lat/lon från fast koordinat eller adress/Plus Code utan att spara automatiskt'),
+    systemCheck('Geofencefält rensas v107', typeof resetGeofenceCoordinateFields === 'function' && functionSourceIncludes('loadGeofenceFormForPlace', 'const zone = getManualGeofenceForPlace(selected)') && !functionSourceIncludes('loadGeofenceFormForPlace', 'getDefaultStaticGeofenceForPlace(selected)') && functionSourceIncludes('fillGeofenceCoordinatesFromSelectedPlace', 'resetGeofenceCoordinateFields({clearRadius:true, clearPolygon:false})'), 'geofence-formuläret använder tomma fält vid ny/bytt plats och fyller först efter egen sparad geofence eller hämtad koordinat'),
     systemCheck('Badplatser för Havstång v101', !!document.getElementById('newManagedBeachPlaceName') && !!document.getElementById('beachPlaceManagerList') && typeof addManagedBeachPlace === 'function' && typeof renderBeachPlaceManager === 'function' && typeof getBeachPlaceEntries === 'function' && functionSourceIncludes('addManagedBeachPlace', "category:'badplats'") && functionSourceIncludes('getManageablePlaces', "category !== 'badplats'"), 'badplatser har egen grupp i Hantera platser och kopplas till Havstång'),
     systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
     systemCheck('Visuell återkomst till Från-plats v99', typeof updateReturnToFromGeofenceVisualStatus === 'function' && typeof getReturnToFromVisualLabel === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Returlossning') && functionSourceIncludes('getActivePhaseVisualState', 'Tillbaka vid Från-plats') && functionSourceIncludes('updateActivePhaseBackground', 'Returlossning'), 'visar Returlossning/Tillbaka vid Från-plats utan att trycka manuella knappar'),
-    systemCheck('Funktionskontroll v67-v106', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v107', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -15641,29 +15650,43 @@ function pointsToTextarea(points){
   return (points || []).map(pt => Number(pt.lat).toFixed(7).replace(/0+$/,'').replace(/\.$/,'') + ', ' + Number(pt.lon).toFixed(7).replace(/0+$/,'').replace(/\.$/,'')).join('\n');
 }
 
+function resetGeofenceCoordinateFields(options){
+  const opts = options || {};
+  setGeofenceInputValue('geofenceCircleLat', '');
+  setGeofenceInputValue('geofenceCircleLon', '');
+  if(opts.clearRadius !== false) setGeofenceInputValue('geofenceCircleRadius', '');
+  if(opts.clearTolerance !== false) setGeofenceInputValue('geofenceTolerance', '');
+  if(opts.clearPolygon){
+    setGeofenceInputValue('geofencePolygonPoints', '');
+    setGeofenceInputValue('geofencePolygonTolerance', '');
+  }
+}
+
 function loadGeofenceFormForPlace(placeKey){
   fillGeofencePlaceSelect(placeKey);
   const select = document.getElementById('geofencePlaceSelect');
   const selected = placeKey || (select ? select.value : '');
   if(select && selected) select.value = selected;
-  const zone = getManualGeofenceForPlace(selected) || (!isPlaceGeofenceDisabled(selected) ? getDefaultStaticGeofenceForPlace(selected) : null);
+  const zone = getManualGeofenceForPlace(selected);
   const typeEl = document.getElementById('geofenceTypeSelect');
+  resetGeofenceCoordinateFields({clearRadius:true, clearTolerance:true, clearPolygon:true});
   if(zone && zone.type === 'polygon'){
     if(typeEl) typeEl.value = 'polygon';
     setGeofenceInputValue('geofencePolygonPoints', pointsToTextarea(zone.points || []));
     setGeofenceInputValue('geofencePolygonTolerance', zone.toleranceMeters || '');
   } else {
     if(typeEl) typeEl.value = 'circle';
-    const coords = zone && zone.center ? zone.center : (getPlaceCoordinates(selected) || {lat:'', lon:''});
-    setGeofenceInputValue('geofenceCircleLat', coords.lat || '');
-    setGeofenceInputValue('geofenceCircleLon', coords.lon || '');
-    setGeofenceInputValue('geofenceCircleRadius', zone ? (zone.radiusMeters || zone.radius || '') : '60');
-    setGeofenceInputValue('geofenceTolerance', zone ? (zone.toleranceMeters || '') : '');
+    if(zone && zone.center){
+      setGeofenceInputValue('geofenceCircleLat', zone.center.lat || '');
+      setGeofenceInputValue('geofenceCircleLon', zone.center.lon || '');
+      setGeofenceInputValue('geofenceCircleRadius', zone.radiusMeters || zone.radius || '');
+      setGeofenceInputValue('geofenceTolerance', zone.toleranceMeters || '');
+    }
   }
   const lockEl = document.getElementById('geofenceUnloadingLock');
   if(lockEl) lockEl.checked = !!(zone && isGeofenceUnloadingLockEnabled(zone));
   updateGeofenceFormVisibility();
-  setGeofenceFormStatus(zone ? 'Formuläret visar geofence för ' + getPlaceLabel(selected) + '.' : 'Platsen saknar aktivt geofence. Ange värden och spara.', false);
+  setGeofenceFormStatus(zone ? 'Formuläret visar egen sparad geofence för ' + getPlaceLabel(selected) + '.' : 'Fälten är rensade för ' + getPlaceLabel(selected) + '. Hämta koordinat från vald plats eller fyll i latitud/longitud manuellt.', false);
 }
 
 function loadGeofenceFormForSelectedPlace(){
@@ -15674,12 +15697,7 @@ function loadGeofenceFormForSelectedPlace(){
 function clearGeofenceForm(){
   const lockEl = document.getElementById('geofenceUnloadingLock');
   if(lockEl) lockEl.checked = false;
-  setGeofenceInputValue('geofenceCircleLat', '');
-  setGeofenceInputValue('geofenceCircleLon', '');
-  setGeofenceInputValue('geofenceCircleRadius', '');
-  setGeofenceInputValue('geofenceTolerance', '');
-  setGeofenceInputValue('geofencePolygonPoints', '');
-  setGeofenceInputValue('geofencePolygonTolerance', '');
+  resetGeofenceCoordinateFields({clearRadius:true, clearTolerance:true, clearPolygon:true});
   setGeofenceFormStatus('', false);
 }
 
@@ -15738,10 +15756,12 @@ async function fillGeofenceCoordinatesFromSelectedPlace(){
   const select = document.getElementById('geofencePlaceSelect');
   const placeKey = select ? String(select.value || '').trim() : '';
   if(!placeKey){
+    resetGeofenceCoordinateFields({clearRadius:true, clearPolygon:false});
     setGeofenceFormStatus('Välj en plats först.', true);
     return;
   }
   const label = getPlaceLabel(placeKey) || placeKey;
+  resetGeofenceCoordinateFields({clearRadius:true, clearPolygon:false});
   const fixedCoord = getPlaceCoordinates(placeKey);
   if(fixedCoord){
     applyGeofenceCenterCoordinatesToForm(fixedCoord, {defaultRadiusMeters:80});
