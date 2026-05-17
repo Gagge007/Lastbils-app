@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v115
+- Nuvarande version: Stadslass v116
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -57,6 +57,7 @@ Stadslass versionskontroll
 - v113: Havstång till badplats visar visuell geofenceankomst som Framme vid badplats även utan Lastar/vikt. Funktionen påverkar bara visuell status och testsystemen är uppdaterade.
 - v114: Havstång får viktroller. Vikt till badplats/mellankörning sparas som mellankörningsvikt och räknas inte som verklig Bioanläggningsvikt. Vikt till Renova Bioanläggning sparas som verklig/invägd Bioanläggningsvikt och mtrl kod 611.
 - v115: Permanent uppstartsövervakning/watchdog startar tidigt, följer aktuell appversion och visar tydlig felruta om appen fastnar på startskärmen.
+- v116: Uppstartsövervakningen visas diskret på startskärmen med appversion och senaste uppstartssteg. Vid normal start försvinner statusen med splashen; vid fel växlar den till tydlig felsida.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -172,7 +173,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass v115';
+  const version = 'Stadslass v116';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -192,11 +193,42 @@ Stadslass versionskontroll
       .replace(/'/g, '&#39;');
   }
 
+  function getStepText(){
+    const boot = window.STADSLASS_BOOT || {};
+    return boot.currentStep || 'Tidig startvakt laddad';
+  }
+
+  function ensureStartupStatusElement(){
+    let status = document.getElementById('startupWatchdogStatus');
+    if(status) return status;
+    const splash = document.getElementById('appSplashScreen');
+    if(!splash) return null;
+    status = document.createElement('div');
+    status.id = 'startupWatchdogStatus';
+    status.className = 'startup-watchdog-status';
+    splash.appendChild(status);
+    return status;
+  }
+
+  function updateStartupStatus(mode, reason){
+    if(typeof document === 'undefined') return;
+    const status = ensureStartupStatusElement();
+    if(!status) return;
+    const step = getStepText();
+    const cssMode = mode || (completed ? 'ready' : 'running');
+    status.className = 'startup-watchdog-status startup-watchdog-' + cssMode;
+    const main = completed ? 'Uppstartskontroll: app redo' : (cssMode === 'error' ? 'Uppstartskontroll: stoppad' : 'Uppstartskontroll: ' + step);
+    status.innerHTML = '<div class="startup-watchdog-version">' + escapeBoot(version) + '</div>' +
+      '<div class="startup-watchdog-main">' + escapeBoot(main) + '</div>' +
+      (reason ? '<div class="startup-watchdog-detail">' + escapeBoot(reason) + '</div>' : '');
+  }
+
   function mark(step){
     const label = String(step || 'okänt steg');
     steps.push({step:label, at:Date.now()});
     window.STADSLASS_BOOT.currentStep = label;
     window.STADSLASS_BOOT.lastStepAt = Date.now();
+    updateStartupStatus('running');
   }
 
   function buildReport(reason, detail){
@@ -206,6 +238,7 @@ Stadslass versionskontroll
       'STADSLASS UPPSTARTSFEL',
       'Version: ' + version,
       'Watchdog-version: ' + version,
+      'Synlig uppstartskontroll: ja',
       'Tid: ' + nowText(),
       'Efter sekunder: ' + elapsed,
       'Senaste uppstartssteg: ' + currentStep,
@@ -218,6 +251,7 @@ Stadslass versionskontroll
   function showStartupError(reason, detail){
     if(completed || errorShown) return;
     errorShown = true;
+    updateStartupStatus('error', reason || 'Uppstarten stoppade');
     const report = buildReport(reason, detail);
     const render = function(){
       const splash = document.getElementById('appSplashScreen');
@@ -232,7 +266,7 @@ Stadslass versionskontroll
       }
       box.innerHTML = '<h2 style="margin:0 0 10px;color:#7f1d1d">Stadslass kunde inte starta korrekt</h2>' +
         '<p style="font-weight:700;margin:0 0 8px">Appen har stoppat uppstarten för att inte lämna dig på låst startskärm.</p>' +
-        '<div style="background:#fff;border:1px solid #fecaca;border-radius:12px;padding:10px;margin:10px 0"><strong>Version:</strong> ' + escapeBoot(version) + '<br><strong>Senaste steg:</strong> ' + escapeBoot(window.STADSLASS_BOOT.currentStep || '-') + '<br><strong>Orsak:</strong> ' + escapeBoot(reason || 'Timeout/okänt fel') + '</div>' +
+        '<div style="background:#fff;border:1px solid #fecaca;border-radius:12px;padding:10px;margin:10px 0"><strong>Version:</strong> ' + escapeBoot(version) + '<br><strong>Synlig uppstartskontroll:</strong> ja<br><strong>Senaste steg:</strong> ' + escapeBoot(window.STADSLASS_BOOT.currentStep || '-') + '<br><strong>Orsak:</strong> ' + escapeBoot(reason || 'Timeout/okänt fel') + '</div>' +
         '<p style="margin:8px 0"><strong>Gör så här:</strong> starta om sidan. Om felet återkommer, gå tillbaka till senast fungerande version och kopiera rapporten nedan till chatten.</p>' +
         '<textarea readonly style="width:100%;min-height:170px;border:1px solid #fecaca;border-radius:12px;padding:10px;font-family:monospace;font-size:13px;white-space:pre-wrap">' + escapeBoot(report) + '</textarea>';
     };
@@ -244,6 +278,8 @@ Stadslass versionskontroll
   window.STADSLASS_BOOT = {
     version,
     watchdogVersion: version,
+    visibleStatusVersion: version,
+    visibleStatusEnabled: true,
     timeoutMs,
     startedAt,
     steps,
@@ -253,16 +289,19 @@ Stadslass versionskontroll
     mark,
     fail:showStartupError,
     renderError:showStartupError,
+    updateStatus:updateStartupStatus,
     complete:function(step){
       if(step) mark(step);
       completed = true;
       window.STADSLASS_BOOT.completed = true;
       window.STADSLASS_BOOT.completedAt = Date.now();
+      updateStartupStatus('ready');
     },
     buildReport
   };
   mark('Tidig startvakt laddad');
 
+  window.addEventListener('DOMContentLoaded', function(){ updateStartupStatus('running'); });
   window.addEventListener('error', function(event){
     const msg = event && event.message ? event.message : 'JavaScript-fel under uppstart';
     const where = event && event.filename ? (' · ' + event.filename + ':' + (event.lineno || '?')) : '';
@@ -1284,6 +1323,62 @@ button{
   visibility:hidden;
 }
 
+.startup-watchdog-status{
+  position:absolute;
+  left:16px;
+  right:16px;
+  bottom:18px;
+  max-width:680px;
+  margin:0 auto;
+  padding:10px 14px;
+  border:1px solid rgba(255,255,255,.45);
+  border-radius:16px;
+  background:rgba(15,23,42,.72);
+  color:#e2e8f0;
+  font-family:Arial,sans-serif;
+  box-shadow:0 8px 24px rgba(15,23,42,.35);
+  backdrop-filter:blur(4px);
+  line-height:1.25;
+}
+.startup-watchdog-version{
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.02em;
+  opacity:.95;
+}
+.startup-watchdog-main{
+  margin-top:3px;
+  font-size:15px;
+  font-weight:800;
+  overflow-wrap:anywhere;
+}
+.startup-watchdog-detail{
+  margin-top:3px;
+  font-size:13px;
+  font-weight:700;
+  color:#fecaca;
+  overflow-wrap:anywhere;
+}
+.startup-watchdog-ready{
+  background:rgba(20,83,45,.78);
+  border-color:rgba(187,247,208,.7);
+  color:#dcfce7;
+}
+.startup-watchdog-error{
+  background:rgba(127,29,29,.9);
+  border-color:#fecaca;
+  color:#fee2e2;
+}
+@media(max-width:520px){
+  .startup-watchdog-status{
+    left:10px;
+    right:10px;
+    bottom:12px;
+    padding:9px 11px;
+  }
+  .startup-watchdog-main{font-size:14px;}
+}
+
 .connection-status{
   display:inline-flex;
   align-items:center;
@@ -1549,7 +1644,7 @@ button{
 </style>
 </head>
 <body>
-<div id="appSplashScreen" aria-hidden="true"></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass v116</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -1880,7 +1975,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v115</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v116</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -7047,7 +7142,7 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v115';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v116';
 const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v115';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
@@ -7917,7 +8012,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v115';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v116';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -7931,6 +8026,9 @@ function getStartupWatchdogStatus(){
     ok,
     current,
     watchdogVersion: boot ? String(boot.watchdogVersion || boot.version || '') : 'saknas',
+    visibleStatusVersion: boot ? String(boot.visibleStatusVersion || '') : 'saknas',
+    visibleStatusEnabled: !!(boot && boot.visibleStatusEnabled === true),
+    visibleStatusElementExists: !!document.getElementById('startupWatchdogStatus'),
     completed: !!(boot && boot.completed),
     currentStep: boot ? String(boot.currentStep || '') : 'saknas',
     steps: boot && Array.isArray(boot.steps) ? boot.steps.map(item => item.step || '').filter(Boolean) : []
@@ -8058,6 +8156,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Havstång geofenceankomst badplats v113', status:'Stabiliseringsfix', purpose:'Havstång där Till är badplats kan visa Framme vid badplats från Till-geofence även utan Lastar/vikt-flöde.', changeRule:'Får bara påverka visuell geofence-/fasknappsstatus och hjälptext för Havstång till badplats. Får inte trycka Lastar, Ange vikt eller Klart och får inte ändra viktkrav, GPS-inspelning, historik, export eller tidsinlärning.'},
   {name:'Havstång viktroller v114', status:'Aktiv', purpose:'Havstångsvikt till badplats/mellankörning märks som mellankörningsvikt och vikt till Renova Bioanläggning märks som verklig/invägd Bioanläggningsvikt. Endast Bioanläggningsvikt räknas som sammanställningsvikt.', changeRule:'Får bara påverka viktmetadata, visning och export/sammanställning för Havstång. Får inte ändra GPS, geofence, faslogik, Klart-regler, Övrig verksamhet eller Android-bakåtlogik.'},
   {name:'Permanent uppstartsövervakning v115', status:'Skyddad', purpose:'Startar mycket tidigt och visar en tydlig felruta med appversion, senaste uppstartssteg, trolig orsak och kopierbar rapport om appen fastnar på startskärmen.', changeRule:'Ska följa aktuell APP_VERSION vid varje ny version och ingå i funktionskontroll, systemkontroll och aktiv övervakning. Får inte ändra arbetsdata, GPS, geofence, vikt, faslogik eller localStorage-nyckel.'},
+  {name:'Synlig uppstartskontroll v116', status:'Skyddad', purpose:'Visar diskret appversion och senaste uppstartssteg på startskärmen så watchdog syns vid normal uppstart och växlar till tydlig felsida vid fel.', changeRule:'Ska följa aktuell APP_VERSION vid varje ny version och ingå i funktionskontroll, systemkontroll och aktiv övervakning. Får inte ändra arbetsdata, GPS, geofence, vikt, faslogik eller localStorage-nyckel.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -8261,7 +8360,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v115' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v116' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -8311,6 +8410,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Havstång viktroller v114', fn('recordSeaweedWeightEntry') && fn('ensureSeaweedWeightMetadata') && fn('getSeaweedTransportWeight') && fn('getSeaweedFinalBioWeight') && getSeaweedWeightRoleForJob({type:'Havstång', dest:'Renova Bioanläggning'}) === 'verklig_bioanlaggning' && getSeaweedWeightRoleForJob({type:'Havstång', dest:(getBeachPlaceEntries()[0] && getBeachPlaceEntries()[0].key) || 'badplats_test'}) !== 'verklig_bioanlaggning' && src('getSummaryRowWeight', 'getSeaweedFinalBioWeight') && src('buildExcelWorkbookXml', 'Mellankörningsvikt ton'), 'Havstång export/sammanställning skiljer mellankörningsvikt från verklig Bioanläggningsvikt');
   const startupWatchdogStatus = getStartupWatchdogStatus();
   addFunctionCheck(results, 'Nivå 2', 'Permanent uppstartsövervakning v115', startupWatchdogStatus.ok && startupWatchdogStatus.current === APP_VERSION && startupWatchdogStatus.watchdogVersion === APP_VERSION && functionSourceIncludes('getStartupWatchdogStatus', 'watchdogVersion') && functionSourceIncludes('hideAppSplashScreen', 'STADSLASS_BOOT.complete'), 'watchdog-version=' + startupWatchdogStatus.watchdogVersion + ' · steg=' + startupWatchdogStatus.currentStep);
+  addFunctionCheck(results, 'Nivå 2', 'Synlig uppstartskontroll v116', startupWatchdogStatus.visibleStatusEnabled && startupWatchdogStatus.visibleStatusVersion === APP_VERSION && !!el('startupWatchdogStatus') && functionSourceIncludes('getStartupWatchdogStatus', 'visibleStatusElementExists'), 'synlig status=' + (startupWatchdogStatus.visibleStatusElementExists ? 'finns' : 'saknas') + ' · version=' + startupWatchdogStatus.visibleStatusVersion);
   addFunctionCheck(results, 'Nivå 2', 'Badplatser för Havstång v101 finns', !!el('newManagedBeachPlaceName') && !!el('beachPlaceManagerList') && fn('addManagedBeachPlace') && fn('renderBeachPlaceManager') && fn('getBeachPlaceEntries') && src('addManagedBeachPlace', "category:'badplats'") && src('addManagedBeachPlace', 'Havstång'), 'badplatser ligger i egen platsgrupp och kopplas till Havstång');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkert underlag', fn('buildFinishedTransferPayload') && src('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
@@ -8451,7 +8551,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass v115' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v115'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass v116' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v116'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -8519,6 +8619,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Havstång geofenceankomst badplats v113', typeof setSeaweedBeachArrivalVisual === 'function' && typeof isSeaweedBeachArrivalVisual === 'function' && functionSourceIncludes('updateActiveGeofenceVisualStatus', 'setSeaweedBeachArrivalVisual') && functionSourceIncludes('getActivePhaseVisualState', 'Framme vid badplats') && functionSourceIncludes('updateActivePhaseBackground', 'Framme vid badplats'), 'Havstång till badplats kan visa Framme vid badplats från Till-geofence utan Lastar/vikt'),
     systemCheck('Havstång viktroller v114', typeof recordSeaweedWeightEntry === 'function' && typeof ensureSeaweedWeightMetadata === 'function' && typeof getSeaweedTransportWeight === 'function' && typeof getSeaweedFinalBioWeight === 'function' && functionSourceIncludes('getSummaryRowWeight', 'getSeaweedFinalBioWeight') && functionSourceIncludes('buildExcelWorkbookXml', 'Mellankörningsvikt ton'), 'Havstång skiljer mellankörningsvikt från verklig/invägd Bioanläggningsvikt i data och export'),
     systemCheck('Permanent uppstartsövervakning v115', (function(){ const status = getStartupWatchdogStatus(); return status.ok && status.current === APP_VERSION && status.watchdogVersion === APP_VERSION && typeof window.STADSLASS_BOOT.fail === 'function'; })(), 'watchdog följer aktuell APP_VERSION och kan visa felruta'),
+    systemCheck('Synlig uppstartskontroll v116', (function(){ const status = getStartupWatchdogStatus(); return status.visibleStatusEnabled && status.visibleStatusVersion === APP_VERSION && !!document.getElementById('startupWatchdogStatus'); })(), 'startskärmen visar diskret watchdog-status och aktuell version'),
     systemCheck('Badplatser för Havstång v101', !!document.getElementById('newManagedBeachPlaceName') && !!document.getElementById('beachPlaceManagerList') && typeof addManagedBeachPlace === 'function' && typeof renderBeachPlaceManager === 'function' && typeof getBeachPlaceEntries === 'function' && functionSourceIncludes('addManagedBeachPlace', "category:'badplats'") && functionSourceIncludes('getManageablePlaces', "category !== 'badplats'"), 'badplatser har egen grupp i Hantera platser och kopplas till Havstång'),
     systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
     systemCheck('Visuell återkomst till Från-plats v99', typeof updateReturnToFromGeofenceVisualStatus === 'function' && typeof getReturnToFromVisualLabel === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Returlossning') && functionSourceIncludes('getActivePhaseVisualState', 'Tillbaka vid Från-plats') && functionSourceIncludes('updateActivePhaseBackground', 'Returlossning'), 'visar Returlossning/Tillbaka vid Från-plats utan att trycka manuella knappar'),
