@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v113
+- Nuvarande version: Stadslass v114
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -55,6 +55,7 @@ Stadslass versionskontroll
 - v111: Underkänd testversion som låste startskärmen. Ska inte användas som bas.
 - v112: Byggd från v110. Havstång till badplats kan avslutas med Klart utan Lastar/vikt-varning och testsystemen uppdateras utan att ändra geofence/GPS/faslogik i övrigt.
 - v113: Havstång till badplats visar visuell geofenceankomst som Framme vid badplats även utan Lastar/vikt. Funktionen påverkar bara visuell status och testsystemen är uppdaterade.
+- v114: Havstång får viktroller. Vikt till badplats/mellankörning sparas som mellankörningsvikt och räknas inte som verklig Bioanläggningsvikt. Vikt till Renova Bioanläggning sparas som verklig/invägd Bioanläggningsvikt och mtrl kod 611.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -1769,7 +1770,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v113</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v114</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -6007,6 +6008,113 @@ function setSeaweedBeachArrivalVisual(job, toZone, point, options){
   return true;
 }
 
+
+function isSeaweedToBioJob(job){
+  return isSeaweedJob(job) && isRenovaBioDestination(job.dest);
+}
+
+function getSeaweedFlowTypeForJob(job){
+  if(!isSeaweedJob(job)) return '';
+  if(isSeaweedToBioJob(job)) return 'till_bioanlaggning';
+  if(isSeaweedToBeachJob(job)) return 'mellankorning_badplats';
+  return 'ovrig_havstang';
+}
+
+function getSeaweedWeightRoleForJob(job){
+  if(!isSeaweedJob(job)) return '';
+  if(isSeaweedToBioJob(job)) return 'verklig_bioanlaggning';
+  if(isSeaweedToBeachJob(job)) return 'mellankorningsvikt';
+  return 'ovrig_havstangsvikt';
+}
+
+function getSeaweedWeightRoleLabel(role){
+  const key = String(role || '').trim();
+  if(key === 'verklig_bioanlaggning') return 'Verklig/invägd Bioanläggningsvikt';
+  if(key === 'mellankorningsvikt') return 'Mellankörningsvikt / aktuell flakvikt';
+  if(key === 'ovrig_havstangsvikt') return 'Övrig Havstångsvikt';
+  return '';
+}
+
+function getSeaweedWeightRoleLabelForJob(job){
+  if(!isSeaweedJob(job)) return '';
+  return getSeaweedWeightRoleLabel(job.havstangWeightRole || getSeaweedWeightRoleForJob(job));
+}
+
+function recordSeaweedWeightEntry(job, weight){
+  if(!isSeaweedJob(job)) return job;
+  const role = getSeaweedWeightRoleForJob(job);
+  const roleLabel = getSeaweedWeightRoleLabel(role);
+  job.havstangFlowType = getSeaweedFlowTypeForJob(job);
+  job.havstangWeightRole = role;
+  job.havstangWeightRoleLabel = roleLabel;
+  job.havstangWeightIsFinal = role === 'verklig_bioanlaggning';
+  job.havstangWeightRequired = false;
+  if(!Array.isArray(job.loadRoles)) job.loadRoles = [];
+  job.loadRoles.push(role);
+  if(!Array.isArray(job.weightEntries)) job.weightEntries = [];
+  job.weightEntries.push({
+    weight:Number(weight || 0),
+    role:role,
+    roleLabel:roleLabel,
+    flowType:job.havstangFlowType,
+    materialCode:getMaterialCodeForJob(job) || '',
+    createdAt:Date.now()
+  });
+  return job;
+}
+
+function ensureSeaweedWeightMetadata(job){
+  if(!isSeaweedJob(job)) return job;
+  const role = job.havstangWeightRole || getSeaweedWeightRoleForJob(job);
+  const roleLabel = getSeaweedWeightRoleLabel(role);
+  job.havstangFlowType = job.havstangFlowType || getSeaweedFlowTypeForJob(job);
+  job.havstangWeightRole = role;
+  job.havstangWeightRoleLabel = roleLabel;
+  job.havstangWeightIsFinal = role === 'verklig_bioanlaggning';
+  job.havstangWeightRequired = false;
+  const loads = Array.isArray(job.loads) ? job.loads : [];
+  if(loads.length){
+    if(!Array.isArray(job.loadRoles)) job.loadRoles = [];
+    while(job.loadRoles.length < loads.length) job.loadRoles.push(role);
+    if(!Array.isArray(job.weightEntries) || !job.weightEntries.length){
+      job.weightEntries = loads.map((weight, index) => ({
+        weight:Number(weight || 0),
+        role:job.loadRoles[index] || role,
+        roleLabel:getSeaweedWeightRoleLabel(job.loadRoles[index] || role),
+        flowType:job.havstangFlowType,
+        materialCode:getMaterialCodeForJob(job) || '',
+        createdAt:job.end || job.start || Date.now()
+      }));
+    }
+  }
+  return job;
+}
+
+function getSeaweedTransportWeight(job){
+  if(!isSeaweedJob(job)) return 0;
+  const role = job.havstangWeightRole || getSeaweedWeightRoleForJob(job);
+  if(role === 'verklig_bioanlaggning') return 0;
+  return Number(job && job.totalWeight || 0);
+}
+
+function getSeaweedFinalBioWeight(job){
+  if(!isSeaweedJob(job)) return 0;
+  const role = job.havstangWeightRole || getSeaweedWeightRoleForJob(job);
+  if(role !== 'verklig_bioanlaggning') return 0;
+  return Number(job && job.totalWeight || 0);
+}
+
+function getSeaweedWeightRoleHtml(job){
+  if(!isSeaweedJob(job) || !Number(job && job.totalWeight || 0)) return '';
+  const role = job.havstangWeightRole || getSeaweedWeightRoleForJob(job);
+  const label = getSeaweedWeightRoleLabel(role);
+  if(!label) return '';
+  const note = role === 'verklig_bioanlaggning'
+    ? 'Räknas som verklig/invägd vikt i sammanställning.'
+    : 'Räknas som mellankörningsvikt och inte som verklig Bioanläggningsvikt.';
+  return '<div class="muted" style="margin-top:6px">Viktroll: '+escapeHtml(label)+' · '+escapeHtml(note)+'</div>';
+}
+
 function getBeachPlaceEntries(){
   const hidden = getHiddenPlaceSet();
   return (state.customPlaces || [])
@@ -6824,8 +6932,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v113';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v113';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = 'Stadslass v114';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v114';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -6858,7 +6966,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v109 Min nuvarande plats och Havstång 611 till Bio',
   'v110 #Min Nuvarande plats# sist och ETA-koppling',
   'v112 Havstång till badplats utan vikt-/Lastar-varning',
-  'v113 Havstång geofenceankomst vid badplats'
+  'v113 Havstång geofenceankomst vid badplats',
+  'v114 Havstång viktroller'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -7692,7 +7801,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = 'Stadslass v113';
+const APP_VERSION = 'Stadslass v114';
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
@@ -7812,6 +7921,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'#Min Nuvarande plats# och ETA-koppling v110', status:'Stabiliseringsfix', purpose:'Specialplatsen visas exakt som #Min Nuvarande plats#, ligger längst ner i Från-/Till-listor och kart/ETA kan använda GPS-specialplats samt geokoda egna platser/badplatser med adress eller Plus Code.', changeRule:'Får bara påverka visningsnamn/listordning och kartpunktsbyggnad/ETA. Får inte skapa normal plats, geofence eller ändra GPS-inspelning, faslogik, historik, export eller tidsinlärning.'},
   {name:'Havstång badplats utan viktkrav v112', status:'Stabiliseringsfix', purpose:'Havstång där Till är badplats kan avslutas med Klart utan Lastar/vikt-varning. Uppdraget kan fortfarande spara tid, GPS och eventuell frivillig vikt, men vikt krävs inte.', changeRule:'Får bara påverka avslutsvakten för Havstång till badplats. Får inte ändra vanliga uppdrag, Bioanläggning/611, geofence-logik, GPS-inspelning, historik, export eller tidsinlärning.'},
   {name:'Havstång geofenceankomst badplats v113', status:'Stabiliseringsfix', purpose:'Havstång där Till är badplats kan visa Framme vid badplats från Till-geofence även utan Lastar/vikt-flöde.', changeRule:'Får bara påverka visuell geofence-/fasknappsstatus och hjälptext för Havstång till badplats. Får inte trycka Lastar, Ange vikt eller Klart och får inte ändra viktkrav, GPS-inspelning, historik, export eller tidsinlärning.'},
+  {name:'Havstång viktroller v114', status:'Aktiv', purpose:'Havstångsvikt till badplats/mellankörning märks som mellankörningsvikt och vikt till Renova Bioanläggning märks som verklig/invägd Bioanläggningsvikt. Endast Bioanläggningsvikt räknas som sammanställningsvikt.', changeRule:'Får bara påverka viktmetadata, visning och export/sammanställning för Havstång. Får inte ändra GPS, geofence, faslogik, Klart-regler, Övrig verksamhet eller Android-bakåtlogik.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -8015,7 +8125,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v113' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v114' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer uppskattad tid kvar v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -8062,6 +8172,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', '#Min Nuvarande plats# och ETA-koppling v110', CURRENT_LOCATION_PLACE === '#Min Nuvarande plats#' && fn('resolveMapPointFromJobPlace') && fn('getMapRouteKeyPartFromJobPlace') && fn('resolveMapPointFromPlace') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && getFilteredPlaceValuesForJobType('Havstång', 'to', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && src('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobPlace') && src('buildSmartMapRouteKey', 'getMapRouteKeyPartFromJobPlace'), '#Min Nuvarande plats# visas sist och kan bli GPS-/ETA-ruttpunkt');
   addFunctionCheck(results, 'Nivå 2', 'Havstång badplats utan viktkrav v112', fn('isSeaweedToBeachJob') && fn('markSeaweedBeachCompletionWithoutPhaseGuard') && src('prepareJobForCompletionWithPhaseGuard', 'isSeaweedToBeachJob') && src('prepareJobForCompletionWithPhaseGuard', 'markSeaweedBeachCompletionWithoutPhaseGuard') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112'), 'Havstång till badplats kan avslutas med Klart utan Lastar/vikt-varning');
   addFunctionCheck(results, 'Nivå 2', 'Havstång geofenceankomst badplats v113', fn('setSeaweedBeachArrivalVisual') && fn('isSeaweedBeachArrivalVisual') && fn('getSeaweedBeachArrivalLabel') && src('updateActiveGeofenceVisualStatus', 'setSeaweedBeachArrivalVisual') && src('getActivePhaseVisualState', 'Framme vid badplats') && src('getActiveLoadPhaseText', 'Framme vid badplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113'), 'Havstång till badplats kan visa Framme vid badplats från Till-geofence utan Lastar/vikt');
+  addFunctionCheck(results, 'Nivå 2', 'Havstång viktroller v114', fn('recordSeaweedWeightEntry') && fn('ensureSeaweedWeightMetadata') && fn('getSeaweedTransportWeight') && fn('getSeaweedFinalBioWeight') && getSeaweedWeightRoleForJob({type:'Havstång', dest:'Renova Bioanläggning'}) === 'verklig_bioanlaggning' && getSeaweedWeightRoleForJob({type:'Havstång', dest:(getBeachPlaceEntries()[0] && getBeachPlaceEntries()[0].key) || 'badplats_test'}) !== 'verklig_bioanlaggning' && src('getSummaryRowWeight', 'getSeaweedFinalBioWeight') && src('buildExcelWorkbookXml', 'Mellankörningsvikt ton'), 'Havstång export/sammanställning skiljer mellankörningsvikt från verklig Bioanläggningsvikt');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser för Havstång v101 finns', !!el('newManagedBeachPlaceName') && !!el('beachPlaceManagerList') && fn('addManagedBeachPlace') && fn('renderBeachPlaceManager') && fn('getBeachPlaceEntries') && src('addManagedBeachPlace', "category:'badplats'") && src('addManagedBeachPlace', 'Havstång'), 'badplatser ligger i egen platsgrupp och kopplas till Havstång');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkert underlag', fn('buildFinishedTransferPayload') && src('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
@@ -8202,7 +8313,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass v113' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v113'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass v114' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v114'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -8268,10 +8379,11 @@ function buildSystemControlInternalChecks(){
     systemCheck('#Min Nuvarande plats# och ETA-koppling v110', CURRENT_LOCATION_PLACE === '#Min Nuvarande plats#' && typeof resolveMapPointFromJobPlace === 'function' && typeof getMapRouteKeyPartFromJobPlace === 'function' && typeof resolveMapPointFromPlace === 'function' && getFilteredPlaceValuesForJobType('Havstång', 'from', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && getFilteredPlaceValuesForJobType('Havstång', 'to', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && functionSourceIncludes('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobPlace') && functionSourceIncludes('buildSmartMapRouteKey', 'getMapRouteKeyPartFromJobPlace'), '#Min Nuvarande plats# ligger sist och ETA kan bygga ruttpunkt via GPS/adress'),
     systemCheck('Havstång badplats utan viktkrav v112', typeof isSeaweedToBeachJob === 'function' && typeof markSeaweedBeachCompletionWithoutPhaseGuard === 'function' && functionSourceIncludes('prepareJobForCompletionWithPhaseGuard', 'isSeaweedToBeachJob') && functionSourceIncludes('prepareJobForCompletionWithPhaseGuard', 'markSeaweedBeachCompletionWithoutPhaseGuard'), 'Havstång till badplats hoppar över Lastar/vikt-varning vid Klart'),
     systemCheck('Havstång geofenceankomst badplats v113', typeof setSeaweedBeachArrivalVisual === 'function' && typeof isSeaweedBeachArrivalVisual === 'function' && functionSourceIncludes('updateActiveGeofenceVisualStatus', 'setSeaweedBeachArrivalVisual') && functionSourceIncludes('getActivePhaseVisualState', 'Framme vid badplats') && functionSourceIncludes('updateActivePhaseBackground', 'Framme vid badplats'), 'Havstång till badplats kan visa Framme vid badplats från Till-geofence utan Lastar/vikt'),
+    systemCheck('Havstång viktroller v114', typeof recordSeaweedWeightEntry === 'function' && typeof ensureSeaweedWeightMetadata === 'function' && typeof getSeaweedTransportWeight === 'function' && typeof getSeaweedFinalBioWeight === 'function' && functionSourceIncludes('getSummaryRowWeight', 'getSeaweedFinalBioWeight') && functionSourceIncludes('buildExcelWorkbookXml', 'Mellankörningsvikt ton'), 'Havstång skiljer mellankörningsvikt från verklig/invägd Bioanläggningsvikt i data och export'),
     systemCheck('Badplatser för Havstång v101', !!document.getElementById('newManagedBeachPlaceName') && !!document.getElementById('beachPlaceManagerList') && typeof addManagedBeachPlace === 'function' && typeof renderBeachPlaceManager === 'function' && typeof getBeachPlaceEntries === 'function' && functionSourceIncludes('addManagedBeachPlace', "category:'badplats'") && functionSourceIncludes('getManageablePlaces', "category !== 'badplats'"), 'badplatser har egen grupp i Hantera platser och kopplas till Havstång'),
     systemCheck('Lagringskontroll v98', !!document.getElementById('storageControlManagerWrap') && typeof renderStorageControl === 'function' && typeof buildStorageControlReportData === 'function' && typeof copyStorageControlReport === 'function', 'läser localStorage och appdata utan att rensa eller ändra arbetsdata'),
     systemCheck('Visuell återkomst till Från-plats v99', typeof updateReturnToFromGeofenceVisualStatus === 'function' && typeof getReturnToFromVisualLabel === 'function' && functionSourceIncludes('getActivePhaseVisualState', 'Returlossning') && functionSourceIncludes('getActivePhaseVisualState', 'Tillbaka vid Från-plats') && functionSourceIncludes('updateActivePhaseBackground', 'Returlossning'), 'visar Returlossning/Tillbaka vid Från-plats utan att trycka manuella knappar'),
-    systemCheck('Funktionskontroll v67-v109', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
+    systemCheck('Funktionskontroll v67-v114', fcFailed.length === 0, fcFailed.length ? ('fel: ' + fcFailed.map(item => item.name).slice(0, 5).join(', ')) : (fc.length + ' kontroller godkända')),
     systemCheck('Systemkontroll', !!document.getElementById('systemControlManagerWrap') && typeof runSystemControlWithMaps === 'function', 'denna kontroll finns')
   ];
 }
@@ -8510,6 +8622,7 @@ function renderHistoryRegularJobCard(job){
     '<div><span class="pill pill-type">'+escapeHtml(job.type || '')+'</span><span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(job, 'place'))+'</span>'+(job.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(job, 'dest'))+'</span>' : '')+'</div>'+ 
     '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Start: '+clockTime(job.start)+' · Slut: '+clockTime(job.end)+'</div>'+ 
     '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
+    getSeaweedWeightRoleHtml(job)+
     formatMapCallCounterHtml(job)+
     (job.comment ? '<div style="margin-top:6px">'+escapeHtml(job.comment)+'</div>' : '')+
     getLearningExclusionHtml(job)+
@@ -11919,6 +12032,7 @@ function getSummaryRowLoadCount(job){
 
 function getSummaryRowWeight(job){
   if(job && job.summaryMetricCarrier === false) return 0;
+  if(isSeaweedJob(job)) return getSeaweedFinalBioWeight(job);
   return Number(job && job.totalWeight || 0);
 }
 
@@ -12481,6 +12595,7 @@ function completeQueuedJob(qid){
     finished.routeEndPlace = getJobCompletionPlace(finished);
     finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
     finalizeTransportPhaseData(finished, finished.end);
+    ensureSeaweedWeightMetadata(finished);
     state.jobs.unshift(finished);
     updateLastWorkPointFromJob(finished);
     storeActiveMonitorEndReport(finished, 'completeQueuedJob:pausad');
@@ -12567,6 +12682,7 @@ function addLoadToCurrent(){
   if(!Array.isArray(state.active.loads)) state.active.loads = [];
   state.active.loads.push(n);
   state.active.totalWeight = state.active.loads.reduce((a,b)=>a+b,0);
+  recordSeaweedWeightEntry(state.active, n);
   releaseUnloadingLockAfterWeight(state.active, n);
 
   if(isTransportPhaseTrackingAllowed(state.active)){
@@ -13062,6 +13178,7 @@ function stopJob(){
   finished.routeEndPlace = getJobCompletionPlace(finished);
   finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
   finalizeTransportPhaseData(finished, finished.end);
+  ensureSeaweedWeightMetadata(finished);
   updateRouteDeviationForJob(finished);
   state.jobs.unshift(finished);
   updateLastWorkPointFromJob(finished);
@@ -15058,6 +15175,7 @@ function renderTodayRegularJobCard(x){
       '<div><span class="pill pill-type">'+escapeHtml(x.displayType || x.type)+'</span><span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px">Tid: '+mins((x.end||Date.now()) - x.start)+' · Antal last: '+(x.loads||[]).length+' · Total vikt i ton: '+(x.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(x.distanceKm||0)+'</div>'+
+      getSeaweedWeightRoleHtml(x)+
       getMotionSplitHtml(x)+
       getStartPointHtml(x)+
       getCalculationStartHtml(x)+
@@ -15304,25 +15422,31 @@ function buildExcelWorkbookXml(selection, filtered){
   });
 
   let detailRows = '';
-  detailRows += xmlRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Antal last', 'Total vikt i ton', 'Sträcka km', 'Tid timmar', 'Kommentar']);
+  detailRows += xmlRow(['Datum', 'Fordon', 'Jobbtyp', 'Från', 'Till', 'Mtrl kod', 'Viktroll', 'Antal last', 'Angiven vikt i ton', 'Sammanställningsvikt ton', 'Mellankörningsvikt ton', 'Verklig/invägd vikt ton', 'Sträcka km', 'Tid timmar', 'Kommentar']);
   filtered
     .slice()
     .sort((a,b) => (a.date || '').localeCompare(b.date || '') || (a.start || 0) - (b.start || 0))
     .forEach(job => {
+      ensureSeaweedWeightMetadata(job);
       detailRows += xmlRow(
         [
           job.date || '',
           job.vehicle || '',
           job.type || '',
-          job.place || '',
-          job.dest || '',
+          getItemPlaceLabel(job, 'place'),
+          getItemPlaceLabel(job, 'dest'),
+          getMaterialCodeForJob(job) || '',
+          getSeaweedWeightRoleLabelForJob(job),
           getSummaryRowLoadCount(job),
+          Number(job.totalWeight || 0).toFixed(1),
           getSummaryRowWeight(job).toFixed(1),
+          getSeaweedTransportWeight(job).toFixed(1),
+          getSeaweedFinalBioWeight(job).toFixed(1),
           getSummaryRowDistance(job).toFixed(1),
           decimalHours(getSummaryRowTimeMs(job)).toFixed(2),
           getSummaryRowComment(job)
         ],
-        ['String','String','String','String','String','Number','Number','Number','Number','String']
+        ['String','String','String','String','String','String','String','Number','Number','Number','Number','Number','Number','Number','String']
       );
     });
 
