@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v127
+- Nuvarande version: Stadslass v129
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -69,6 +69,7 @@ Stadslass versionskontroll
 - v125: Tillfälligt uppdragsgeofence skapas som 80 m cirkel för platser utan fast geofence men med position, samt för #Min Nuvarande plats# som Från-plats.
 - v126: Avslutade jobb kan få GPS-data manuellt godkänd som sparad ruttdata även när automatisk inlärning spärrats, utan att tvinga tid till nytt normalvärde.
 - v127: Övrig verksamhet i Idag kan redigeras som samlad dagsrad och Havstång kan använda Renova Bioanläggning som Från-plats utan att 611 sätts annat än när Till är Bioanläggningen.
+- v129: Övrig verksamhet i Idag får utökad redigering med minutstyrda delar, kommentar och möjlighet att ta bort eller lägga till del utan att påverka vanliga uppdrag.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
 - v47: Uppdrag i kö har manuell knapp som beräknar enkel uppskattad tid för alla köuppdrag individuellt från aktuell GPS-position.
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
@@ -184,7 +185,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass v127';
+  const version = 'Stadslass v129';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -1811,7 +1812,7 @@ button{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass v127</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass v129</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2106,6 +2107,30 @@ button{
   </div>
 </div>
 
+
+<div id="otherWorkEditModal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3>Redigera Övrig verksamhet</h3>
+    <input type="hidden" id="otherWorkEditDate">
+    <div class="muted" id="otherWorkEditInfo" style="margin-top:4px"></div>
+    <label style="margin-top:10px">Total tid i minuter</label>
+    <input id="otherWorkEditTotalMinutes" type="number" min="0" step="1" inputmode="numeric" onchange="applyOtherWorkEditTotalToParts()" oninput="applyOtherWorkEditTotalToParts()">
+    <div class="muted" style="margin-top:4px">Totalen skrivs i minuter. Om du ändrar totalen läggs skillnaden på första delen.</div>
+    <label style="margin-top:10px">Kommentar för dagsraden</label>
+    <textarea id="otherWorkEditComment" placeholder="Kommentar som visas på den samlade dagsraden"></textarea>
+    <div class="muted" style="margin-top:4px">Om denna ändras skrivs den som samlad kommentar. Delarnas egna kommentarer kan också ändras nedan.</div>
+    <div style="margin-top:12px"><strong>Delar bakom dagsraden</strong></div>
+    <div id="otherWorkEditParts" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="inline" onclick="addOtherWorkEditPart()">Lägg till del</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary inline" onclick="saveOtherWorkDayEdit()">Spara</button>
+      <button class="inline" onclick="closeOtherWorkDayEdit()">Avbryt</button>
+    </div>
+  </div>
+</div>
+
 <div id="editQueueJobModal" class="modal-backdrop">
   <div class="modal-card">
     <h3>Redigera köuppdrag</h3>
@@ -2142,7 +2167,7 @@ button{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v127</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v129</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -7556,8 +7581,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v127';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v127';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v129';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v129';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -7604,7 +7629,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v124 Till-geofence viktprompt fasstyrning',
   'v125 Tillfälligt uppdragsgeofence',
   'v126 Manuellt sparad GPS-data',
-  'v127 Övrig verksamhet redigering och Havstång Bio Från'
+  'v127 Övrig verksamhet redigering och Havstång Bio Från',
+  'v129 Övrig verksamhet utökad redigering'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -8440,7 +8466,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v127';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v129';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -8596,6 +8622,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Tillfälligt uppdragsgeofence v125', status:'Aktiv', purpose:'Skapar tillfälligt cirkulärt 80 m geofence för sparade Från-/Till-platser som saknar fast geofence men har koordinat/adress/Plus Code, samt för #Min Nuvarande plats# när den används som Från-plats.', changeRule:'Får bara skapa uppdragsbundna visuella geofence. Får inte spara fast geofence automatiskt, trycka Lastar/Ange vikt/Klart, ändra fasdata, viktdata, historik, sammanställning, localStorage-nyckel eller tidsinlärning.'},
   {name:'Manuellt sparad GPS-data v126', status:'Aktiv', purpose:'Avslutade jobb med sparad GPS kan manuellt godkännas som GPS-/ruttdata även när automatisk inlärning är spärrad, utan att uppdragets tid automatiskt blir nytt normalvärde.', changeRule:'Får bara ändra GPS-godkännandets metadata och GPS-underlag. Får inte skapa vikt, trycka knappar, ändra fasdata, radera historik, ändra localStorage-nyckel eller tvinga tidsinlärning.'},
   {name:'Övrig verksamhet redigering och Havstång Bio Från v127', status:'Aktiv', purpose:'Övrig verksamhet i Idag kan redigeras som samlad dagsrad och Havstång kan välja Renova Bioanläggning som Från-plats. Havstång 611 visas fortsatt bara när Till är Renova Bioanläggning.', changeRule:'Får bara påverka redigering av Övrig verksamhet-dagsrad och Havstångs platslistor/materialkodvisning. Får inte ändra GPS, geofence-beräkning, faslogik, viktregistrering, historikstruktur, sammanställning, localStorage-nyckel eller automatisk tidsinlärning.'},
+  {name:'Övrig verksamhet utökad redigering v129', status:'Aktiv', purpose:'Övrig verksamhet i Idag redigeras i egen dialog med totalminuter, kommentar och delrader som kan ändras, tas bort eller läggas till.', changeRule:'Får bara påverka Övrig verksamhet-redigering i Idag. Får inte ändra GPS, geofence, vanliga uppdrag, sammanställning för körjobb, localStorage-nyckel eller automatisk tidsinlärning.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -8799,7 +8826,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v127' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v129' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -8853,6 +8880,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tillfälligt uppdragsgeofence v125', fn('ensureJobTemporaryGeofences') && fn('buildTemporaryJobGeofenceZone') && fn('resolveJobTemporaryGeofencesFromReferences') && typeof TEMP_JOB_GEOFENCE_RADIUS_METERS !== 'undefined' && TEMP_JOB_GEOFENCE_RADIUS_METERS === 80 && src('getFromGeofenceForJob', 'getTemporaryGeofenceForJobRole') && src('getToGeofenceForJob', 'getTemporaryGeofenceForJobRole'), 'platser utan fast geofence kan få uppdragsbundet 80 m geofence');
   addFunctionCheck(results, 'Nivå 2', 'Manuellt sparad GPS-data v126', fn('approveFinishedRouteGpsData') && fn('isRouteGpsManuallyApproved') && fn('isRouteGpsManualApprovalAvailable') && fn('isRouteGpsUnderlagAllowed') && src('renderTodayRegularJobCard', 'getRouteGpsActionButtonsHtml') && src('getSavedRouteGpsRecordsForUnderlag', 'isRouteGpsUnderlagAllowed'), 'avslutade jobb kan manuellt godkänna sparad GPS som ruttdata utan automatisk tidsinlärning');
   addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet redigering och Havstång Bio Från v127', fn('editOtherWorkDay') && fn('getOtherWorkSourceJobsForDate') && src('renderTodayOtherWorkCard', 'editOtherWorkDay') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Renova Bioanläggning') && getMaterialCodeForJob({type:'Havstång', place:'Renova Bioanläggning', dest:'Hovåsbadet'}) === '' && getMaterialCodeForJob({type:'Havstång', place:'Askimsbadet', dest:'Renova Bioanläggning'}) === '611', 'Övrig verksamhet kan redigeras i Idag och Bio kan väljas som Från för Havstång utan 611 när Till inte är Bio');
+  addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet utökad redigering v129', fn('closeOtherWorkDayEdit') && fn('saveOtherWorkDayEdit') && fn('addOtherWorkEditPart') && fn('removeOtherWorkEditPart') && !!el('otherWorkEditModal') && src('editOtherWorkDay', 'otherWorkEditParts') && src('saveOtherWorkDayEdit', 'routeGpsDiscardedReason'), 'Övrig verksamhet i Idag redigeras i egen dialog med minuter, kommentar och delrader');
   addFunctionCheck(results, 'Nivå 2', 'Min nuvarande plats och Havstång 611 v109', fn('isCurrentLocationPlace') && fn('buildMapPointFromJobPlace') && fn('canUseJobPlaceForMapCalculation') && fn('getMaterialCodeForJob') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes(CURRENT_LOCATION_PLACE) && getFilteredPlaceValuesForJobType('Havstång', 'to', '').includes(CURRENT_LOCATION_PLACE) && getMaterialCodeForJob({type:'Havstång', dest:'Renova Bioanläggning'}) === '611' && !getMaterialCodeForJob({type:'Havstång', dest:'Askimsbadet'}), 'Min nuvarande plats är valbar och Havstång 611 styrs av Bioanläggning');
   addFunctionCheck(results, 'Nivå 2', '#Min Nuvarande plats# och ETA-koppling v110', CURRENT_LOCATION_PLACE === '#Min Nuvarande plats#' && fn('resolveMapPointFromJobPlace') && fn('getMapRouteKeyPartFromJobPlace') && fn('resolveMapPointFromPlace') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && getFilteredPlaceValuesForJobType('Havstång', 'to', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && src('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobPlace') && src('buildSmartMapRouteKey', 'getMapRouteKeyPartFromJobPlace'), '#Min Nuvarande plats# visas sist och kan bli GPS-/ETA-ruttpunkt');
   addFunctionCheck(results, 'Nivå 2', 'Havstång badplats utan viktkrav v112', fn('isSeaweedToBeachJob') && fn('markSeaweedBeachCompletionWithoutPhaseGuard') && src('prepareJobForCompletionWithPhaseGuard', 'isSeaweedToBeachJob') && src('prepareJobForCompletionWithPhaseGuard', 'markSeaweedBeachCompletionWithoutPhaseGuard') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112'), 'Havstång till badplats kan avslutas med Klart utan Lastar/vikt-varning');
@@ -9001,7 +9029,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass v127' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v127'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass v129' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v129'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -9073,6 +9101,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Tillfälligt uppdragsgeofence v125', typeof ensureJobTemporaryGeofences === 'function' && typeof buildTemporaryJobGeofenceZone === 'function' && typeof resolveJobTemporaryGeofencesFromReferences === 'function' && TEMP_JOB_GEOFENCE_RADIUS_METERS === 80, 'uppdragsbundna cirklar kan skapas utan att sparas som fast geofence'),
     systemCheck('Manuellt sparad GPS-data v126', typeof approveFinishedRouteGpsData === 'function' && typeof isRouteGpsManuallyApproved === 'function' && typeof isRouteGpsUnderlagAllowed === 'function' && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isRouteGpsUnderlagAllowed'), 'manuellt godkänd GPS-data kan sparas som ruttunderlag utan automatisk tidsinlärning'),
     systemCheck('Övrig verksamhet redigering och Havstång Bio Från v127', typeof editOtherWorkDay === 'function' && typeof getOtherWorkSourceJobsForDate === 'function' && functionSourceIncludes('renderTodayOtherWorkCard', 'editOtherWorkDay') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Renova Bioanläggning') && getMaterialCodeForJob({type:'Havstång', place:'Renova Bioanläggning', dest:'Hovåsbadet'}) === '' && getMaterialCodeForJob({type:'Havstång', place:'Askimsbadet', dest:'Renova Bioanläggning'}) === '611', 'Övrig verksamhet kan redigeras i Idag och Havstång/Bio följer materialkodsregeln'),
+    systemCheck('Övrig verksamhet utökad redigering v129', typeof closeOtherWorkDayEdit === 'function' && typeof saveOtherWorkDayEdit === 'function' && typeof addOtherWorkEditPart === 'function' && typeof removeOtherWorkEditPart === 'function' && !!document.getElementById('otherWorkEditModal') && functionSourceIncludes('editOtherWorkDay', 'otherWorkEditParts') && functionSourceIncludes('saveOtherWorkDayEdit', 'routeGpsDiscardedReason'), 'Övrig verksamhet kan redigera minuter, kommentar och delrader i Idag'),
     systemCheck('Havstång begränsade platslistor v108', typeof getSeaweedPlaceValues === 'function' && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Ringön (BAS)') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Flaklager Skräppekärr') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Renova Bioanläggning') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Annan plats') && getFilteredPlaceValuesForJobType('Havstång', 'to', '').includes('Ringön (BAS)') && getFilteredPlaceValuesForJobType('Havstång', 'to', '').includes('Flaklager Skräppekärr') && getFilteredPlaceValuesForJobType('Havstång', 'to', '').includes('Renova Bioanläggning') && getFilteredPlaceValuesForJobType('Havstång', 'to', '').includes('Annan destination') && functionSourceIncludes('updateQuickDatalists', 'newQuickType'), 'Havstång begränsar Från/Till-listor i Nytt jobb, köredigering och snabbvalsinställningar'),
     systemCheck('Min nuvarande plats och Havstång 611 v109', typeof isCurrentLocationPlace === 'function' && typeof buildMapPointFromJobPlace === 'function' && typeof canUseJobPlaceForMapCalculation === 'function' && typeof getMaterialCodeForJob === 'function' && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes(CURRENT_LOCATION_PLACE) && getFilteredPlaceValuesForJobType('Havstång', 'to', '').includes(CURRENT_LOCATION_PLACE) && getMaterialCodeForJob({type:'Havstång', dest:'Renova Bioanläggning'}) === '611' && !getMaterialCodeForJob({type:'Havstång', dest:'Askimsbadet'}), 'Min nuvarande plats är valbar som GPS-punkt och Havstång 611 visas bara mot Bio'),
     systemCheck('#Min Nuvarande plats# och ETA-koppling v110', CURRENT_LOCATION_PLACE === '#Min Nuvarande plats#' && typeof resolveMapPointFromJobPlace === 'function' && typeof getMapRouteKeyPartFromJobPlace === 'function' && typeof resolveMapPointFromPlace === 'function' && getFilteredPlaceValuesForJobType('Havstång', 'from', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && getFilteredPlaceValuesForJobType('Havstång', 'to', '').slice(-1)[0] === CURRENT_LOCATION_PLACE && functionSourceIncludes('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobPlace') && functionSourceIncludes('buildSmartMapRouteKey', 'getMapRouteKeyPartFromJobPlace'), '#Min Nuvarande plats# ligger sist och ETA kan bygga ruttpunkt via GPS/adress'),
@@ -15955,52 +15984,221 @@ function getOtherWorkDayTotalMs(date){
   return getOtherWorkSourceJobsForDate(date).reduce((sum, job) => sum + Math.max(0, getSummaryRowTimeMs(job)), 0);
 }
 
+let otherWorkEditInitialCombinedComment = '';
+
+function closeOtherWorkDayEdit(){
+  const modal = document.getElementById('otherWorkEditModal');
+  if(modal) modal.classList.remove('show');
+}
+
+function getOtherWorkEditRows(){
+  const wrap = document.getElementById('otherWorkEditParts');
+  if(!wrap) return [];
+  return Array.from(wrap.querySelectorAll('.other-work-edit-part'));
+}
+
+function getOtherWorkEditPartMinutes(row){
+  const input = row ? row.querySelector('[data-field="minutes"]') : null;
+  const value = input ? Number(String(input.value || '').replace(',', '.')) : 0;
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
+
+function updateOtherWorkEditTotalFromParts(){
+  const totalEl = document.getElementById('otherWorkEditTotalMinutes');
+  if(!totalEl) return;
+  const total = getOtherWorkEditRows().reduce((sum, row) => sum + getOtherWorkEditPartMinutes(row), 0);
+  totalEl.value = String(total);
+}
+
+function applyOtherWorkEditTotalToParts(){
+  const totalEl = document.getElementById('otherWorkEditTotalMinutes');
+  const rows = getOtherWorkEditRows();
+  if(!totalEl || !rows.length) return;
+  const wanted = Number(String(totalEl.value || '').replace(',', '.'));
+  if(!Number.isFinite(wanted) || wanted < 0) return;
+  const roundedWanted = Math.round(wanted);
+  const current = rows.reduce((sum, row) => sum + getOtherWorkEditPartMinutes(row), 0);
+  const diff = roundedWanted - current;
+  if(diff === 0) return;
+  const firstInput = rows[0].querySelector('[data-field="minutes"]');
+  if(!firstInput) return;
+  const firstValue = getOtherWorkEditPartMinutes(rows[0]);
+  firstInput.value = String(Math.max(0, firstValue + diff));
+}
+
+function handleOtherWorkEditPartMinutesChanged(){
+  updateOtherWorkEditTotalFromParts();
+}
+
+function buildOtherWorkEditPartHtml(part, index){
+  const idValue = part && part.id ? String(part.id) : '';
+  const minutes = Number(part && part.minutes || 0);
+  const comment = String(part && part.comment || '');
+  const startText = part && part.start ? clockTime(part.start) : 'ny del';
+  return '<div class="job other-work-edit-part" data-id="'+escapeHtml(idValue)+'" style="margin-top:8px">'+
+    '<div><strong>Del '+(index + 1)+'</strong> <span class="muted">'+escapeHtml(startText)+'</span></div>'+ 
+    '<label style="margin-top:8px">Minuter</label>'+ 
+    '<input data-field="minutes" type="number" min="0" step="1" inputmode="numeric" value="'+escapeHtml(String(minutes))+'" oninput="handleOtherWorkEditPartMinutesChanged()" onchange="handleOtherWorkEditPartMinutesChanged()">'+
+    '<label style="margin-top:8px">Kommentar</label>'+ 
+    '<textarea data-field="comment">'+escapeHtml(comment)+'</textarea>'+ 
+    '<div class="row" style="margin-top:8px"><button class="danger inline" onclick="removeOtherWorkEditPart(this)">Ta bort del</button></div>'+ 
+  '</div>';
+}
+
+function renderOtherWorkEditPartList(parts){
+  const wrap = document.getElementById('otherWorkEditParts');
+  if(!wrap) return;
+  wrap.innerHTML = (parts || []).map((part, index) => buildOtherWorkEditPartHtml(part, index)).join('');
+  updateOtherWorkEditTotalFromParts();
+}
+
+function addOtherWorkEditPart(){
+  const wrap = document.getElementById('otherWorkEditParts');
+  if(!wrap) return;
+  const rows = getOtherWorkEditRows();
+  const part = {id:'', minutes:0, comment:'', start:0};
+  wrap.insertAdjacentHTML('beforeend', buildOtherWorkEditPartHtml(part, rows.length));
+  updateOtherWorkEditTotalFromParts();
+}
+
+function removeOtherWorkEditPart(button){
+  const row = button && button.closest ? button.closest('.other-work-edit-part') : null;
+  if(row) row.remove();
+  getOtherWorkEditRows().forEach((item, index) => {
+    const title = item.querySelector('strong');
+    if(title) title.textContent = 'Del ' + (index + 1);
+  });
+  updateOtherWorkEditTotalFromParts();
+}
+
 function editOtherWorkDay(date){
   const items = getOtherWorkSourceJobsForDate(date);
   if(!items.length){
     alert('Hittar ingen Övrig verksamhet för vald dag.');
     return;
   }
-  const currentMinutes = Math.max(0, Math.round(getOtherWorkDayTotalMs(date) / 60000));
-  const minutesText = prompt('Ange total tid för Övrig verksamhet denna dag i minuter.', String(currentMinutes));
-  if(minutesText === null) return;
-  const parsedMinutes = Number(String(minutesText).replace(',', '.').trim());
-  if(!Number.isFinite(parsedMinutes) || parsedMinutes < 0){
-    alert('Skriv en giltig tid i minuter.');
+  const modal = document.getElementById('otherWorkEditModal');
+  const dateEl = document.getElementById('otherWorkEditDate');
+  const infoEl = document.getElementById('otherWorkEditInfo');
+  const commentEl = document.getElementById('otherWorkEditComment');
+  if(dateEl) dateEl.value = String(date || todayStr()).slice(0, 10);
+  otherWorkEditInitialCombinedComment = joinUniqueNonEmptyLines(items.map(item => item.comment));
+  if(commentEl) commentEl.value = otherWorkEditInitialCombinedComment;
+  if(infoEl) infoEl.textContent = 'Datum: ' + formatShortDate(String(date || todayStr()).slice(0, 10)) + ' · delar: ' + items.length + '. Ändringar påverkar bara Övrig verksamhet denna dag.';
+  const parts = items.map(item => ({
+    id:String(item.id || ''),
+    minutes:Math.max(0, Math.round(getSummaryRowTimeMs(item) / 60000)),
+    comment:String(item.comment || ''),
+    start:Number(item.start || 0)
+  }));
+  renderOtherWorkEditPartList(parts);
+  if(modal) modal.classList.add('show');
+}
+
+function createOtherWorkPartJob(date, start, minutes, comment){
+  const end = start + Math.max(0, minutes) * 60000;
+  return {
+    id:id(),
+    type:'Övrig verksamhet',
+    displayType:'Övrig verksamhet',
+    vehicle:'övrigt arbete',
+    place:'',
+    dest:'',
+    date:String(date || todayStr()).slice(0, 10),
+    start:start,
+    end:end,
+    workSessions:[{startedAt:start, endedAt:end}],
+    comment:String(comment || '').trim(),
+    privateComment:'',
+    loads:[],
+    totalWeight:0,
+    distanceKm:0,
+    routeGpsDiscarded:true,
+    routeGpsDiscardedReason:'Övrig verksamhet utan GPS'
+  };
+}
+
+function saveOtherWorkDayEdit(){
+  const date = String((document.getElementById('otherWorkEditDate') || {}).value || todayStr()).slice(0, 10);
+  const sourceItems = getOtherWorkSourceJobsForDate(date);
+  if(!sourceItems.length){
+    alert('Hittar ingen Övrig verksamhet för vald dag.');
     return;
   }
-  const currentComment = joinUniqueNonEmptyLines(items.map(item => item.comment));
-  const commentText = prompt('Kommentar för Övrig verksamhet denna dag.', currentComment);
-  if(commentText === null) return;
+  const rows = getOtherWorkEditRows();
+  if(!rows.length){
+    alert('Minst en del måste finnas kvar.');
+    return;
+  }
+  const parts = rows.map((row, index) => {
+    const minutesInput = row.querySelector('[data-field="minutes"]');
+    const commentInput = row.querySelector('[data-field="comment"]');
+    const minutes = Number(String(minutesInput && minutesInput.value || '').replace(',', '.'));
+    return {
+      id:String(row.getAttribute('data-id') || ''),
+      index,
+      minutes:Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0,
+      comment:String(commentInput && commentInput.value || '').trim()
+    };
+  });
+  const totalMinutes = parts.reduce((sum, part) => sum + part.minutes, 0);
+  if(totalMinutes <= 0){
+    alert('Total tid måste vara större än 0 minuter.');
+    return;
+  }
 
-  const totalMs = Math.round(parsedMinutes) * 60000;
-  const first = items[0];
-  const start = Number(first.start || parseIsoLocal(date).getTime() || Date.now());
-  first.date = String(date || first.date || todayStr()).slice(0, 10);
-  first.start = start;
-  first.end = start + totalMs;
-  first.workSessions = [{startedAt:first.start, endedAt:first.end}];
-  first.comment = String(commentText || '').trim();
-  first.type = 'Övrig verksamhet';
-  first.displayType = 'Övrig verksamhet';
-  first.vehicle = 'övrigt arbete';
-  first.routeGpsDiscarded = true;
+  const combinedCommentEl = document.getElementById('otherWorkEditComment');
+  const combinedComment = String(combinedCommentEl && combinedCommentEl.value || '').trim();
+  if(combinedComment !== otherWorkEditInitialCombinedComment){
+    parts.forEach((part, index) => { part.comment = index === 0 ? combinedComment : ''; });
+  }
 
-  items.slice(1).forEach(item => {
-    const itemStart = Number(item.start || start);
-    item.date = first.date;
-    item.start = itemStart;
-    item.end = itemStart;
-    item.workSessions = [{startedAt:itemStart, endedAt:itemStart}];
-    item.comment = '';
-    item.privateComment = '';
-    item.type = 'Övrig verksamhet';
-    item.displayType = 'Övrig verksamhet';
-    item.vehicle = 'övrigt arbete';
-    item.routeGpsDiscarded = true;
+  const sourceById = new Map(sourceItems.map(item => [String(item.id || ''), item]));
+  const keepIds = new Set(parts.map(part => part.id).filter(Boolean));
+  const baseStart = parseIsoLocal(date).getTime() || Date.now();
+  let cursor = sourceItems.reduce((min, item) => {
+    const start = Number(item.start || 0);
+    return start && start < min ? start : min;
+  }, Number.MAX_SAFE_INTEGER);
+  if(!Number.isFinite(cursor) || cursor === Number.MAX_SAFE_INTEGER) cursor = baseStart;
+
+  const updatedJobs = [];
+  parts.forEach((part, index) => {
+    const existing = part.id ? sourceById.get(part.id) : null;
+    const start = existing && Number(existing.start || 0) > 0 ? Number(existing.start) : cursor;
+    const end = start + Math.max(0, part.minutes) * 60000;
+    const job = existing || createOtherWorkPartJob(date, start, part.minutes, part.comment);
+    job.date = date;
+    job.type = 'Övrig verksamhet';
+    job.displayType = 'Övrig verksamhet';
+    job.vehicle = 'övrigt arbete';
+    job.place = '';
+    job.dest = '';
+    job.start = start;
+    job.end = end;
+    job.workSessions = [{startedAt:start, endedAt:end}];
+    job.comment = part.comment;
+    job.loads = [];
+    job.totalWeight = 0;
+    job.distanceKm = 0;
+    job.routeGpsDiscarded = true;
+    job.routeGpsDiscardedReason = 'Övrig verksamhet utan GPS';
+    updatedJobs.push(job);
+    cursor = Math.max(cursor, end);
   });
 
+  const removedIds = new Set(sourceItems.map(item => String(item.id || '')).filter(idValue => idValue && !keepIds.has(idValue)));
+  state.jobs = (state.jobs || []).filter(job => {
+    if(!isOtherWorkJob(job)) return true;
+    const jobDate = String(job.date || getLocalDateKey(new Date(job.start || job.end || Date.now()))).slice(0, 10);
+    if(jobDate !== date) return true;
+    const jobId = String(job.id || '');
+    if(removedIds.has(jobId)) return false;
+    return !updatedJobs.some(updated => updated === job);
+  }).concat(updatedJobs);
+
   saveState();
+  closeOtherWorkDayEdit();
   render();
   alert('Övrig verksamhet uppdaterad.');
 }
