@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v135
+- Nuvarande version: Stadslass 2.0 v136
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -74,6 +74,7 @@ Stadslass versionskontroll
 - v133: Geofence-förkontroll körs vid uppdragsstart och kontrollerar både Från och Till innan första Lastning-knappen får användas.
 - v134: Platskoordinater skyddas mot gammal adress/Plus Code; koordinater kopplas till kartreferens och ogiltigförklaras när kartreferensen ändras.
 - v135: Stadslass 2.0 startar Uppskattad tid 2.0 med intern fasmodell, geofence-tidsstämplar, fasrapport i övervakning och skyddad chefs-/Excel-export.
+- v136: Backup 2.0 gör backup/import valbar per datadel, skyddar ej valda delar och uppdaterar tester/kontroller till aktuell version.
 - v130: Övrig verksamhet-redigering låser bakgrundsskroll och får egen skrollbar dialog på padda/mobil utan att ändra sparlogik.
 - v129: Övrig verksamhet i Idag får utökad redigering med minutstyrda delar, kommentar och möjlighet att ta bort eller lägga till del utan att påverka vanliga uppdrag.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
@@ -191,7 +192,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v135';
+  const version = 'Stadslass 2.0 v136';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -1850,7 +1851,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v135</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v136</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2205,7 +2206,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v135</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v136</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -2695,21 +2696,39 @@ body.other-work-edit-open{
     </div>
 
     <div id="backupManagerWrap" class="place-manager hidden">
-      <div class="place-help">Här kan du säkerhetskopiera och återställa appdata. Interna kommentarer exporteras inte i backupfilen.</div>
+      <div class="place-help"><strong>Backup 2.0.</strong> Här kan du säkerhetskopiera allt eller välja datadelar. Interna kommentarer och lokal Google API-nyckel exporteras inte.</div>
 
       <div class="place-row">
         <div class="place-key">Exportera backup</div>
-        <div class="multi-help">Skapar en JSON-fil som du kan spara på mobilen eller datorn. Interna kommentarer följer inte med.</div>
-        <div class="row">
-          <button class="primary inline" onclick="exportAppBackup()">Exportera backup</button>
+        <div class="multi-help">Välj allt eller bara de delar du vill flytta mellan padda/mobil. Ej valda delar följer inte med i filen.</div>
+        <div class="row" style="margin-top:8px">
+          <button class="inline" onclick="setBackupSelectionPreset('all')">Markera allt</button>
+          <button class="inline" onclick="setBackupSelectionPreset('structure')">Markera strukturdata</button>
+          <button class="inline" onclick="setBackupSelectionPreset('none')">Avmarkera allt</button>
+        </div>
+        <div id="backupPartSelection" class="quick-edit-grid" style="margin-top:12px"></div>
+        <div id="backupExportSummary" class="multi-help" style="margin-top:10px">Backup 2.0 är redo.</div>
+        <div class="row" style="margin-top:10px">
+          <button class="primary inline" onclick="exportAppBackup()">Exportera valda delar</button>
         </div>
       </div>
 
       <div class="place-row">
         <div class="place-key">Importera backup</div>
-        <div class="multi-help">Import skriver över nuvarande appdata med innehållet från backupfilen.</div>
+        <div class="multi-help">Delvis backup lägger till/uppdaterar bara de datadelar som finns i filen. Andra delar raderas inte. Äldre fullbackup kan fortfarande återställas efter bekräftelse.</div>
+        <label>Importläge för Backup 2.0-fil</label>
+        <select id="backupImportMode">
+          <option value="merge">Lägg till/uppdatera valda delar – radera inget ovalt</option>
+          <option value="replace">Ersätt bara de delar som finns i backupfilen</option>
+        </select>
+        <label style="margin-top:8px">Urval vid import</label>
+        <select id="backupImportPartMode">
+          <option value="file">Importera alla delar som finns i filen</option>
+          <option value="selected">Importera bara markerade delar ovan</option>
+        </select>
         <input id="backupImportFile" type="file" accept=".json,application/json">
-        <div class="row">
+        <div id="backupImportPreview" class="multi-help" style="margin-top:10px">Ingen backupfil läst.</div>
+        <div class="row" style="margin-top:10px">
           <button class="primary inline" onclick="importAppBackup()">Importera backup</button>
         </div>
       </div>
@@ -7823,8 +7842,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v135';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v135';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v136';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v136';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -7878,7 +7897,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v132 Plus Code till koordinat/geofence',
   'v133 Geofence-förkontroll före Lastning',
   'v134 Koordinatskydd vid ändrad adress/Plus Code',
-  'v135 Stadslass 2.0 fasmodell för Uppskattad tid 2.0'
+  'v135 Stadslass 2.0 fasmodell för Uppskattad tid 2.0',
+  'v136 Backup 2.0 med valbara datadelar och uppdaterade tester'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -8739,7 +8759,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v135';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v136';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -8902,6 +8922,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Geofence-förkontroll före Lastning v133', status:'Aktiv', purpose:'När ett uppdrag startas kontrolleras både Från- och Till-plats för fast eller tillfälligt geofence innan första Lastning-knappen får användas.', changeRule:'Får endast kontrollera/skapa uppdragsbundna hjälpgeofence och spärra första Lastning-knappen medan kontrollen pågår. Får inte trycka Lastar, Ange vikt, Klart eller ändra jobbsanning, GPS, vikt, fasdata, historik, sammanställning, tidsinlärning eller localStorage-nyckel.'},
   {name:'Koordinatskydd vid ändrad adress/Plus Code v134', status:'Aktiv', purpose:'Geokodade platskoordinater kopplas till den adress/Plus Code som användes. Om kartreferensen ändras ogiltigförklaras gammal koordinat och ny geokodning krävs innan rutt/geofence använder platsen.', changeRule:'Får bara skydda/ogiltigförklara osäkra platskoordinater och geokoda aktuell kartreferens. Får inte ändra fast geofence automatiskt, inte trycka jobbknappar och inte ändra GPS, vikt, fasdata, historik, sammanställning, tidsinlärning eller localStorage-nyckel.'},
   {name:'Stadslass 2.0 fasmodell v135', status:'Aktiv', purpose:'Startar ny intern fasmodell för Uppskattad tid 2.0. Geofence markerar ankomst/lämnat zon, Lastar/Ange vikt/Klart är manuella sanningar och fasdata sparas internt för chaufförsstöd utan att ändra chefens enkla export.', changeRule:'Får bara lägga till intern fasdata, övervakningsrapport och framtida underlag för uppskattad tid. Får inte radera historik, ändra driftlogg_v4_full, ändra chefsexport/sammanställning eller trycka Lastar/Ange vikt/Klart automatiskt.'},
+  {name:'Backup 2.0 selektiv backup v136', status:'Aktiv', purpose:'Backup kan exportera allt eller valda datadelar, och import kan lägga till/uppdatera eller ersätta enbart de delar som finns i filen utan att radera övrig appdata.', changeRule:'Ska alltid hålla driftlogg_v4_full, chefsexport och ej valda datadelar skyddade. Tester, systemkontroll och aktiv övervakning ska uppdateras till aktuell version vid varje backupändring.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -9105,7 +9126,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v135' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v136' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -9197,6 +9218,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Anropssmart v83 använder historik/cache först', fn('hasUsefulHistoryOrCacheEstimateForJob') && src('shouldScheduleSmartEstimate', 'hasUsefulHistoryOrCacheEstimateForJob') && src('shouldScheduleSmartEstimate', 'getCachedMapTotalsForJob') && !src('stopJob', 'smartMapSkipReason'), 'nya automatiska smarta kartanrop hoppas över när befintligt underlag räcker');
   addFunctionCheck(results, 'Nivå 2', 'Ruttavvikelse v84 spärrar normalvärde', fn('updateRouteDeviationForJob') && src('updateRouteDeviationForJob', 'excludeFromTimeEstimate') && src('updateRouteDeviationForJob', 'excludeFromGpsLearning') && src('stopJob', 'updateRouteDeviationForJob'), 'tydlig ruttavvikelse används inte automatiskt som nytt normalvärde');
   addFunctionCheck(results, 'Nivå 2', 'Stadslass 2.0 fasmodell v135', fn('ensureStadslass20PhaseModel') && fn('updateStadslass20PhaseModelFromGps') && fn('finalizeStadslass20PhaseData') && src('startJob', 'recordStadslass20PhaseEvent') && src('toggleActiveTransportPhase', 'registerStadslass20ManualLoading') && src('addLoadToCurrent', 'registerStadslass20ManualWeight') && src('stopJob', 'finalizeStadslass20PhaseData') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135'), 'intern fasmodell sparar Start/Från/Lastar/Till/Vikt/Retur/Klart utan att ändra chefsexport');
+  addFunctionCheck(results, 'Nivå 2', 'Backup 2.0 selektiv backup v136', !!el('backupPartSelection') && !!el('backupImportMode') && !!el('backupImportPartMode') && fn('getBackupPartDefinitions') && fn('buildBackupExport') && fn('applyBackupPart') && fn('mergeBackupArray') && fn('mergeBackupObject') && src('buildBackupExport', 'includedParts') && src('importAppBackup', 'Lägg till/uppdatera valda datadelar') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136'), 'backup kan exportera/importera valda delar utan att radera ovalt');
   addFunctionCheck(results, 'Nivå 2', 'Dagsprognos v85 är planeringsstöd', fn('buildDayForecast') && fn('renderDayForecasts') && !!el('queueDayForecastBox') && !!el('todayDayForecastBox') && src('getDayForecastHtml', 'ändrar inte köordning') && !src('buildDayForecast', 'startQueuedJob('), 'prognosen visas i kö/Idag utan att starta eller sortera uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Geofence-inställningar v86 finns', !!el('geofenceManagerWrap') && fn('toggleGeofenceManager') && fn('saveGeofenceFromForm') && fn('removeGeofenceForPlace') && fn('restoreDefaultGeofenceForPlace') && fn('buildGeofenceFromForm'), 'geofence kan skapas/redigeras/tas bort/återställas');
   addFunctionCheck(results, 'Nivå 2', 'Geofence-validering v86 finns', fn('parseGeofencePolygonPoints') && src('buildGeofenceFromForm', 'Latitud måste vara ett tal') && src('buildGeofenceFromForm', 'Radie måste vara större än 0') && src('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'felaktiga lat/lon/radie/polygonvärden stoppas innan sparning');
@@ -9313,7 +9335,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v135' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v135'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v136' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v136'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -9386,6 +9408,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Plus Code till koordinat/geofence v132', typeof normalizeMapReferenceForGeocode === 'function' && typeof ensurePlaceCoordinatesFromReference === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'normalizeMapReferenceForGeocode') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'await resolveMapPointFromJobPlace') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132'), 'Plus Code/adress på sparad plats kan bli koordinat för köberäkning, geofenceformulär och tillfälligt geofence'),
     systemCheck('Geofence-förkontroll före Lastning v133', typeof startGeofencePrecheckBeforeFirstLoading === 'function' && typeof runGeofencePrecheckBeforeFirstLoading === 'function' && typeof isInitialGeofencePrecheckPending === 'function' && functionSourceIncludes('renderActiveTransportPhaseControl', 'Förbereder geofence före lastning') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133'), 'Från/Till-geofence förbereds före första Lastning'),
     systemCheck('Stadslass 2.0 fasmodell v135', typeof ensureStadslass20PhaseModel === 'function' && typeof updateStadslass20PhaseModelFromGps === 'function' && typeof finalizeStadslass20PhaseData === 'function' && functionSourceIncludes('startJob', 'recordStadslass20PhaseEvent') && functionSourceIncludes('toggleActiveTransportPhase', 'registerStadslass20ManualLoading') && functionSourceIncludes('addLoadToCurrent', 'registerStadslass20ManualWeight') && functionSourceIncludes('stopJob', 'finalizeStadslass20PhaseData'), 'intern fasmodell för Uppskattad tid 2.0 finns och chefsexporten lämnas enkel'),
+    systemCheck('Backup 2.0 selektiv backup v136', typeof getBackupPartDefinitions === 'function' && typeof buildBackupExport === 'function' && typeof applyBackupPart === 'function' && !!document.getElementById('backupPartSelection') && functionSourceIncludes('exportAppBackup', 'buildBackupExport') && functionSourceIncludes('importAppBackup', 'applyBackupPart'), 'backup/import kan hantera valda datadelar och lämna ovalt data orört'),
     systemCheck('Manuellt sparad GPS-data v126', typeof approveFinishedRouteGpsData === 'function' && typeof isRouteGpsManuallyApproved === 'function' && typeof isRouteGpsUnderlagAllowed === 'function' && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isRouteGpsUnderlagAllowed'), 'manuellt godkänd GPS-data kan sparas som ruttunderlag utan automatisk tidsinlärning'),
     systemCheck('Övrig verksamhet redigering och Havstång Bio Från v127', typeof editOtherWorkDay === 'function' && typeof getOtherWorkSourceJobsForDate === 'function' && functionSourceIncludes('renderTodayOtherWorkCard', 'editOtherWorkDay') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Renova Bioanläggning') && getMaterialCodeForJob({type:'Havstång', place:'Renova Bioanläggning', dest:'Hovåsbadet'}) === '' && getMaterialCodeForJob({type:'Havstång', place:'Askimsbadet', dest:'Renova Bioanläggning'}) === '611', 'Övrig verksamhet kan redigeras i Idag och Havstång/Bio följer materialkodsregeln'),
     systemCheck('Övrig verksamhet utökad redigering v129', typeof closeOtherWorkDayEdit === 'function' && typeof saveOtherWorkDayEdit === 'function' && typeof addOtherWorkEditPart === 'function' && typeof removeOtherWorkEditPart === 'function' && !!document.getElementById('otherWorkEditModal') && functionSourceIncludes('editOtherWorkDay', 'otherWorkEditParts') && functionSourceIncludes('saveOtherWorkDayEdit', 'routeGpsDiscardedReason'), 'Övrig verksamhet kan redigera minuter, kommentar och delrader i Idag'),
@@ -11534,7 +11557,79 @@ function clearGpsTest(){
 }
 
 function toggleBackupManager(){
-  toggleSettingsPanel('backupManagerWrap');
+  toggleSettingsPanel('backupManagerWrap', () => {
+    renderBackupPartSelection();
+  });
+}
+
+const BACKUP2_VERSION = 2;
+const BACKUP2_RECEIPT_STORAGE_KEY = 'stadslass_receipts_temp';
+
+function getBackupPartDefinitions(){
+  return [
+    {id:'places', label:'Platser och platsinställningar', group:'Struktur', defaultPreset:true, stateKeys:['placeLabels','placeAddresses','placeCoordinates','placeCoordinateInvalidations','placeRequirements','hiddenPlaces','customPlaces','placeConfigs','placeUsage']},
+    {id:'geofences', label:'Geofence', group:'Struktur', defaultPreset:true, stateKeys:['placeGeofences','disabledPlaceGeofences']},
+    {id:'jobTypes', label:'Jobbtyper och materialregler', group:'Struktur', defaultPreset:true, stateKeys:['jobTypes','jobTypeMeta']},
+    {id:'quickItems', label:'Snabbval', group:'Struktur', defaultPreset:true, stateKeys:['quickItems']},
+    {id:'machines', label:'Maskiner', group:'Struktur', defaultPreset:true, stateKeys:['machines']},
+    {id:'appSettings', label:'Appinställningar/färger', group:'Inställningar', defaultPreset:true, stateKeys:['phaseColorSettings']},
+    {id:'queue', label:'Uppdrag i kö', group:'Arbetsdata', stateKeys:['queue']},
+    {id:'history', label:'Historik/avslutade uppdrag', group:'Arbetsdata', stateKeys:['jobs','activeMonitorEndReports']},
+    {id:'activeWork', label:'Pågående/pausade arbete', group:'Arbetsdata', stateKeys:['active','pausedOtherWork','lastWorkPoint']},
+    {id:'trash', label:'Papperskorg', group:'Arbetsdata', stateKeys:['trash']},
+    {id:'receipts', label:'Kvittohistorik', group:'Extra data', localStorageKey:BACKUP2_RECEIPT_STORAGE_KEY},
+    {id:'mapCache', label:'Kartcache/ruttcache', group:'Extra data', localStorageKey:MAP_ROUTE_CACHE_STORAGE_KEY}
+  ];
+}
+
+function getBackupPartById(partId){
+  return getBackupPartDefinitions().find(part => part.id === partId) || null;
+}
+
+function renderBackupPartSelection(){
+  const wrap = document.getElementById('backupPartSelection');
+  if(!wrap) return;
+  const defs = getBackupPartDefinitions();
+  wrap.innerHTML = defs.map(part => {
+    const checked = part.defaultPreset ? ' checked' : '';
+    return '<label style="display:flex;gap:8px;align-items:flex-start;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff">' +
+      '<input class="backup-part-checkbox" type="checkbox" value="' + escapeHtml(part.id) + '"' + checked + ' style="width:auto;margin-top:2px">' +
+      '<span><strong>' + escapeHtml(part.label) + '</strong><br><span class="muted">' + escapeHtml(part.group || '') + '</span></span>' +
+      '</label>';
+  }).join('');
+  updateBackupExportSummary();
+  wrap.querySelectorAll('.backup-part-checkbox').forEach(cb => cb.addEventListener('change', updateBackupExportSummary));
+}
+
+function setBackupSelectionPreset(preset){
+  renderBackupPartSelection();
+  const defs = getBackupPartDefinitions();
+  const selected = new Set();
+  if(preset === 'all') defs.forEach(part => selected.add(part.id));
+  if(preset === 'structure') defs.filter(part => part.defaultPreset).forEach(part => selected.add(part.id));
+  document.querySelectorAll('.backup-part-checkbox').forEach(cb => { cb.checked = selected.has(cb.value); });
+  updateBackupExportSummary();
+}
+
+function getCheckedBackupPartIds(){
+  const wrap = document.getElementById('backupPartSelection');
+  if(wrap && !wrap.querySelector('.backup-part-checkbox')) renderBackupPartSelection();
+  return Array.from(document.querySelectorAll('.backup-part-checkbox:checked')).map(cb => cb.value);
+}
+
+function updateBackupExportSummary(){
+  const el = document.getElementById('backupExportSummary');
+  if(!el) return;
+  const ids = Array.from(document.querySelectorAll('.backup-part-checkbox:checked')).map(cb => cb.value);
+  if(!ids.length){
+    el.textContent = 'Inga datadelar markerade.';
+    return;
+  }
+  const labels = ids.map(id => {
+    const part = getBackupPartById(id);
+    return part ? part.label : id;
+  });
+  el.textContent = 'Markerat: ' + labels.join(', ') + '.';
 }
 
 function getBackupFilename(){
@@ -11545,44 +11640,80 @@ function getBackupFilename(){
     String(d.getDate()).padStart(2,'0') + '_' +
     String(d.getHours()).padStart(2,'0') +
     String(d.getMinutes()).padStart(2,'0');
-  return 'lastbil_app_backup_' + stamp + '.json';
+  return 'stadslass_2_backup_' + stamp + '.json';
+}
+
+function sanitizeBackupValue(value){
+  if(value === undefined) return undefined;
+  let clean;
+  try{ clean = JSON.parse(JSON.stringify(value)); }
+  catch(e){ return value; }
+  const walk = item => {
+    if(!item || typeof item !== 'object') return;
+    delete item.privateComment;
+    delete item.internalComment;
+    delete item.sensitiveComment;
+    delete item.mapApiKey;
+    delete item.googleApiKey;
+    delete item.kartnyckel;
+    if(typeof stripMotionFields === 'function') stripMotionFields(item);
+    if(Array.isArray(item)) item.forEach(walk);
+    else Object.keys(item).forEach(key => walk(item[key]));
+  };
+  walk(clean);
+  return clean;
 }
 
 function sanitizeStateForExport(source){
-  const clean = JSON.parse(JSON.stringify(source || {}));
-  const strip = item => {
-    if(item && typeof item === 'object'){
-      delete item.privateComment;
-      delete item.internalComment;
-      delete item.sensitiveComment;
-      delete item.mapApiKey;
-      delete item.googleApiKey;
-      delete item.kartnyckel;
-      if(typeof stripMotionFields === 'function') stripMotionFields(item);
-    }
-  };
+  const clean = sanitizeBackupValue(source || {});
   delete clean.mapApiKey;
   delete clean.googleApiKey;
   delete clean.kartnyckel;
   delete clean.mapSettings;
-  strip(clean.active);
-  strip(clean.pausedOtherWork);
-  (clean.jobs || []).forEach(strip);
-  (clean.queue || []).forEach(strip);
   return clean;
+}
+
+function buildBackupPartPayload(part){
+  if(!part) return null;
+  const payload = {id:part.id, label:part.label, kind:part.localStorageKey ? 'localStorage' : 'state'};
+  if(part.stateKeys){
+    payload.data = {};
+    part.stateKeys.forEach(key => {
+      payload.data[key] = sanitizeBackupValue(state ? state[key] : undefined);
+    });
+  }
+  if(part.localStorageKey){
+    payload.storageKey = part.localStorageKey;
+    payload.raw = localStorage.getItem(part.localStorageKey);
+  }
+  return payload;
+}
+
+function buildBackupExport(partIds){
+  const defs = getBackupPartDefinitions().filter(part => partIds.includes(part.id));
+  const parts = {};
+  defs.forEach(part => { parts[part.id] = buildBackupPartPayload(part); });
+  return {
+    app:'Stadslass',
+    appVersion:APP_VERSION,
+    backupVersion:BACKUP2_VERSION,
+    backupType: partIds.length === getBackupPartDefinitions().length ? 'full_parts' : 'selected_parts',
+    storageKey:KEY,
+    exportedAt:new Date().toISOString(),
+    includedParts:defs.map(part => ({id:part.id, label:part.label, group:part.group || '', kind:part.localStorageKey ? 'localStorage' : 'state'})),
+    parts,
+    note:'Backup 2.0 exporterar valda datadelar. Lokal Google API-nyckel ingår inte.'
+  };
 }
 
 function exportAppBackup(){
   saveState();
-
-  const backup = {
-    app: 'Lastbil app',
-    backupVersion: 1,
-    storageKey: KEY,
-    exportedAt: new Date().toISOString(),
-    state: sanitizeStateForExport(state)
-  };
-
+  const partIds = getCheckedBackupPartIds();
+  if(!partIds.length){
+    alert('Välj minst en datadel att exportera.');
+    return;
+  }
+  const backup = buildBackupExport(partIds);
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -11592,6 +11723,96 @@ function exportAppBackup(){
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const summary = document.getElementById('backupExportSummary');
+  if(summary) summary.textContent = 'Backupfil skapad med ' + partIds.length + ' datadelar: ' + backup.includedParts.map(part => part.label).join(', ') + '.';
+}
+
+function mergeBackupArray(existing, incoming){
+  const base = Array.isArray(existing) ? existing.slice() : [];
+  const inc = Array.isArray(incoming) ? incoming : [];
+  const objectWithId = inc.some(item => item && typeof item === 'object' && item.id);
+  if(objectWithId){
+    const indexById = new Map();
+    base.forEach((item, index) => { if(item && typeof item === 'object' && item.id) indexById.set(String(item.id), index); });
+    inc.forEach(item => {
+      if(item && typeof item === 'object' && item.id && indexById.has(String(item.id))){
+        base[indexById.get(String(item.id))] = item;
+      }else{
+        base.push(item);
+      }
+    });
+    return base;
+  }
+  const out = base.slice();
+  inc.forEach(item => {
+    if(!out.some(existingItem => JSON.stringify(existingItem) === JSON.stringify(item))) out.push(item);
+  });
+  return out;
+}
+
+function mergeBackupObject(existing, incoming){
+  const base = (existing && typeof existing === 'object' && !Array.isArray(existing)) ? {...existing} : {};
+  const inc = (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) ? incoming : {};
+  Object.keys(inc).forEach(key => { base[key] = inc[key]; });
+  return base;
+}
+
+function applyBackupStateKey(key, value, mode){
+  const clean = sanitizeBackupValue(value);
+  if(mode === 'replace'){
+    state[key] = clean;
+    return;
+  }
+  if(Array.isArray(clean)){
+    state[key] = mergeBackupArray(state[key], clean);
+  }else if(clean && typeof clean === 'object'){
+    state[key] = mergeBackupObject(state[key], clean);
+  }else if(clean !== undefined && (state[key] === undefined || state[key] === null || state[key] === '')){
+    state[key] = clean;
+  }
+}
+
+function applyBackupPart(partPayload, mode){
+  if(!partPayload || typeof partPayload !== 'object') return {ok:false, text:'saknas'};
+  if(partPayload.kind === 'localStorage'){
+    if(partPayload.raw === null || partPayload.raw === undefined){
+      if(mode === 'replace' && partPayload.storageKey) localStorage.removeItem(partPayload.storageKey);
+    }else if(partPayload.storageKey){
+      localStorage.setItem(partPayload.storageKey, String(partPayload.raw));
+    }
+    return {ok:true, text:'localStorage'};
+  }
+  const data = partPayload.data || {};
+  Object.keys(data).forEach(key => applyBackupStateKey(key, data[key], mode));
+  return {ok:true, text:Object.keys(data).join(', ')};
+}
+
+function getBackupImportSummary(parsed, partIds){
+  const labels = partIds.map(id => {
+    const payload = parsed.parts && parsed.parts[id];
+    if(payload && payload.label) return payload.label;
+    const def = getBackupPartById(id);
+    return def ? def.label : id;
+  });
+  return [
+    'Backup: ' + (parsed.appVersion || parsed.app || 'okänd'),
+    'Exportdatum: ' + (parsed.exportedAt || '-'),
+    'Datadelar: ' + (labels.length ? labels.join(', ') : 'inga'),
+    'Lagringsnyckel: ' + (parsed.storageKey || '-')
+  ].join('\n');
+}
+
+function importLegacyFullBackup(parsed){
+  const importedState = parsed && parsed.state ? parsed.state : parsed;
+  if(!importedState || typeof importedState !== 'object' || Array.isArray(importedState)){
+    alert('Backupfilen har fel format.');
+    return;
+  }
+  if(!confirm('Detta är en äldre/full backup. Import skriver över nuvarande appdata. Fortsätt?')) return;
+  try{ localStorage.setItem(KEY + '_before_import', JSON.stringify(state)); }catch(e){}
+  localStorage.setItem(KEY, JSON.stringify(sanitizeStateForExport(importedState)));
+  alert('Backup importerad. Appen laddas om.');
+  location.reload();
 }
 
 function importAppBackup(){
@@ -11607,23 +11828,38 @@ function importAppBackup(){
   reader.onload = function(){
     try{
       const parsed = JSON.parse(String(reader.result || ''));
-      const importedState = parsed && parsed.state ? parsed.state : parsed;
-
-      if(!importedState || typeof importedState !== 'object' || Array.isArray(importedState)){
+      if(!parsed || typeof parsed !== 'object'){
         alert('Backupfilen har fel format.');
         return;
       }
-
-      if(!confirm('Import skriver över nuvarande appdata. Fortsätt?')){
+      if(!parsed.parts || typeof parsed.parts !== 'object'){
+        importLegacyFullBackup(parsed);
         return;
       }
-
-      try{
-        localStorage.setItem(KEY + '_before_import', JSON.stringify(state));
-      }catch(e){}
-
-      localStorage.setItem(KEY, JSON.stringify(importedState));
-      alert('Backup importerad. Appen laddas om.');
+      const availableIds = Object.keys(parsed.parts || {});
+      let importIds = availableIds.slice();
+      const importPartMode = document.getElementById('backupImportPartMode');
+      if(importPartMode && importPartMode.value === 'selected'){
+        const selected = new Set(getCheckedBackupPartIds());
+        importIds = availableIds.filter(id => selected.has(id));
+      }
+      if(!importIds.length){
+        alert('Inga valda datadelar finns i backupfilen.');
+        return;
+      }
+      const modeEl = document.getElementById('backupImportMode');
+      const mode = modeEl && modeEl.value === 'replace' ? 'replace' : 'merge';
+      const summary = getBackupImportSummary(parsed, importIds);
+      const preview = document.getElementById('backupImportPreview');
+      if(preview) preview.textContent = summary.replace(/\n/g, ' · ');
+      const modeText = mode === 'replace' ? 'Ersätt valda datadelar' : 'Lägg till/uppdatera valda datadelar och radera inget ovalt';
+      if(!confirm(summary + '\n\nImportläge: ' + modeText + '\n\nFortsätt?')) return;
+      try{ localStorage.setItem(KEY + '_before_import', JSON.stringify(state)); }catch(e){}
+      importIds.forEach(id => applyBackupPart(parsed.parts[id], mode));
+      normalizeVehicleState();
+      refreshTruckTypesFromState();
+      saveState();
+      alert('Backup 2.0 importerad. Appen laddas om.');
       location.reload();
     }catch(e){
       alert('Kunde inte läsa backupfilen.');
