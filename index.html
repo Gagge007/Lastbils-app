@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass v134
+- Nuvarande version: Stadslass 2.0 v135
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -73,6 +73,7 @@ Stadslass versionskontroll
 - v132: Sparade platser med Plus Code/adress kan geokodas till riktiga koordinater för köberäkning, geofenceformulär och tillfälliga uppdragsgeofence.
 - v133: Geofence-förkontroll körs vid uppdragsstart och kontrollerar både Från och Till innan första Lastning-knappen får användas.
 - v134: Platskoordinater skyddas mot gammal adress/Plus Code; koordinater kopplas till kartreferens och ogiltigförklaras när kartreferensen ändras.
+- v135: Stadslass 2.0 startar Uppskattad tid 2.0 med intern fasmodell, geofence-tidsstämplar, fasrapport i övervakning och skyddad chefs-/Excel-export.
 - v130: Övrig verksamhet-redigering låser bakgrundsskroll och får egen skrollbar dialog på padda/mobil utan att ändra sparlogik.
 - v129: Övrig verksamhet i Idag får utökad redigering med minutstyrda delar, kommentar och möjlighet att ta bort eller lägga till del utan att påverka vanliga uppdrag.
 - v90: Övervakningen skapar och sparar avslutsrapport vid Klart, behåller senaste 3 rapporterna och låter dem kopieras från Aktiv övervakning.
@@ -127,7 +128,7 @@ Stadslass versionskontroll
   - Aktiv vy v34: döljer tekniska raderna Materialflöde och Starttillägg i Aktivt arbete; Returkrav och Uppskattad tid visas bredare; Start från kö scrollar upp till toppen
   - Stödruta v36: visar inlärningsregel i 10 sekunder efter Ange vikt, utan att ändra tidslogik
   - Tillfällig kvittoimport v39: importerar färdiga kvittofiler/rader under Inställningar; skapar endast historiska sammanställningsrader och påverkar inte GPS/tid/inlärning
-  - Tidsinlärning v40: uppskattad tid använder bara godkända tidsprover från 2026-05-11 och framåt samt grupperas på Jobbtyp + Från + Till + transportläge
+  - Tidsinlärning v40/v135: uppskattad tid använder bara godkända tidsprover från 2026-05-19 och framåt i Stadslass 2.0 samt grupperas på Jobbtyp + Från + Till + transportläge
   - Tillfällig kartanropsrad v40: uppdrag kan visa hur många nya kartanrop/cacheträffar kartberäkningen gav, utan att påverka arbetsflödet
   - GPS-zoner v41: Från-zoner kan bara ändra visuell knappstatus från Lastning/rangering till Transport pågår; de ändrar aldrig mätpunkter, tider eller inlärning
   - Aktiv fasknapp v41: Lastar/lastning har ljusblå färg och Transport pågår visas ljus orange
@@ -190,7 +191,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass v134';
+  const version = 'Stadslass 2.0 v135';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -1849,7 +1850,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass v134</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v135</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2204,7 +2205,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass v134</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v135</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -2938,6 +2939,8 @@ const DEFAULT_TRUCK_TYPES = ['Övrig verksamhet','Sopsand','Metall','Blandat avf
 const CURRENT_LOCATION_PLACE = '#Min Nuvarande plats#';
 const LEGACY_CURRENT_LOCATION_PLACE = 'Min nuvarande plats';
 const TEMP_JOB_GEOFENCE_RADIUS_METERS = 80;
+const STADSLASS20_PHASE_MODEL_VERSION = 'Stadslass 2.0 v135';
+const STADSLASS20_PHASE_MODEL_KEY = 'uppskattad_tid_2_0_v135';
 function cloneDefaultJobTypes(){ return DEFAULT_TRUCK_TYPES.slice(); }
 let truckTypes = cloneDefaultJobTypes();
 let sortedTruckTypes = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
@@ -3774,6 +3777,9 @@ function markObservedTransportStartFromGeofence(job, visual, point, zone){
   job.observedTransportConfirmedInside = visual.hasConfirmedInside === true;
   job.observedTransportCreatedAt = Date.now();
   job.observedTransportNote = 'Geofence observerade transportstart efter bekräftad Från-zon och säkert utträde. Manuella fasdata ändrades inte.';
+  recordStadslass20PhaseEvent(job, 'from_departed', 'Lämnat Från-geofence', ts, 'geofence_from_exit', {role:'from', zoneId:job.observedTransportZoneId, zoneName:job.observedTransportZoneName, point, note:'Utkörning från Från-plats slutar och egentlig transport börjar.'});
+  const model = ensureStadslass20PhaseModel(job);
+  if(model) model.durationsMs = calculateStadslass20PhaseDurations(job, ts);
   return true;
 }
 
@@ -3861,6 +3867,7 @@ function updateActiveGeofenceVisualStatus(point, options){
   if(!Number.isFinite(accuracy) || accuracy > maxAccuracy) return;
 
   const now = Number(point.ts || Date.now());
+  updateStadslass20PhaseModelFromGps(point, {now, accuracyMeters:accuracy});
 
   if(activePhase === 'loading'){
   const fromZone = getFromGeofenceForJob(state.active);
@@ -6155,6 +6162,12 @@ function updateRouteDeviationForJob(job){
   job.routeDeviationNormalMinutes = Number(evaluation.normalMinutes || 0);
   job.routeDeviationDistanceRatio = Number(evaluation.distanceRatio || 0);
   job.routeDeviationTimeRatio = Number(evaluation.timeRatio || 0);
+  if(job.stadslass20Phase && job.stadslass20LearningModel === STADSLASS20_PHASE_MODEL_KEY){
+    job.routeDeviationInternalOnly = true;
+    job.routeDeviationLearningNote = 'Stadslass 2.0: avvikande transporttid/sträcka sparas som intern analys. Hela uppdraget spärras inte automatiskt från fasdata.';
+    job.excludeFromGpsLearning = true;
+    return job;
+  }
   job.excludeFromTimeEstimate = true;
   job.excludeFromEstimateLearning = true;
   job.excludeFromGpsLearning = true;
@@ -7810,8 +7823,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v134';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v134';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v135';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v135';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -7864,7 +7877,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v131 Övrig verksamhet deltid korrekt',
   'v132 Plus Code till koordinat/geofence',
   'v133 Geofence-förkontroll före Lastning',
-  'v134 Koordinatskydd vid ändrad adress/Plus Code'
+  'v134 Koordinatskydd vid ändrad adress/Plus Code',
+  'v135 Stadslass 2.0 fasmodell för Uppskattad tid 2.0'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -8011,6 +8025,8 @@ function getActiveMonitorSnapshot(){
     etaSourceDetail: job ? activeMonitorSafe(getEtaSourceDetailForJob(job), '-') : '-',
     visibleSmartMapSkipReason: job ? activeMonitorSafe(getSmartMapSkipReasonForDisplay(job), '-') : '-',
     routeDeviation: job ? (job.routeDeviation || job.routeDeviationStatus || job.routeDeviationWarning || '') : '',
+    stadslass20Phase: job ? (job.stadslass20Phase || null) : null,
+    stadslass20PhaseLines: job ? getStadslass20PhaseSummaryLines(job) : [],
     activeForecastRemainingMinutes: typeof getActiveForecastRemainingMinutes === 'function' ? getActiveForecastRemainingMinutes() : null,
     dayForecast: typeof buildDayForecast === 'function' ? buildDayForecast() : null,
     geofencePolygonAudit: typeof getGeofencePolygonAuditSummary === 'function' ? getGeofencePolygonAuditSummary() : null,
@@ -8064,6 +8080,15 @@ function getActiveMonitorChecks(snapshot){
     warn('ACTIVEJOB-OV-002', 'Från/Till verkar ofullständigt', 'Vanliga körjobb ska normalt ha både Från och Till.', 'Från=' + s.from + '; Till=' + s.to, 'Uppdraget kan ha skapats från ett fritt undantag eller snabbvalsdata saknar destination.', 'Nytt jobb / Snabbval / Kö', 'type=' + s.type + '; place=' + activeMonitorSafe(s.job.place, '-') + '; dest=' + activeMonitorSafe(s.job.dest, '-'));
   } else {
     ok('ACTIVEJOB-OV-002', 'Från/Till kontroll', 'Uppdraget ska ha rimlig platsdata.', 'Från=' + s.from + '; Till=' + s.to, 'Aktivt jobb', '');
+  }
+
+  if(s.job && isStadslass20PhaseModelAllowed(s.job)){
+    const model = s.job.stadslass20Phase;
+    if(model && model.version === STADSLASS20_PHASE_MODEL_VERSION){
+      ok('STADSLASS20-OV-001', 'Stadslass 2.0 fasmodell är aktiv', 'Körjobb från v135 ska ha intern fasmodell för chaufförsstöd.', 'version=' + activeMonitorSafe(model.version, '-') + '; händelser=' + (Array.isArray(model.events) ? model.events.length : 0), 'v135 Uppskattad tid 2.0', 'durations=' + JSON.stringify(model.durationsMs || {}));
+    } else {
+      warn('STADSLASS20-OV-001', 'Stadslass 2.0 fasmodell saknas på aktivt körjobb', 'Nya körjobb ska få fasmodell vid start utan att påverka chefsexport.', model ? ('version=' + activeMonitorSafe(model.version, '-')) : 'stadslass20Phase saknas', 'startJob eller ensureStadslass20PhaseModel kan ha missats.', 'v135 Uppskattad tid 2.0', 'job.id=' + activeMonitorSafe(s.job.id, '-'));
+    }
   }
 
   if(s.isOtherWork){
@@ -8298,6 +8323,9 @@ function buildActiveMonitorReport(){
     report.push('ETA anropsorsak: ' + activeMonitorSafe(s.etaMapDiagnosis.reason, '-'));
   }
   report.push('');
+  report.push('STADSLASS 2.0 FASMODELL');
+  (s.stadslass20PhaseLines || []).forEach(line => report.push(line));
+  report.push('');
   report.push('GPS');
   report.push('GPS tillåten för jobbtyp: ' + activeMonitorBool(s.gpsAllowed));
   report.push('GPS-status: ' + s.gpsStatus);
@@ -8375,6 +8403,7 @@ function buildActiveMonitorReport(){
   report.push('active.observedTransportSource=' + (s.job ? activeMonitorSafe(s.job.observedTransportSource, '-') : '-'));
   report.push('active.observedTransportZone=' + (s.job ? activeMonitorSafe(s.job.observedTransportZoneName || s.job.observedTransportZoneId, '-') : '-'));
   report.push('active.estimatedTransportStartObservedAt=' + (s.job ? activeMonitorSafe(s.job.estimatedTransportStartObservedAt, '-') : '-'));
+  report.push('active.stadslass20Phase=' + (s.job && s.job.stadslass20Phase ? JSON.stringify(s.job.stadslass20Phase) : '-'));
   report.push('active.unloadingLockActive=' + (s.job ? activeMonitorBool(s.job.unloadingLockActive) : '-'));
   report.push('active.unloadingLockZone=' + (s.job ? activeMonitorSafe(s.job.unloadingLockZoneName || s.job.unloadingLockZoneId, '-') : '-'));
   report.push('active.unloadingLockStartedAt=' + (s.job ? activeMonitorSafe(s.job.unloadingLockStartedAt, '-') : '-'));
@@ -8582,6 +8611,9 @@ function buildActiveMonitorEndReport(job, completedFrom){
   lines.push('Vägtid ca: ' + mins(Number(job && job.motionDrivingMs || 0)));
   lines.push('Hantering/väntan ca: ' + mins(Number(job && job.motionStillMs || 0)));
   lines.push('');
+  lines.push('STADSLASS 2.0 FASMODELL');
+  getStadslass20PhaseSummaryLines(job).forEach(line => lines.push(line));
+  lines.push('');
   lines.push('GPS');
   lines.push('GPS skulle användas: ' + activeMonitorBool(gps.allowed));
   lines.push('GPS användes/status: ' + gps.status);
@@ -8619,6 +8651,7 @@ function buildActiveMonitorEndReport(job, completedFrom){
   lines.push('observedTransportStartAt=' + activeMonitorSafe(job && job.observedTransportStartAt, '-'));
   lines.push('observedTransportSource=' + activeMonitorSafe(job && job.observedTransportSource, '-'));
   lines.push('observedTransportZone=' + activeMonitorSafe(job && (job.observedTransportZoneName || job.observedTransportZoneId), '-'));
+  lines.push('stadslass20Phase=' + (job && job.stadslass20Phase ? JSON.stringify(job.stadslass20Phase) : '-'));
   lines.push('loads=' + JSON.stringify(loads));
   return lines.join('\n');
 }
@@ -8706,7 +8739,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass v131';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v135';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -8729,7 +8762,7 @@ function getStartupWatchdogStatus(){
   };
 }
 
-const TIME_LEARNING_CUTOFF_ISO = '2026-05-11';
+const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
   {name:'Lagringsnyckel driftlogg_v4_full', status:'Skyddad', purpose:'Behåller befintlig lokal appdata mellan versioner.', changeRule:'Får inte ändras utan medveten migrering.'},
   {name:'Aktivt jobb', status:'Skyddad men får byggas om', purpose:'Visa och hantera pågående uppdrag.', changeRule:'Får byggas om men inte försvinna tyst.'},
@@ -8767,7 +8800,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
   {name:'Returkrav', status:'Skyddad', purpose:'Jobbtyp kan kräva återgång till från-plats och påverkar uppskattad tid.', changeRule:'Får byggas om men Ja/Nej-logiken ska dokumenteras.'},
   {name:'Uppskattad tid', status:'Skyddad men får byggas om', purpose:'Visar enkel uppskattad tid i kö och aktivt jobb. Karttjänst och historik används bakom kulisserna.', changeRule:'Får förbättras, men aktiv vy ska hållas enkel.'},
-  {name:'Tidsinlärning v40 brytdatum', status:'Skyddad beteenderegel', purpose:'Uppskattad tid använder bara godkända tidsprover från och med 2026-05-11 så gammal mätmodell inte blandas med ny.', changeRule:'Får ändras endast vid nytt medvetet brytdatum eller migrering.'},
+  {name:'Tidsinlärning v40/v135 brytdatum', status:'Skyddad beteenderegel', purpose:'Uppskattad tid använder bara godkända tidsprover från och med 2026-05-19 i Stadslass 2.0 så gammal mätmodell inte blandas med ny fasmodell.', changeRule:'Får ändras endast vid nytt medvetet brytdatum eller migrering.'},
   {name:'Tidsinlärning v40 grupperingsnyckel', status:'Skyddad beteenderegel', purpose:'Inlärning grupperas internt på Jobbtyp + Från + Till + transportläge, så ändrad från-/tillplats skapar separat tidsgrupp.', changeRule:'Får byggas vidare men olika materialflöden får inte blandas.'},
   {name:'Tillfällig kartanropsrad v40', status:'Testfunktion', purpose:'Visar nya kartanrop och cacheträffar per uppdrag för att utvärdera nyckelbelastning.', changeRule:'Kan tas bort när anropsnivån är verifierad.'},
   {name:'GPS-zoner visuell status v41', status:'Aktiv', purpose:'Från-zoner för Ringön, Slottskogen komprimator, Säldammen, Flaklager Skräppekärr och von Utfallsgatan kan ändra fasknappens visuella text/färg från Lastning/rangering till Transport pågår.', changeRule:'Får aldrig ändra mätpunkter, sparade tider, tidsinlärning eller fasdata automatiskt.'},
@@ -8868,6 +8901,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Plus Code till koordinat/geofence v132', status:'Aktiv', purpose:'Sparade platser med Plus Code/adress kan geokodas till koordinat för köberäkning, geofencehämtning och tillfälligt geofence.', changeRule:'Får endast skapa/återanvända kartreferens och uppdragsbundet tillfälligt geofence. Får inte ändra fasta geofence utan användarens Spara, inte trycka jobbknappar och inte ändra GPS, vikt, fasdata, historik, sammanställning, tidsinlärning eller localStorage-nyckel.'},
   {name:'Geofence-förkontroll före Lastning v133', status:'Aktiv', purpose:'När ett uppdrag startas kontrolleras både Från- och Till-plats för fast eller tillfälligt geofence innan första Lastning-knappen får användas.', changeRule:'Får endast kontrollera/skapa uppdragsbundna hjälpgeofence och spärra första Lastning-knappen medan kontrollen pågår. Får inte trycka Lastar, Ange vikt, Klart eller ändra jobbsanning, GPS, vikt, fasdata, historik, sammanställning, tidsinlärning eller localStorage-nyckel.'},
   {name:'Koordinatskydd vid ändrad adress/Plus Code v134', status:'Aktiv', purpose:'Geokodade platskoordinater kopplas till den adress/Plus Code som användes. Om kartreferensen ändras ogiltigförklaras gammal koordinat och ny geokodning krävs innan rutt/geofence använder platsen.', changeRule:'Får bara skydda/ogiltigförklara osäkra platskoordinater och geokoda aktuell kartreferens. Får inte ändra fast geofence automatiskt, inte trycka jobbknappar och inte ändra GPS, vikt, fasdata, historik, sammanställning, tidsinlärning eller localStorage-nyckel.'},
+  {name:'Stadslass 2.0 fasmodell v135', status:'Aktiv', purpose:'Startar ny intern fasmodell för Uppskattad tid 2.0. Geofence markerar ankomst/lämnat zon, Lastar/Ange vikt/Klart är manuella sanningar och fasdata sparas internt för chaufförsstöd utan att ändra chefens enkla export.', changeRule:'Får bara lägga till intern fasdata, övervakningsrapport och framtida underlag för uppskattad tid. Får inte radera historik, ändra driftlogg_v4_full, ändra chefsexport/sammanställning eller trycka Lastar/Ange vikt/Klart automatiskt.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -9071,7 +9105,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass v134' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v135' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -9110,7 +9144,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Transportlägen enligt dagens modell finns', fn('getJobReturnRequiredValue') && fn('getTransportPhase') && fn('initializeTransportPhaseForJob') && fn('updateTransportPhaseDurations') && src('addLoadToCurrent', 'returnRequired') && src('getActivePhaseVisualState', 'Retur pågår'), 'utan returkrav, med returkrav och flerlass utan returkrav');
   addFunctionCheck(results, 'Nivå 2', 'Startsträcka ingår i aktiv uppskattad tid', fn('getVisibleEstimateMinutesForPhase') && fn('getEstimateStartAddonMinutes') && fn('applyEstimatedCountdownAtStart') && src('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart'), 'starttillägg ingår före Lastar och kan räknas bort efter fasstart');
   addFunctionCheck(results, 'Nivå 2', 'Materialflödesnyckel hålls separat från startpunkt', fn('materialFlowEstimateKey') && fn('startAddonEstimateKey') && !src('materialFlowEstimateKey', 'calculationStart') && src('startAddonEstimateKey', 'getStartAddonEstimateSource'), 'materialflöde och starttillägg har separata nycklar');
-  addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum och stabilt underlag', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-11' && fn('isTimeLearningSampleAllowed') && fn('isStableMaterialFlowSample'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
+  addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum och stabilt underlag', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-19' && fn('isTimeLearningSampleAllowed') && fn('isStableMaterialFlowSample'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkert underlag', fn('getFinishedJobsForUnderlag') && src('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag') && src('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'uppskattad tid/GPS-lärning hämtar underlag via getFinishedJobsForUnderlag');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkert underlag', fn('getFilteredSummaryJobs') && src('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag') && fn('getReceiptSummaryJobs'), 'sammanställning + kvittorader utan papperskorg');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', src('renderHistoryManager', 'getHistoryCalendarJobsForDisplay') && src('renderToday', 'getFinishedJobsForUnderlag'), 'historik använder samlat visningsunderlag, Idag använder avslutade jobb');
@@ -9162,6 +9196,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Vägtid/arbetstid v82 påverkar inte inlärning', fn('getRoadWorkTimeSplit') && src('getRoadWorkTimeSplit', 'getTotalWorkSessionMs') && src('getMotionSplitHtml', 'work-road-split') && !src('isTimeLearningSampleAllowed', 'getRoadWorkTimeSplit'), 'v82 är visning/analys och rör inte tidsinlärning');
   addFunctionCheck(results, 'Nivå 2', 'Anropssmart v83 använder historik/cache först', fn('hasUsefulHistoryOrCacheEstimateForJob') && src('shouldScheduleSmartEstimate', 'hasUsefulHistoryOrCacheEstimateForJob') && src('shouldScheduleSmartEstimate', 'getCachedMapTotalsForJob') && !src('stopJob', 'smartMapSkipReason'), 'nya automatiska smarta kartanrop hoppas över när befintligt underlag räcker');
   addFunctionCheck(results, 'Nivå 2', 'Ruttavvikelse v84 spärrar normalvärde', fn('updateRouteDeviationForJob') && src('updateRouteDeviationForJob', 'excludeFromTimeEstimate') && src('updateRouteDeviationForJob', 'excludeFromGpsLearning') && src('stopJob', 'updateRouteDeviationForJob'), 'tydlig ruttavvikelse används inte automatiskt som nytt normalvärde');
+  addFunctionCheck(results, 'Nivå 2', 'Stadslass 2.0 fasmodell v135', fn('ensureStadslass20PhaseModel') && fn('updateStadslass20PhaseModelFromGps') && fn('finalizeStadslass20PhaseData') && src('startJob', 'recordStadslass20PhaseEvent') && src('toggleActiveTransportPhase', 'registerStadslass20ManualLoading') && src('addLoadToCurrent', 'registerStadslass20ManualWeight') && src('stopJob', 'finalizeStadslass20PhaseData') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135'), 'intern fasmodell sparar Start/Från/Lastar/Till/Vikt/Retur/Klart utan att ändra chefsexport');
   addFunctionCheck(results, 'Nivå 2', 'Dagsprognos v85 är planeringsstöd', fn('buildDayForecast') && fn('renderDayForecasts') && !!el('queueDayForecastBox') && !!el('todayDayForecastBox') && src('getDayForecastHtml', 'ändrar inte köordning') && !src('buildDayForecast', 'startQueuedJob('), 'prognosen visas i kö/Idag utan att starta eller sortera uppdrag');
   addFunctionCheck(results, 'Nivå 2', 'Geofence-inställningar v86 finns', !!el('geofenceManagerWrap') && fn('toggleGeofenceManager') && fn('saveGeofenceFromForm') && fn('removeGeofenceForPlace') && fn('restoreDefaultGeofenceForPlace') && fn('buildGeofenceFromForm'), 'geofence kan skapas/redigeras/tas bort/återställas');
   addFunctionCheck(results, 'Nivå 2', 'Geofence-validering v86 finns', fn('parseGeofencePolygonPoints') && src('buildGeofenceFromForm', 'Latitud måste vara ett tal') && src('buildGeofenceFromForm', 'Radie måste vara större än 0') && src('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'felaktiga lat/lon/radie/polygonvärden stoppas innan sparning');
@@ -9278,7 +9313,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass v134' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass v134'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v135' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v135'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -9350,6 +9385,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Tillfälligt uppdragsgeofence v125', typeof ensureJobTemporaryGeofences === 'function' && typeof buildTemporaryJobGeofenceZone === 'function' && typeof resolveJobTemporaryGeofencesFromReferences === 'function' && TEMP_JOB_GEOFENCE_RADIUS_METERS === 80, 'uppdragsbundna cirklar kan skapas utan att sparas som fast geofence'),
     systemCheck('Plus Code till koordinat/geofence v132', typeof normalizeMapReferenceForGeocode === 'function' && typeof ensurePlaceCoordinatesFromReference === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'normalizeMapReferenceForGeocode') && functionSourceIncludes('calculateQueueMapTotalsFromGps', 'await resolveMapPointFromJobPlace') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132'), 'Plus Code/adress på sparad plats kan bli koordinat för köberäkning, geofenceformulär och tillfälligt geofence'),
     systemCheck('Geofence-förkontroll före Lastning v133', typeof startGeofencePrecheckBeforeFirstLoading === 'function' && typeof runGeofencePrecheckBeforeFirstLoading === 'function' && typeof isInitialGeofencePrecheckPending === 'function' && functionSourceIncludes('renderActiveTransportPhaseControl', 'Förbereder geofence före lastning') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133'), 'Från/Till-geofence förbereds före första Lastning'),
+    systemCheck('Stadslass 2.0 fasmodell v135', typeof ensureStadslass20PhaseModel === 'function' && typeof updateStadslass20PhaseModelFromGps === 'function' && typeof finalizeStadslass20PhaseData === 'function' && functionSourceIncludes('startJob', 'recordStadslass20PhaseEvent') && functionSourceIncludes('toggleActiveTransportPhase', 'registerStadslass20ManualLoading') && functionSourceIncludes('addLoadToCurrent', 'registerStadslass20ManualWeight') && functionSourceIncludes('stopJob', 'finalizeStadslass20PhaseData'), 'intern fasmodell för Uppskattad tid 2.0 finns och chefsexporten lämnas enkel'),
     systemCheck('Manuellt sparad GPS-data v126', typeof approveFinishedRouteGpsData === 'function' && typeof isRouteGpsManuallyApproved === 'function' && typeof isRouteGpsUnderlagAllowed === 'function' && functionSourceIncludes('getSavedRouteGpsRecordsForUnderlag', 'isRouteGpsUnderlagAllowed'), 'manuellt godkänd GPS-data kan sparas som ruttunderlag utan automatisk tidsinlärning'),
     systemCheck('Övrig verksamhet redigering och Havstång Bio Från v127', typeof editOtherWorkDay === 'function' && typeof getOtherWorkSourceJobsForDate === 'function' && functionSourceIncludes('renderTodayOtherWorkCard', 'editOtherWorkDay') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Renova Bioanläggning') && getMaterialCodeForJob({type:'Havstång', place:'Renova Bioanläggning', dest:'Hovåsbadet'}) === '' && getMaterialCodeForJob({type:'Havstång', place:'Askimsbadet', dest:'Renova Bioanläggning'}) === '611', 'Övrig verksamhet kan redigeras i Idag och Havstång/Bio följer materialkodsregeln'),
     systemCheck('Övrig verksamhet utökad redigering v129', typeof closeOtherWorkDayEdit === 'function' && typeof saveOtherWorkDayEdit === 'function' && typeof addOtherWorkEditPart === 'function' && typeof removeOtherWorkEditPart === 'function' && !!document.getElementById('otherWorkEditModal') && functionSourceIncludes('editOtherWorkDay', 'otherWorkEditParts') && functionSourceIncludes('saveOtherWorkDayEdit', 'routeGpsDiscardedReason'), 'Övrig verksamhet kan redigera minuter, kommentar och delrader i Idag'),
@@ -13245,6 +13281,8 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   };
   state.active.canBeMultiLoad = !returnRequired && isMultiLoadSensitiveJob(state.active);
   initializeTransportPhaseForJob(state.active);
+  ensureStadslass20PhaseModel(state.active);
+  recordStadslass20PhaseEvent(state.active, 'job_started', 'Uppdrag startat', state.active.start, 'manual_start', {note:'Startsträcka börjar. Ny inlärningsmodell från Stadslass 2.0 v135.'});
   ensureJobTemporaryGeofences(state.active);
   startGeofencePrecheckBeforeFirstLoading(state.active);
   startRouteGpsRecordingForJob(state.active, state.active.start);
@@ -13585,7 +13623,9 @@ function completeQueuedJob(qid){
     finished.routeEndPlace = getJobCompletionPlace(finished);
     finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
     finalizeTransportPhaseData(finished, finished.end);
+    finalizeStadslass20PhaseData(finished, finished.end);
     ensureSeaweedWeightMetadata(finished);
+    updateRouteDeviationForJob(finished);
     state.jobs.unshift(finished);
     updateLastWorkPointFromJob(finished);
     storeActiveMonitorEndReport(finished, 'completeQueuedJob:pausad');
@@ -13681,6 +13721,7 @@ function addLoadToCurrent(){
     const now = Date.now();
     const returnRequired = getJobReturnRequiredValue(state.active);
     const multiLoadMode = isMultiLoadLearningMode(state.active);
+    registerStadslass20ManualWeight(state.active, now, n);
 
     if(startedAt > 0){
       if(returnRequired){
@@ -13831,6 +13872,319 @@ function positiveDurationMs(startTs, endTs){
   return Number.isFinite(duration) && duration >= 0 ? duration : null;
 }
 
+
+function isStadslass20PhaseModelAllowed(job){
+  return !!job && isTransportPhaseTrackingAllowed(job);
+}
+
+function ensureStadslass20PhaseModel(job){
+  if(!isStadslass20PhaseModelAllowed(job)) return null;
+  if(!job.stadslass20Phase || typeof job.stadslass20Phase !== 'object'){
+    job.stadslass20Phase = {
+      modelKey: STADSLASS20_PHASE_MODEL_KEY,
+      version: STADSLASS20_PHASE_MODEL_VERSION,
+      startedAt: Number(job.start || Date.now()),
+      learningStart: 'new_data_from_v135',
+      purpose: 'Intern fasmodell för Uppskattad tid 2.0. Chefens export ändras inte.',
+      events: [],
+      durationsMs: {},
+      windows: {},
+      notes: ['Startsträcka används i total uppdragstid men inte som normalvärde för kärnflödet.']
+    };
+  }
+  const model = job.stadslass20Phase;
+  model.modelKey = STADSLASS20_PHASE_MODEL_KEY;
+  model.version = STADSLASS20_PHASE_MODEL_VERSION;
+  model.enabled = true;
+  if(!Array.isArray(model.events)) model.events = [];
+  if(!model.durationsMs || typeof model.durationsMs !== 'object') model.durationsMs = {};
+  if(!model.windows || typeof model.windows !== 'object') model.windows = {};
+  job.stadslass20PhaseVersion = 135;
+  job.stadslass20LearningModel = STADSLASS20_PHASE_MODEL_KEY;
+  return model;
+}
+
+function getStadslass20EventFieldKey(eventKey){
+  const map = {
+    job_started:'jobStartedAt',
+    from_arrived:'fromArrivedAt',
+    loading_registered:'loadingRegisteredAt',
+    from_departed:'fromDepartedAt',
+    to_arrived:'toArrivedAt',
+    weight_registered:'weightRegisteredAt',
+    to_departed:'toDepartedAt',
+    return_from_arrived:'returnFromArrivedAt',
+    job_completed:'completedAt'
+  };
+  return map[eventKey] || '';
+}
+
+function getStadslass20EventDefaultLabel(eventKey){
+  const map = {
+    job_started:'Uppdrag startat',
+    from_arrived:'Framme vid Från-geofence',
+    loading_registered:'Lastar registrerad manuellt',
+    from_departed:'Lämnat Från-geofence',
+    to_arrived:'Framme vid Till-geofence',
+    weight_registered:'Vikt registrerad manuellt',
+    to_departed:'Lämnat Till-geofence efter vikt',
+    return_from_arrived:'Tillbaka vid Från-geofence',
+    job_completed:'Klart registrerat manuellt'
+  };
+  return map[eventKey] || eventKey;
+}
+
+function buildStadslass20PointSnapshot(point){
+  if(!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon))) return null;
+  return {
+    lat: roundGpsValue(point.lat),
+    lon: roundGpsValue(point.lon),
+    accuracy: Number.isFinite(Number(point.accuracy)) ? Math.round(Number(point.accuracy)) : null
+  };
+}
+
+function recordStadslass20PhaseEvent(job, eventKey, label, at, source, extra){
+  const model = ensureStadslass20PhaseModel(job);
+  if(!model) return false;
+  const ts = Number(at || Date.now());
+  if(!Number.isFinite(ts) || ts <= 0) return false;
+  const fieldKey = getStadslass20EventFieldKey(eventKey);
+  const firstOnly = !!fieldKey;
+  if(firstOnly && Number(model[fieldKey] || 0) > 0){
+    if(eventKey === 'weight_registered') model.lastWeightRegisteredAt = ts;
+    model.lastUpdatedAt = Date.now();
+    return false;
+  }
+  if(fieldKey) model[fieldKey] = ts;
+  if(eventKey === 'weight_registered') model.lastWeightRegisteredAt = ts;
+  const detail = extra && typeof extra === 'object' ? extra : {};
+  const event = {
+    key:eventKey,
+    label:label || getStadslass20EventDefaultLabel(eventKey),
+    at:ts,
+    source:source || 'internal'
+  };
+  if(detail.zoneId) event.zoneId = String(detail.zoneId);
+  if(detail.zoneName) event.zoneName = String(detail.zoneName);
+  if(detail.role) event.role = String(detail.role);
+  if(detail.note) event.note = String(detail.note);
+  if(detail.point) event.point = buildStadslass20PointSnapshot(detail.point);
+  if(Number.isFinite(Number(detail.accuracy))) event.accuracy = Math.round(Number(detail.accuracy));
+  model.events.push(event);
+  if(model.events.length > 80) model.events = model.events.slice(model.events.length - 80);
+  model.lastUpdatedAt = Date.now();
+  return true;
+}
+
+function getStadslass20FirstCompletedWeightAt(job){
+  const values = [];
+  const returnWeightAt = Number(job && job.returnRequirementWeightAt || 0);
+  if(Number.isFinite(returnWeightAt) && returnWeightAt > 0) values.push(returnWeightAt);
+  (Array.isArray(job && job.loadSegments) ? job.loadSegments : []).forEach(segment => {
+    const ts = Number(segment && (segment.weightAt || segment.completedAt) || 0);
+    if(Number.isFinite(ts) && ts > 0) values.push(ts);
+  });
+  (Array.isArray(job && job.weightEntries) ? job.weightEntries : []).forEach(entry => {
+    const ts = Number(entry && (entry.weightAt || entry.createdAt || entry.completedAt) || 0);
+    if(Number.isFinite(ts) && ts > 0) values.push(ts);
+  });
+  return values.length ? Math.min(...values) : 0;
+}
+
+function getStadslass20PointWindow(points, startAt, endAt){
+  const start = Number(startAt || 0);
+  const end = Number(endAt || 0);
+  if(!Array.isArray(points) || !start || !end || end <= start) return {pointCount:0, distanceKm:0};
+  const segmentPoints = points.filter(point => {
+    const ts = Number(point && point.ts || 0);
+    return Number.isFinite(ts) && ts >= start && ts <= end;
+  });
+  let distanceKm = 0;
+  for(let i = 1; i < segmentPoints.length; i++){
+    const a = segmentPoints[i - 1];
+    const b = segmentPoints[i];
+    if(Number.isFinite(Number(a.lat)) && Number.isFinite(Number(a.lon)) && Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lon))){
+      const delta = haversineKm(a.lat, a.lon, b.lat, b.lon);
+      if(Number.isFinite(delta) && delta >= 0 && delta < 3) distanceKm += delta;
+    }
+  }
+  return {pointCount:segmentPoints.length, distanceKm:Number(distanceKm.toFixed(3))};
+}
+
+function buildStadslass20TransportWindows(job, model){
+  const rec = getRouteGps(job);
+  const points = rec && Array.isArray(rec.points) ? rec.points : [];
+  const windows = {};
+  if(model.fromDepartedAt && model.toArrivedAt){
+    windows.outboundTransport = {
+      fromAt:model.fromDepartedAt,
+      toAt:model.toArrivedAt,
+      durationMs:Math.max(0, model.toArrivedAt - model.fromDepartedAt),
+      from:getItemPlaceLabel(job, 'place') || job.place || '',
+      to:getItemPlaceLabel(job, 'dest') || job.dest || '',
+      role:'transport_to_destination',
+      ...getStadslass20PointWindow(points, model.fromDepartedAt, model.toArrivedAt)
+    };
+  }
+  if(model.toDepartedAt && model.returnFromArrivedAt){
+    windows.returnTransport = {
+      fromAt:model.toDepartedAt,
+      toAt:model.returnFromArrivedAt,
+      durationMs:Math.max(0, model.returnFromArrivedAt - model.toDepartedAt),
+      from:getItemPlaceLabel(job, 'dest') || job.dest || '',
+      to:getItemPlaceLabel(job, 'place') || job.place || '',
+      role:'return_to_from',
+      ...getStadslass20PointWindow(points, model.toDepartedAt, model.returnFromArrivedAt)
+    };
+  }
+  return windows;
+}
+
+function calculateStadslass20PhaseDurations(job, endAt){
+  const model = ensureStadslass20PhaseModel(job);
+  if(!model) return {};
+  const start = Number(job.start || model.startedAt || 0);
+  const fromArrived = Number(model.fromArrivedAt || 0);
+  const loadingRegistered = Number(model.loadingRegisteredAt || job.loadedAt || 0);
+  const fromDeparted = Number(model.fromDepartedAt || getObservedTransportStartAt(job) || 0);
+  const toArrived = Number(model.toArrivedAt || (job.toGeofenceVisual && job.toGeofenceVisual.enteredAt) || 0);
+  const weightRegistered = Number(model.weightRegisteredAt || getStadslass20FirstCompletedWeightAt(job) || 0);
+  const toDeparted = Number(model.toDepartedAt || 0);
+  const returnFromArrived = Number(model.returnFromArrivedAt || (job.returnToFromVisual && job.returnToFromVisual.enteredAt) || 0);
+  const completed = Number(model.completedAt || endAt || job.end || 0);
+  const durations = {};
+  const add = (key, a, b) => {
+    const ms = positiveDurationMs(a, b);
+    if(ms !== null) durations[key] = ms;
+  };
+  add('startstrackaMs', start, fromArrived);
+  add('franHanteringMs', fromArrived, loadingRegistered);
+  add('utkorningFranMs', loadingRegistered, fromDeparted);
+  add('transportTillMs', fromDeparted, toArrived);
+  add('tillHanteringMs', toArrived, weightRegistered);
+  add('utkorningTillMs', weightRegistered, toDeparted);
+  add('returtransportMs', toDeparted, returnFromArrived);
+  add('returhanteringMs', returnFromArrived, completed);
+  add('totalUppdragstidMs', start, completed);
+  return durations;
+}
+
+function finalizeStadslass20PhaseData(job, endAt){
+  const model = ensureStadslass20PhaseModel(job);
+  if(!model) return job;
+  const end = Number(endAt || job.end || Date.now());
+  recordStadslass20PhaseEvent(job, 'job_completed', 'Klart registrerat manuellt', end, 'manual_klart', {note:'Avslutar intern fasmodell. Chefens export påverkas inte.'});
+  const durations = calculateStadslass20PhaseDurations(job, end);
+  model.durationsMs = durations;
+  model.windows = buildStadslass20TransportWindows(job, model);
+  model.finalizedAt = end;
+  model.exportProtected = true;
+  model.exportRule = 'Fasdata är intern chaufförsanalys och ska inte visas i chefens enkla export.';
+  job.stadslass20PhaseDurationsMs = durations;
+  job.stadslass20PhaseWindows = model.windows;
+  job.stadslass20ExportProtected = true;
+  return job;
+}
+
+function updateStadslass20PhaseModelFromGps(point, options){
+  const job = state && state.active;
+  if(!job || !point || !isStadslass20PhaseModelAllowed(job)) return false;
+  const model = ensureStadslass20PhaseModel(job);
+  if(!model) return false;
+  const opts = options || {};
+  const now = Number(opts.now || point.ts || Date.now());
+  const accuracy = Number(opts.accuracyMeters !== undefined ? opts.accuracyMeters : (point.accuracy || 9999));
+  if(!Number.isFinite(accuracy) || accuracy > 120) return false;
+  const phase = getTransportPhase(job);
+  const fromZone = getFromGeofenceForJob(job);
+  const toZone = getToGeofenceForJob(job);
+  const insideFrom = !!(fromZone && isPointInsideOrNearGeofence(point, fromZone, {accuracyMeters:accuracy}));
+  const insideTo = !!(toZone && isPointInsideOrNearGeofence(point, toZone, {accuracyMeters:accuracy}));
+  let changed = false;
+
+  if(!model.jobStartedAt){
+    changed = recordStadslass20PhaseEvent(job, 'job_started', 'Uppdrag startat', Number(job.start || now), 'manual_start', {note:'Startsträcka börjar. Route API är tidsprognos, inte ruttorder.'}) || changed;
+  }
+
+  if(insideFrom && phase === 'start' && !model.fromArrivedAt){
+    changed = recordStadslass20PhaseEvent(job, 'from_arrived', 'Framme vid Från-geofence', now, 'geofence', {role:'from', zoneId:fromZone.id, zoneName:fromZone.label, point, accuracy, note:'Startsträcka slutar och Från-hantering börjar. Geofence trycker inte Lastar.'}) || changed;
+  }
+
+  if(insideTo && phase === 'loading' && !model.toArrivedAt){
+    changed = recordStadslass20PhaseEvent(job, 'to_arrived', 'Framme vid Till-geofence', now, 'geofence', {role:'to', zoneId:toZone.id, zoneName:toZone.label, point, accuracy, note:'Transport till Till slutar och Till-hantering börjar. Ange vikt är fortsatt manuell sanning.'}) || changed;
+  }
+
+  if(model.weightRegisteredAt && model.toArrivedAt && model._lastInsideTo === true && insideTo === false && !model.toDepartedAt){
+    changed = recordStadslass20PhaseEvent(job, 'to_departed', 'Lämnat Till-geofence efter vikt', now, 'geofence', {role:'to', zoneId:toZone && toZone.id, zoneName:toZone && toZone.label, point, accuracy, note:'Utkörning från Till slutar och returtransport kan börja.'}) || changed;
+  }
+
+  if(insideFrom && phase === 'returning' && model.fromDepartedAt && !model.returnFromArrivedAt){
+    changed = recordStadslass20PhaseEvent(job, 'return_from_arrived', 'Tillbaka vid Från-geofence', now, 'geofence', {role:'from_return', zoneId:fromZone && fromZone.id, zoneName:fromZone && fromZone.label, point, accuracy, note:'Returtransport slutar och returhantering börjar. Klart är fortsatt manuell sanning.'}) || changed;
+  }
+
+  model._lastInsideFrom = insideFrom;
+  model._lastInsideTo = insideTo;
+  model._lastGpsAt = now;
+  model._lastPhase = phase;
+  model.lastUpdatedAt = Date.now();
+  if(changed) model.durationsMs = calculateStadslass20PhaseDurations(job, now);
+  return changed;
+}
+
+function registerStadslass20ManualLoading(job, now){
+  if(!isStadslass20PhaseModelAllowed(job)) return false;
+  const ts = Number(now || Date.now());
+  const changed = recordStadslass20PhaseEvent(job, 'loading_registered', 'Lastar registrerad manuellt', ts, 'manual_lastar', {note:'Från-hantering slutar. Utkörning från Från-plats börjar tills Från-geofence lämnas.'});
+  const model = ensureStadslass20PhaseModel(job);
+  if(model) model.durationsMs = calculateStadslass20PhaseDurations(job, ts);
+  return changed;
+}
+
+function registerStadslass20ManualWeight(job, now, weight){
+  if(!isStadslass20PhaseModelAllowed(job)) return false;
+  const ts = Number(now || Date.now());
+  const changed = recordStadslass20PhaseEvent(job, 'weight_registered', 'Vikt registrerad manuellt', ts, 'manual_weight', {note:'Till-hantering avslutas vid Ange vikt.', weight:Number(weight || 0)});
+  const model = ensureStadslass20PhaseModel(job);
+  if(model) model.durationsMs = calculateStadslass20PhaseDurations(job, ts);
+  return changed;
+}
+
+function getStadslass20PhaseLabelMap(){
+  return {
+    startstrackaMs:'Startsträcka',
+    franHanteringMs:'Från-hantering',
+    utkorningFranMs:'Utkörning från Från',
+    transportTillMs:'Transport Från → Till',
+    tillHanteringMs:'Till-hantering',
+    utkorningTillMs:'Utkörning från Till',
+    returtransportMs:'Returtransport',
+    returhanteringMs:'Returhantering',
+    totalUppdragstidMs:'Total uppdragstid'
+  };
+}
+
+function getStadslass20PhaseSummaryLines(job){
+  const model = job && job.stadslass20Phase;
+  if(!model || typeof model !== 'object') return ['Stadslass 2.0 fasmodell: saknas'];
+  const durations = model.durationsMs || calculateStadslass20PhaseDurations(job, job && (job.end || Date.now()));
+  const labels = getStadslass20PhaseLabelMap();
+  const order = ['startstrackaMs','franHanteringMs','utkorningFranMs','transportTillMs','tillHanteringMs','utkorningTillMs','returtransportMs','returhanteringMs','totalUppdragstidMs'];
+  const lines = ['Stadslass 2.0 fasmodell: ' + activeMonitorSafe(model.version, STADSLASS20_PHASE_MODEL_VERSION)];
+  order.forEach(key => {
+    if(Number.isFinite(Number(durations[key]))) lines.push(labels[key] + ': ' + mins(Number(durations[key])));
+  });
+  if(model.windows && model.windows.outboundTransport){
+    const w = model.windows.outboundTransport;
+    lines.push('Transportfönster ut: ' + mins(w.durationMs || 0) + ' · ' + activeMonitorNumber(w.distanceKm, 3) + ' km · punkter ' + activeMonitorSafe(w.pointCount, '0'));
+  }
+  if(model.windows && model.windows.returnTransport){
+    const w = model.windows.returnTransport;
+    lines.push('Transportfönster retur: ' + mins(w.durationMs || 0) + ' · ' + activeMonitorNumber(w.distanceKm, 3) + ' km · punkter ' + activeMonitorSafe(w.pointCount, '0'));
+  }
+  lines.push('Exportskydd: fasdata är chaufförsstöd och visas inte i chefens enkla export.');
+  return lines;
+}
+
 function updateTransportPhaseDurations(job, endAt){
   if(!job) return job;
   const end = Number(endAt || job.end || Date.now());
@@ -13925,6 +14279,19 @@ function shiftTransportPhaseTimestamps(job, offsetMs){
       });
     });
   }
+  const model = job.stadslass20Phase && typeof job.stadslass20Phase === 'object' ? job.stadslass20Phase : null;
+  if(model){
+    ['startedAt','jobStartedAt','fromArrivedAt','loadingRegisteredAt','fromDepartedAt','toArrivedAt','weightRegisteredAt','lastWeightRegisteredAt','toDepartedAt','returnFromArrivedAt','completedAt','finalizedAt'].forEach(key => {
+      const value = Number(model[key] || 0);
+      if(Number.isFinite(value) && value > 0) model[key] = value + offset;
+    });
+    if(Array.isArray(model.events)){
+      model.events.forEach(event => {
+        const value = Number(event && event.at || 0);
+        if(Number.isFinite(value) && value > 0) event.at = value + offset;
+      });
+    }
+  }
   return job;
 }
 
@@ -13955,6 +14322,12 @@ function resetTransportPhaseForRestart(job){
   delete job.returnToFromVisual;
   delete job.multiLoadJob;
   delete job.canBeMultiLoad;
+  delete job.stadslass20Phase;
+  delete job.stadslass20PhaseVersion;
+  delete job.stadslass20LearningModel;
+  delete job.stadslass20PhaseDurationsMs;
+  delete job.stadslass20PhaseWindows;
+  delete job.stadslass20ExportProtected;
   job.transportPhase = isTransportPhaseTrackingAllowed(job) ? 'start' : '';
   job.phaseDataVersion = 3;
   return job;
@@ -13971,6 +14344,7 @@ function toggleActiveTransportPhase(){
   const now = Date.now();
   if(!Number(state.active.loadedAt || 0)) state.active.loadedAt = now;
   state.active.currentLoadStartedAt = now;
+  registerStadslass20ManualLoading(state.active, now);
   state.active.transportPhase = 'loading';
   state.active.phaseDataVersion = 3;
   clearActiveGeofenceVisualStatus(state.active);
@@ -14243,6 +14617,7 @@ function stopJob(){
   finished.routeEndPlace = getJobCompletionPlace(finished);
   finished.routeRule = finished.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
   finalizeTransportPhaseData(finished, finished.end);
+  finalizeStadslass20PhaseData(finished, finished.end);
   ensureSeaweedWeightMetadata(finished);
   updateRouteDeviationForJob(finished);
   state.jobs.unshift(finished);
@@ -14459,6 +14834,9 @@ function startAddonEstimateKey(job){
 
 function getStartLegDurationMsForLearning(job){
   if(!job) return 0;
+  if(job.stadslass20LearningModel === STADSLASS20_PHASE_MODEL_KEY || job.stadslass20Phase){
+    return 0;
+  }
   const start = Number(job.start || 0);
   const loaded = Number(job.loadedAt || 0);
   const duration = loaded - start;
