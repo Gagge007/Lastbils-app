@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v171
+- Nuvarande version: Stadslass 2.0 v172
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -206,6 +206,7 @@ Stadslass versionskontroll
   - Google-budget och enhetsspärrar v169: Enhetsroll Padda/Mobil styr lokal Google-budget, dynamisk dagsspärr, månadsräknare och förberedd Snap-räknare. Spärrarna stoppar bara nya Google-anrop.
   - Säker Google-budgetkorrigering v170: Budgetmånad och senaste automatiska nollning visas. Vanlig nollning av månadsräknare ersätts med varnad korrigering av räknarvärden.
   - Snap to Roads-test v171: Inställningar får en manuell testknapp för Roads API/Snap to Roads. Testet gör högst ett kontrollerat Roads-anrop, räknas i Snap-räknaren och ändrar inte uppdrag, GPS-data, historik eller automatisk analys.
+  - Automatisk Snap-efteranalys v172: När ett uppdrag avslutas med GPS-punkter gör appen en försiktig Snap to Roads-efteranalys om Snap-budgeten tillåter. Resultatet sparas som rapport-/sammanfattningsdata och ändrar inte jobbets tider, vikt, faser, geofence, GPS-sanning eller inlärning.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -228,7 +229,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v171';
+  const version = 'Stadslass 2.0 v172';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -2111,7 +2112,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v171</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v172</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2472,7 +2473,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v171</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v172</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -7245,6 +7246,7 @@ function stopActiveRouteGpsRecording(){
 function discardRouteGpsData(job){
   if(!job) return;
   delete job.routeGps;
+  delete job.snapRoadsAnalysisV172;
   job.routeGpsStatus = 'discarded';
   job.routeGpsDiscarded = true;
   job.routeGpsDiscardedAt = Date.now();
@@ -7295,7 +7297,9 @@ function resetRouteGpsForRestart(job){
   delete job.routeGpsStatus;
   delete job.routeGpsDiscarded;
   delete job.routeGpsDiscardedAt;
+  delete job.snapRoadsAnalysisV172;
 }
+
 
 function renderActiveRouteGps(){
   const el = document.getElementById('activeRouteGps');
@@ -8644,8 +8648,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v171';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v171';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v172';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v172';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -8734,7 +8738,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v168 Mejla rapporter via lokal rapportmottagare',
   'v169 Google-budget och enhetsspärrar',
   'v170 Säker Google-budgetkorrigering',
-  'v171 Snap to Roads-test'
+  'v171 Snap to Roads-test',
+  'v172 Automatisk Snap-efteranalys'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -9617,6 +9622,17 @@ function getActiveMonitorEndChecks(job, completedFrom){
     ok('WEIGHT-END-OV-001', 'Vikt/lass ser konsekvent ut', 'Total vikt ska stämma mot sparade lass.', 'Antal lass=' + loads.length + '; total=' + activeMonitorNumber(totalWeight, 2) + ' ton', 'Ange vikt / sammanställning', 'loads=' + JSON.stringify(loads));
   }
 
+  const snapEnd = getSnapRoadsAnalysisV172(job);
+  if(snapEnd && snapEnd.status === 'ok'){
+    ok('SNAP-END-OV-172', 'Snap-efteranalys utförd', 'Snap ska bara vara efteranalys och räknas i Snap-budgeten.', 'vägjusterad=' + activeMonitorNumber(snapEnd.snappedDistanceKm, 3) + ' km; gps=' + activeMonitorNumber(snapEnd.gpsDistanceKm, 3) + ' km; anrop=' + activeMonitorSafe(snapEnd.requestCount, '1'), 'v172 Automatisk Snap-efteranalys', 'sent=' + activeMonitorSafe(snapEnd.sentPointCount, '-') + '; returned=' + activeMonitorSafe(snapEnd.returnedPointCount, '-') + '; budget=' + activeMonitorSafe(snapEnd.snapMonthCount, '-') + '/' + activeMonitorSafe(snapEnd.snapMonthLimit, '-'));
+  } else if(snapEnd && snapEnd.status === 'error'){
+    warn('SNAP-END-OV-172', 'Snap-efteranalys fick fel', 'Snap-fel ska rapporteras men inte ändra uppdragets sanning.', activeMonitorSafe(snapEnd.message, '-'), 'Roads API, nyckel, nätverk eller Snap-budget kan ha stoppat analysen.', 'v172 Automatisk Snap-efteranalys', JSON.stringify({reason:snapEnd.reason, sent:snapEnd.sentPointCount, gps:snapEnd.gpsPointCount}));
+  } else if(snapEnd){
+    info('SNAP-END-OV-172', 'Snap-efteranalys hoppades över', 'Snap kan hoppa över om GPS, nyckel eller budget saknas.', activeMonitorSafe(snapEnd.message || snapEnd.reason, '-'), 'Ingen åtgärd krävs om uppdraget saknade GPS eller Snap-budget.', 'v172 Automatisk Snap-efteranalys', JSON.stringify({reason:snapEnd.reason, gps:snapEnd.gpsPointCount}));
+  } else {
+    info('SNAP-END-OV-172', 'Snap-efteranalys saknas', 'v172 ska skapa Snap-status vid avslut när funktionen finns.', 'snapRoadsAnalysisV172 saknas', 'Kan vara gammalt/importerat uppdrag eller avslut innan v172.', 'v172 Automatisk Snap-efteranalys', 'job.id=' + activeMonitorSafe(job && job.id, '-'));
+  }
+
   ok('RULE-END-OV-001', 'Appregler vid avslut är passivt kontrollerade', 'Avslutsrapporten får bara läsa och rapportera. Manuella knappar är jobbets sanning.', 'Rapport skapad efter Klart utan att ändra uppdrag, historik, GPS, vikt, fasdata eller inlärning.', 'Appregler / v90 Avslutsrapport', 'completedFrom=' + activeMonitorSafe(completedFrom, '-') + '; reportWrites=state.activeMonitorEndReports');
   return checks;
 }
@@ -9669,6 +9685,9 @@ function buildActiveMonitorEndReport(job, completedFrom){
   lines.push('GPS-kvalitet: ' + gps.quality);
   lines.push('GPS stoppades korrekt vid avslut: ' + (checks.some(item => item.code === 'GPS-END-OV-001' && (item.level === 'VARNING' || item.level === 'KRITISK')) ? 'FEL/VARNING' : 'OK'));
   lines.push('');
+  lines.push('SNAP TO ROADS');
+  getSnapRoadsAnalysisSummaryLinesV172(job).forEach(line => lines.push(line));
+  lines.push('');
   lines.push('GEOFENCE / RUTT');
   lines.push('Geofence visuell status: ' + (job && job.geofenceVisual ? JSON.stringify(job.geofenceVisual) : 'saknas'));
   lines.push('Återkomst Från-plats visuell status: ' + (job && job.returnToFromVisual ? JSON.stringify(job.returnToFromVisual) : 'saknas'));
@@ -9698,6 +9717,7 @@ function buildActiveMonitorEndReport(job, completedFrom){
   lines.push('job.routeGpsStatus=' + activeMonitorSafe(job && job.routeGpsStatus, '-'));
   lines.push('routeGps.status=' + activeMonitorSafe(gps.rec && gps.rec.status, '-'));
   lines.push('routeGps.endedAt=' + activeMonitorSafe(gps.rec && gps.rec.endedAt, '-'));
+  lines.push('snapRoadsAnalysisV172=' + (job && job.snapRoadsAnalysisV172 ? JSON.stringify(job.snapRoadsAnalysisV172) : '-'));
   lines.push('observedTransportStartAt=' + activeMonitorSafe(job && job.observedTransportStartAt, '-'));
   lines.push('observedTransportSource=' + activeMonitorSafe(job && job.observedTransportSource, '-'));
   lines.push('observedTransportZone=' + activeMonitorSafe(job && (job.observedTransportZoneName || job.observedTransportZoneId), '-'));
@@ -9896,7 +9916,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v171';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v172';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -10097,6 +10117,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Google-budget och enhetsspärrar v169', status:'Skyddad budgetfunktion', purpose:'Google-anrop räknas per enhet med roll Padda 65 % eller Mobil 5 %, dynamisk dagsspärr, hård månadsbudget och förberedd Snap-räknare utan aktiv Snap-analys.', changeRule:'Får bara styra om nya Google-anrop får göras. Får inte stoppa Starta jobb, Lastar, Ange vikt, Klart, GPS-inspelning, historik, backup, export eller ändra localStorage-nyckeln.'},
   {name:'Säker Google-budgetkorrigering v170', status:'Skyddad budgetfunktion', purpose:'Visar budgetmånad, senaste automatiska nollning och senaste manuella korrigering. Vanlig månadsnollning ersätts med varnad korrigering av räknarvärden så 70 %-spärren inte kringgås av misstag.', changeRule:'Får bara påverka lokal Google-budgetvisning och korrigering av räknarvärden. Får inte nolla månadsräknare utan bekräftad korrigering och får inte ändra jobb, vikt, GPS, geofence, historik, backup, export eller localStorage-nyckeln.'},
   {name:'Snap to Roads-test v171', status:'Testfunktion', purpose:'Inställningar har en manuell testknapp som använder Roads API/Snap to Roads med fasta testpunkter, räknar ett nytt testanrop i Snap-räknaren och visar OK/Fel utan att starta automatisk Snap-analys.', changeRule:'Får bara testa API-nyckel/Roads API och uppdatera lokal Snap-räknare. Får inte ändra aktivt jobb, kö, historik, GPS-sanning, geofence, vikt, tidsinlärning, backup, export, chefsexport eller localStorage-nyckeln.'},
+  {name:'Automatisk Snap-efteranalys v172', status:'Skyddad efteranalys', purpose:'Efter Klart kan appen använda sparade GPS-punkter för ett Snap to Roads-anrop, räkna det i Snap-budgeten och spara vägjusterad körsträcka som rapport-/sammanfattningsdata.', changeRule:'Får inte ändra jobbets sanning, manuell fasdata, tider, vikt, geofence, GPS-inspelning, historiklogik, backup/export, tidsinlärning eller localStorage-nyckeln. Om GPS, nyckel, budget eller Roads API saknas ska funktionen bara hoppa över och rapportera varför.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -10301,7 +10322,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v171' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v171') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v172' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeBackupValue', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('buildBackupExport', 'Lokal Google API-nyckel ingår inte'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -10342,6 +10363,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Google-budget och enhetsspärrar v169', fn('getGoogleBudgetStatusV169') && fn('canMakeMapRequest') && fn('canMakeSnapRoadsRequestV169') && fn('registerSnapRoadsRequestV169') && !!el('googleBudgetDeviceRoleV169') && !!el('googleBudgetStatusV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169'), 'Padda/Mobil-roll, dynamisk dagsspärr, månadsbudget och Snap-räknare är laddade utan att starta Snap-analys');
   addFunctionCheck(results, 'Nivå 2', 'Säker Google-budgetkorrigering v170', fn('toggleGoogleBudgetCorrectionV170') && fn('saveGoogleBudgetCorrectionV170') && fn('getGoogleBudgetResetSummaryHtmlV170') && !!el('googleBudgetCorrectionV170') && !!el('googleBudgetRouteMonthV170') && !!el('googleBudgetSnapMonthV170') && !src('renderMapGuardStatus', 'Rensa anropsräknare') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170'), 'budgetmånad/nollningsinfo visas och månadsräknare korrigeras med varning i stället för vanlig nollning');
   addFunctionCheck(results, 'Nivå 2', 'Snap to Roads-test v171', fn('runSnapRoadsTestV171') && fn('requestSnapRoadsTestV171') && fn('setSnapRoadsTestResultV171') && !!el('snapRoadsTestResultV171') && src('requestSnapRoadsTestV171', 'roads.googleapis.com/v1/snapToRoads') && src('requestSnapRoadsTestV171', 'registerSnapRoadsRequestV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171'), 'manuell testknapp använder Roads API, räknas i Snap-räknaren och startar ingen automatisk Snap-analys');
+  addFunctionCheck(results, 'Nivå 2', 'Automatisk Snap-efteranalys v172', fn('runAutomaticSnapRoadsAnalysisV172') && fn('requestSnapRoadsForJobV172') && fn('getSnapRoadsAnalysisSummaryLinesV172') && fn('getSnapRoadsAnalysisHtmlV172') && src('stopJob', 'await runAutomaticSnapRoadsAnalysisV172') && src('completeQueuedJob', 'await runAutomaticSnapRoadsAnalysisV172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172'), 'Snap körs efter Klart när sparade GPS-punkter och budget finns; resultatet visas i rapport/kort utan att ändra jobbets sanning');
   addFunctionCheck(results, 'Nivå 2', 'Friare Nytt jobb v75 finns', !!el('newReturnRequired') && !!el('newMultiLoad') && !!el('editQueueReturnRequired') && !!el('editQueueMultiLoad') && fn('getFreeDestinationValuesWithStandardFirst') && fn('getStandardDestinationForJobType') && fn('handleNewJobFlagToggle') && fn('handleEditQueueFlagToggle') && src('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && src('startManualJob', 'returnRequiredChoice') && src('addManualJobToQueue', 'multiLoadChoice'), 'Nytt jobb har fri Till-lista, standardförslag, Returkrav och Flerlass');
   addFunctionCheck(results, 'Nivå 2', 'Bevara uppskattad tid vid paus/fortsätt v72 finns', fn('savePausedEstimateState') && fn('restorePausedEstimateState') && fn('applyEstimatedCountdownAtStartPreservingExisting') && src('pauseActiveJob', 'savePausedEstimateState') && src('resumePausedJob', 'restorePausedEstimateState'), 'Pausa sparar senast kända nedräkning och Fortsätt återställer den');
   addFunctionCheck(results, 'Nivå 2', 'GPS-zoner ändrar bara visuell fasknapp', fn('getFromGeofenceForJob') && fn('updateActiveGeofenceVisualStatus') && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5 && src('updateActiveGeofenceVisualStatus', 'geofenceVisual'), 'Från-zoner styr visuell status, inte mätpunkter');
@@ -10582,6 +10604,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v169: Google-budget använder enhetsroll Padda 65 % eller Mobil 5 %, dynamisk dagsspärr, hård månadsbudget och förberedd Snap-räknare.');
   lines.push('v170: Budgetmånad och senaste nollningar visas. Vanlig månadsnollning ersätts med varnad korrigering av räknarvärden.');
   lines.push('v171: Snap to Roads kan testas manuellt med Roads API. Testet räknas i Snap-räknaren och kör ingen automatisk Snap-analys.');
+  lines.push('v172: Automatisk Snap-efteranalys kan köras efter Klart om sparad GPS och Snap-budget finns. Resultatet är rapportdata och ändrar inte jobbets sanning.');
   lines.push('');
   lines.push('KARTTEST');
   lines.push(controlReportSafeV165(mapText, 'Karttest inte kört i denna rapport. Skapa rapport efter Kör systemkontroll för att få med senaste karttest.'));
@@ -10599,8 +10622,8 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('storageKey=' + KEY);
   lines.push('featureManifestCount=' + (Array.isArray(APP_FEATURE_MANIFEST) ? APP_FEATURE_MANIFEST.length : 0));
   lines.push('systemReportFunctions=createSystemControlReport/copySystemControlReport/emailSystemControlReportV168/clearSystemControlReport');
-  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=false; snapTest=v171; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
-  lines.push('classification=v171 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
+  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=after_completion_v172; snapTest=v171; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
+  lines.push('classification=v172 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
   lines.push('rule=Rapporten är läsande och får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup, överföring eller localStorage-nyckel.');
   return lines.join('\n');
 }
@@ -10835,6 +10858,7 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('v169: Google-budget använder enhetsroll Padda 65 % eller Mobil 5 %, dynamisk dagsspärr, hård månadsbudget och förberedd Snap-räknare.');
   lines.push('v170: Budgetmånad och senaste nollningar visas. Vanlig månadsnollning ersätts med varnad korrigering av räknarvärden.');
   lines.push('v171: Snap to Roads kan testas manuellt med Roads API. Testet räknas i Snap-räknaren och kör ingen automatisk Snap-analys.');
+  lines.push('v172: Automatisk Snap-efteranalys kan köras efter Klart om sparad GPS och Snap-budget finns. Resultatet är rapportdata och ändrar inte jobbets sanning.');
   lines.push('');
   lines.push('KONTROLLER PER NIVÅ');
   Object.keys(byLevel).forEach(level => {
@@ -10868,8 +10892,8 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('storageKey=' + KEY);
   lines.push('featureManifestCount=' + (Array.isArray(APP_FEATURE_MANIFEST) ? APP_FEATURE_MANIFEST.length : 0));
   lines.push('functionReportFunctions=createFunctionControlReport/copyFunctionControlReport/emailFunctionControlReportV168/clearFunctionControlReport');
-  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=false; snapTest=v171; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
-  lines.push('classification=v171 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
+  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=after_completion_v172; snapTest=v171; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
+  lines.push('classification=v172 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
   lines.push('rule=Rapporten är läsande och får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup, överföring eller localStorage-nyckel.');
   return lines.join('\n');
 }
@@ -11003,7 +11027,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v171' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v171'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v172' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v172'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -11057,7 +11081,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Mejla rapporter v168', typeof emailSystemControlReportV168 === 'function' && typeof emailFunctionControlReportV168 === 'function' && typeof emailActiveMonitorReportV168 === 'function' && typeof emailSelectedActiveMonitorEndReportV168 === 'function' && typeof emailStorageControlReportV168 === 'function' && document.getElementById('systemControlMailBtn') && document.getElementById('functionControlMailBtn') && document.getElementById('activeMonitorMailBtn') && document.getElementById('activeMonitorEndMailBtn') && document.getElementById('storageControlMailBtn') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168'), 'rapporter kan öppna mejl/Gmail med lokalt sparad mottagare och kopierad fallback'),
     systemCheck('Google-budget och enhetsspärrar v169', typeof getGoogleBudgetStatusV169 === 'function' && typeof canMakeSnapRoadsRequestV169 === 'function' && typeof registerSnapRoadsRequestV169 === 'function' && document.getElementById('googleBudgetDeviceRoleV169') && document.getElementById('googleBudgetStatusV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169'), (function(){ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); return r.roleLabel + ' · rutter idag ' + r.dayCount + '/' + r.dayLimit + ', månad ' + r.monthCount + '/' + r.monthlyLimit + ' · Snap idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit; })()),
     systemCheck('Säker Google-budgetkorrigering v170', typeof toggleGoogleBudgetCorrectionV170 === 'function' && typeof saveGoogleBudgetCorrectionV170 === 'function' && typeof getGoogleBudgetResetSummaryHtmlV170 === 'function' && document.getElementById('googleBudgetCorrectionV170') && document.getElementById('googleBudgetRouteMonthV170') && document.getElementById('googleBudgetSnapMonthV170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170'), (function(){ const r = getMapGuardStatus(); return 'budgetmånad ' + r.monthKey + ' · senaste korrigering ' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt); })()),
-    systemCheck('Snap to Roads-test v171', typeof runSnapRoadsTestV171 === 'function' && typeof requestSnapRoadsTestV171 === 'function' && typeof setSnapRoadsTestResultV171 === 'function' && document.getElementById('snapRoadsTestResultV171') && functionSourceIncludes('requestSnapRoadsTestV171', 'roads.googleapis.com/v1/snapToRoads') && functionSourceIncludes('requestSnapRoadsTestV171', 'registerSnapRoadsRequestV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171'), (function(){ const s = getSnapGuardStatusV169(); return 'Snap-test redo · idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit + ' · automatisk Snap-analys ej aktiv'; })()),
+    systemCheck('Snap to Roads-test v171', typeof runSnapRoadsTestV171 === 'function' && typeof requestSnapRoadsTestV171 === 'function' && typeof setSnapRoadsTestResultV171 === 'function' && document.getElementById('snapRoadsTestResultV171') && functionSourceIncludes('requestSnapRoadsTestV171', 'roads.googleapis.com/v1/snapToRoads') && functionSourceIncludes('requestSnapRoadsTestV171', 'registerSnapRoadsRequestV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171'), (function(){ const s = getSnapGuardStatusV169(); return 'Snap-test redo · idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit + ' · automatisk Snap-efteranalys v172 finns separat'; })()),
+    systemCheck('Automatisk Snap-efteranalys v172', typeof runAutomaticSnapRoadsAnalysisV172 === 'function' && typeof requestSnapRoadsForJobV172 === 'function' && typeof getSnapRoadsAnalysisHtmlV172 === 'function' && functionSourceIncludes('stopJob', 'await runAutomaticSnapRoadsAnalysisV172') && functionSourceIncludes('completeQueuedJob', 'await runAutomaticSnapRoadsAnalysisV172') && functionSourceIncludes('buildActiveMonitorEndReport', 'SNAP TO ROADS') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172'), (function(){ const s = getSnapGuardStatusV169(); return 'Snap efteranalys aktiv · idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit; })()),
     systemCheck('Dagsprognos v85', typeof buildDayForecast === 'function' && typeof renderDayForecasts === 'function' && !!document.getElementById('queueDayForecastBox') && functionSourceIncludes('renderDayForecasts', 'queueDayForecastBox') && !functionSourceIncludes('renderDayForecasts', 'todayDayForecastBox') && functionSourceIncludes('getDayForecastHtml', 'planeringshjälp'), 'dagsprognos visas i Uppdrag i kö utan att styra uppdrag; Idag använder v160-dagsammanfattning'),
     systemCheck('Geofence-inställningar v86', typeof toggleGeofenceManager === 'function' && typeof saveGeofenceFromForm === 'function' && typeof removeGeofenceForPlace === 'function' && !!document.getElementById('geofenceManagerWrap'), 'geofence-register finns för lägg till/redigera/ta bort/återställ'),
     systemCheck('Geofence-validering v86', typeof buildGeofenceFromForm === 'function' && typeof parseGeofencePolygonPoints === 'function' && functionSourceIncludes('buildGeofenceFromForm', 'Radie måste vara större än 0') && functionSourceIncludes('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'geofence stoppar uppenbart felaktiga värden'),
@@ -11376,6 +11401,7 @@ function renderHistoryRegularJobCard(job){
     '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
     getSeaweedWeightRoleHtml(job)+
     getRouteGpsHtml(job)+
+    getSnapRoadsAnalysisHtmlV172(job)+
     getRouteDeviationHtml(job)+
     formatMapCallCounterHtml(job)+
     (job.comment ? '<div class="job-comment-wide">'+escapeHtml(job.comment).replace(/\n/g,'<br>')+'</div>' : '')+
@@ -13185,6 +13211,209 @@ async function runSnapRoadsTestV171(){
   }
 }
 
+function getSnapRoadsAnalysisV172(job){
+  return job && job.snapRoadsAnalysisV172 && typeof job.snapRoadsAnalysisV172 === 'object' ? job.snapRoadsAnalysisV172 : null;
+}
+
+function getValidSnapRoadsGpsPointsV172(job){
+  const rec = getRouteGps(job);
+  if(!rec || !Array.isArray(rec.points)) return [];
+  return rec.points.map((p, index) => {
+    const lat = Number(p && p.lat);
+    const lon = Number(p && p.lon);
+    const ts = Number(p && p.ts || 0);
+    const accuracy = Number(p && p.accuracy || 0);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {lat, lon, ts:Number.isFinite(ts) ? ts : 0, accuracy:Number.isFinite(accuracy) ? accuracy : 0, sourceIndex:index};
+  }).filter(Boolean);
+}
+
+function selectSnapRoadsPointsForRequestV172(points){
+  const list = Array.isArray(points) ? points.filter(p => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon))) : [];
+  if(list.length <= 100) return list.slice();
+  const selected = [];
+  const lastIndex = list.length - 1;
+  for(let i = 0; i < 100; i++){
+    const idx = Math.round((i * lastIndex) / 99);
+    const point = list[Math.min(lastIndex, Math.max(0, idx))];
+    if(point && !selected.some(existing => existing.sourceIndex === point.sourceIndex)) selected.push(point);
+  }
+  if(selected.length < 2) return [list[0], list[lastIndex]].filter(Boolean);
+  return selected.slice(0, 100);
+}
+
+function getSnappedPointLocationV172(item){
+  const loc = item && item.location ? item.location : null;
+  const lat = Number(loc && loc.latitude);
+  const lon = Number(loc && loc.longitude);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {lat, lon};
+}
+
+function calculateSnapRoadsDistanceKmV172(snappedPoints){
+  const pts = Array.isArray(snappedPoints) ? snappedPoints.map(getSnappedPointLocationV172).filter(Boolean) : [];
+  let distance = 0;
+  for(let i = 1; i < pts.length; i++){
+    const delta = haversineKm(pts[i-1].lat, pts[i-1].lon, pts[i].lat, pts[i].lon);
+    if(Number.isFinite(delta) && delta >= 0 && delta < 5) distance += delta;
+  }
+  return Number(distance.toFixed(3));
+}
+
+function makeSkippedSnapRoadsAnalysisV172(reason, message, job){
+  const snap = getSnapGuardStatusV169();
+  return {
+    version:'v172',
+    status:'skipped',
+    reason:String(reason || 'skipped'),
+    message:String(message || 'Snap-analys hoppades över.'),
+    createdAt:Date.now(),
+    source:'automatic-after-completion',
+    gpsPointCount:getValidSnapRoadsGpsPointsV172(job).length,
+    gpsDistanceKm:Number(getRouteGps(job) && getRouteGps(job).distanceKm || 0),
+    snapDayCount:snap.dayCount,
+    snapDayLimit:snap.dayLimit,
+    snapMonthCount:snap.monthCount,
+    snapMonthLimit:snap.monthlyLimit
+  };
+}
+
+async function requestSnapRoadsForJobV172(points){
+  const key = getLocalMapApiKey();
+  if(!key) throw new Error('Kartnyckel saknas på denna enhet.');
+  const validPoints = Array.isArray(points) ? points.filter(p => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon))) : [];
+  if(validPoints.length < 2) throw new Error('Snap-analys kräver minst 2 GPS-punkter.');
+  if(validPoints.length > 100) throw new Error('Snap-analys får max skicka 100 punkter per anrop.');
+  const guardCheck = canMakeSnapRoadsRequestV169();
+  if(!guardCheck.ok) throw new Error(guardCheck.reason);
+  registerSnapRoadsRequestV169();
+  const path = validPoints.map(p => Number(p.lat).toFixed(6) + ',' + Number(p.lon).toFixed(6)).join('|');
+  const url = 'https://roads.googleapis.com/v1/snapToRoads?interpolate=true&path=' + encodeURIComponent(path) + '&key=' + encodeURIComponent(key);
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => { try{ controller.abort(); }catch(e){} }, 15000) : null;
+  let response = null;
+  try{
+    response = await fetch(url, controller ? { method:'GET', signal:controller.signal } : { method:'GET' });
+  }catch(e){
+    if(e && e.name === 'AbortError') throw new Error('Snap-anropet tog för lång tid och avbröts efter 15 sekunder.');
+    throw e;
+  }finally{
+    if(timeoutId) clearTimeout(timeoutId);
+  }
+  let data = null;
+  try{ data = await response.json(); }catch(e){ data = null; }
+  if(!response.ok){
+    const apiMessage = data && data.error && data.error.message ? data.error.message : '';
+    throw new Error('Roads API svarade med fel ' + response.status + (apiMessage ? ': ' + apiMessage : '.'));
+  }
+  const snapped = data && Array.isArray(data.snappedPoints) ? data.snappedPoints : [];
+  if(!snapped.length) throw new Error('Roads API svarade men returnerade inga snappade punkter.');
+  return {snappedPoints:snapped, raw:data};
+}
+
+async function runAutomaticSnapRoadsAnalysisV172(job, completedFrom){
+  if(!job) return null;
+  if(isOtherWorkJob(job) || !isRouteGpsRecordingAllowedForJob(job)){
+    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('not_applicable', 'Snap-analys används inte för denna jobbtyp.', job);
+    return job.snapRoadsAnalysisV172;
+  }
+  const rec = getRouteGps(job);
+  if(!rec || getRouteGpsStatus(job) === 'discarded' || job.routeGpsDiscarded){
+    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('no_saved_gps', 'Sparad GPS saknas eller är markerad som Spara ej GPS-data.', job);
+    return job.snapRoadsAnalysisV172;
+  }
+  const gpsPoints = getValidSnapRoadsGpsPointsV172(job);
+  if(gpsPoints.length < 2){
+    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('too_few_points', 'För få GPS-punkter för Snap to Roads.', job);
+    return job.snapRoadsAnalysisV172;
+  }
+  if(!getLocalMapApiKey()){
+    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('missing_key', 'Kartnyckel saknas på denna enhet.', job);
+    return job.snapRoadsAnalysisV172;
+  }
+  const budgetCheck = canMakeSnapRoadsRequestV169();
+  if(!budgetCheck.ok){
+    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('budget_stop', budgetCheck.reason, job);
+    return job.snapRoadsAnalysisV172;
+  }
+  const selected = selectSnapRoadsPointsForRequestV172(gpsPoints);
+  if(selected.length < 2){
+    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('too_few_selected_points', 'För få valbara GPS-punkter efter urval.', job);
+    return job.snapRoadsAnalysisV172;
+  }
+  const before = getSnapGuardStatusV169();
+  try{
+    const result = await requestSnapRoadsForJobV172(selected);
+    const after = getSnapGuardStatusV169();
+    const snappedDistance = calculateSnapRoadsDistanceKmV172(result.snappedPoints);
+    const first = getSnappedPointLocationV172(result.snappedPoints[0]);
+    const last = getSnappedPointLocationV172(result.snappedPoints[result.snappedPoints.length - 1]);
+    job.snapRoadsAnalysisV172 = {
+      version:'v172', status:'ok', reason:'ok',
+      message:'Automatisk Snap-efteranalys utförd efter Klart.',
+      createdAt:Date.now(), completedFrom:String(completedFrom || ''), source:'automatic-after-completion',
+      interpolate:true, requestCount:1,
+      gpsPointCount:gpsPoints.length, sentPointCount:selected.length, returnedPointCount:result.snappedPoints.length,
+      sampled:gpsPoints.length > selected.length,
+      gpsDistanceKm:Number(rec.distanceKm || 0), snappedDistanceKm:snappedDistance,
+      firstSnapped:first, lastSnapped:last,
+      snapDayCount:after.dayCount, snapDayLimit:after.dayLimit, snapMonthCount:after.monthCount, snapMonthLimit:after.monthlyLimit,
+      counted:(after.dayCount > before.dayCount || after.monthCount > before.monthCount)
+    };
+  }catch(e){
+    const after = getSnapGuardStatusV169();
+    job.snapRoadsAnalysisV172 = {
+      version:'v172', status:'error', reason:'request_error',
+      message:e && e.message ? e.message : String(e || 'Okänt Snap-fel'),
+      createdAt:Date.now(), completedFrom:String(completedFrom || ''), source:'automatic-after-completion',
+      requestCount:after.monthCount > before.monthCount || after.dayCount > before.dayCount ? 1 : 0,
+      gpsPointCount:gpsPoints.length, sentPointCount:selected.length, returnedPointCount:0,
+      sampled:gpsPoints.length > selected.length,
+      gpsDistanceKm:Number(rec.distanceKm || 0), snappedDistanceKm:0,
+      snapDayCount:after.dayCount, snapDayLimit:after.dayLimit, snapMonthCount:after.monthCount, snapMonthLimit:after.monthlyLimit
+    };
+  }
+  return job.snapRoadsAnalysisV172;
+}
+
+function getSnapRoadsAnalysisSummaryLinesV172(job){
+  const snap = getSnapRoadsAnalysisV172(job);
+  if(!snap) return ['Status: saknas', 'Automatisk Snap-efteranalys har inte körts för detta uppdrag.'];
+  const lines = [];
+  if(snap.status === 'ok'){
+    lines.push('Status: OK');
+    lines.push('GPS inspelad körsträcka: ' + activeMonitorNumber(snap.gpsDistanceKm, 3) + ' km');
+    lines.push('Vägjusterad körsträcka: ' + activeMonitorNumber(snap.snappedDistanceKm, 3) + ' km');
+    lines.push('GPS-punkter totalt: ' + activeMonitorSafe(snap.gpsPointCount, '0'));
+    lines.push('Punkter skickade: ' + activeMonitorSafe(snap.sentPointCount, '0'));
+    lines.push('Punkter tillbaka: ' + activeMonitorSafe(snap.returnedPointCount, '0'));
+    lines.push('Urval: ' + (snap.sampled ? 'max 100 punkter användes' : 'alla sparade punkter användes'));
+    lines.push('Snap-anrop: ' + activeMonitorSafe(snap.requestCount, '1'));
+  } else if(snap.status === 'skipped'){
+    lines.push('Status: hoppades över');
+    lines.push('Orsak: ' + activeMonitorSafe(snap.message || snap.reason, '-'));
+    lines.push('GPS-punkter: ' + activeMonitorSafe(snap.gpsPointCount, '0'));
+  } else {
+    lines.push('Status: fel');
+    lines.push('Fel: ' + activeMonitorSafe(snap.message || snap.reason, '-'));
+    lines.push('GPS-punkter: ' + activeMonitorSafe(snap.gpsPointCount, '0'));
+    lines.push('Punkter skickade: ' + activeMonitorSafe(snap.sentPointCount, '0'));
+  }
+  lines.push('Budget efter analys: Snap idag ' + activeMonitorSafe(snap.snapDayCount, '-') + ' / ' + activeMonitorSafe(snap.snapDayLimit, '-') + ' · Snap månad ' + activeMonitorSafe(snap.snapMonthCount, '-') + ' / ' + activeMonitorSafe(snap.snapMonthLimit, '-'));
+  lines.push('Appregel: Snap är efteranalys och ändrar inte tid, vikt, fas, geofence eller GPS-sanning.');
+  return lines;
+}
+
+function getSnapRoadsAnalysisHtmlV172(job){
+  const snap = getSnapRoadsAnalysisV172(job);
+  if(!snap) return '';
+  if(snap.status === 'ok'){
+    return '<div class="private-comment-note" style="margin-top:6px"><strong>Snap to Roads:</strong> vägjusterad körsträcka ' + escapeHtml(activeMonitorNumber(snap.snappedDistanceKm, 3)) + ' km · GPS ' + escapeHtml(activeMonitorNumber(snap.gpsDistanceKm, 3)) + ' km · ' + escapeHtml(String(snap.sentPointCount || 0)) + ' punkter skickade / ' + escapeHtml(String(snap.returnedPointCount || 0)) + ' tillbaka.</div>';
+  }
+  if(snap.status === 'skipped' && !['budget_stop','missing_key'].includes(String(snap.reason || ''))) return '';
+  return '<div class="private-comment-note" style="margin-top:6px"><strong>Snap to Roads:</strong> ' + escapeHtml(snap.status === 'skipped' ? 'ej utförd' : 'fel') + ' · ' + escapeHtml(snap.message || snap.reason || '-').replace(/\n/g, '<br>') + '</div>';
+}
+
 function renderGoogleBudgetSettingsV169(){
   const settings = getGoogleBudgetSettingsV169();
   const select = document.getElementById('googleBudgetDeviceRoleV169');
@@ -13199,7 +13428,7 @@ function renderGoogleBudgetSettingsV169(){
     '<br><strong>Rutter/ETA:</strong> ' + escapeHtml(String(route.monthCount)) + ' / ' + escapeHtml(String(route.monthlyLimit)) + ' denna månad · ' + escapeHtml(String(route.dayCount)) + ' / ' + escapeHtml(String(route.dayLimit)) + ' i dag' +
     '<br><strong>Snap to Roads:</strong> ' + escapeHtml(String(snap.monthCount)) + ' / ' + escapeHtml(String(snap.monthlyLimit)) + ' denna månad · ' + escapeHtml(String(snap.dayCount)) + ' / ' + escapeHtml(String(snap.dayLimit)) + ' i dag' +
     getGoogleBudgetResetSummaryHtmlV170(route, snap) +
-    '<br><span class="muted">Snap-räknaren används av Snap-testet men automatisk Snap-analys är inte aktiv. Vanlig månadsnollning finns inte; använd korrigering vid felaktiga värden.</span>';
+    '<br><span class="muted">Snap-räknaren används av Snap-testet och automatisk Snap-efteranalys efter Klart. Vanlig månadsnollning finns inte; använd korrigering vid felaktiga värden.</span>';
 }
 
 function renderMapGuardStatus(){
@@ -13214,7 +13443,7 @@ function renderMapGuardStatus(){
       '<br>Rutter senaste minuten: ' + escapeHtml(String(status.minuteCount)) + ' / ' + escapeHtml(String(status.maxPerMinute)) +
       '<br>Rutter idag: ' + escapeHtml(String(status.dayCount)) + ' / ' + escapeHtml(String(status.dayLimit)) + ' dynamisk dagsspärr' +
       '<br>Rutter denna månad: ' + escapeHtml(String(status.monthCount)) + ' / ' + escapeHtml(String(status.monthlyLimit)) + ' hård månadsbudget' +
-      '<br>Snap idag: ' + escapeHtml(String(snap.dayCount)) + ' / ' + escapeHtml(String(snap.dayLimit)) + ' · Snap månad: ' + escapeHtml(String(snap.monthCount)) + ' / ' + escapeHtml(String(snap.monthlyLimit)) + ' (förberedd, ej aktiv)' +
+      '<br>Snap idag: ' + escapeHtml(String(snap.dayCount)) + ' / ' + escapeHtml(String(snap.dayLimit)) + ' · Snap månad: ' + escapeHtml(String(snap.monthCount)) + ' / ' + escapeHtml(String(snap.monthlyLimit)) + ' (test + automatisk efteranalys)' +
       getGoogleBudgetResetSummaryHtmlV170(status, snap) +
       '<br>Cache idag: ' + escapeHtml(String(cacheCount)) + ' rutter' +
       '<br>Automatisk uppdatering transport/retur: minst ' + escapeHtml(String(status.minAutoIntervalMinutes)) + ' minuter mellan anrop.';
@@ -13223,7 +13452,7 @@ function renderMapGuardStatus(){
 }
 
 function resetMapGuardCountersFromSettings(){
-  alert('Vanlig nollning av Google-räknare är borttagen i v170/v171 för att skydda 70 %-månadsgränsen. Använd Korrigera Google-räknare om värdena blivit fel.');
+  alert('Vanlig nollning av Google-räknare är borttagen i v170/v171/v172 för att skydda 70 %-månadsgränsen. Använd Korrigera Google-räknare om värdena blivit fel.');
   toggleGoogleBudgetCorrectionV170(true);
 }
 
@@ -16147,7 +16376,7 @@ function resumePausedJob(qid){
   setTimeout(scrollToActiveJobTop, 50);
 }
 
-function completeQueuedJob(qid){
+async function completeQueuedJob(qid){
   const q = state.queue.find(x => x.id === qid);
   if(!q) return;
 
@@ -16172,6 +16401,7 @@ function completeQueuedJob(qid){
     finalizeStadslass20PhaseData(finished, finished.end);
     ensureSeaweedWeightMetadata(finished);
     updateRouteDeviationForJob(finished);
+    await runAutomaticSnapRoadsAnalysisV172(finished, 'completeQueuedJob:pausad');
     state.jobs.unshift(finished);
     updateLastWorkPointFromJob(finished);
     storeActiveMonitorEndReport(finished, 'completeQueuedJob:pausad');
@@ -17263,7 +17493,7 @@ function prepareJobForCompletionWithPhaseGuard(job){
 }
 
 
-function stopJob(){
+async function stopJob(){
   if(!state.active) return;
 
   if(!prepareJobForCompletionWithPhaseGuard(state.active)) return;
@@ -17272,6 +17502,7 @@ function stopJob(){
   const finishedAt = Date.now();
   closeOpenWorkSession(state.active, finishedAt);
   finalizeActiveRouteGpsRecording();
+  stopDistanceTracking();
   const finished = {...state.active, end:finishedAt};
   finished.returnRequired = getJobReturnRequiredValue(finished);
   finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
@@ -17281,6 +17512,7 @@ function stopJob(){
   finalizeStadslass20PhaseData(finished, finished.end);
   ensureSeaweedWeightMetadata(finished);
   updateRouteDeviationForJob(finished);
+  await runAutomaticSnapRoadsAnalysisV172(finished, 'stopJob');
   state.jobs.unshift(finished);
   updateLastWorkPointFromJob(finished);
   state.active = null;
@@ -20021,6 +20253,7 @@ function renderTodayRegularJobCard(x){
       getStartPointHtml(x)+
       getCalculationStartHtml(x)+
       getRouteGpsHtml(x)+
+      getSnapRoadsAnalysisHtmlV172(x)+
       getRouteDeviationHtml(x)+
       formatMapCallCounterHtml(x)+
       getLearningExclusionHtml(x)+
