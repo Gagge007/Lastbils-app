@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v169
+- Nuvarande version: Stadslass 2.0 v170
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -204,6 +204,7 @@ Stadslass versionskontroll
   - Mejla rapporter v168: Rapportmottagare sparas lokalt och rapporter kan öppna mejl/Gmail med mottagare, ämne och rapporttext eller kopierad fallback om rapporten är för lång.
   - Google-budget och enhetsspärrar v169: Padda arbetsenhet får 65 % och mobil testenhet 5 % av fri månadsnivå. Dagsspärr räknas dynamiskt från kvarvarande månadsbudget och kvarvarande appdagar. Snap-räknare är förberedd men kör ingen Snap-analys i v169.
   - Google-budget och enhetsspärrar v169: Enhetsroll Padda/Mobil styr lokal Google-budget, dynamisk dagsspärr, månadsräknare och förberedd Snap-räknare. Spärrarna stoppar bara nya Google-anrop.
+  - Säker Google-budgetkorrigering v170: Budgetmånad och senaste automatiska nollning visas. Vanlig nollning av månadsräknare ersätts med varnad korrigering av räknarvärden.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -226,7 +227,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v169';
+  const version = 'Stadslass 2.0 v170';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -2109,7 +2110,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v169</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v170</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2470,7 +2471,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v169</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v170</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -2718,13 +2719,45 @@ body.other-work-edit-open{
 
       <div class="place-row">
         <div class="place-key">Google-budget och enhet</div>
-        <div class="multi-help">Välj vilken enhet detta är. Paddan får arbetsbudget 65 % och mobilen testbudget 5 %. Tillsammans används högst 70 % av månadsfriheten. Räknarna är lokala per enhet och nollställs automatiskt vid ny månad.</div>
+        <div class="multi-help">Välj vilken enhet detta är. Paddan får arbetsbudget 65 % och mobilen testbudget 5 %. Tillsammans används högst 70 % av månadsfriheten. Räknarna är lokala per enhet och nollställs automatiskt vid ny dag/ny månad.</div>
         <label>Den här enheten är</label>
         <select id="googleBudgetDeviceRoleV169" onchange="saveGoogleBudgetDeviceRoleV169(this.value)">
           <option value="pad">Padda – arbetsenhet (65 %)</option>
           <option value="mobile">Mobil – testenhet (5 %)</option>
         </select>
         <div id="googleBudgetStatusV169" class="multi-help" style="margin-top:10px">Budgetstatus kontrolleras.</div>
+        <div class="row" style="margin-top:12px">
+          <button class="inline" onclick="toggleGoogleBudgetCorrectionV170()">Korrigera Google-räknare</button>
+        </div>
+        <div id="googleBudgetCorrectionV170" class="hidden" style="margin-top:12px; border:1px solid #e5e7eb; border-radius:14px; padding:12px; background:#fff7ed">
+          <div class="place-key">Korrigera Google-räknare</div>
+          <div class="multi-help">Varning: ändra bara om räknarna blivit fel efter test, versionsbyte eller felsökning. Vanlig månadsnollning finns inte, eftersom det kan göra att appen underskattar månadens Google-anrop och passerar 70 %-spärren.</div>
+          <div class="quick-edit-grid" style="margin-top:10px">
+            <div>
+              <label>Rutter idag</label>
+              <input id="googleBudgetRouteDayV170" type="number" min="0" step="1">
+            </div>
+            <div>
+              <label>Rutter denna månad</label>
+              <input id="googleBudgetRouteMonthV170" type="number" min="0" step="1">
+            </div>
+            <div>
+              <label>Snap idag</label>
+              <input id="googleBudgetSnapDayV170" type="number" min="0" step="1">
+            </div>
+            <div>
+              <label>Snap denna månad</label>
+              <input id="googleBudgetSnapMonthV170" type="number" min="0" step="1">
+            </div>
+          </div>
+          <label style="margin-top:10px">Orsak/notering</label>
+          <input id="googleBudgetCorrectionNoteV170" placeholder="Ex. korrigering efter test eller jämförelse med Google Cloud">
+          <div class="row" style="margin-top:12px">
+            <button class="primary inline" onclick="saveGoogleBudgetCorrectionV170()">Spara korrigering</button>
+            <button class="inline" onclick="toggleGoogleBudgetCorrectionV170(false)">Stäng</button>
+          </div>
+          <div id="googleBudgetCorrectionStatusV170" class="multi-help" style="margin-top:10px"></div>
+        </div>
       </div>
 
       <div class="place-row">
@@ -2732,7 +2765,6 @@ body.other-work-edit-open{
         <div id="mapGuardStatus" class="multi-help">Status kontrolleras.</div>
         <div class="multi-help">Lokalt skydd på denna enhet: max 10 kartanrop per minut, dynamisk dagsspärr efter kvarvarande månadsbudget/appdagar och hård månadsbudget enligt vald enhetsroll. Minsta intervall 5 minuter gäller fortsatt för automatisk kartuppdatering under transport/retur. Samma rutt kan återanvändas från cache i stället för att fråga Google igen.</div>
         <div class="row" style="margin-top:12px">
-          <button class="inline" onclick="resetMapGuardCountersFromSettings()">Rensa anropsräknare</button>
           <button class="inline" onclick="resetMapRouteCacheFromSettings()">Rensa kartcache</button>
         </div>
       </div>
@@ -8601,7 +8633,7 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v169';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v170';
 const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v168';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
@@ -8689,7 +8721,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v166 Klassad kontrollrapport utan falsk appfelsräkning',
   'v167 Funktionskontroll klassning utan falska kritiska fel',
   'v168 Mejla rapporter via lokal rapportmottagare',
-  'v169 Google-budget och enhetsspärrar'
+  'v169 Google-budget och enhetsspärrar',
+  'v170 Säker Google-budgetkorrigering'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -9851,7 +9884,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v169';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v170';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -10050,6 +10083,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Funktionskontroll klassning v167', status:'Test-/rapportfix', purpose:'Synkar Funktionskontrollens riskklassning med Systemkontrollen och flyttar kända falska kritiska kontrollträffar till OK eller kontrollbehov.', changeRule:'Får bara påverka kontrollernas villkor, rapportklassning och rapporttext. Får inte ändra jobbsanning, vikt, GPS, geofence, historik, backup, överföring, Excel, fasknappar eller localStorage-nyckel.'},
   {name:'Mejla rapporter v168', status:'Rapport-/delningsfunktion', purpose:'Systemkontroll, Funktionskontroll, Aktiv övervakning, avslutsrapport och lagringsrapport kan öppna mejl/Gmail med lokalt sparad rapportmottagare, ämne och rapporttext eller kopierad fallback om rapporten är för lång.', changeRule:'Får bara lägga till rapportmottagare, mejlknappar och mailto/fallback för rapporter. Får inte skicka automatiskt och får inte ändra jobb, kö, historik, GPS, geofence, vikt, backup, överföring, Excel eller localStorage-nyckel.'},
   {name:'Google-budget och enhetsspärrar v169', status:'Skyddad budgetfunktion', purpose:'Google-anrop räknas per enhet med roll Padda 65 % eller Mobil 5 %, dynamisk dagsspärr, hård månadsbudget och förberedd Snap-räknare utan aktiv Snap-analys.', changeRule:'Får bara styra om nya Google-anrop får göras. Får inte stoppa Starta jobb, Lastar, Ange vikt, Klart, GPS-inspelning, historik, backup, export eller ändra localStorage-nyckeln.'},
+  {name:'Säker Google-budgetkorrigering v170', status:'Skyddad budgetfunktion', purpose:'Visar budgetmånad, senaste automatiska nollning och senaste manuella korrigering. Vanlig månadsnollning ersätts med varnad korrigering av räknarvärden så 70 %-spärren inte kringgås av misstag.', changeRule:'Får bara påverka lokal Google-budgetvisning och korrigering av räknarvärden. Får inte nolla månadsräknare utan bekräftad korrigering och får inte ändra jobb, vikt, GPS, geofence, historik, backup, export eller localStorage-nyckeln.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -10254,7 +10288,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v169' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v170' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeBackupValue', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('buildBackupExport', 'Lokal Google API-nyckel ingår inte'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -10293,6 +10327,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Kontrollklassning kontrollrapporter v166', fn('classifyControlCheckV166') && fn('buildControlClassificationSummaryV166') && src('buildSystemControlTextReportV165', 'KRITISKA FEL') && src('renderSystemControlRows', 'classifyControlCheckV166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166'), 'Kontrollrapporter delar upp kritiska fel, kontrollbehov, GPS/aktivt uppdrag och sammanfattningskontroller');
   addFunctionCheck(results, 'Nivå 2', 'Mejla rapporter v168', fn('emailSystemControlReportV168') && fn('emailFunctionControlReportV168') && fn('emailActiveMonitorReportV168') && fn('emailSelectedActiveMonitorEndReportV168') && fn('emailStorageControlReportV168') && fn('openMailWithReportTextV168') && !!el('systemControlMailBtn') && !!el('functionControlMailBtn') && !!el('activeMonitorMailBtn') && !!el('activeMonitorEndMailBtn') && !!el('storageControlMailBtn') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168'), 'rapportmottagare sparas lokalt och rapporter kan öppna mejl/Gmail med kopierad fallback utan att skicka automatiskt');
   addFunctionCheck(results, 'Nivå 2', 'Google-budget och enhetsspärrar v169', fn('getGoogleBudgetStatusV169') && fn('canMakeMapRequest') && fn('canMakeSnapRoadsRequestV169') && fn('registerSnapRoadsRequestV169') && !!el('googleBudgetDeviceRoleV169') && !!el('googleBudgetStatusV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169'), 'Padda/Mobil-roll, dynamisk dagsspärr, månadsbudget och Snap-räknare är laddade utan att starta Snap-analys');
+  addFunctionCheck(results, 'Nivå 2', 'Säker Google-budgetkorrigering v170', fn('toggleGoogleBudgetCorrectionV170') && fn('saveGoogleBudgetCorrectionV170') && fn('getGoogleBudgetResetSummaryHtmlV170') && !!el('googleBudgetCorrectionV170') && !!el('googleBudgetRouteMonthV170') && !!el('googleBudgetSnapMonthV170') && !src('renderMapGuardStatus', 'Rensa anropsräknare') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170'), 'budgetmånad/nollningsinfo visas och månadsräknare korrigeras med varning i stället för vanlig nollning');
   addFunctionCheck(results, 'Nivå 2', 'Friare Nytt jobb v75 finns', !!el('newReturnRequired') && !!el('newMultiLoad') && !!el('editQueueReturnRequired') && !!el('editQueueMultiLoad') && fn('getFreeDestinationValuesWithStandardFirst') && fn('getStandardDestinationForJobType') && fn('handleNewJobFlagToggle') && fn('handleEditQueueFlagToggle') && src('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && src('startManualJob', 'returnRequiredChoice') && src('addManualJobToQueue', 'multiLoadChoice'), 'Nytt jobb har fri Till-lista, standardförslag, Returkrav och Flerlass');
   addFunctionCheck(results, 'Nivå 2', 'Bevara uppskattad tid vid paus/fortsätt v72 finns', fn('savePausedEstimateState') && fn('restorePausedEstimateState') && fn('applyEstimatedCountdownAtStartPreservingExisting') && src('pauseActiveJob', 'savePausedEstimateState') && src('resumePausedJob', 'restorePausedEstimateState'), 'Pausa sparar senast kända nedräkning och Fortsätt återställer den');
   addFunctionCheck(results, 'Nivå 2', 'GPS-zoner ändrar bara visuell fasknapp', fn('getFromGeofenceForJob') && fn('updateActiveGeofenceVisualStatus') && Array.isArray(ACTIVE_FROM_GEOFENCE_ZONES) && ACTIVE_FROM_GEOFENCE_ZONES.length >= 5 && src('updateActiveGeofenceVisualStatus', 'geofenceVisual'), 'Från-zoner styr visuell status, inte mätpunkter');
@@ -10531,6 +10566,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v167: Funktionskontroll och Systemkontroll använder samma riskprincip. Kända gamla kontrollträffar räknas inte som kritiska appfel utan bevis på datarisk.');
   lines.push('v168: Rapport kan mejlas via lokalt sparad rapportmottagare. Långa rapporter kopieras som fallback och skickas inte automatiskt.');
   lines.push('v169: Google-budget använder enhetsroll Padda 65 % eller Mobil 5 %, dynamisk dagsspärr, hård månadsbudget och förberedd Snap-räknare.');
+  lines.push('v170: Budgetmånad och senaste nollningar visas. Vanlig månadsnollning ersätts med varnad korrigering av räknarvärden.');
   lines.push('');
   lines.push('KARTTEST');
   lines.push(controlReportSafeV165(mapText, 'Karttest inte kört i denna rapport. Skapa rapport efter Kör systemkontroll för att få med senaste karttest.'));
@@ -10548,8 +10584,8 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('storageKey=' + KEY);
   lines.push('featureManifestCount=' + (Array.isArray(APP_FEATURE_MANIFEST) ? APP_FEATURE_MANIFEST.length : 0));
   lines.push('systemReportFunctions=createSystemControlReport/copySystemControlReport/emailSystemControlReportV168/clearSystemControlReport');
-  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=false'); }catch(e){}
-  lines.push('classification=v169 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
+  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=false; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
+  lines.push('classification=v170 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
   lines.push('rule=Rapporten är läsande och får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup, överföring eller localStorage-nyckel.');
   return lines.join('\n');
 }
@@ -10782,6 +10818,7 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('v167: Funktionskontroll och Systemkontroll använder samma riskprincip. Kända gamla kontrollträffar räknas inte som kritiska appfel utan bevis på datarisk.');
   lines.push('v168: Rapport kan mejlas via lokalt sparad rapportmottagare. Långa rapporter kopieras som fallback och skickas inte automatiskt.');
   lines.push('v169: Google-budget använder enhetsroll Padda 65 % eller Mobil 5 %, dynamisk dagsspärr, hård månadsbudget och förberedd Snap-räknare.');
+  lines.push('v170: Budgetmånad och senaste nollningar visas. Vanlig månadsnollning ersätts med varnad korrigering av räknarvärden.');
   lines.push('');
   lines.push('KONTROLLER PER NIVÅ');
   Object.keys(byLevel).forEach(level => {
@@ -10815,8 +10852,8 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('storageKey=' + KEY);
   lines.push('featureManifestCount=' + (Array.isArray(APP_FEATURE_MANIFEST) ? APP_FEATURE_MANIFEST.length : 0));
   lines.push('functionReportFunctions=createFunctionControlReport/copyFunctionControlReport/emailFunctionControlReportV168/clearFunctionControlReport');
-  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=false'); }catch(e){}
-  lines.push('classification=v169 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
+  try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=false; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
+  lines.push('classification=v170 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
   lines.push('rule=Rapporten är läsande och får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup, överföring eller localStorage-nyckel.');
   return lines.join('\n');
 }
@@ -10950,7 +10987,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v169' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v169'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v170' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v170'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -11003,6 +11040,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Kontrollklassning kontrollrapporter v166', typeof classifyControlCheckV166 === 'function' && typeof buildControlClassificationSummaryV166 === 'function' && functionSourceIncludes('buildSystemControlTextReportV165', 'KRITISKA FEL') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166'), 'kontrollrapporter delar upp kritiska fel, kontrollbehov, GPS/aktivt uppdrag och sammanfattningskontroller'),
     systemCheck('Mejla rapporter v168', typeof emailSystemControlReportV168 === 'function' && typeof emailFunctionControlReportV168 === 'function' && typeof emailActiveMonitorReportV168 === 'function' && typeof emailSelectedActiveMonitorEndReportV168 === 'function' && typeof emailStorageControlReportV168 === 'function' && document.getElementById('systemControlMailBtn') && document.getElementById('functionControlMailBtn') && document.getElementById('activeMonitorMailBtn') && document.getElementById('activeMonitorEndMailBtn') && document.getElementById('storageControlMailBtn') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168'), 'rapporter kan öppna mejl/Gmail med lokalt sparad mottagare och kopierad fallback'),
     systemCheck('Google-budget och enhetsspärrar v169', typeof getGoogleBudgetStatusV169 === 'function' && typeof canMakeSnapRoadsRequestV169 === 'function' && typeof registerSnapRoadsRequestV169 === 'function' && document.getElementById('googleBudgetDeviceRoleV169') && document.getElementById('googleBudgetStatusV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169'), (function(){ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); return r.roleLabel + ' · rutter idag ' + r.dayCount + '/' + r.dayLimit + ', månad ' + r.monthCount + '/' + r.monthlyLimit + ' · Snap idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit; })()),
+    systemCheck('Säker Google-budgetkorrigering v170', typeof toggleGoogleBudgetCorrectionV170 === 'function' && typeof saveGoogleBudgetCorrectionV170 === 'function' && typeof getGoogleBudgetResetSummaryHtmlV170 === 'function' && document.getElementById('googleBudgetCorrectionV170') && document.getElementById('googleBudgetRouteMonthV170') && document.getElementById('googleBudgetSnapMonthV170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170'), (function(){ const r = getMapGuardStatus(); return 'budgetmånad ' + r.monthKey + ' · senaste korrigering ' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt); })()),
     systemCheck('Dagsprognos v85', typeof buildDayForecast === 'function' && typeof renderDayForecasts === 'function' && !!document.getElementById('queueDayForecastBox') && functionSourceIncludes('renderDayForecasts', 'queueDayForecastBox') && !functionSourceIncludes('renderDayForecasts', 'todayDayForecastBox') && functionSourceIncludes('getDayForecastHtml', 'planeringshjälp'), 'dagsprognos visas i Uppdrag i kö utan att styra uppdrag; Idag använder v160-dagsammanfattning'),
     systemCheck('Geofence-inställningar v86', typeof toggleGeofenceManager === 'function' && typeof saveGeofenceFromForm === 'function' && typeof removeGeofenceForPlace === 'function' && !!document.getElementById('geofenceManagerWrap'), 'geofence-register finns för lägg till/redigera/ta bort/återställ'),
     systemCheck('Geofence-validering v86', typeof buildGeofenceFromForm === 'function' && typeof parseGeofencePolygonPoints === 'function' && functionSourceIncludes('buildGeofenceFromForm', 'Radie måste vara större än 0') && functionSourceIncludes('parseGeofencePolygonPoints', 'Polygon kräver minst 3 punkter'), 'geofence stoppar uppenbart felaktiga värden'),
@@ -12683,11 +12721,18 @@ function normalizeGoogleCounterStateV169(rawState){
   const previousDayKey = state.dayKey;
   const previousMonthKey = state.monthKey;
   const previousDayCount = Math.max(0, Number(state.dayCount || 0));
+  const now = Date.now();
   if(previousMonthKey !== month){
+    state.lastAutoMonthResetAt = now;
+    state.lastAutoMonthResetFrom = previousMonthKey || '';
+    state.lastAutoMonthResetTo = month;
     state.monthKey = month;
     state.monthCount = (!previousMonthKey && previousDayKey === today) ? previousDayCount : 0;
   }
   if(state.dayKey !== today){
+    state.lastAutoDayResetAt = now;
+    state.lastAutoDayResetFrom = state.dayKey || '';
+    state.lastAutoDayResetTo = today;
     state.dayKey = today;
     state.dayCount = 0;
     state.calls = [];
@@ -12700,10 +12745,25 @@ function normalizeGoogleCounterStateV169(rawState){
   return state;
 }
 
+function getNormalizedGoogleCounterStateFromStorageV170(storageKey){
+  let rawText = 'null';
+  let parsed = null;
+  try{
+    rawText = localStorage.getItem(storageKey) || 'null';
+    parsed = JSON.parse(rawText);
+  }catch(e){
+    parsed = null;
+  }
+  const state = normalizeGoogleCounterStateV169(parsed);
+  try{
+    const normalizedText = JSON.stringify(state);
+    if(normalizedText !== rawText) localStorage.setItem(storageKey, normalizedText);
+  }catch(e){}
+  return state;
+}
+
 function getMapGuardState(){
-  let state = null;
-  try{ state = JSON.parse(localStorage.getItem(MAP_GUARD_STORAGE_KEY) || 'null'); }catch(e){ state = null; }
-  return normalizeGoogleCounterStateV169(state);
+  return getNormalizedGoogleCounterStateFromStorageV170(MAP_GUARD_STORAGE_KEY);
 }
 
 function saveMapGuardState(mapGuardState){
@@ -12716,9 +12776,7 @@ function saveMapGuardState(mapGuardState){
 }
 
 function getSnapGuardStateV169(){
-  let state = null;
-  try{ state = JSON.parse(localStorage.getItem(SNAP_GUARD_STORAGE_KEY) || 'null'); }catch(e){ state = null; }
-  return normalizeGoogleCounterStateV169(state);
+  return getNormalizedGoogleCounterStateFromStorageV170(SNAP_GUARD_STORAGE_KEY);
 }
 
 function saveSnapGuardStateV169(snapGuardState){
@@ -12763,6 +12821,14 @@ function getGoogleBudgetStatusV169(kind){
     remainingMonth,
     dayKey:state.dayKey,
     monthKey:state.monthKey,
+    lastAutoDayResetAt:state.lastAutoDayResetAt || null,
+    lastAutoDayResetFrom:state.lastAutoDayResetFrom || '',
+    lastAutoDayResetTo:state.lastAutoDayResetTo || '',
+    lastAutoMonthResetAt:state.lastAutoMonthResetAt || null,
+    lastAutoMonthResetFrom:state.lastAutoMonthResetFrom || '',
+    lastAutoMonthResetTo:state.lastAutoMonthResetTo || '',
+    lastManualCorrectionAt:state.lastManualCorrectionAt || null,
+    lastManualCorrectionNote:state.lastManualCorrectionNote || '',
     weekdays:calendar.weekdays,
     machineDays:calendar.machineDays,
     appDaysTotal:calendar.appDaysTotal,
@@ -12904,6 +12970,101 @@ function getMapRouteCacheCount(){
   return Object.keys(getMapRouteCache()).length;
 }
 
+function formatGoogleBudgetTimestampV170(value){
+  const ms = Number(value || 0);
+  if(!ms) return 'saknas';
+  try{ return new Date(ms).toLocaleString('sv-SE'); }catch(e){ return new Date(ms).toISOString(); }
+}
+
+function getGoogleBudgetResetSummaryHtmlV170(route, snap){
+  const r = route || getMapGuardStatus();
+  const s = snap || getSnapGuardStatusV169();
+  return '<br><strong>Budgetmånad:</strong> ' + escapeHtml(String(r.monthKey || getLocalMonthKey(new Date()))) +
+    '<br><strong>Senaste automatisk dagsnollning:</strong> rutter ' + escapeHtml(formatGoogleBudgetTimestampV170(r.lastAutoDayResetAt)) + ' · Snap ' + escapeHtml(formatGoogleBudgetTimestampV170(s.lastAutoDayResetAt)) +
+    '<br><strong>Senaste automatisk månadsnollning:</strong> rutter ' + escapeHtml(formatGoogleBudgetTimestampV170(r.lastAutoMonthResetAt)) + ' · Snap ' + escapeHtml(formatGoogleBudgetTimestampV170(s.lastAutoMonthResetAt)) +
+    '<br><strong>Senaste manuell korrigering:</strong> rutter ' + escapeHtml(formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt)) + ' · Snap ' + escapeHtml(formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt));
+}
+
+function setInputValueV170(id, value){
+  const input = document.getElementById(id);
+  if(input) input.value = String(Math.max(0, Math.round(Number(value || 0))));
+}
+
+function toggleGoogleBudgetCorrectionV170(forceOpen){
+  const wrap = document.getElementById('googleBudgetCorrectionV170');
+  if(!wrap) return;
+  const open = forceOpen === undefined ? wrap.classList.contains('hidden') : !!forceOpen;
+  wrap.classList.toggle('hidden', !open);
+  if(open) populateGoogleBudgetCorrectionV170();
+}
+
+function populateGoogleBudgetCorrectionV170(){
+  const route = getMapGuardStatus();
+  const snap = getSnapGuardStatusV169();
+  setInputValueV170('googleBudgetRouteDayV170', route.dayCount);
+  setInputValueV170('googleBudgetRouteMonthV170', route.monthCount);
+  setInputValueV170('googleBudgetSnapDayV170', snap.dayCount);
+  setInputValueV170('googleBudgetSnapMonthV170', snap.monthCount);
+  const note = document.getElementById('googleBudgetCorrectionNoteV170');
+  if(note && !String(note.value || '').trim()) note.value = '';
+  const status = document.getElementById('googleBudgetCorrectionStatusV170');
+  if(status) status.textContent = 'Nuvarande värden är inlästa. Månadsräknare ska inte sättas lägre än dagens räknare.';
+}
+
+function readGoogleBudgetCorrectionIntV170(id, label){
+  const input = document.getElementById(id);
+  const raw = input ? String(input.value || '').replace(',', '.').trim() : '';
+  const num = Number(raw);
+  if(!Number.isFinite(num) || num < 0) throw new Error(label + ' måste vara 0 eller högre.');
+  return Math.round(num);
+}
+
+function buildCorrectedGoogleCounterStateV170(current, dayCount, monthCount, note){
+  const previous = current && typeof current === 'object' ? current : {};
+  return Object.assign({}, previous, {
+    dayKey:getLocalDateKey(new Date()),
+    monthKey:getLocalMonthKey(new Date()),
+    dayCount:Math.max(0, Math.round(Number(dayCount || 0))),
+    monthCount:Math.max(0, Math.round(Number(monthCount || 0))),
+    calls:[],
+    lastManualCorrectionAt:Date.now(),
+    lastManualCorrectionNote:String(note || '').trim(),
+    lastManualCorrectionPrevious:{
+      dayCount:Math.max(0, Number(previous.dayCount || 0)),
+      monthCount:Math.max(0, Number(previous.monthCount || 0)),
+      dayKey:previous.dayKey || '',
+      monthKey:previous.monthKey || ''
+    }
+  });
+}
+
+function saveGoogleBudgetCorrectionV170(){
+  const status = document.getElementById('googleBudgetCorrectionStatusV170');
+  try{
+    const routeDay = readGoogleBudgetCorrectionIntV170('googleBudgetRouteDayV170', 'Rutter idag');
+    const routeMonth = readGoogleBudgetCorrectionIntV170('googleBudgetRouteMonthV170', 'Rutter denna månad');
+    const snapDay = readGoogleBudgetCorrectionIntV170('googleBudgetSnapDayV170', 'Snap idag');
+    const snapMonth = readGoogleBudgetCorrectionIntV170('googleBudgetSnapMonthV170', 'Snap denna månad');
+    if(routeMonth < routeDay) throw new Error('Rutter denna månad kan inte vara lägre än Rutter idag.');
+    if(snapMonth < snapDay) throw new Error('Snap denna månad kan inte vara lägre än Snap idag.');
+    const noteEl = document.getElementById('googleBudgetCorrectionNoteV170');
+    const note = noteEl ? String(noteEl.value || '').trim() : '';
+    const msg = 'Korrigera Google-räknare på denna enhet?\n\n' +
+      'Rutter: ' + routeDay + ' idag / ' + routeMonth + ' denna månad\n' +
+      'Snap: ' + snapDay + ' idag / ' + snapMonth + ' denna månad\n\n' +
+      'Detta nollar inte månaden automatiskt, men ändrade värden kan påverka spärrarna. Använd bara om räknaren blivit fel.';
+    if(!confirm(msg)) return;
+    saveMapGuardState(buildCorrectedGoogleCounterStateV170(getMapGuardState(), routeDay, routeMonth, note));
+    saveSnapGuardStateV169(buildCorrectedGoogleCounterStateV170(getSnapGuardStateV169(), snapDay, snapMonth, note));
+    renderMapGuardStatus();
+    populateGoogleBudgetCorrectionV170();
+    if(status) status.textContent = 'Google-räknare korrigerade. Senaste manuell korrigering visas i budgetstatus och rapporter.';
+  }catch(e){
+    if(status) status.textContent = e && e.message ? e.message : 'Kunde inte korrigera räknarna.';
+    else alert(e && e.message ? e.message : 'Kunde inte korrigera räknarna.');
+  }
+}
+
 function renderGoogleBudgetSettingsV169(){
   const settings = getGoogleBudgetSettingsV169();
   const select = document.getElementById('googleBudgetDeviceRoleV169');
@@ -12917,7 +13078,8 @@ function renderGoogleBudgetSettingsV169(){
     '<br><strong>Beräkning:</strong> vardagar denna månad ' + escapeHtml(String(route.weekdays)) + ' - maskindagar utan app ' + escapeHtml(String(route.machineDays)) + ' = ' + escapeHtml(String(route.appDaysTotal)) + ' appdagar' +
     '<br><strong>Rutter/ETA:</strong> ' + escapeHtml(String(route.monthCount)) + ' / ' + escapeHtml(String(route.monthlyLimit)) + ' denna månad · ' + escapeHtml(String(route.dayCount)) + ' / ' + escapeHtml(String(route.dayLimit)) + ' i dag' +
     '<br><strong>Snap to Roads:</strong> ' + escapeHtml(String(snap.monthCount)) + ' / ' + escapeHtml(String(snap.monthlyLimit)) + ' denna månad · ' + escapeHtml(String(snap.dayCount)) + ' / ' + escapeHtml(String(snap.dayLimit)) + ' i dag' +
-    '<br><span class="muted">Snap-räknaren är förberedd men automatisk Snap-analys är inte aktiv i v169.</span>';
+    getGoogleBudgetResetSummaryHtmlV170(route, snap) +
+    '<br><span class="muted">Snap-räknaren är förberedd men automatisk Snap-analys är inte aktiv. Vanlig månadsnollning finns inte; använd korrigering vid felaktiga värden.</span>';
 }
 
 function renderMapGuardStatus(){
@@ -12933,6 +13095,7 @@ function renderMapGuardStatus(){
       '<br>Rutter idag: ' + escapeHtml(String(status.dayCount)) + ' / ' + escapeHtml(String(status.dayLimit)) + ' dynamisk dagsspärr' +
       '<br>Rutter denna månad: ' + escapeHtml(String(status.monthCount)) + ' / ' + escapeHtml(String(status.monthlyLimit)) + ' hård månadsbudget' +
       '<br>Snap idag: ' + escapeHtml(String(snap.dayCount)) + ' / ' + escapeHtml(String(snap.dayLimit)) + ' · Snap månad: ' + escapeHtml(String(snap.monthCount)) + ' / ' + escapeHtml(String(snap.monthlyLimit)) + ' (förberedd, ej aktiv)' +
+      getGoogleBudgetResetSummaryHtmlV170(status, snap) +
       '<br>Cache idag: ' + escapeHtml(String(cacheCount)) + ' rutter' +
       '<br>Automatisk uppdatering transport/retur: minst ' + escapeHtml(String(status.minAutoIntervalMinutes)) + ' minuter mellan anrop.';
   }
@@ -12940,14 +13103,8 @@ function renderMapGuardStatus(){
 }
 
 function resetMapGuardCountersFromSettings(){
-  if(!confirm('Rensa lokala Google-anropsräknare för rutter och Snap på denna enhet?')) return;
-  saveMapGuardState({ dayKey:getLocalDateKey(new Date()), monthKey:getLocalMonthKey(new Date()), dayCount:0, monthCount:0, calls:[] });
-  saveSnapGuardStateV169({ dayKey:getLocalDateKey(new Date()), monthKey:getLocalMonthKey(new Date()), dayCount:0, monthCount:0, calls:[] });
-  renderMapGuardStatus();
-  resetMapRouteTestResult();
-  resetMapStartAddonTestResult();
-  resetMapTotalRouteTestResult();
-  alert('Google-anropsräknare rensad på denna enhet. Jobb, historik, GPS och cache ändras inte.');
+  alert('Vanlig nollning av Google-räknare är borttagen i v170 för att skydda 70 %-månadsgränsen. Använd Korrigera Google-räknare om värdena blivit fel.');
+  toggleGoogleBudgetCorrectionV170(true);
 }
 
 function resetMapRouteCacheFromSettings(){
