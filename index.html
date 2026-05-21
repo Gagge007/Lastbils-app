@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v154
+- Nuvarande version: Stadslass 2.0 v155
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -89,6 +89,7 @@ Stadslass versionskontroll
 - v152: Flerlass/mellan-lass huvudvisning hämtar Tid till Från och Nästa varv totalt från samma fasunderlag som fasuträkningen när aktiv ETA saknar separata fält.
 - v153: Transportfas/lossningsläge hämtar Tid till från fasuträkning/transportben när aktiv ETA saknas; manuell Från-platsknapp tas bort.
 - v154: Flerlassknappen ”Registrera ny lastning för att påbörja transport” blir fullbredd och blinkar blå/gul; ”Transport pågår” blir fullbredd utan blinkning.
+- v155: Stabiliserar Överför avslutade jobb med enkelkommando-/dubbeltryckslås, robust HTML-inpackad STADSLASS_JOB_V1-tolkning och valbara/kopierbara avslutsrapporter i Aktiv övervakning.
 - v137: Google/Stadslass-modellen införs som styrprincip: Google tar transporttid, Stadslass tar arbete/platsläge, uppskattad tid byggs av Google vägtid + Stadslass arbetstid och tester/övervakning uppdateras.
 - v138: Startsträckans uppskattade tid hålls före faktisk rörelse. Om aktivt jobb står kvar på 0.0 km i startsträcka räknas inte Google-/Stadslass-tiden ner; Klar ca flyttas fram tills GPS/rörelse visar att transporten faktiskt har börjat.
 - v139: Tillfällig fasuträkning visas i Uppskattad tid så Google-delar, Stadslass arbetsdel, summa, aktivt läge och håll-läge kan kontrolleras utan att ändra ETA, fasdata, geofence, vikt, historik eller knappar.
@@ -186,7 +187,7 @@ Stadslass versionskontroll
   - Geofencefält rensas v107: Ny eller bytt geofence-plats visar tomma koordinatfält om platsen saknar egen sparad geofence. Ringön-värden används inte som dold standard och hämtade koordinater är fortsatt redigerbara.
   - Övrig verksamhet v103: Historik kalender använder samma samlade dagsrad för Övrig verksamhet som Idag/export så historiska dagar inte visar flera ÖV-poster.
   - Övrig verksamhet v102: Idag och sammanställning/export visar Övrig verksamhet som en samlad dagsrad med total tid och samlade kommentarer, utan klockslag.
-  - Avslutsrapport v90: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas och behåller senaste 3 rapporterna.
+  - Avslutsrapport v90/v155: skapas automatiskt vid Klart, sparas i Aktiv övervakning, finns kvar när nytt jobb startas, behåller senaste 3 rapporterna och v155 låter användaren välja/kopiera/rensa Senaste/Arkiv 2/Arkiv 3 var för sig.
   - Friare Nytt jobb v75: Nytt jobb föreslår standarddestination men låser inte Till-listan, och uppdrag kan få manuellt Returkrav eller Flerlass
   - Kartförberedelse: fasta platser har Plus Code/adress, lat/lon, alias och placeholder-status utan att Google API används ännu
   - Kartnyckel: Google API-nyckel kan sparas/raderas lokalt på enheten via Inställningar och exporteras inte
@@ -209,7 +210,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v154';
+  const version = 'Stadslass 2.0 v155';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -1956,7 +1957,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v154</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v155</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2311,7 +2312,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v154</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v155</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -2484,12 +2485,13 @@ body.other-work-edit-open{
         <div class="multi-help">Skapas automatiskt när Klart trycks. Rapporten ligger kvar när nytt jobb startas och de senaste 3 avslutsrapporterna sparas tillfälligt i övervakningen.</div>
         <div class="row" style="margin-top:10px">
           <button class="inline" onclick="renderActiveMonitorEndReports()">Uppdatera avslutsrapporter</button>
-          <button class="inline" onclick="copyLatestActiveMonitorEndReport()">Kopiera senaste</button>
+          <button class="inline" onclick="copySelectedActiveMonitorEndReport()">Kopiera vald</button>
+          <button class="danger inline" onclick="clearSelectedActiveMonitorEndReport()">Rensa vald</button>
           <button class="danger inline" onclick="clearActiveMonitorEndReports()">Rensa avslutsrapporter</button>
         </div>
         <div id="activeMonitorEndReportList" style="margin-top:10px"></div>
-        <label style="margin-top:12px">Kopierbar senaste avslutsrapport</label>
-        <textarea id="activeMonitorEndReport" class="geofence-points-input" readonly placeholder="Senaste avslutsrapport visas här efter Klart."></textarea>
+        <label style="margin-top:12px">Kopierbar vald avslutsrapport</label>
+        <textarea id="activeMonitorEndReport" class="geofence-points-input" readonly placeholder="Välj Senaste, Arkiv 2 eller Arkiv 3 för att visa rapporten här."></textarea>
         <div id="activeMonitorEndReportStatus" class="multi-help"></div>
       </div>
     </div>
@@ -2880,13 +2882,14 @@ body.other-work-edit-open{
     </div>
     <div id="finishedTransferManagerWrap" class="place-manager hidden">
       <div class="place-help">Skicka eller ta emot avslutade jobb mellan telefon och surfplatta. Import lägger till jobben i historiken så de kommer med i samma Excel-export senare.</div>
+      <div id="finishedTransferActionStatus" class="multi-help"></div>
 
       <div class="place-row">
         <div class="place-key">Dela avslutade jobb</div>
         <div class="multi-help">Skapar en historikfil med avslutade jobb. Interna kommentarer följer med. Filnamn: lastbil-avslutade-ÅÅÅÅ-MM-DD-HHMM.json.</div>
         <div id="finishedTransferExportInfo" class="multi-help"></div>
         <div class="row">
-          <button class="primary inline" onclick="shareFinishedJobsFile()">Dela avslutade jobb</button>
+          <button id="finishedTransferShareAllBtn" data-finished-transfer-action="1" class="primary inline" onclick="shareFinishedJobsFile()">Dela avslutade jobb</button>
         </div>
       </div>
 
@@ -2895,7 +2898,7 @@ body.other-work-edit-open{
         <div class="multi-help">Välj en historikfil som du har tagit emot via Quick Share. Jobben läggs till i surfplattans historik. Befintliga jobb skrivs inte över och dubbletter hoppas över.</div>
         <input id="finishedImportFile" type="file" accept=".json,application/json">
         <div class="row">
-          <button class="primary inline" onclick="importFinishedJobsFile()">Importera avslutade jobb</button>
+          <button id="finishedTransferImportFileBtn" data-finished-transfer-action="1" class="primary inline" onclick="importFinishedJobsFile()">Importera avslutade jobb</button>
         </div>
       </div>
 
@@ -2905,7 +2908,7 @@ body.other-work-edit-open{
         <textarea id="singleFinishedTransferCode" placeholder="Klistra in överföringskod här" style="min-height:110px"></textarea>
         <div id="singleFinishedTransferInfo" class="multi-help"></div>
         <div class="row">
-          <button class="primary inline" onclick="importSingleFinishedJobTransferCode()">Importera överföringskod</button>
+          <button id="singleFinishedTransferImportBtn" data-finished-transfer-action="1" class="primary inline" onclick="importSingleFinishedJobTransferCode()">Importera överföringskod</button>
           <button class="inline" onclick="clearSingleFinishedTransferCode()">Rensa kod</button>
         </div>
       </div>
@@ -8230,8 +8233,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v154';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v154';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v155';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v155';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -8303,7 +8306,8 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v151 Snabblistor överst i inställningsflikar',
   'v152 Flerlass ETA fallback från fasuträkning',
   'v153 Transport/lossning ETA fallback och borttagen manuell Från-knapp',
-  'v154 Fullbredd flerlass-startknapp och fullbredd transportknapp utan blink'
+  'v154 Fullbredd flerlass-startknapp och fullbredd transportknapp utan blink',
+  'v155 Överföringslås och valbara avslutsrapporter'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -8335,8 +8339,8 @@ function getActiveMonitorIndicatorState(){
   const warnings = checks.filter(item => item.level === 'VARNING').length;
   const infos = checks.filter(item => item.level === 'INFO' && item.code !== 'ACTIVEJOB-OV-000').length;
   const endSummary = getActiveMonitorEndReportSummary();
-  if(endSummary.critical > 0) return {level:'critical', label:'kritisk', text: 'Senaste avslutsrapport har kritisk varning. Öppna Aktiv övervakning.'};
-  if(endSummary.warnings > 0) return {level:'warning', label:'varning', text: 'Senaste avslutsrapport har möjlig varning. Öppna Aktiv övervakning.'};
+  if(endSummary.critical > 0) return {level:'critical', label:'kritisk', text: 'Avslutsrapportarkivet har kritisk varning. Öppna Aktiv övervakning och välj rapport.'};
+  if(endSummary.warnings > 0) return {level:'warning', label:'varning', text: 'Avslutsrapportarkivet har möjlig varning. Öppna Aktiv övervakning och välj rapport.'};
   if(critical > 0) return {level:'critical', label:'kritisk', text: critical + ' kritisk varning. Öppna Aktiv övervakning för rapport.'};
   if(warnings > 0) return {level:'warning', label:'varning', text: warnings + ' möjlig varning. Öppna Aktiv övervakning för rapport.'};
   if(infos > 0) return {level:'info', label:'info', text: infos + ' informationspunkt. Öppna Aktiv övervakning vid behov.'};
@@ -8738,6 +8742,13 @@ function getActiveMonitorChecks(snapshot){
   }
 
 
+  if(typeof beginFinishedTransferAction === 'function' && typeof extractSingleFinishedTransferText === 'function' && typeof selectActiveMonitorEndReport === 'function' && typeof copySelectedActiveMonitorEndReport === 'function'){
+    ok('TRANSFER-OV-155', 'Överföring har enkelkommando-/dubbeltryckslås', 'Överföra uppdrag ska bara kunna köras som en aktiv överföring i taget och HTML-inpackad STADSLASS_JOB_V1 ska kunna rensas till text.', 'v155-funktioner finns', 'v155 Överföringslås', 'beginFinishedTransferAction/extractSingleFinishedTransferText/selectActiveMonitorEndReport');
+    ok('REPORT-OV-155', 'Avslutsrapporter är valbara', 'Senaste, Arkiv 2 och Arkiv 3 ska kunna visas/kopieras var för sig.', 'vald rapport=' + activeMonitorSafe(activeMonitorSelectedEndReportId, '-'), 'v155 Valbara avslutsrapporter', 'reports=' + getActiveMonitorEndReports().length);
+  } else {
+    warn('TRANSFER-OV-155', 'v155 stabilitetsfunktioner saknas', 'Överföringslås och valbara avslutsrapporter ska finnas i aktuell version.', 'funktion saknas', 'v155 har inte laddats korrekt eller funktioner saknas efter ändring.', 'v155 Överföring/avslutsrapporter', '');
+  }
+
   ok('APPREGEL-OV-001', 'Manuella knappar är jobbets sanning', 'Övervakningen ska bara läsa data.', 'v88 använder bara render/kontroll/rapportfunktioner.', 'Appregler / v88 Aktiv övervakning', 'toggleActiveMonitorManager, renderActiveMonitor, createActiveMonitorReport');
   return checks;
 }
@@ -9027,7 +9038,11 @@ function activeMonitorEndSeverityRank(level){
 function getActiveMonitorEndReportSummary(){
   const reports = getActiveMonitorEndReports();
   const latest = reports[0] || null;
-  const levels = latest && Array.isArray(latest.checks) ? latest.checks.map(item => item.level) : [];
+  const levels = [];
+  reports.forEach(report => {
+    if(report && Array.isArray(report.checks)) report.checks.forEach(item => levels.push(item.level));
+    else if(report && report.level) levels.push(report.level);
+  });
   return {
     latest,
     count:reports.length,
@@ -9248,38 +9263,72 @@ function storeActiveMonitorEndReport(job, completedFrom){
   }
 }
 
+let activeMonitorSelectedEndReportId = '';
+
+function getSelectedActiveMonitorEndReport(){
+  const reports = getActiveMonitorEndReports();
+  if(!reports.length) return {report:null, index:-1};
+  let index = reports.findIndex(item => String(item.id || '') === String(activeMonitorSelectedEndReportId || ''));
+  if(index < 0) index = 0;
+  activeMonitorSelectedEndReportId = String(reports[index].id || '');
+  return {report:reports[index], index};
+}
+
+function selectActiveMonitorEndReport(reportId){
+  activeMonitorSelectedEndReportId = String(reportId || '');
+  renderActiveMonitorEndReports();
+  const status = document.getElementById('activeMonitorEndReportStatus');
+  const selected = getSelectedActiveMonitorEndReport();
+  if(status && selected.report) status.textContent = (selected.index === 0 ? 'Senaste' : 'Arkiv ' + (selected.index + 1)) + ' visas.';
+}
+
 function renderActiveMonitorEndReports(){
   const list = document.getElementById('activeMonitorEndReportList');
   const area = document.getElementById('activeMonitorEndReport');
   if(!list && !area) return;
   const reports = getActiveMonitorEndReports();
   if(!reports.length){
+    activeMonitorSelectedEndReportId = '';
     if(list) list.innerHTML = '<div class="muted">Ingen avslutsrapport sparad ännu. En rapport skapas automatiskt när Klart trycks.</div>';
     if(area) area.value = '';
     return;
   }
-  const latest = reports[0];
-  if(area) area.value = latest.report || '';
+  const selected = getSelectedActiveMonitorEndReport();
+  if(area) area.value = selected.report && selected.report.report ? selected.report.report : '';
   if(list){
     list.innerHTML = reports.map((item, index) => {
+      const reportId = String(item.id || '');
+      const selectedClass = reportId === String(activeMonitorSelectedEndReportId || '') ? ' selected-report' : '';
+      const selectedStyle = reportId === String(activeMonitorSelectedEndReportId || '') ? ' style="border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.12)"' : '';
       const levelClass = item.level === 'KRITISK' || item.level === 'VARNING' ? 'queue-alert' : (item.level === 'OK' ? 'pill-code' : 'muted');
-      return '<div class="geofence-list-row">' +
-        '<div class="geofence-list-title"><span class="' + levelClass + '">' + escapeHtml(item.level || 'OK') + '</span> · ' + escapeHtml(index === 0 ? 'Senaste' : 'Arkiv ' + (index + 1)) + '</div>' +
+      const title = index === 0 ? 'Senaste' : 'Arkiv ' + (index + 1);
+      return '<div class="geofence-list-row' + selectedClass + '"' + selectedStyle + '>' +
+        '<div class="geofence-list-title"><span class="' + levelClass + '">' + escapeHtml(item.level || 'OK') + '</span> · ' + escapeHtml(title) + '</div>' +
         '<div><strong>' + escapeHtml(item.title || 'Avslutat uppdrag') + '</strong></div>' +
         '<div class="muted">' + escapeHtml(activeMonitorDateTime(item.completedAt)) + ' · ' + escapeHtml(item.from || '-') + ' → ' + escapeHtml(item.to || '-') + '</div>' +
+        '<div class="row" style="margin-top:8px">' +
+          '<button class="inline" onclick="selectActiveMonitorEndReport(\'' + escapeJsSingle(reportId) + '\')">Visa</button>' +
+          '<button class="inline" onclick="copyActiveMonitorEndReportById(\'' + escapeJsSingle(reportId) + '\')">Kopiera</button>' +
+          '<button class="danger inline" onclick="clearActiveMonitorEndReportById(\'' + escapeJsSingle(reportId) + '\')">Rensa</button>' +
+        '</div>' +
         '</div>';
     }).join('');
   }
 }
 
-function copyLatestActiveMonitorEndReport(){
-  const reports = getActiveMonitorEndReports();
+function copyActiveMonitorEndReportById(reportId){
+  activeMonitorSelectedEndReportId = String(reportId || '');
+  return copySelectedActiveMonitorEndReport();
+}
+
+function copySelectedActiveMonitorEndReport(){
+  const selected = getSelectedActiveMonitorEndReport();
   const area = document.getElementById('activeMonitorEndReport');
   const status = document.getElementById('activeMonitorEndReportStatus');
-  if(!reports.length){ if(status) status.textContent = 'Ingen avslutsrapport finns att kopiera.'; return; }
-  const text = reports[0].report || '';
+  if(!selected.report){ if(status) status.textContent = 'Ingen avslutsrapport finns att kopiera.'; return; }
+  const text = selected.report.report || '';
   if(area) area.value = text;
-  const done = () => { if(status) status.textContent = 'Senaste avslutsrapport kopierad.'; };
+  const done = () => { if(status) status.textContent = (selected.index === 0 ? 'Senaste' : 'Arkiv ' + (selected.index + 1)) + ' kopierad.'; };
   const failed = () => {
     try{ if(area){ area.focus(); area.select(); document.execCommand('copy'); done(); return; } }catch(e){}
     if(status) status.textContent = 'Kunde inte kopiera automatiskt. Markera rapporten och kopiera manuellt.';
@@ -9289,6 +9338,37 @@ function copyLatestActiveMonitorEndReport(){
   } else {
     failed();
   }
+}
+
+function copyLatestActiveMonitorEndReport(){
+  const reports = getActiveMonitorEndReports();
+  if(reports.length) activeMonitorSelectedEndReportId = String(reports[0].id || '');
+  return copySelectedActiveMonitorEndReport();
+}
+
+function clearActiveMonitorEndReportById(reportId){
+  const reports = getActiveMonitorEndReports();
+  const target = reports.find(item => String(item.id || '') === String(reportId || ''));
+  if(!target) return;
+  const title = activeMonitorSafe(target.title, 'avslutsrapport');
+  if(!confirm('Rensa vald avslutsrapport?\n\n' + title + '\n\nJobbhistorik, GPS-data, sammanställning och tidsinlärning påverkas inte.')) return;
+  state.activeMonitorEndReports = reports.filter(item => String(item.id || '') !== String(reportId || ''));
+  activeMonitorSelectedEndReportId = '';
+  saveState();
+  renderActiveMonitorEndReports();
+  renderActiveMonitorIndicator();
+  const status = document.getElementById('activeMonitorEndReportStatus');
+  if(status) status.textContent = 'Vald avslutsrapport rensad. Jobbhistoriken påverkas inte.';
+}
+
+function clearSelectedActiveMonitorEndReport(){
+  const selected = getSelectedActiveMonitorEndReport();
+  if(!selected.report){
+    const status = document.getElementById('activeMonitorEndReportStatus');
+    if(status) status.textContent = 'Ingen avslutsrapport är vald.';
+    return;
+  }
+  clearActiveMonitorEndReportById(selected.report.id);
 }
 
 function clearActiveMonitorEndReports(){
@@ -9302,7 +9382,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v154';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v155';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -9485,6 +9565,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Flerlass ETA fallback från fasuträkning v152', status:'Stabiliseringsfix', purpose:'I flerlass/mellan-lass hämtar huvudvisningen Tid till Från-plats och Nästa varv totalt från samma fas-/ruttunderlag som fasuträkningen när aktiv ETA saknar separata flerlassfält, så det inte står saknas trots synliga delrader.', changeRule:'Får bara påverka aktiv ETA-visning/fasuträkning. Får inte ändra Google-anrop, GPS-jobbsanning, geofenceberäkning, viktdata, historik, backup, chefsexport eller localStorage-nyckel.'},
   {name:'Transport/lossning ETA fallback v153', status:'Stabiliseringsfix', purpose:'I flerlass/transportfas och lossningsläge hämtar huvudvisningen Tid till Till-plats från samma transportben som fasuträkningen, och visar 0 min när Till-geofence/lossning är aktiv. Den manuella Från-platsknappen är borttagen från aktivt jobb.', changeRule:'Får bara påverka aktiv ETA-visning och aktiv knapplayout. Får inte ändra Google-anrop, GPS-jobbsanning, geofenceberäkning, viktlogik, historik, backup, chefsexport eller localStorage-nyckel.'},
   {name:'Fasknapp fullbredd flerlass/transport v154', status:'Visuell UX-fix', purpose:'Flerlassknappen Registrera ny lastning för att påbörja transport visas fullbredd, centrerad och blinkar blå/gul. Transport pågår visas fullbredd och centrerad utan blinkning.', changeRule:'Får bara påverka fasknappens CSS/visuella klassning. Får inte ändra aktiv jobbfas, GPS, geofence, Google-anrop, viktlogik, historik, backup, chefsexport eller localStorage-nyckel.'},
+  {name:'Överföringslås och valbara avslutsrapporter v155', status:'Akut stabilitetsfix', purpose:'Överför avslutade jobb körs som enkelkommando med dubbeltryckslås, robust HTML-inpackad STADSLASS_JOB_V1-tolkning och Aktiv övervakning kan visa/kopiera/rensa valfri sparad avslutsrapport.', changeRule:'Får bara påverka överföringslås, överföringskodtolkning och rapportvisning i övervakningen. Får inte ändra aktivt jobb, historikens jobbsanning, GPS, geofence, vikt, backup, chefsexport eller localStorage-nyckel.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -9689,7 +9770,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v154' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v155' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeStateForExport', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('exportAppBackup', 'sanitizeStateForExport'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -9778,6 +9859,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Stödruta v36 efter vikt finns', !!el('activeLearningSupport') && fn('setActiveLearningSupport') && fn('renderActiveLearningSupport') && src('addLoadToCurrent', 'setActiveLearningSupport'), 'stödruta visas efter Ange vikt');
   addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet paus/återstart finns', src('startJob', 'pausedOtherWork') && fn('resumePausedOtherWorkIfPossible'), 'startJob + resumePausedOtherWorkIfPossible');
   addFunctionCheck(results, 'Nivå 2', 'Överför enskilt avslutat uppdrag finns', fn('createSingleFinishedJobTransferCode') && fn('importSingleFinishedJobTransferCode') && fn('insertImportedFinishedJobsWithTimeline') && fn('fitImportedJobIntoActiveOtherWork'), 'överföringskod + tidsinpassning mot Övrig verksamhet');
+  addFunctionCheck(results, 'Nivå 2', 'Överföringslås v155', fn('beginFinishedTransferAction') && fn('finishFinishedTransferAction') && fn('extractSingleFinishedTransferText') && src('createSingleFinishedJobTransferCode', 'beginFinishedTransferAction') && src('importSingleFinishedJobTransferCode', 'beginFinishedTransferAction') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155'), 'ett tryck/en körning, robust HTML-inpackad kodtolkning och manifestpost finns');
   addFunctionCheck(results, 'Nivå 2', 'Köredigering påverkar bara kön', fn('openEditQueueJob') && fn('saveEditedQueueJob') && fn('clearQueueEditedEstimateFields') && src('saveEditedQueueJob', 'state.queue') && src('saveEditedQueueJob', 'clearQueueEditedEstimateFields') && src('saveEditedQueueJob', 'sortQueueByPlannedDate') && !src('saveEditedQueueJob', 'state.jobs.push') && !src('saveEditedQueueJob', 'state.active ='), 'redigerar köpost, rensar gamla uppskattningar och sorterar om kön');
   addFunctionCheck(results, 'Nivå 2', 'Tidsatta köuppdrag v69 finns', !!el('newPlannedTime') && !!el('quickPlannedTime') && !!el('editQueueTime') && fn('getQueuedJobTime') && fn('setQueuedJobPlannedTime') && fn('compareQueuedJobPlanning') && src('addManualJobToQueue', 'plannedTime') && src('startQuickItem', 'plannedTime') && src('saveEditedQueueJob', 'plannedTime'), 'frivilligt klockslag i nytt jobb, snabbval, kölista och köredigering');
   addFunctionCheck(results, 'Nivå 2', 'Delad retunnedräkning v70 finns', fn('getReturnSplitRouteLegMinutes') && fn('getReturnSplitCountdownInfo') && fn('getActiveEstimateDisplayEndAt') && fn('getActiveEstimateOverallEndAt') && src('getActiveEstimateCountdownHtml', 'getActiveEstimateDisplayEndAt') && src('getActiveEstimateCountdownHtml', 'getActiveEstimateOverallEndAt') && src('applyActiveAutoMapRouteResult', 'estimatedLegEndAt') && src('applyActiveAutoMapRouteResult', 'estimatedOverallEndAt'), 'samma nedräkningsruta delas internt för returkrav och total sluttid sparas separat');
@@ -9805,6 +9887,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Aktiv övervakning v88 finns', !!el('activeMonitorWrap') && fn('toggleActiveMonitorManager') && fn('getActiveMonitorSnapshot') && fn('getActiveMonitorChecks') && fn('buildActiveMonitorReport') && src('buildActiveMonitorReport', 'Förväntat:') && src('buildActiveMonitorReport', 'Trolig orsak:'), 'passiv felsökningsrapport med felkoder och utförliga felmeddelanden');
   addFunctionCheck(results, 'Nivå 2', 'Övervakning version och huvudindikator v89 finns', !!el('activeMonitorMenuIndicator') && fn('renderActiveMonitorIndicator') && fn('getActiveMonitorCoverageStatus') && src('getActiveMonitorChecks', 'VERSION-OV-001') && src('buildActiveMonitorReport', 'ÖVERVAKNINGENS VERSIONSTÄCKNING') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89'), 'övervakningen följer appversion och huvudmenyn visar diskret kontrollsignal');
   addFunctionCheck(results, 'Nivå 2', 'Avslutsrapport v90 finns', !!el('activeMonitorEndReportList') && !!el('activeMonitorEndReport') && fn('storeActiveMonitorEndReport') && fn('buildActiveMonitorEndReport') && fn('renderActiveMonitorEndReports') && src('stopJob', 'storeActiveMonitorEndReport') && src('completeQueuedJob', 'storeActiveMonitorEndReport') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90'), 'avslutsrapport skapas vid Klart och sparas i övervakningens senaste 3 rapporter');
+  addFunctionCheck(results, 'Nivå 2', 'Valbara avslutsrapporter v155', fn('selectActiveMonitorEndReport') && fn('copySelectedActiveMonitorEndReport') && fn('clearSelectedActiveMonitorEndReport') && src('renderActiveMonitorEndReports', 'Visa') && src('renderActiveMonitorEndReports', 'Kopiera') && src('renderActiveMonitorEndReports', 'Rensa'), 'Senaste/Arkiv 2/Arkiv 3 kan visas, kopieras och rensas var för sig');
   addFunctionCheck(results, 'Nivå 2', 'ETA/geofence kontrollfix v91 finns', fn('getActiveEstimateWaitingState') && src('getActiveMonitorChecks', 'ETA-OV-004') && src('updateActiveGeofenceVisualStatus', 'outside_unconfirmed') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91'), 'ETA fastnar inte i hämtar-läge och Från-geofence kräver bekräftad zon innan Transport pågår visas');
   addFunctionCheck(results, 'Nivå 2', 'ETA-anropsdiagnos v92 finns', fn('getActiveEtaMapAttemptDiagnosis') && fn('formatActiveEstimateInfoHtml') && src('getActiveMonitorChecks', 'ETA-OV-005') && src('buildActiveMonitorReport', 'ETA anropsdiagnos') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92'), 'övervakningen skiljer på uteblivet kartförsök och aktiv ETA-ruta saknar stor extra saknas-rad');
   addFunctionCheck(results, 'Nivå 2', 'ETA-anropsfix/layout v93 finns', fn('ensureActiveSmartEstimateAttempt') && fn('setSmartMapSkipReasonForJob') && src('renderActive', 'ensureActiveSmartEstimateAttempt') && src('scheduleSmartEstimateForJob', 'smartMapAttemptedAt') && src('scheduleSmartEstimateForJob', 'kartförsök misslyckades') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93'), 'aktiv ETA startar kontrollerat kartförsök eller får skip-reason och övervakningsrutor radbryts på mobil');
@@ -9914,7 +9997,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v154' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v154'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v155' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v155'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -9939,6 +10022,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Flerlass direkt Från-geofence v146', typeof isActivePointInsideFromGeofenceForMultiLoad === 'function' && functionSourceIncludes('isMultiLoadReadyForNextLoadAtFrom', 'isActivePointInsideFromGeofenceForMultiLoad') && functionSourceIncludes('updateReturnToFromGeofenceVisualStatus', 'multiLoadBetweenLoads') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146'), 'aktuell GPS-träff i Från-geofence släpper ny flerlastning även utan tidigare återkomstvisual'),
     systemCheck('Manuell Från-platsknapp borttagen v153', typeof shouldShowManualMultiLoadFromButton === 'function' && functionSourceIncludes('shouldShowManualMultiLoadFromButton', 'return false') && !document.getElementById('multiLoadManualFromButton') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153'), 'räddningsknappen är borttagen från aktivt jobb'),
     systemCheck('Fasknapp fullbredd flerlass/transport v154', functionSourceIncludes('renderActiveTransportPhaseControl', 'multiLoadNextRegistering') && functionSourceIncludes('renderActiveTransportPhaseControl', 'transportWide') && functionSourceIncludes('renderActiveTransportPhaseControl', 'multi-load-next-registering') && functionSourceIncludes('renderActiveTransportPhaseControl', 'transport-wide') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154'), 'ny flerlastning fullbredd/blinkande och transportknapp fullbredd utan blink'),
+    systemCheck('Överföring/rapportval v155', typeof beginFinishedTransferAction === 'function' && typeof finishFinishedTransferAction === 'function' && functionSourceIncludes('decodeSingleFinishedTransferText', 'extractSingleFinishedTransferText') && typeof selectActiveMonitorEndReport === 'function' && typeof clearSelectedActiveMonitorEndReport === 'function', 'överföringslås och valbara avslutsrapporter är laddade'),
     systemCheck('Flerlass faslåsning utan viktspärr v150', typeof isMultiLoadBetweenLoadsWaitingForNewLoading === 'function' && typeof markMultiLoadNextLoadTransportPhase === 'function' && functionSourceIncludes('addLoadToCurrent', 'getMultiLoadWeightAlwaysAvailableWarning') && functionSourceIncludes('toggleActiveTransportPhase', 'markMultiLoadNextLoadTransportPhase') && !functionSourceIncludes('addLoadToCurrent', 'getMultiLoadWeightBlockedMessage(state.active));\n    return;') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150'), 'flerlass får varna vid mellan-lass men får inte blockera viktregistrering'),
     systemCheck('Ange vikt alltid tillgänglig v150', typeof renderActiveWeightButtonVisual === 'function' && functionSourceIncludes('renderActiveWeightButtonVisual', 'btn.disabled = false') && functionSourceIncludes('renderActiveWeightButtonVisual', 'weightInput.disabled = false') && !functionSourceIncludes('renderActiveWeightButtonVisual', 'Ange vikt spärrad') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150'), 'Ange vikt får aldrig spärras av faslogik'),
     systemCheck('Mellan-lass retur-bakgrund v150', typeof updateActivePhaseBackground === 'function' && functionSourceIncludes('updateActivePhaseBackground', "visualState.className === 'phase-return'") && functionSourceIncludes('updateActivePhaseBackground', 'Kör tillbaka till Från-plats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150'), 'mellan-lass-retur får retur/transportbakgrund'),
@@ -9961,6 +10045,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Aktiv övervakning v88', typeof toggleActiveMonitorManager === 'function' && typeof buildActiveMonitorReport === 'function' && !!document.getElementById('activeMonitorWrap') && functionSourceIncludes('buildActiveMonitorReport', 'VARNINGAR OCH FEL'), 'tillfällig passiv felsökningsrapport finns'),
     systemCheck('Övervakning version och huvudindikator v89', typeof renderActiveMonitorIndicator === 'function' && typeof getActiveMonitorCoverageStatus === 'function' && !!document.getElementById('activeMonitorMenuIndicator') && functionSourceIncludes('getActiveMonitorChecks', 'VERSION-OV-001') && functionSourceIncludes('buildActiveMonitorReport', 'ÖVERVAKNINGENS VERSIONSTÄCKNING'), 'övervakningen har versionstäckning och huvudmenyindikator'),
     systemCheck('Avslutsrapport v90', typeof storeActiveMonitorEndReport === 'function' && typeof buildActiveMonitorEndReport === 'function' && typeof renderActiveMonitorEndReports === 'function' && !!document.getElementById('activeMonitorEndReport') && functionSourceIncludes('stopJob', 'storeActiveMonitorEndReport') && functionSourceIncludes('completeQueuedJob', 'storeActiveMonitorEndReport'), 'avslutsrapport finns i Aktiv övervakning och kopplas till Klart'),
+    systemCheck('Överföringslås och valbara avslutsrapporter v155', typeof beginFinishedTransferAction === 'function' && typeof extractSingleFinishedTransferText === 'function' && typeof selectActiveMonitorEndReport === 'function' && typeof copySelectedActiveMonitorEndReport === 'function' && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155'), 'överföring körs som enkelkommando och avslutsrapporter kan väljas'),
     systemCheck('ETA/geofence kontrollfix v91', typeof getActiveEstimateWaitingState === 'function' && functionSourceIncludes('getActiveMonitorChecks', 'ETA-OV-004') && functionSourceIncludes('updateActiveGeofenceVisualStatus', 'outside_unconfirmed'), 'ETA får timeout/förklaring och Från-geofence kräver bekräftad inne-zon'),
     systemCheck('ETA-anropsdiagnos v92', typeof getActiveEtaMapAttemptDiagnosis === 'function' && typeof formatActiveEstimateInfoHtml === 'function' && functionSourceIncludes('getActiveMonitorChecks', 'ETA-OV-005') && functionSourceIncludes('buildActiveMonitorReport', 'ETA anropsdiagnos'), 'övervakningen visar varför ETA/kartförsök saknas och aktiv ruta visar inte dubbel saknas-text'),
     systemCheck('ETA-anropsfix/layout v93', typeof ensureActiveSmartEstimateAttempt === 'function' && typeof setSmartMapSkipReasonForJob === 'function' && functionSourceIncludes('renderActive', 'ensureActiveSmartEstimateAttempt') && functionSourceIncludes('scheduleSmartEstimateForJob', 'kartförsök misslyckades'), 'aktiv ETA gör kontrollerat kartförsök eller sparar skip-reason och övervakningen är mobil/paddsäker'),
@@ -12695,7 +12780,7 @@ function importQueueFile(){
     }
   };
 
-  reader.onerror = function(){ alert('Kunde inte läsa filen.'); };
+  reader.onerror = function(){ finishFinishedTransferAction('Kunde inte läsa filen.', true); alert('Kunde inte läsa filen.'); };
   reader.readAsText(file);
 }
 
@@ -12832,6 +12917,58 @@ async function importGithubQueueFiles(){
 
 
 let lastFinishedDownloadUrl = null;
+let finishedTransferBusy = false;
+let finishedTransferBusyLabel = '';
+let finishedTransferLastActionAt = 0;
+
+function setFinishedTransferStatus(message, isError){
+  const el = document.getElementById('finishedTransferActionStatus');
+  if(el){
+    el.textContent = message || '';
+    el.style.color = isError ? '#b91c1c' : '';
+    el.style.fontWeight = message ? '700' : '';
+  }
+}
+
+function updateFinishedTransferBusyButtons(){
+  try{
+    document.querySelectorAll('[data-finished-transfer-action="1"]').forEach(btn => {
+      btn.disabled = !!finishedTransferBusy;
+      if(finishedTransferBusy){
+        if(!btn.dataset.originalText) btn.dataset.originalText = btn.textContent || '';
+        btn.textContent = 'Bearbetar...';
+      }else if(btn.dataset.originalText){
+        btn.textContent = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+      }
+    });
+  }catch(e){}
+}
+
+function beginFinishedTransferAction(label){
+  const now = Date.now();
+  if(finishedTransferBusy){
+    setFinishedTransferStatus('Överföring pågår redan – vänta.', false);
+    return false;
+  }
+  if(now - finishedTransferLastActionAt < 1200){
+    setFinishedTransferStatus('Trycket ignorerades för att skydda mot dubbelkommando.', false);
+    return false;
+  }
+  finishedTransferLastActionAt = now;
+  finishedTransferBusy = true;
+  finishedTransferBusyLabel = String(label || 'Överföring');
+  setFinishedTransferStatus('Bearbetar överföring... Ett tryck räcker.', false);
+  updateFinishedTransferBusyButtons();
+  return true;
+}
+
+function finishFinishedTransferAction(message, isError){
+  finishedTransferBusy = false;
+  finishedTransferBusyLabel = '';
+  updateFinishedTransferBusyButtons();
+  if(message !== undefined) setFinishedTransferStatus(message || '', !!isError);
+}
 
 function toggleFinishedTransferManager(){
   toggleSettingsPanel('finishedTransferManagerWrap', () => {
@@ -12844,6 +12981,7 @@ function updateFinishedTransferInfo(){
   if(!el) return;
   const count = getFinishedJobsForUnderlag().length;
   el.textContent = count === 1 ? '1 avslutat jobb finns att dela.' : count + ' avslutade jobb finns att dela.';
+  updateFinishedTransferBusyButtons();
 }
 
 function getFinishedTransferFilename(){
@@ -12904,34 +13042,44 @@ function downloadFinishedJobsBlob(blob, filename){
 }
 
 async function shareFinishedJobsFile(){
-  const payload = buildFinishedTransferPayload();
-  if(!payload.jobs.length){
-    alert('Det finns inga avslutade jobb att dela.');
-    updateFinishedTransferInfo();
-    return;
-  }
-
-  const filename = getFinishedTransferFilename();
-  const json = JSON.stringify(payload, null, 2);
-  const blob = new Blob([json], {type:'application/json'});
-  let shared = false;
-
+  if(!beginFinishedTransferAction('Dela avslutade jobb')) return;
   try{
-    if(typeof File !== 'undefined' && navigator.share){
-      const file = new File([blob], filename, {type:'application/json'});
-      const canShareFile = !navigator.canShare || navigator.canShare({files:[file]});
-      if(canShareFile){
-        await navigator.share({title:'Stadslass avslutade jobb', text:'Avslutade jobb från Stadslass', files:[file]});
-        shared = true;
+    const payload = buildFinishedTransferPayload();
+    if(!payload.jobs.length){
+      alert('Det finns inga avslutade jobb att dela.');
+      updateFinishedTransferInfo();
+      finishFinishedTransferAction('Det finns inga avslutade jobb att dela.', false);
+      return;
+    }
+
+    const filename = getFinishedTransferFilename();
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], {type:'application/json'});
+    let shared = false;
+
+    try{
+      if(typeof File !== 'undefined' && navigator.share){
+        const file = new File([blob], filename, {type:'application/json'});
+        const canShareFile = !navigator.canShare || navigator.canShare({files:[file]});
+        if(canShareFile){
+          await navigator.share({title:'Stadslass avslutade jobb', text:'Avslutade jobb från Stadslass', files:[file]});
+          shared = true;
+        }
       }
+    }catch(e){
+      shared = false;
+    }
+
+    if(!shared){
+      downloadFinishedJobsBlob(blob, filename);
+      alert('Historikfilen skapades. Om den inte laddas ner automatiskt, tryck på länken som visas under knappen.');
+      finishFinishedTransferAction('Historikfil skapad.', false);
+    } else {
+      finishFinishedTransferAction('Avslutade jobb delades.', false);
     }
   }catch(e){
-    shared = false;
-  }
-
-  if(!shared){
-    downloadFinishedJobsBlob(blob, filename);
-    alert('Historikfilen skapades. Om den inte laddas ner automatiskt, tryck på länken som visas under knappen.');
+    finishFinishedTransferAction('Kunde inte dela avslutade jobb.', true);
+    alert(e && e.message ? e.message : 'Kunde inte dela avslutade jobb.');
   }
 }
 
@@ -12959,13 +13107,64 @@ function encodeSingleFinishedTransferPayload(payload){
   }
 }
 
+function htmlToPlainTransferText(value){
+  let raw = String(value || '');
+  if(raw.indexOf('<') >= 0 || raw.indexOf('&') >= 0){
+    try{
+      if(typeof DOMParser !== 'undefined'){
+        const doc = new DOMParser().parseFromString(raw, 'text/html');
+        if(doc && doc.body) raw = doc.body.textContent || raw;
+      }
+    }catch(e){
+      raw = raw.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, '$1').replace(/<[^>]+>/g, ' ');
+    }
+    try{
+      const ta = document.createElement('textarea');
+      ta.innerHTML = raw;
+      raw = ta.value || raw;
+    }catch(e){}
+  }
+  return raw.replace(/\u00a0/g, ' ').trim();
+}
+
+function extractSingleFinishedTransferText(text){
+  const raw = htmlToPlainTransferText(text);
+  if(!raw) return '';
+  const marker = 'STADSLASS_JOB_V1:';
+  const ix = raw.indexOf(marker);
+  if(ix >= 0){
+    const rest = raw.slice(ix + marker.length);
+    const m = rest.match(/[A-Za-z0-9+/=\s]+/);
+    const encoded = m ? m[0].replace(/\s+/g, '') : '';
+    return marker + encoded;
+  }
+  const first = raw.indexOf('{');
+  const last = raw.lastIndexOf('}');
+  if(first >= 0 && last > first) return raw.slice(first, last + 1).trim();
+  return raw.trim();
+}
+
+function decodeBase64Utf8(encoded){
+  const cleaned = String(encoded || '').replace(/\s+/g, '');
+  const binary = atob(cleaned);
+  try{
+    if(typeof TextDecoder !== 'undefined'){
+      const bytes = new Uint8Array(binary.length);
+      for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+  }catch(e){}
+  return decodeURIComponent(escape(binary));
+}
+
 function decodeSingleFinishedTransferText(text){
-  const raw = String(text || '').trim();
+  const raw = extractSingleFinishedTransferText(text);
   if(!raw) throw new Error('Klistra in en överföringskod först.');
   let jsonText = raw;
   if(raw.indexOf('STADSLASS_JOB_V1:') === 0){
     const encoded = raw.slice('STADSLASS_JOB_V1:'.length).trim();
-    jsonText = decodeURIComponent(escape(atob(encoded)));
+    if(!encoded) throw new Error('Överföringskoden saknar koddata efter STADSLASS_JOB_V1.');
+    jsonText = decodeBase64Utf8(encoded);
   }
   const parsed = JSON.parse(jsonText);
   if(parsed && parsed.transferType === 'single_finished_job' && parsed.job) return parsed.job;
@@ -12976,31 +13175,40 @@ function decodeSingleFinishedTransferText(text){
 }
 
 async function createSingleFinishedJobTransferCode(jobId){
-  const job = getFinishedJobById(jobId);
-  if(!job){
-    alert('Hittar inte det avslutade uppdraget.');
-    return;
-  }
-  const code = encodeSingleFinishedTransferPayload(buildSingleFinishedJobTransferPayload(job));
-  const infoText = 'Överföringskod skapad för ' + (job.displayType || job.type || 'uppdrag') + ' ' + clockTime(job.start) + '-' + clockTime(job.end) + '.';
-  let shared = false;
+  if(!beginFinishedTransferAction('Skapa överföringskod')) return;
   try{
-    if(navigator.share){
-      await navigator.share({title:'Stadslass överför uppdrag', text:code});
-      shared = true;
+    const job = getFinishedJobById(jobId);
+    if(!job){
+      alert('Hittar inte det avslutade uppdraget.');
+      finishFinishedTransferAction('Hittar inte det avslutade uppdraget.', true);
+      return;
     }
-  }catch(e){
-    shared = false;
-  }
-  if(!shared){
+    const code = encodeSingleFinishedTransferPayload(buildSingleFinishedJobTransferPayload(job));
+    const infoText = 'Överföringskod skapad för ' + (job.displayType || job.type || 'uppdrag') + ' ' + clockTime(job.start) + '-' + clockTime(job.end) + '.';
+    let shared = false;
     try{
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        await navigator.clipboard.writeText(code);
-        alert(infoText + '\n\nKoden är kopierad. Klistra in den i paddan under Inställningar → Överför avslutade jobb.');
-        return;
+      if(navigator.share){
+        await navigator.share({title:'Stadslass överför uppdrag', text:code});
+        shared = true;
       }
-    }catch(e){}
-    window.prompt(infoText + '\n\nKopiera denna kod och klistra in den i paddan:', code);
+    }catch(e){
+      shared = false;
+    }
+    if(!shared){
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(code);
+          alert(infoText + '\n\nKoden är kopierad. Klistra in den i paddan under Inställningar → Överför avslutade jobb.');
+          finishFinishedTransferAction('Överföringskod skapad och kopierad.', false);
+          return;
+        }
+      }catch(e){}
+      window.prompt(infoText + '\n\nKopiera denna kod och klistra in den i paddan:', code);
+    }
+    finishFinishedTransferAction('Överföringskod skapad.', false);
+  }catch(e){
+    finishFinishedTransferAction('Kunde inte skapa överföringskod.', true);
+    alert(e && e.message ? e.message : 'Kunde inte skapa överföringskod.');
   }
 }
 
@@ -13117,6 +13325,7 @@ function insertImportedFinishedJobsWithTimeline(toImport){
 }
 
 function importSingleFinishedJobTransferCode(){
+  if(!beginFinishedTransferAction('Importera överföringskod')) return;
   const el = document.getElementById('singleFinishedTransferCode');
   const info = document.getElementById('singleFinishedTransferInfo');
   try{
@@ -13128,6 +13337,7 @@ function importSingleFinishedJobTransferCode(){
     const exists = (state.jobs || []).some(existing => getFinishedJobTransferKey(existing) === key || String(existing.sourceJobId || existing.id || '') === String(job.sourceJobId || job.id || ''));
     if(exists){
       alert('Detta uppdrag verkar redan finnas i appen. Inget importerades.');
+      finishFinishedTransferAction('Dubblett stoppad. Inget importerades.', false);
       return;
     }
     if((state.jobs || []).some(existing => String(existing.id || '') === String(job.id || ''))) job.id = id();
@@ -13140,7 +13350,10 @@ function importSingleFinishedJobTransferCode(){
     if(conflicts.length){
       message += '\n\nVarning: tiden överlappar ' + conflicts.length + ' annat avslutat uppdrag. Kontrollera innan du importerar.';
     }
-    if(!confirm(message)) return;
+    if(!confirm(message)){
+      finishFinishedTransferAction('Import avbruten.', false);
+      return;
+    }
 
     const result = insertImportedFinishedJobsWithTimeline([job]);
     saveState();
@@ -13149,7 +13362,9 @@ function importSingleFinishedJobTransferCode(){
     if(el) el.value = '';
     if(info) info.textContent = 'Importerat: ' + (job.displayType || job.type) + ' ' + clockTime(job.start) + '-' + clockTime(job.end) + '.';
     alert('Uppdraget importerades.' + (result.splitCount ? ' Övrig verksamhet justerades.' : ''));
+    finishFinishedTransferAction('Uppdraget importerades.', false);
   }catch(e){
+    finishFinishedTransferAction('Kunde inte läsa överföringskoden.', true);
     alert(e && e.message ? e.message : 'Kunde inte läsa överföringskoden.');
   }
 }
@@ -13202,9 +13417,11 @@ function normalizeImportedFinishedJob(item){
 }
 
 function importFinishedJobsFile(){
+  if(!beginFinishedTransferAction('Importera avslutade jobb')) return;
   const input = document.getElementById('finishedImportFile');
   if(!input || !input.files || !input.files[0]){
     alert('Välj en historikfil först.');
+    finishFinishedTransferAction('Välj en historikfil först.', false);
     return;
   }
 
@@ -13219,6 +13436,7 @@ function importFinishedJobsFile(){
 
       if(!normalized.length){
         alert('Filen innehåller inga giltiga avslutade jobb.');
+        finishFinishedTransferAction('Filen innehåller inga giltiga avslutade jobb.', true);
         return;
       }
 
@@ -13245,18 +13463,19 @@ function importFinishedJobsFile(){
       if(!toImport.length){
         alert('Alla avslutade jobb i filen verkar redan finnas i appen. Inget importerades.');
         input.value = '';
+        finishFinishedTransferAction('Alla jobb var dubbletter. Inget importerades.', false);
         return;
       }
 
       const message = 'Lägg till ' + toImport.length + ' avslutade jobb i historiken?' +
         (skippedDuplicates ? '\n\n' + skippedDuplicates + ' dubbletter hoppas över.' : '') +
         '\n\nBefintliga jobb skrivs inte över.';
-      if(!confirm(message)) return;
+      if(!confirm(message)){ finishFinishedTransferAction('Import avbruten.', false); return; }
 
       const conflicts = toImport.reduce((sum, job) => sum + getFinishedJobTimeConflicts(job).length, 0);
       if(conflicts){
         const ok = confirm('Varning: importerade jobb överlappar ' + conflicts + ' befintliga vanliga uppdrag. Fortsätt ändå?');
-        if(!ok) return;
+        if(!ok){ finishFinishedTransferAction('Import avbruten.', false); return; }
       }
       const timelineResult = insertImportedFinishedJobsWithTimeline(toImport);
       saveState();
@@ -13264,12 +13483,14 @@ function importFinishedJobsFile(){
       updateFinishedTransferInfo();
       input.value = '';
       alert(toImport.length + ' avslutade jobb importerades.' + (skippedDuplicates ? ' ' + skippedDuplicates + ' dubbletter hoppades över.' : '') + (timelineResult.splitCount ? ' Övrig verksamhet justerades.' : ''));
+      finishFinishedTransferAction(toImport.length + ' avslutade jobb importerades.', false);
     }catch(e){
+      finishFinishedTransferAction('Kunde inte läsa historikfilen.', true);
       alert('Kunde inte läsa historikfilen.');
     }
   };
 
-  reader.onerror = function(){ alert('Kunde inte läsa filen.'); };
+  reader.onerror = function(){ finishFinishedTransferAction('Kunde inte läsa filen.', true); alert('Kunde inte läsa filen.'); };
   reader.readAsText(file);
 }
 function handleNewJobTypeModeToggle(mode){
