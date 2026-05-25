@@ -3,7 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v197
+- Nuvarande version: Stadslass 2.0 v199
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
 - v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
@@ -250,7 +250,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v197';
+  const version = 'Stadslass 2.0 v199';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -2256,7 +2256,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v197</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v199</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2669,7 +2669,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v197</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v199</div>
     <div class="settings-groups">
       <div class="settings-group">
         <h4>Uppdragsregister</h4>
@@ -8914,9 +8914,13 @@ function isUnlockedJobType(type){
 }
 
 function getLinkedPlaceValuesForJobType(type, direction){
-  const values = direction === 'from' ? getFromPlaceValues() : getToPlaceValues();
+  // v199: Jobbtypskryss i Platser ska styra Från/Till-listor fullt ut.
+  // Gammal basroll/placeUsage får inte blockera en plats som uttryckligen är kryssad
+  // för aktuell jobbtyp och riktning. Därför läses kandidater från alla aktiva
+  // platsnycklar i stället för redan Från-/Till-filtrerade baslistor.
   if(!type) return [];
-  return values.filter(key => getPlaceJobTypesForDirection(key, direction).includes(type));
+  const candidates = typeof getAllPlaceKeys === 'function' ? getAllPlaceKeys() : [];
+  return candidates.filter(key => getPlaceJobTypesForDirection(key, direction).includes(type));
 }
 
 function appendPlaceIfAvailable(values, key, direction){
@@ -9050,6 +9054,34 @@ function getConfiguredPlaceValuesForJobTypeV190(type, direction, selectedPlace){
   return sortPlaceValues(sanitizePlaceValueListV178(sanitizeJobTypePlaceValuesV187(values, type, direction)), 'Ringön (BAS)', placeholder);
 }
 
+
+function getConfiguredListMismatchesV199(){
+  const mismatches = [];
+  const keys = typeof getAllPlaceKeys === 'function' ? getAllPlaceKeys() : [];
+  keys.forEach(key => {
+    if(!key || isSystemOtherPlaceToolV180(key) || isCurrentLocationPlace(key)) return;
+    const fromTypes = getPlaceJobTypesForDirection(key, 'from');
+    const toTypes = getPlaceJobTypesForDirection(key, 'to');
+    fromTypes.forEach(type => {
+      if(!type || type === 'Havstång') return;
+      const list = getFilteredPlaceValuesForJobType(type, 'from', '');
+      if(!list.includes(key)) mismatches.push({direction:'from', type, key, label:getPlaceLabel(key)});
+    });
+    toTypes.forEach(type => {
+      if(!type || type === 'Havstång') return;
+      const list = getFreeDestinationValuesWithStandardFirst(type, '');
+      if(!list.includes(key)) mismatches.push({direction:'to', type, key, label:getPlaceLabel(key)});
+    });
+  });
+  return mismatches;
+}
+
+function formatConfiguredListMismatchV199(item){
+  const role = item && item.direction === 'to' ? 'Till' : 'Från';
+  const label = item && item.label && item.label !== item.key ? item.label + ' [' + item.key + ']' : (item && item.key) || '-';
+  return role + ': ' + label + ' är kryssad för ' + ((item && item.type) || '-') + ' men saknas i listan.';
+}
+
 function getFromToListControlProblemsV190(){
   const problems = [];
   const addProblem = (level, text) => problems.push({level:level || 'FEL', text:String(text || '').trim()});
@@ -9073,6 +9105,8 @@ function getFromToListControlProblemsV190(){
   if(beachCount > 0 && !listHasBeachPlaceV187(seaweedTo)) addProblem('FEL', 'Havstång saknar badplats i Till-listan.');
   if(!seaweedFrom.includes('Renova Bioanläggning')) addProblem('FEL', 'Havstång saknar Renova Bioanläggning i Från-listan.');
   if(!seaweedTo.includes('Renova Bioanläggning')) addProblem('FEL', 'Havstång saknar Renova Bioanläggning i Till-listan.');
+  const listMismatchesV199 = getConfiguredListMismatchesV199();
+  listMismatchesV199.forEach(item => addProblem('FEL', formatConfiguredListMismatchV199(item)));
   return problems;
 }
 
@@ -9195,6 +9229,7 @@ function buildFromToListControlReportV190(){
   lines.push('- Till-listor får inte innehålla Från annan plats.');
   lines.push('- Annan destination får inte synas som aktivt listval.');
   lines.push('- Inga varningar skapas för få eller tomma Från/Till-val.');
+  lines.push('- v199: En plats som är kryssad för jobbtyp/riktning ska finnas i motsvarande Från/Till-lista även om gammal basroll säger nej.');
   lines.push('');
   if(!problems.length){
     lines.push('RESULTAT');
@@ -9456,7 +9491,7 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v197';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v199';
 const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v194';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
@@ -9567,7 +9602,9 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v194 Djupkontroll knappnamn och dataintegritetsräkning',
   'v195 Testa alla stegvis och rätt avslutade-jobb-räkning',
   'v196 Kontrollcentral knappindikator och rapportfilnamn',
-  'v197 ETA-text Stadslass-spärrad karttid'
+  'v197 ETA-text Stadslass-spärrad karttid',
+  'v198 ETA/kartanropsdiagnos separat aktivt jobb och kontrolltest',
+  'v199 Jobbtypskryss styr Från/Till-listor fullt ut'
 ];
 
 function activeMonitorShortVersion(versionText){
@@ -9637,6 +9674,67 @@ function activeMonitorNumber(value, decimals){
   const n = Number(value);
   if(!Number.isFinite(n)) return '-';
   return n.toFixed(decimals === undefined ? 0 : decimals);
+}
+
+
+function getActiveMapCallContextV198(snapshot){
+  const s = snapshot || getActiveMonitorSnapshot();
+  const job = s.job || null;
+  const counts = {
+    newCalls: Math.max(0, Number(s.mapNewCalls || 0)),
+    cacheHits: Math.max(0, Number(s.mapCacheHits || 0)),
+    skipped: Math.max(0, Number(s.mapSkipped || 0))
+  };
+  const mode = s.googleStadslassMode || null;
+  const gpsKm = Math.max(0, Number(s.gpsDistanceKm || 0));
+  const observed = Number(s.observedTransportStartAt || 0) > 0;
+  const routeText = job ? (activeMonitorSafe(getItemPlaceLabel(job, 'place') || job.place, '-') + ' → ' + activeMonitorSafe(getItemPlaceLabel(job, 'dest') || job.dest, '-')) : '-';
+  const lastAutoRoute = job ? activeMonitorSafe(job.autoMapLastRouteText, '-') : '-';
+  const lastAutoSource = job ? activeMonitorSafe(job.autoMapLastSource, '-') : '-';
+  const lastAutoMode = job ? activeMonitorSafe(job.autoMapLastMode, '-') : '-';
+  const dynamicGpsLikely = counts.newCalls > 3 && gpsKm >= 0.2 && observed && mode && mode.googleActive;
+  const routeDeviationText = activeMonitorSafe(s.routeDeviation, 'saknas');
+  const interpretation = dynamicGpsLikely
+    ? 'Flera aktiva anrop kan vara normal omräkning från ny GPS-position, till exempel om bilen kör annan väg eller startpunkten ändras under transport.'
+    : (counts.newCalls > 3 ? 'Flera aktiva anrop behöver granskas om de gäller samma ruttläge och inte beror på GPS-/ruttomräkning.' : 'Aktiva kartanrop ligger inom normal nivå.');
+  return {
+    counts,
+    activeRoute: routeText,
+    lastAutoRoute,
+    lastAutoSource,
+    lastAutoMode,
+    googleModeText: mode ? activeMonitorSafe(mode.statusText, '-') : '-',
+    googleModeRaw: mode ? activeMonitorSafe(mode.mode, '-') : '-',
+    gpsKm,
+    observed,
+    routeDeviationText,
+    dynamicGpsLikely,
+    interpretation,
+    systemControlSeparated:true
+  };
+}
+
+function formatActiveMapCallContextLineV198(ctx){
+  const c = ctx && ctx.counts ? ctx.counts : {newCalls:0, cacheHits:0, skipped:0};
+  return 'Aktivt jobb: ' + activeMonitorSafe(ctx && ctx.activeRoute, '-') +
+    ' · anrop=' + c.newCalls +
+    ' · cache=' + c.cacheHits +
+    ' · samma plats=' + c.skipped +
+    ' · GPS-sträcka=' + activeMonitorNumber(ctx && ctx.gpsKm, 3) + ' km' +
+    ' · transportstart observerad=' + activeMonitorBool(!!(ctx && ctx.observed));
+}
+
+function getReturnEtaDiagnosticLineV198(snapshot){
+  const s = snapshot || getActiveMonitorSnapshot();
+  if(!s || !s.hasActive || !s.returnRequired) return 'Returkrav: Nej eller inget aktivt uppdrag.';
+  const diffMs = Math.abs(Number(s.estimatedEndAt || 0) - Number(s.displayEndAt || 0));
+  const diffMin = diffMs > 0 ? Math.round(diffMs / 60000) : 0;
+  const note = diffMin > 1
+    ? 'Tid till kan visa nästa mål medan Klar ca ska granskas mot helslut/estimatedEndAt.'
+    : 'displayEndAt och estimatedEndAt ligger nära varandra.';
+  return 'Returkrav: Ja · estimatedEndAt/helslut=' + activeMonitorDateTime(s.estimatedEndAt) +
+    ' · displayEndAt/Klar ca-underlag=' + activeMonitorDateTime(s.displayEndAt) +
+    ' · skillnad≈' + diffMin + ' min · ' + note;
 }
 
 function formatSnapRoadsDistanceKmV182(value){
@@ -9859,10 +9957,15 @@ function getActiveMonitorChecks(snapshot){
     warn('PHASE-OV-139', 'Fasuträkning saknas trots aktiv ETA', 'Aktiv ETA ska kunna beskrivas i fasuträkning.', 'ETA=' + activeMonitorNumber(s.estimatedMinutesAtStart, 0) + ' min men fasuträkning saknas.', 'v139-rutan kan vara urkopplad från renderingen.', 'v139 Tillfällig fasuträkning', 'phaseCalculation139=' + activeMonitorSafe(JSON.stringify(s.phaseCalculation139 || null), '-'));
   }
 
+  const mapCtxV198 = getActiveMapCallContextV198(s);
   if(s.mapNewCalls > 3){
-    warn('MAP-OV-001', 'Flera nya kartanrop på aktivt jobb', 'Google/Stadslass-modellen ska återanvända cache och spärrar i platsläge.', 'Nya anrop=' + s.mapNewCalls + '; cache=' + s.mapCacheHits + '; hoppade över=' + s.mapSkipped, 'Kartanropsspärr/cache kanske inte träffar samma rutt eller geofence-spärr aktiveras inte.', 'v137 Google/Stadslass / v46 Automatiska kartanrop', 'source=' + s.smartSource + '; smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-'));
+    if(mapCtxV198.dynamicGpsLikely){
+      info('MAP-OV-001', 'Flera kartanrop på aktivt jobb – troligen ruttomräkning', 'Google/Stadslass-modellen får räkna om i transportläge när GPS-startpunkt eller vägval ändras, men Kontrollcentralens/Systemkontrollens karttest ska hållas separat i rapporten.', formatActiveMapCallContextLineV198(mapCtxV198), mapCtxV198.interpretation, 'v198 ETA/kartanropsdiagnos / v137 Google/Stadslass', 'source=' + s.smartSource + '; smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-') + '; lastAutoRoute=' + mapCtxV198.lastAutoRoute + '; lastAutoSource=' + mapCtxV198.lastAutoSource + '; systemControlSeparated=' + activeMonitorBool(mapCtxV198.systemControlSeparated));
+    } else {
+      warn('MAP-OV-001', 'Flera nya kartanrop på aktivt jobb', 'Google/Stadslass-modellen ska återanvända cache och spärrar när samma rutt/fas räknas om. Kontrollcentralens/Systemkontrollens egna karttest ska inte blandas ihop med aktivt jobb.', formatActiveMapCallContextLineV198(mapCtxV198), mapCtxV198.interpretation, 'v198 ETA/kartanropsdiagnos / v137 Google/Stadslass', 'source=' + s.smartSource + '; smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-') + '; lastAutoRoute=' + mapCtxV198.lastAutoRoute + '; lastAutoSource=' + mapCtxV198.lastAutoSource + '; systemControlSeparated=' + activeMonitorBool(mapCtxV198.systemControlSeparated));
+    }
   } else {
-    ok('MAP-OV-001', 'Kartanrop ser rimliga ut', 'Nya anrop ska vara begränsade.', 'Nya anrop=' + s.mapNewCalls + '; cache=' + s.mapCacheHits, 'v137 Google/Stadslass', '');
+    ok('MAP-OV-001', 'Kartanrop ser rimliga ut', 'Nya anrop ska vara begränsade och kontrolltest ska redovisas separat.', formatActiveMapCallContextLineV198(mapCtxV198), 'v198 ETA/kartanropsdiagnos / v137 Google/Stadslass', 'lastAutoRoute=' + mapCtxV198.lastAutoRoute + '; lastAutoSource=' + mapCtxV198.lastAutoSource);
   }
 
   if(s.observedTransportStartAt > 0){
@@ -10230,12 +10333,21 @@ function buildActiveMonitorReport(){
     s.geofencePolygonAudit.results.forEach(item => report.push('- ' + activeMonitorSafe(item.zone && item.zone.label, 'okänd plats') + ': ' + (item.level === 'ok' ? 'OK' : (item.level === 'error' ? 'FEL' : 'VARNING')) + (item.level === 'ok' ? '' : ' · ' + (item.messages || []).join(' '))));
   }
   report.push('');
-  report.push('KARTANROP / CACHE');
-  report.push('Nya anrop: ' + s.mapNewCalls);
-  report.push('Cacheträffar: ' + s.mapCacheHits);
-  report.push('Hoppade över samma plats: ' + s.mapSkipped);
+  report.push('KARTANROP / CACHE – AKTIVT JOBB');
+  const mapCtxV198 = getActiveMapCallContextV198(s);
+  report.push('Aktivt jobb rutt: ' + activeMonitorSafe(mapCtxV198.activeRoute, '-'));
+  report.push('Aktivt jobb nya anrop: ' + s.mapNewCalls);
+  report.push('Aktivt jobb cacheträffar: ' + s.mapCacheHits);
+  report.push('Aktivt jobb hoppade över samma plats: ' + s.mapSkipped);
+  report.push('Senaste automatiska ruttrad: ' + activeMonitorSafe(mapCtxV198.lastAutoRoute, '-'));
+  report.push('Senaste automatiska källa: ' + activeMonitorSafe(mapCtxV198.lastAutoSource, '-'));
+  report.push('Senaste automatiska läge: ' + activeMonitorSafe(mapCtxV198.lastAutoMode, '-'));
+  report.push('Google/Stadslass-läge: ' + activeMonitorSafe(mapCtxV198.googleModeText, '-'));
+  report.push('Tolkning v198: ' + activeMonitorSafe(mapCtxV198.interpretation, '-'));
+  report.push('Kontrollcentral/Systemkontroll: egna karttest redovisas i sina egna sektioner och ska inte tolkas som aktivt jobb.');
   report.push('ETA-källa/anropsräknare: ' + activeMonitorSafe(s.etaSourceDetail, '-'));
   report.push('Ruttavvikelse: ' + activeMonitorSafe(s.routeDeviation, 'saknas'));
+  report.push('Retur/Klar ca-diagnos v198: ' + getReturnEtaDiagnosticLineV198(s));
   report.push('');
   report.push('DAGSPROGNOS');
   if(s.dayForecast){
@@ -10750,7 +10862,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v197';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v199';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -10974,6 +11086,8 @@ const APP_FEATURE_MANIFEST = [
   {name:'Kontrollcentral stegvis körning v195', status:'Kontrollcentral stabilisering', purpose:'Testa alla kör kontrollsektionerna stegvis med UI-paus mellan stegen så mobil/webbläsare hinner svara. Djupkontrollens dataintegritetsräkning använder samma avslutade-jobb-räkning som Lagringskontroll.', changeRule:'Får bara ändra Kontrollcentralens körordning, statusvisning och läsande kontrollräkning. Får inte ändra arbetsdata, listlogik, GPS, geofence, vikt, kö, historik, backup/exportdata, GitHub eller localStorage-nyckel.'},
   {name:'Kontrollcentral knappindikator och rapportfilnamn v196', status:'Kontrollcentral UX-/rapportfix', purpose:'Kontrollcentral-knappen visar tydligt nedtryckt/öppnar-läge medan panelen öppnas så användaren inte trycker flera gånger. Kontrollcentralens textfilnamn hämtar versionsslug från aktuell appversion i stället för fast gammalt versionsnamn.', changeRule:'Får bara ändra visuell knappindikator för Kontrollcentral och filnamn för nedladdad Kontrollcentralrapport. Får inte ändra kontrollinnehåll, Testa alla-logik, Djupkontrollens saklogik, arbetsdata, listlogik, GPS, geofence, vikt, kö, historik, backup/exportdata, GitHub eller localStorage-nyckel.'},
   {name:'ETA-text Stadslass-spärrad karttid v197', status:'ETA-visningsfix', purpose:'När Stadslass medvetet spärrar Google/karttid under Lastning/rangering visar Uppskattad tid väntetexten Väntar på transportläge i stället för att säga att uppskattad tid saknas.', changeRule:'Får bara ändra texten i aktiv Uppskattad tid när Google är fas-spärrad av Stadslass. Får inte ändra Google-spärren, transportlogiken, ETA-beräkningen, budget/cache, GPS, geofence, vikt, jobb, kö, historik, backup/exportdata, GitHub eller localStorage-nyckel.'},
+  {name:'ETA/kartanropsdiagnos v198', status:'Diagnosfix', purpose:'Gör aktiv övervakning tydligare genom att skilja aktivt jobbs kartanrop från Kontrollcentralens/Systemkontrollens karttest och förklara när flera anrop troligen beror på GPS-startpunkt, transportläge eller annan körväg.', changeRule:'Får bara ändra rapport-/diagnostext och kontrollklassning. Får inte ändra Google-spärrar, kartbudget, faktisk ETA-beräkning, GPS-sanning, geofence, vikt, jobb, kö, historik, backup/exportdata, GitHub eller localStorage-nyckel.'},
+  {name:'Jobbtypskryss styr listor fullt ut v199', status:'Listfix/kontrollfix', purpose:'Från/Till-listor för vanliga jobbtyper bygger direkt på Platsernas Jobbtyper från/till-kryss. En kryssad plats visas i rätt lista även om gammal basroll/placeUsage säger nej. Kontrollcentral och Platsdata-diagnos varnar om ett kryss inte syns i motsvarande lista.', changeRule:'Får bara ändra listbyggning och läsande kontroll/diagnos för jobbtypskryss. Får inte ändra sparade platskopplingar, aktivt jobb, Övrig verksamhet, Havstång/badplats-specialregler, Annan plats-regler, GPS, geofence, vikt, kö, historik, backup/export, GitHub eller localStorage-nyckel.'},
   {name:'Funktionskontroll nivå 1-3', status:'Testfunktion', purpose:'Kontrollerar UI, regler och testuppdrag utan att spara.', changeRule:'Får utvecklas löpande.'},
   {name:'GPS-koordinater visas i appen', status:'Borttagen medvetet', purpose:'Koordinater visas inte föraren i normalflödet.', changeRule:'Ersatt av adress/startpunkt och intern GPS-data.'},
   {name:'Idag öppnas automatiskt efter Klart', status:'Borttagen medvetet', purpose:'Tidigare beteende togs bort.', changeRule:'Ersatt av Uppdrag i kö efter start/klart.'}
@@ -11179,7 +11293,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v197' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v197') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslogik inställningsstyrd v178') && APP_FEATURE_MANIFEST.some(item => item.name === 'Maskintransport platsval i Nytt jobb v179') && APP_FEATURE_MANIFEST.some(item => item.name === 'Systemval Annan plats v181') && APP_FEATURE_MANIFEST.some(item => item.name === 'UX-stabilisering Snap och direktstart v182') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddknapp Hämta uppdrag v183') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång Bio Från och ÖV köstart v184') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platsdata-diagnos v185') && APP_FEATURE_MANIFEST.some(item => item.name === 'Listlogik skyddad mot kollaps v186') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydliga jobbtypskryss i Platser v188') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral samlad rapport v189') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapportstädning v191') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral toppsammanfattning v192') && APP_FEATURE_MANIFEST.some(item => item.name === 'Full Kontrollcentral v193') && APP_FEATURE_MANIFEST.some(item => item.name === 'Djupkontroll v194') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral stegvis körning v195') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral knappindikator och rapportfilnamn v196') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-text Stadslass-spärrad karttid v197'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v199' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v199') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslogik inställningsstyrd v178') && APP_FEATURE_MANIFEST.some(item => item.name === 'Maskintransport platsval i Nytt jobb v179') && APP_FEATURE_MANIFEST.some(item => item.name === 'Systemval Annan plats v181') && APP_FEATURE_MANIFEST.some(item => item.name === 'UX-stabilisering Snap och direktstart v182') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddknapp Hämta uppdrag v183') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång Bio Från och ÖV köstart v184') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platsdata-diagnos v185') && APP_FEATURE_MANIFEST.some(item => item.name === 'Listlogik skyddad mot kollaps v186') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydliga jobbtypskryss i Platser v188') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral samlad rapport v189') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapportstädning v191') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral toppsammanfattning v192') && APP_FEATURE_MANIFEST.some(item => item.name === 'Full Kontrollcentral v193') && APP_FEATURE_MANIFEST.some(item => item.name === 'Djupkontroll v194') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral stegvis körning v195') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral knappindikator och rapportfilnamn v196') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-text Stadslass-spärrad karttid v197') && APP_FEATURE_MANIFEST.some(item => item.name === 'Jobbtypskryss styr listor fullt ut v199'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Kartnyckel ligger utanför appdata/backup', MAP_API_KEY_STORAGE_KEY !== KEY && src('sanitizeBackupValue', 'mapApiKey') && src('sanitizeStateForExport', 'mapSettings') && src('buildBackupExport', 'Lokal Google API-nyckel ingår inte'), 'separat localStorage-nyckel: ' + MAP_API_KEY_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Kartskydd/cache ligger utanför huvudnyckeln', MAP_GUARD_STORAGE_KEY !== KEY && MAP_ROUTE_CACHE_STORAGE_KEY !== KEY && fn('getMapGuardState') && fn('getMapRouteCache') && fn('saveMapGuardState') && fn('saveMapRouteCache'), 'separata localStorage-nycklar: ' + MAP_GUARD_STORAGE_KEY + ' / ' + MAP_ROUTE_CACHE_STORAGE_KEY);
   addFunctionCheck(results, 'Nivå 2', 'Karttest påverkar inte uppdrag eller uppskattad tid', src('runMapRouteTest', 'requestGoogleRouteTest') && !src('runMapRouteTest', 'state.jobs') && !src('runMapRouteTest', 'state.queue') && !src('runMapRouteTest', 'estimatedMinutesAtStart'), 'endast testresultat i kartpanelen');
@@ -11237,6 +11351,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Kontrollcentral stegvis körning v195', typeof controlCenterYieldV195 === 'function' && typeof controlCenterSetRunProgressV195 === 'function' && functionSourceIncludes('runControlCenterAllV189', 'controlCenterYieldV195') && functionSourceIncludes('runControlCenterAllV189', 'controlCenterSetRunProgressV195') && functionSourceIncludes('buildControlCenterFullRunReportV193', 'controlCenterCountFinishedJobsForStorageV195'), 'Testa alla släpper tillbaka kontrollen till webbläsaren mellan sektionerna och Djupkontroll räknar avslutade jobb som Lagringskontroll');
   addFunctionCheck(results, 'Nivå 2', 'Kontrollcentral knappindikator och rapportfilnamn v196', typeof setControlCenterToggleBusyV196 === 'function' && typeof controlCenterReportVersionSlugV196 === 'function' && !!document.getElementById('controlCenterToggleButtonV196') && functionSourceIncludes('toggleControlCenterManagerV189', 'setControlCenterToggleBusyV196') && functionSourceIncludes('downloadControlCenterReportV189', 'controlCenterReportVersionSlugV196'), 'Kontrollcentral-knappen visar öppnar-indikator och textfilens namn följer aktuell appversion');
   addFunctionCheck(results, 'Nivå 2', 'ETA-text Stadslass-spärrad karttid v197', typeof getActiveEstimateStadslassBlockedHtmlV197 === 'function' && functionSourceIncludes('getActiveEstimateWaitingHtml', 'getActiveEstimateStadslassBlockedHtmlV197') && functionSourceIncludes('getActiveEstimateStadslassBlockedHtmlV197', 'Väntar på transportläge') && functionSourceIncludes('getActiveEstimateStadslassBlockedHtmlV197', 'Karttid är spärrad under Lastning/rangering'), 'Visar väntetext i Uppskattad tid när Stadslass spärrar karttid under Lastning/rangering');
+  addFunctionCheck(results, 'Nivå 2', 'ETA/kartanropsdiagnos v198', typeof getActiveMapCallContextV198 === 'function' && typeof formatActiveMapCallContextLineV198 === 'function' && typeof getReturnEtaDiagnosticLineV198 === 'function' && functionSourceIncludes('buildActiveMonitorReport', 'KARTANROP / CACHE – AKTIVT JOBB') && functionSourceIncludes('buildActiveMonitorReport', 'Kontrollcentral/Systemkontroll: egna karttest') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/kartanropsdiagnos v198'), 'Aktiv övervakning skiljer aktivt jobbs anrop från Kontrollcentral/Systemkontroll och förklarar GPS-/ruttomräkning');
+  addFunctionCheck(results, 'Nivå 2', 'Jobbtypskryss styr listor fullt ut v199', typeof getConfiguredListMismatchesV199 === 'function' && typeof formatConfiguredListMismatchV199 === 'function' && functionSourceIncludes('getLinkedPlaceValuesForJobType', 'getAllPlaceKeys') && functionSourceIncludes('buildFromToListControlReportV190', 'v199') && APP_FEATURE_MANIFEST.some(item => item.name === 'Jobbtypskryss styr listor fullt ut v199'), 'Från/Till-listor bygger direkt på Platsernas jobbtypskryss och kontrollen kan fånga kryss som inte syns i listan');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser spärrade från vanliga listor v187', fn('sanitizeJobTypePlaceValuesV187') && fn('listHasBeachPlaceV187') && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång');
   addFunctionCheck(results, 'Nivå 2', 'Tydliga jobbtypskryss i Platser v188', fn('buildJobTypeCheckboxPanelForSelectV188') && fn('renderPlaceJobTypeCheckboxPanelsV188') && fn('placeJobTypeCheckboxUiIsReadyV188') && src('buildPlaceManagerRow', 'buildJobTypeCheckboxPanelForSelectV188') && src('buildJobTypeCheckboxPanelForSelectV188', 'jobtype-checkbox-panel-v188') && src('clearSelectedValues', 'syncJobTypeCheckboxPanelFromSelectV188') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydliga jobbtypskryss i Platser v188'), 'Platser har kryssrute-UI för Jobbtyper från/till och sparar via befintliga select/placeConfigs-värden');
   addFunctionCheck(results, 'Nivå 2', 'Kontrollcentral samlad rapport v189', checkControlCenterCoreV191(), 'Kontrollcentralen samlar grundsektioner och djupkontroll i gemensam rapport utan att ändra appdata');
@@ -11500,9 +11616,12 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v195: Testa alla körs stegvis med UI-paus mellan sektionerna och Djupkontroll räknar avslutade jobb som Lagringskontroll.');
   lines.push('v196: Kontrollcentral-knappen visar öppnar-indikator och Kontrollcentralens rapportfilnamn följer aktuell appversion.');
   lines.push('v197: Uppskattad tid visar Väntar på transportläge när Stadslass spärrar karttid under Lastning/rangering.');
+  lines.push('v198: ETA/kartanropsdiagnosen skiljer aktivt jobbs anrop från Kontrollcentralens/Systemkontrollens karttest och förklarar GPS-/ruttomräkning.');
+  lines.push('v199: Jobbtypskryss i Platser styr Från/Till-listor fullt ut även när gammal basroll/placeUsage säger nej.');
   lines.push('');
   lines.push('KARTTEST');
   lines.push(controlReportSafeV165(mapText, 'Karttest inte kört i denna rapport. Skapa rapport efter Kör systemkontroll för att få med senaste karttest.'));
+  lines.push('Obs v198: Detta är Systemkontrollens/Kontrollcentralens eget karttest och ska inte räknas som aktivt jobbs kartanrop.');
   lines.push('');
   lines.push('KONTROLLER');
   list.forEach((item, index) => {
@@ -11518,7 +11637,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('featureManifestCount=' + (Array.isArray(APP_FEATURE_MANIFEST) ? APP_FEATURE_MANIFEST.length : 0));
   lines.push('systemReportFunctions=createSystemControlReport/copySystemControlReport/emailSystemControlReportV168/clearSystemControlReport');
   try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=after_completion_v172; snapTest=v171; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
-  lines.push('classification=v197 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
+  lines.push('classification=v199 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
   lines.push('rule=Rapporten är läsande och får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup, överföring eller localStorage-nyckel.');
   return lines.join('\n');
 }
@@ -11773,6 +11892,8 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('v195: Testa alla körs stegvis med UI-paus mellan sektionerna och Djupkontroll räknar avslutade jobb som Lagringskontroll.');
   lines.push('v196: Kontrollcentral-knappen visar öppnar-indikator och Kontrollcentralens rapportfilnamn följer aktuell appversion.');
   lines.push('v197: Uppskattad tid visar Väntar på transportläge när Stadslass spärrar karttid under Lastning/rangering.');
+  lines.push('v198: ETA/kartanropsdiagnosen skiljer aktivt jobbs anrop från Kontrollcentralens/Systemkontrollens karttest och förklarar GPS-/ruttomräkning.');
+  lines.push('v199: Jobbtypskryss i Platser styr Från/Till-listor fullt ut även när gammal basroll/placeUsage säger nej.');
   lines.push('');
   lines.push('KONTROLLER PER NIVÅ');
   Object.keys(byLevel).forEach(level => {
@@ -11807,7 +11928,7 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('featureManifestCount=' + (Array.isArray(APP_FEATURE_MANIFEST) ? APP_FEATURE_MANIFEST.length : 0));
   lines.push('functionReportFunctions=createFunctionControlReport/copyFunctionControlReport/emailFunctionControlReportV168/clearFunctionControlReport');
   try{ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); lines.push('googleBudgetV169=' + r.roleLabel + '; routeDay=' + r.dayCount + '/' + r.dayLimit + '; routeMonth=' + r.monthCount + '/' + r.monthlyLimit + '; snapDay=' + s.dayCount + '/' + s.dayLimit + '; snapMonth=' + s.monthCount + '/' + s.monthlyLimit + '; snapActive=after_completion_v172; snapTest=v171; budgetMonth=' + r.monthKey + '; routeCorrection=' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt) + '; snapCorrection=' + formatGoogleBudgetTimestampV170(s.lastManualCorrectionAt)); }catch(e){}
-  lines.push('classification=v197 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
+  lines.push('classification=v199 critical=' + summary.critical + '; controlUpdate=' + summary.controlUpdate + '; activeGps=' + summary.active + '; summary=' + summary.summary);
   lines.push('rule=Rapporten är läsande och får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup, överföring eller localStorage-nyckel.');
   return lines.join('\n');
 }
@@ -11941,7 +12062,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v197' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v197'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v199' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v199'), APP_VERSION),
     systemCheck('Lagringsnyckel', KEY === 'driftlogg_v4_full', KEY),
     systemCheck('Lokal lagring', checkLocalStorageAvailable(), 'localStorage kan skriva/läsa på denna enhet'),
     systemCheck('Online/offline-indikator', !!document.getElementById('connectionStatus') && typeof updateConnectionStatus === 'function', document.getElementById('connectionStatus') ? document.getElementById('connectionStatus').textContent : 'saknas'),
@@ -12013,6 +12134,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Kontrollcentral stegvis körning v195', typeof controlCenterYieldV195 === 'function' && typeof controlCenterSetRunProgressV195 === 'function' && functionSourceIncludes('runControlCenterAllV189', 'controlCenterYieldV195') && functionSourceIncludes('runControlCenterAllV189', 'controlCenterSetRunProgressV195') && functionSourceIncludes('buildControlCenterFullRunReportV193', 'controlCenterCountFinishedJobsForStorageV195'), 'Testa alla kör sektionerna stegvis och Djupkontroll räknar avslutade jobb som Lagringskontroll'),
     systemCheck('Kontrollcentral knappindikator och rapportfilnamn v196', typeof setControlCenterToggleBusyV196 === 'function' && typeof controlCenterReportVersionSlugV196 === 'function' && !!document.getElementById('controlCenterToggleButtonV196') && functionSourceIncludes('toggleControlCenterManagerV189', 'setControlCenterToggleBusyV196') && functionSourceIncludes('downloadControlCenterReportV189', 'controlCenterReportVersionSlugV196'), 'Kontrollcentral-knappen visar öppnar-indikator och textfilnamnet följer aktuell appversion'),
     systemCheck('ETA-text Stadslass-spärrad karttid v197', typeof getActiveEstimateStadslassBlockedHtmlV197 === 'function' && functionSourceIncludes('getActiveEstimateWaitingHtml', 'getActiveEstimateStadslassBlockedHtmlV197') && functionSourceIncludes('getActiveEstimateStadslassBlockedHtmlV197', 'Väntar på transportläge') && functionSourceIncludes('getActiveEstimateStadslassBlockedHtmlV197', 'Karttid är spärrad under Lastning/rangering'), 'Uppskattad tid visar väntetext när Stadslass spärrar karttid under Lastning/rangering'),
+    systemCheck('ETA/kartanropsdiagnos v198', typeof getActiveMapCallContextV198 === 'function' && typeof formatActiveMapCallContextLineV198 === 'function' && typeof getReturnEtaDiagnosticLineV198 === 'function' && functionSourceIncludes('buildActiveMonitorReport', 'KARTANROP / CACHE – AKTIVT JOBB') && functionSourceIncludes('buildActiveMonitorReport', 'Retur/Klar ca-diagnos v198') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/kartanropsdiagnos v198'), 'Aktiv övervakning skiljer aktivt jobbs anrop från Kontrollcentral/Systemkontroll och förklarar GPS-/ruttomräkning'),
+    systemCheck('Jobbtypskryss styr listor fullt ut v199', typeof getConfiguredListMismatchesV199 === 'function' && typeof formatConfiguredListMismatchV199 === 'function' && functionSourceIncludes('getLinkedPlaceValuesForJobType', 'getAllPlaceKeys') && functionSourceIncludes('buildPlaceDataDiagnosticTextV185', 'JOBBTYPSLISTKONTROLL v199') && APP_FEATURE_MANIFEST.some(item => item.name === 'Jobbtypskryss styr listor fullt ut v199'), 'Vanliga Från/Till-listor läser jobbtypskryss från alla aktiva platsnycklar och diagnosen varnar om ett kryss saknas i listan'),
     systemCheck('Badplatser spärrade från vanliga listor v187', typeof sanitizeJobTypePlaceValuesV187 === 'function' && typeof listHasBeachPlaceV187 === 'function' && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång'),
     systemCheck('Tydliga jobbtypskryss i Platser v188', typeof buildJobTypeCheckboxPanelForSelectV188 === 'function' && typeof renderPlaceJobTypeCheckboxPanelsV188 === 'function' && typeof placeJobTypeCheckboxUiIsReadyV188 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'buildJobTypeCheckboxPanelForSelectV188') && functionSourceIncludes('buildJobTypeCheckboxPanelForSelectV188', 'jobtype-checkbox-panel-v188') && functionSourceIncludes('clearSelectedValues', 'syncJobTypeCheckboxPanelFromSelectV188') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydliga jobbtypskryss i Platser v188'), 'Platser har kryssrute-UI för Jobbtyper från/till och samma sparade placeConfigs/select-värden'),
     systemCheck('Kontrollcentral samlad rapport v189', checkControlCenterCoreV191(), 'Kontrollcentralen finns med Testa alla, grundsektioner, djupkontroll och gemensam rapport'),
@@ -12291,7 +12414,7 @@ function buildControlCenterTopSummaryV192(sections, included){
   lines.push('- Djupkontroll: ' + fullStatus);
   lines.push('- Lagring: ' + storageStatus);
   lines.push('- Platsdata: ' + placeWarnings);
-  lines.push('- Karttest: ' + mapTest.replace(/^Karttest Google\/cache:\s*/, ''));
+  lines.push('- Karttest (Systemkontroll, inte aktivt jobb): ' + mapTest.replace(/^Karttest Google\/cache:\s*/, ''));
   lines.push('- Aktiv övervakning: ' + (activeText.trim() ? 'med i rapport' : 'inte körd'));
   lines.push('- Nästa åtgärd: ' + nextAction);
   return {statusLabel, verdict, nextAction, critical, controlUpdate, activeGps, listStatus, fullStatus, storageStatus, mapTest, lines};
@@ -12398,7 +12521,7 @@ function buildControlCenterFullRunReportV193(){
   lines.push('- Papperskorg före/efter simulerat test: ' + beforeTrash + '/' + (Array.isArray(state && state.trash) ? state.trash.length : 0));
   lines.push('');
   lines.push('RAW');
-  lines.push('deepControlV194Checks=' + rows.length + '; failed=' + failed.length + '; storageKey=' + KEY + '; backup=' + backupDetail);
+  lines.push('deepControlChecks=' + rows.length + '; failed=' + failed.length + '; storageKey=' + KEY + '; backup=' + backupDetail);
   return lines.join('\n');
 }
 
@@ -12422,6 +12545,8 @@ function buildControlCenterReportV189(sourceLabel){
   lines.push('v195: Testa alla körs stegvis för att undvika sidlåsning och Djupkontroll matchar Lagringskontrollens avslutade-jobb-räkning.');
   lines.push('v196: Kontrollcentral-knappen visar öppnar-indikator och Kontrollcentralens rapportfilnamn följer aktuell appversion.');
   lines.push('v197: Uppskattad tid visar Väntar på transportläge när Stadslass spärrar karttid under Lastning/rangering.');
+  lines.push('v198: ETA/kartanropsdiagnosen skiljer aktivt jobbs anrop från Kontrollcentralens/Systemkontrollens karttest och förklarar GPS-/ruttomräkning.');
+  lines.push('v199: Jobbtypskryss i Platser styr Från/Till-listor fullt ut även när gammal basroll/placeUsage säger nej.');
   lines.push('');
   topSummary.lines.forEach(line => lines.push(line));
   lines.push('');
@@ -12443,7 +12568,7 @@ function buildControlCenterReportV189(sourceLabel){
     lines.push('');
   });
   lines.push('RAW');
-  lines.push('controlCenterFunctions=toggleControlCenterManagerV189/setControlCenterToggleBusyV196/controlCenterReportVersionSlugV196/runControlCenterAllV189/controlCenterYieldV195/controlCenterSetRunProgressV195/runControlCenterListControlV190/runControlCenterFullV193/buildControlCenterFullRunReportV193/buildControlCenterTopSummaryV192/buildControlCenterReportV189/copyControlCenterReportV189/downloadControlCenterReportV189/emailControlCenterReportV189');
+  lines.push('controlCenterFunctions=toggleControlCenterManagerV189/setControlCenterToggleBusyV196/controlCenterReportVersionSlugV196/getActiveMapCallContextV198/runControlCenterAllV189/controlCenterYieldV195/controlCenterSetRunProgressV195/runControlCenterListControlV190/runControlCenterFullV193/buildControlCenterFullRunReportV193/buildControlCenterTopSummaryV192/buildControlCenterReportV189/copyControlCenterReportV189/downloadControlCenterReportV189/emailControlCenterReportV189');
   lines.push('storageKey=' + KEY);
   lines.push('includedSections=' + included + '/' + sections.length);
   return lines.join('\n');
@@ -13432,11 +13557,14 @@ function buildPlaceDataDiagnosticV185(){
     return {type, fromValues, toValues, fromPhysical, toPhysical, wrongFrom, wrongTo, collapsed, error};
   });
 
+  const listMismatchesV199 = (typeof getConfiguredListMismatchesV199 === 'function') ? getConfiguredListMismatchesV199() : [];
+
   const warnings = [];
   if(rawParseError) warnings.push('Huvuddata kunde inte JSON-tolkas: ' + rawParseError);
   const wrongRoleTypes = listRows.filter(row => row.wrongFrom.length || row.wrongTo.length).map(row => row.type);
   if(wrongRoleTypes.length) warnings.push('Fel roll på Annan plats-val hittades i listor: ' + wrongRoleTypes.join(', '));
-  // v190: inga varningar för få/tomma val, okopplade platser, placeUsage-överstyrningar eller främmande lagringsnycklar.
+  if(listMismatchesV199.length) warnings.push('Jobbtypskryss som inte syns i motsvarande Från/Till-lista: ' + listMismatchesV199.slice(0, 6).map(formatConfiguredListMismatchV199).join(' · ') + (listMismatchesV199.length > 6 ? ' · ...' : ''));
+  // v190/v199: inga varningar för få/tomma val, okopplade platser, placeUsage-överstyrningar eller främmande lagringsnycklar.
   // Främmande nycklar redovisas fortfarande längre ner i diagnosen, men de är inte fel om de inte syns som aktivt listval.
 
   return {
@@ -13456,7 +13584,7 @@ function buildPlaceDataDiagnosticV185(){
       jobTypes:jobTypes.length
     },
     allKeys, hidden, placeRows, fromEnabled, toEnabled, bothDisabled, usageOverrides,
-    configuredKeys, usageKeys, missingConfigKeys, missingUsageKeys, repeatedPatterns, listRows, warnings
+    configuredKeys, usageKeys, missingConfigKeys, missingUsageKeys, repeatedPatterns, listRows, listMismatchesV199, warnings
   };
 }
 
@@ -13478,6 +13606,7 @@ function buildPlaceDataDiagnosticTextV185(data){
   lines.push('- placeUsage-nycklar i sparad data: ' + d.counts.usageKeys);
   lines.push('- placeConfigs-nycklar i sparad data: ' + d.counts.configuredKeys);
   lines.push('- Jobbtyper: ' + d.counts.jobTypes);
+  lines.push('- OBS v199: Från-/Till-aktiva platser ovan är basroll/placeUsage. Jobbtypslistorna nedan styrs av kryssade Jobbtyper från/till och kan därför visa en plats även när gammal basroll säger nej.');
   if(d.rawParseError) lines.push('- JSON-fel: ' + d.rawParseError);
   lines.push('');
   lines.push('VARNINGAR');
@@ -13489,6 +13618,13 @@ function buildPlaceDataDiagnosticTextV185(data){
   lines.push('');
   lines.push('TILL-AKTIVA PLATSER');
   lines.push(placeDiagnosticListTextV185((d.toEnabled || []).map(row => row.key), 80));
+  lines.push('');
+  lines.push('JOBBTYPSLISTKONTROLL v199');
+  if((d.listMismatchesV199 || []).length){
+    (d.listMismatchesV199 || []).forEach(item => lines.push('- FEL: ' + formatConfiguredListMismatchV199(item)));
+  } else {
+    lines.push('- OK: alla vanliga jobbtypskryss som är satta syns i motsvarande Från/Till-lista.');
+  }
   lines.push('');
   lines.push('JOBBTYPSLISTOR SOM APPEN BYGGER NU');
   (d.listRows || []).forEach(row => {
@@ -20018,6 +20154,13 @@ function getSmartEstimateSourceLabelForJob(job){
   if(!job) return '';
   const sourceAtStart = String(job.estimatedSourceAtStart || '').trim();
   if(sourceAtStart){
+    if(sourceAtStart === 'stadslass-fallback-historik'){
+      const counts = getSmartEstimateCallCountsForJob(job);
+      const googleMinutes = Number(job.estimatedGoogleTransportMinutesAtStart || 0);
+      if(counts.newCalls > 0 || counts.cacheHits > 0 || (Number.isFinite(googleMinutes) && googleMinutes > 0)){
+        return 'Stadslass fallback + aktiv kartomräkning';
+      }
+    }
     return getEstimateSourceLabel({source:sourceAtStart}) || sourceAtStart;
   }
   const estimate = getTimeEstimateForQueuedJob(job);
