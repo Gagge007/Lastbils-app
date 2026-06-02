@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v252
+- Nuvarande version: Stadslass 2.0 v253
+- v253: Returkrav kan ändras i Aktivt jobb, Paddans kö byter namn till Lastbils status och Sync får separat intervall för hur ofta paddan publicerar aktiv spegling.
 - v252: Paddans kö-spegling visar Vikt även innan vikt är angiven och statusrutans bakgrund följer paddans aktuella fasfärger, fortsatt helt skrivskyddat.
 - v249: Inställningar organiseras om visuellt med Platsregister först, tydligare kategorier och oförändrade knappfunktioner.
 - v251: Paddans kö-spegling visar även paddans aktuella status/aktiva uppdrag från befintlig paddstatus, utan styrknappar eller ändrad synclogik.
@@ -294,7 +295,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v252';
+  const version = 'Stadslass 2.0 v253';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -2641,7 +2642,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v252</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v253</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2660,6 +2661,7 @@ body.other-work-edit-open{
     <div id="activeNone" class="muted">Inget aktivt jobb.</div>
     <div id="activeBox" class="hidden">
       <div id="activePills"></div>
+      <div id="activeReturnControlV253" class="active-return-control-v253 hidden"></div>
       <div id="activeStartPoint" class="muted" style="margin-top:8px"></div>
       <div id="activeMapRouteCard" class="map-test-result hidden" style="margin-top:10px">
         <strong>Kartberäknad tid</strong>
@@ -2834,13 +2836,13 @@ body.other-work-edit-open{
 </div>
 
   <div id="tab-paddko" class="card hidden">
-      <h3>Paddans kö</h3>
-      <div class="muted">Läsande spegling av paddans senast publicerade kö. Mobilen kan inte starta, ändra, sortera eller ta bort uppdrag härifrån.</div>
+      <h3>Lastbils status</h3>
+      <div class="muted">Läsande spegling av lastbilens senast publicerade status och kö. Den här vyn kan inte starta, ändra, sortera eller ta bort uppdrag.</div>
       <div class="row" style="margin-top:12px; margin-bottom:12px">
         <button id="tabletQueueMirrorRefreshButtonV238" class="primary inline" onclick="refreshTabletQueueMirrorV238(false)">Uppdatera spegling</button>
       </div>
-      <div id="tabletCurrentStatusV251" class="tablet-current-status-v251 is-empty">Paddans aktuella status är inte hämtad än.</div>
-      <div id="tabletQueueMirrorStatusV238" class="map-test-result" style="margin-top:10px; margin-bottom:12px">Paddans kö är inte hämtad än.</div>
+      <div id="tabletCurrentStatusV251" class="tablet-current-status-v251 is-empty">Lastbilens aktuella status är inte hämtad än.</div>
+      <div id="tabletQueueMirrorStatusV238" class="map-test-result" style="margin-top:10px; margin-bottom:12px">Lastbils status är inte hämtad än.</div>
       <div id="tabletQueueMirrorListV238"></div>
   </div>
 
@@ -3040,7 +3042,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v252</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v253</div>
     <div class="settings-groups settings-groups-v249">
       <div class="settings-group settings-group-v249" data-settings-category-v249="platsregister">
         <h4>Platsregister</h4>
@@ -3792,6 +3794,11 @@ body.other-work-edit-open{
               <input id="queueSyncFastConfirmSecondsV244" type="number" min="10" step="5" inputmode="numeric" placeholder="30">
               <div class="multi-help">Minst 10 sekunder. Standard 30 sekunder.</div>
             </div>
+            <div>
+              <label>Lastbilsstatus/spegling, sekunder</label>
+              <input id="queueSyncActiveMirrorSecondsV253" type="number" min="15" step="5" inputmode="numeric" placeholder="30">
+              <div class="multi-help">Hur ofta paddan publicerar aktiv status till speglingen. Minst 15 sekunder. Standard 30 sekunder.</div>
+            </div>
           </div>
           <div id="queueSyncIntervalStatusV244" class="multi-help" style="margin-top:8px">Intervaller laddas.</div>
         </div>
@@ -3815,11 +3822,11 @@ body.other-work-edit-open{
           <summary class="inline" style="display:inline-block;cursor:pointer">Avancerat / felsökning</summary>
           <div class="multi-help" style="margin-top:8px">Tekniska och mer sällan använda syncverktyg. Rensa syncinställningar påverkar inte kö, aktivt jobb, historik, GPS eller vikt.</div>
           <div class="row" style="margin-top:8px">
-            <button id="queueSyncFetchTabletStatusButtonV237" class="inline" onclick="queueSyncFetchTabletStatusV219(false)">Läs paddans kö/status</button>
+            <button id="queueSyncFetchTabletStatusButtonV237" class="inline" onclick="queueSyncFetchTabletStatusV219(false)">Läs lastbilsstatus</button>
             <button id="queueSyncTokenToggleButtonV237" class="inline" onclick="toggleQueueSyncTokenVisibilityV219()">Visa/dölj token</button>
             <button id="queueSyncClearSettingsButtonV237" class="inline" onclick="clearQueueSyncSettingsV219()">Rensa syncinställningar</button>
           </div>
-          <div id="queueSyncRemoteStatusV219" class="multi-help" style="margin-top:10px">Paddans kö/status visas här på mobil när statusfilen hämtats.</div>
+          <div id="queueSyncRemoteStatusV219" class="multi-help" style="margin-top:10px">Lastbilsstatus visas här på tillåten läsenhet när statusfilen hämtats.</div>
         </details>
       </div>
     </div>
@@ -6710,6 +6717,72 @@ function formatActiveOverviewHtml(job){
       '<div class="active-overview-item active-overview-code"><span>Mtrl kod</span><strong>' + escapeHtml(materialCode) + '</strong></div>' +
     '</div>' + extras +
   '</div>';
+}
+
+
+function getActiveReturnRequiredControlHtmlV253(job){
+  if(!job || isOtherWorkJob(job)) return '';
+  const enabled = getJobReturnRequiredValue(job);
+  return '<strong>Returkrav</strong>' +
+    '<button type="button" class="active-return-choice-v253 ' + (enabled ? 'selected' : '') + '" onclick="setActiveReturnRequiredV253(true)">Ja</button>' +
+    '<button type="button" class="active-return-choice-v253 ' + (!enabled ? 'selected' : '') + '" onclick="setActiveReturnRequiredV253(false)">Nej</button>' +
+    '<div class="multi-help">Gäller bara detta aktiva uppdrag. Ändrar inte jobbtypens standard eller platsregler.</div>';
+}
+
+function renderActiveReturnControlV253(){
+  const el = document.getElementById('activeReturnControlV253');
+  if(!el) return;
+  if(!state.active || isOtherWorkJob(state.active)){
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = getActiveReturnRequiredControlHtmlV253(state.active);
+  el.classList.remove('hidden');
+}
+
+function clearActiveEstimateAfterReturnChangeV253(job){
+  if(!job) return;
+  [
+    'estimatedEndAt','estimatedLegEndAt','estimatedOverallEndAt','estimatedLegMinutesAtStart','estimatedTotalMinutesAtStart',
+    'estimatedMapTotalMinutesAtStart','estimatedMapMaterialMinutesAtStart','estimatedMaterialFlowMinutesAtStart','estimatedMaterialTransportMinutesAtStart',
+    'estimatedMapReturnMinutesAtStart','estimatedReturnMinutesAtStart','autoMapRemainingMinutes','autoMapRemainingSeconds',
+    'smartMapSkipReason','smartMapSkipReasonAt','smartMapSourceLabel','smartMapNewCallCount','smartMapCacheHitCount','smartMapSkippedRouteCount'
+  ].forEach(key => { try{ delete job[key]; }catch(e){} });
+}
+
+function setActiveReturnRequiredV253(enabled){
+  if(!state.active) return;
+  const next = enabled === true;
+  const current = getJobReturnRequiredValue(state.active);
+  if(current === next) return;
+  const text = next ? 'Aktivera returkrav för detta aktiva uppdrag?' : 'Ta bort returkrav för detta aktiva uppdrag?';
+  if(!confirm(text + '\n\nDetta ändrar bara aktivt uppdrag och inte jobbtypens standard.')) return;
+  state.active.returnRequiredAtStart = next;
+  state.active.returnRequired = next;
+  state.active.routeRule = next ? 'returkrav_ja' : 'returkrav_nej';
+  state.active.routeEndPlace = next ? (state.active.place || '') : (state.active.dest || '');
+  state.active.returnRequiredChangedAtV253 = Date.now();
+  if(next){
+    state.active.multiLoadAtStart = false;
+    state.active.manualMultiLoad = false;
+    state.active.multiLoad = false;
+    state.active.canBeMultiLoad = false;
+  }else{
+    delete state.active.returnRequirementWeightAt;
+    delete state.active.returnRequirementWeight;
+    if(getTransportPhase(state.active) === 'returning') state.active.transportPhase = 'load_complete';
+    state.active.canBeMultiLoad = isMultiLoadSensitiveJob(state.active) && !!state.active.multiLoadAtStart;
+  }
+  clearActiveEstimateAfterReturnChangeV253(state.active);
+  saveState();
+  renderActive();
+  try{
+    if(typeof scheduleActiveAutoMapRecalculation === 'function'){
+      scheduleActiveAutoMapRecalculation(lastGpsPoint, {reason:'return_requirement_changed_v253', force:true, allowInsideGeofence:true});
+    }
+  }catch(e){}
+  try{ if(typeof queueSyncRunActiveMirrorV253 === 'function') queueSyncRunActiveMirrorV253('returkrav-change'); }catch(e){}
 }
 
 function formatMultiLineTextHtml(text){
@@ -10917,8 +10990,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v252';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v252';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v253';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v253';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -11041,6 +11114,7 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v249 Inställningar Platsregister först',
   'v251 Paddans aktuella status i spegling',
   'v252 Vikt och fasfärg i paddspegling',
+  'v253 Returkrav i aktivt jobb och Lastbils status-sync',
   'v250 Platslayout och öppettidsvarning',
   'v247 Excel månadsrapport chefsmall',
   'v206 Nästa mål visar etapptid',
@@ -11681,7 +11755,7 @@ function getActiveMonitorChecks(snapshot){
   try{
     const statusTime221 = typeof formatQueueSyncDateTimeV221 === 'function' && functionSourceIncludes('renderQueueSyncRemoteStatusV219', 'formatQueueSyncDateTimeV221') && !functionSourceIncludes('renderQueueSyncRemoteStatusV219', 'formatDateTime(');
     if(statusTime221){
-      ok('SYNC-OV-221', 'Paddstatus tidsformat säkrat', 'v221 ska hindra att Läs paddans kö/status stoppar på formatDateTime is not defined.', 'formatter=true; remoteStatus=true', 'v221 Paddstatus tidsformat', 'formatQueueSyncDateTimeV221');
+      ok('SYNC-OV-221', 'Paddstatus tidsformat säkrat', 'v221 ska hindra att Läs lastbilsstatus stoppar på formatDateTime is not defined.', 'formatter=true; remoteStatus=true', 'v221 Paddstatus tidsformat', 'formatQueueSyncDateTimeV221');
     }else{
       warn('SYNC-OV-221', 'Paddstatus tidsformat saknar fix', 'v221 ska använda säker tidsformatering i renderQueueSyncRemoteStatusV219.', 'formatter=' + activeMonitorBool(typeof formatQueueSyncDateTimeV221 === 'function'), 'Kontrollera renderQueueSyncRemoteStatusV219 och formatQueueSyncDateTimeV221.', 'v221 Paddstatus tidsformat', '-');
     }
@@ -12740,7 +12814,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v252';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v253';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -12957,6 +13031,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Platslayout och öppettidsvarning v250', status:'UI-/platsregel', purpose:'Platser visas i tydligare kort och kan få enkla öppettider med Till-platsvarning i aktivt uppdrag. Varningen spärrar aldrig uppdrag och gäller inte returplats.', changeRule:'Får bara påverka platsredigeringens layout, sparad placeOpeningHours-data och läsande varning för Till-plats. Får inte ändra kö, sync, aktiv faslogik, GPS/Snap, vikt, geofencegränser, historik, Excel eller localStorage-nyckel.'},
   {name:'Paddans aktuella status i spegling v251', status:'Läsande syncvy', purpose:'Paddans kö-speglingen visar även paddans aktuella aktiva uppdrag/fas/status från befintlig paddstatus.', changeRule:'Får bara läsa och visa paddstatus. Får inte lägga till styrknappar, ändra kö, aktivt jobb, syncmodell, GPS/Snap, vikt, historik, export eller localStorage-nyckel.'},
   {name:'Paddans vikt och fasfärg i spegling v252', status:'Läsande syncvy', purpose:'Paddans kö-spegling visar vikt/ej angiven vikt och låter den aktuella statusrutans bakgrund följa fasfärgerna från paddans aktiva läge.', changeRule:'Får bara läsa och visa paddstatus. Får inte lägga till styrknappar, ändra aktivt jobb, kö, syncmodell, GPS/Snap, viktregistrering, historik, export eller localStorage-nyckel.'},
+  {name:'Returkrav i aktivt jobb och Lastbils status-sync v253', status:'Aktiv UI-/syncstyrning', purpose:'Aktivt jobb kan ändra returkrav för pågående uppdrag, Paddans kö-vyn heter Lastbils status och paddan kan publicera aktiv status på eget speglingsintervall.', changeRule:'Får bara påverka aktivt uppdrags returkravsflagga, visningsnamn och statuspubliceringsintervall. Får inte ändra kötruth, viktregistrering, GPS/Snap, historik, Excel, backup/export eller driftlogg_v4_full.'},
   {name:'Tydliga jobbtypskryss i Platser v188', status:'UI-/registerfix', purpose:'Platser visar Jobbtyper från och Jobbtyper till som tydliga kryssrutor i stället för små flervalslistor på padda/mobil. Sparningen använder samma placeConfigs/select-värden som tidigare.', changeRule:'Får bara påverka UI och synk mellan kryssrutor och befintliga jobbtypsval i Platser. Får inte ändra datamodell, sparade platskopplingar automatiskt, Nytt jobb-listor, Havstångslogik, 611-regel, Snap, GPS, geofence, vikt, historik, backup/export, snabbval, GitHub eller localStorage-nyckel.'},
   {name:'Kontrollcentral samlad rapport v189', status:'Kontroll-/rapportfunktion', purpose:'Samlar befintliga kontroller och diagnoser i en Kontrollcentral med Testa alla, enskilda Stadslass-knappar och gemensam rapport som kan kopieras, laddas ner som textfil eller skickas via mailflöde.', changeRule:'Får bara läsa befintliga kontroller/rapporter och skapa gemensam rapport. Får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup/export, Nytt jobb, platsernas sparade data, GitHub eller localStorage-nyckel.'},
   {name:'Kontrollfix och Platser-styrda listor v190', status:'Kontroll-/listprincipfix', purpose:'Testa alla-knappen ger tydlig tillfällig färgrespons, v188/v189-kontrollerna kalibreras och vanliga Från/Till-listor styrs strikt av Platsernas Jobbtyper från/till-kryss utan standardbreddning. Kontrollcentralen får Från/Till-listkontroll som bara flaggar fel typ av val, inte få eller tomma listor.', changeRule:'Får ändra kontrollklassning, visuell Testa alla-respons och listbyggning för vanliga uppdrag. Får inte ändra sparade platskopplingar, Havstångs speciallogik, 611-regel, uppdrag, kö, historik, GPS, geofence, vikt, backup/export, GitHub eller localStorage-nyckel.'},
@@ -12993,7 +13068,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Övrig verksamhet klockslag och delkommentar v218', status:'Redigerings-/kommentarfix', purpose:'Övrig verksamhet visar och sparar klockslag, minuter och egen kommentar per del. Kommentar som skrivs under aktiv Övrig verksamhet knyts till aktuell session/del.', changeRule:'Får bara påverka Övrig verksamhet-redigering, aktiv Övrig verksamhet-kommentar och samlad ÖV-visning. Får inte ändra vanliga uppdrag, GPS/Snap-rådata, vikt, kö, backup/export, GitHub eller localStorage-nyckel.'},
   {name:'Automatisk mobil-padda kösync v219', status:'Sync-/köfunktion', purpose:'Mobilen kan skicka inkommande köuppdrag till separat GitHub-inbox och paddan kan hämta dem automatiskt utan att skriva över befintlig kö. Paddan kan publicera läsbar köstatus för mobilen.', changeRule:'Får bara påverka separata syncfiler och kötillägg med dubblettskydd. Får inte ändra aktivt uppdrag, GPS/Snap-rådata, vikt, historik, geofence-data, backup/export, GitHub-appfil eller localStorage-nyckel.'},
   {name:'Synlig autosync-panel v220', status:'UI-/kontrollfix', purpose:'Gör v219-kösyncen användbar genom synlig autosync-panel i Kööverföring samt synlig Synka nu-knapp och statusrad i Uppdrag i kö.', changeRule:'Får bara påverka syncens synliga panel, knappar, statusrader och kontroller. Får inte ändra aktivt uppdrag, GPS/Snap-rådata, vikt, historik, geofence-data, backup/export, GitHub-appfil eller localStorage-nyckel.'},
-  {name:'Paddstatus tidsformat v221', status:'Sync-/visningsfix', purpose:'Mobilens Läs paddans kö/status använder säker tidsformatering så saknad formatDateTime inte stoppar visningen. Ogiltig eller saknad tid visas som okänd tid.', changeRule:'Får bara påverka visning/tidsformat för paddans status i autosyncpanelen och kontroller. Får inte ändra mobil→padda-kösync, aktivt uppdrag, GPS/Snap-rådata, vikt, historik, geofence-data, backup/export, GitHub-appfil eller localStorage-nyckel.'},
+  {name:'Paddstatus tidsformat v221', status:'Sync-/visningsfix', purpose:'Mobilens Läs lastbilsstatus använder säker tidsformatering så saknad formatDateTime inte stoppar visningen. Ogiltig eller saknad tid visas som okänd tid.', changeRule:'Får bara påverka visning/tidsformat för paddans status i autosyncpanelen och kontroller. Får inte ändra mobil→padda-kösync, aktivt uppdrag, GPS/Snap-rådata, vikt, historik, geofence-data, backup/export, GitHub-appfil eller localStorage-nyckel.'},
   {name:'Manuell sync utan autosync v222', status:'Sync-/stabiliseringsfix', purpose:'Synka nu fungerar även när autosync-checkboxen är avstängd. Checkboxen styr bara bakgrundssync, pågående sync spärrar dubbelkörning och GitHub 409 skrivkonflikt försöks om med senaste SHA.', changeRule:'Får bara påverka manuell/autosync-start, dubbelkörningsskydd, 409-omförsök och syncstatus. Får inte ändra aktivt uppdrag, GPS/Snap-rådata, vikt, historik, geofence-data, backup/export, GitHub-appfil eller localStorage-nyckel.'},
   {name:'Syncstatus och fjärr-inbox-kontroll v223', status:'Sync-/trygghetsfix', purpose:'Visar tydligare syncstatus: mobil-inbox på GitHub, antal nya, redan mottagna/hoppade över, autosync-läge, senaste sync och paddstatus utan att ändra faktisk ködata.', changeRule:'Får bara påverka syncens statusvisning, fjärr-inbox-kontroll, kontrollknappar och rapportkontroller. Får inte ändra aktivt uppdrag, GPS/Snap-rådata, vikt, historik, geofence-data, backup/export, GitHub-appfil eller localStorage-nyckel.'},
   {name:'Sync förenklad vy och gammal kööverföring borttagen v224', status:'UX-/städversion', purpose:'Överför kö heter Sync, gamla GitHub-köfilflödet och kö-filreserv tas bort ur synlig app och syncdetaljer i kövyn ligger bakom Visa syncdetaljer.', changeRule:'Får bara påverka namn, synliga kööverföringspaneler, syncstatuspresentation och kontroller. Får inte ändra fungerande manuell sync, dubblettskydd, token/repo/branch/mapp, aktivt uppdrag, GPS/Snap, vikt, historik, geofence, backup/export eller localStorage-nyckel.'},
@@ -13222,7 +13297,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 1', 'GPS-inspelning v73 aktiv diskret text finns', !!el('activeRouteGps') && fn('renderActiveRouteGps') && src('renderActiveRouteGps', 'Gps inspelning pågår'), 'aktiv vy visar bara diskret text när GPS-inspelning är aktiv');
 
   addFunctionCheck(results, 'Nivå 2', 'Lagringsnyckel är oförändrad', KEY === 'driftlogg_v4_full', KEY);
-  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v252' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v252') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslogik inställningsstyrd v178') && APP_FEATURE_MANIFEST.some(item => item.name === 'Maskintransport platsval i Nytt jobb v179') && APP_FEATURE_MANIFEST.some(item => item.name === 'Systemval Annan plats v181') && APP_FEATURE_MANIFEST.some(item => item.name === 'UX-stabilisering Snap och direktstart v182') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddknapp Hämta uppdrag v183') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång Bio Från och ÖV köstart v184') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platsdata-diagnos v185') && APP_FEATURE_MANIFEST.some(item => item.name === 'Listlogik skyddad mot kollaps v186') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydliga jobbtypskryss i Platser v188') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral samlad rapport v189') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapportstädning v191') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral toppsammanfattning v192') && APP_FEATURE_MANIFEST.some(item => item.name === 'Full Kontrollcentral v193') && APP_FEATURE_MANIFEST.some(item => item.name === 'Djupkontroll v194') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral stegvis körning v195') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral knappindikator och rapportfilnamn v196') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-text Stadslass-spärrad karttid v197') && APP_FEATURE_MANIFEST.some(item => item.name === 'Jobbtypskryss styr listor fullt ut v199') && APP_FEATURE_MANIFEST.some(item => item.name === 'Registrera missad Lastning efter Från-plats v201') && APP_FEATURE_MANIFEST.some(item => item.name === 'Huvudknappar textfix v202') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare med numeriskt tangentbord v204') && APP_FEATURE_MANIFEST.some(item => item.name === 'Idag ordning tripp före sammanfattning v205') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nästa mål visar etapptid v206') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nedräkning och Framme ca för nästa mål v207') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig plats separat hantering v209') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet-dialog egen scroll v210') && APP_FEATURE_MANIFEST.some(item => item.name === 'GPS/Snap/ETA precisionsregler v211') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång GPS-flöde v214') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA för alla aktiva transportsträckor v215') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lossningsnedräkning v216') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca retur bara återstående v217') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet klockslag och delkommentar v218') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk mobil-padda kösync v219') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig autosync-panel v220') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddstatus tidsformat v221') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuell sync utan autosync v222') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncstatus och fjärr-inbox-kontroll v223') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sync förenklad vy och gammal kööverföring borttagen v224') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncindikator exakt som Online v226') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tryggare autosync v227') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncindikator autosyncläge v228') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mobil köstatus Syncad v229') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabb bekräftelse av mobilkö v230') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncad hård mobilspärr v231') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddan minns mottagna mobiluppdrag v232') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mobil-inbox rensas auktoritativt v233') && APP_FEATURE_MANIFEST.some(item => item.name === 'Registerkontroll padda/mobil v234') && APP_FEATURE_MANIFEST.some(item => item.name === 'Hämta master-register från padda v235'), APP_VERSION);
+  addFunctionCheck(results, 'Nivå 2', 'Version och funktionslista matchar', APP_VERSION === 'Stadslass 2.0 v253' && !!el('appVersionInfo') && el('appVersionInfo').textContent.includes('Stadslass 2.0 v253') && APP_FEATURE_MANIFEST.some(item => item.name === 'Testuppdatering v67') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dygnsfördelad uppdragstid v68') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tidsatta köuppdrag v69') && APP_FEATURE_MANIFEST.some(item => item.name === 'Delad retunnedräkning v70') && APP_FEATURE_MANIFEST.some(item => item.name === 'Retur orange bottenbakgrund v71') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bevara uppskattad tid vid paus/fortsätt v72') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk GPS-inspelning v73') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka orange bottenbakgrund v74') && APP_FEATURE_MANIFEST.some(item => item.name === 'Friare Nytt jobb v75') && APP_FEATURE_MANIFEST.some(item => item.name === 'Färginställningar fasknapp v76') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återanvändbara platsgeofence v77') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka svag inlärning v78') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bakgrundsinställningar delade färger v79') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca följer aktiv nedräkning v80') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar layout och GPS-undantag v81') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vägtid och arbetstid v82') && APP_FEATURE_MANIFEST.some(item => item.name === 'Anropssmart app v83') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ruttavvikelse v84') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagsprognos v85') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-inställningar v86') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence layoutfix v87') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv övervakning v88') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övervakning version och huvudindikator v89') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport v90') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA/geofence kontrollfix v91') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsdiagnos v92') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-anropsfix och övervakning layoutfix v93') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-källa och kartanropsspärr v94') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence observerad transportstart v95') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96') && APP_FEATURE_MANIFEST.some(item => item.name === 'Polygonvarning geofence v97') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lagringskontroll v98') && APP_FEATURE_MANIFEST.some(item => item.name === 'Visuell återkomst till Från-plats v99') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender visar kvittorader v100') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser för Havstång v101') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet dagsrad v102') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender samlar Övrig verksamhet v103') && APP_FEATURE_MANIFEST.some(item => item.name === 'Historik kalender hårdspärrar råa ÖV-poster v104') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser i Geofence v105') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence koordinathämtning v106') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofencefält rensas v107') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång begränsade platslistor v108') && APP_FEATURE_MANIFEST.some(item => item.name === 'Min nuvarande plats och Havstång 611 v109') && APP_FEATURE_MANIFEST.some(item => item.name === '#Min Nuvarande plats# och ETA-koppling v110') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång badplats utan viktkrav v112') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång geofenceankomst badplats v113') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång viktroller v114') && APP_FEATURE_MANIFEST.some(item => item.name === 'Permanent uppstartsövervakning v115') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig uppstartskontroll v116') && APP_FEATURE_MANIFEST.some(item => item.name === 'Från-geofence blå ankomst v117') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fullbredd blinkande Från-geofence-knapp v118') && APP_FEATURE_MANIFEST.some(item => item.name === 'Gul blinkfix Från-geofence-knapp v119') && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv ETA platsmål v120') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp v121') && APP_FEATURE_MANIFEST.some(item => item.name === 'von Utfall normal ETA-logik v122') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktknapp helbreddfix v123') && APP_FEATURE_MANIFEST.some(item => item.name === 'Till-geofence viktprompt fasstyrning v124') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfälligt uppdragsgeofence v125') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet redigering och Havstång Bio Från v127') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet utökad redigering v129') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet modal skrollfix v130') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet deltid korrekt v131') && APP_FEATURE_MANIFEST.some(item => item.name === 'Plus Code till koordinat/geofence v132') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence-förkontroll före Lastning v133') && APP_FEATURE_MANIFEST.some(item => item.name === 'Koordinatskydd vid ändrad adress/Plus Code v134') && APP_FEATURE_MANIFEST.some(item => item.name === 'Stadslass 2.0 fasmodell v135') && APP_FEATURE_MANIFEST.some(item => item.name === 'Backup 2.0 selektiv backup v136') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141') && APP_FEATURE_MANIFEST.some(item => item.name === 'Återställ standardgeofence v143') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass nästa lastning och tid till mål v144') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ny lastning först vid Från-geofence v145') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass direkt Från-geofence v146') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass manuell Från-platsbekräftelse v147') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass faslåsning v148') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass uppstartsfix v149') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ange vikt alltid tillgänglig v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mellan-lass retur-bakgrund v150') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor överst i inställningsflikar v151') && APP_FEATURE_MANIFEST.some(item => item.name === 'Flerlass ETA fallback från fasuträkning v152') && APP_FEATURE_MANIFEST.some(item => item.name === 'Transport/lossning ETA fallback v153') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasknapp fullbredd flerlass/transport v154') && APP_FEATURE_MANIFEST.some(item => item.name === 'Överföringslås och valbara avslutsrapporter v155') && APP_FEATURE_MANIFEST.some(item => item.name === 'Avslutsrapport Visa och Klar ca helslut v156') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning längst ner i aktivt jobb v157') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut jobb-markering v158') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rensad teknisk arbetsvy v159') && APP_FEATURE_MANIFEST.some(item => item.name === 'Dagens sammanfattning i Idag v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydligare uppdragskommentarer v160') && APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetliga kortknappar v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Konkret rutt-/inlärningsorsak v161') && APP_FEATURE_MANIFEST.some(item => item.name === 'Knappmönster i arbetsvy v162') && APP_FEATURE_MANIFEST.some(item => item.name === 'Akut inaktiv text och Övrig verksamhet alla delar v163') && APP_FEATURE_MANIFEST.some(item => item.name === 'Rapport-/analysfix fas, ÖV och ruttavvikelse v164') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapporter System/Funktion v165') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollklassning kontrollrapporter v166') && APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionskontroll klassning v167') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mejla rapporter v168') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslogik inställningsstyrd v178') && APP_FEATURE_MANIFEST.some(item => item.name === 'Maskintransport platsval i Nytt jobb v179') && APP_FEATURE_MANIFEST.some(item => item.name === 'Systemval Annan plats v181') && APP_FEATURE_MANIFEST.some(item => item.name === 'UX-stabilisering Snap och direktstart v182') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddknapp Hämta uppdrag v183') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång Bio Från och ÖV köstart v184') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platsdata-diagnos v185') && APP_FEATURE_MANIFEST.some(item => item.name === 'Listlogik skyddad mot kollaps v186') && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydliga jobbtypskryss i Platser v188') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral samlad rapport v189') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollrapportstädning v191') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral toppsammanfattning v192') && APP_FEATURE_MANIFEST.some(item => item.name === 'Full Kontrollcentral v193') && APP_FEATURE_MANIFEST.some(item => item.name === 'Djupkontroll v194') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral stegvis körning v195') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollcentral knappindikator och rapportfilnamn v196') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-text Stadslass-spärrad karttid v197') && APP_FEATURE_MANIFEST.some(item => item.name === 'Jobbtypskryss styr listor fullt ut v199') && APP_FEATURE_MANIFEST.some(item => item.name === 'Registrera missad Lastning efter Från-plats v201') && APP_FEATURE_MANIFEST.some(item => item.name === 'Huvudknappar textfix v202') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare med numeriskt tangentbord v204') && APP_FEATURE_MANIFEST.some(item => item.name === 'Idag ordning tripp före sammanfattning v205') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nästa mål visar etapptid v206') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nedräkning och Framme ca för nästa mål v207') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig plats separat hantering v209') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet-dialog egen scroll v210') && APP_FEATURE_MANIFEST.some(item => item.name === 'GPS/Snap/ETA precisionsregler v211') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212') && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång GPS-flöde v214') && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA för alla aktiva transportsträckor v215') && APP_FEATURE_MANIFEST.some(item => item.name === 'Lossningsnedräkning v216') && APP_FEATURE_MANIFEST.some(item => item.name === 'Klar ca retur bara återstående v217') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet klockslag och delkommentar v218') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk mobil-padda kösync v219') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig autosync-panel v220') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddstatus tidsformat v221') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuell sync utan autosync v222') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncstatus och fjärr-inbox-kontroll v223') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sync förenklad vy och gammal kööverföring borttagen v224') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncindikator exakt som Online v226') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tryggare autosync v227') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncindikator autosyncläge v228') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mobil köstatus Syncad v229') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabb bekräftelse av mobilkö v230') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncad hård mobilspärr v231') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddan minns mottagna mobiluppdrag v232') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mobil-inbox rensas auktoritativt v233') && APP_FEATURE_MANIFEST.some(item => item.name === 'Registerkontroll padda/mobil v234') && APP_FEATURE_MANIFEST.some(item => item.name === 'Hämta master-register från padda v235'), APP_VERSION);
   addFunctionCheck(results, 'Nivå 2', 'Sträckval synligt i jobbkort v212', fn('getJobDistanceChoiceHtmlV212') && src('renderTodayRegularJobCard', 'getJobDistanceDisplayTextV211(x)') && src('renderTodayRegularJobCard', 'getJobDistanceChoiceHtmlV212(x)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212'), 'Idag-jobbkort visar samma rimlighetsvalda Sträcka som Dagens sammanfattning och en synlig Sträckval-rad utan att skriva om historik.');
   addFunctionCheck(results, 'Nivå 2', 'Bred returknapp v213', src('renderActiveTransportPhaseControl', "visualLabel === 'Retur pågår'") && src('renderActiveTransportPhaseControl', 'returnWide') && src('renderActiveTransportPhaseControl', "btn.classList.add('return-wide')") && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213'), 'Retur pågår får fullbredd/centrerad knapp som ren visuell ändring.');
   addFunctionCheck(results, 'Nivå 2', 'Havstång GPS-flöde v214', typeof prepareSeaweedGpsFlowV214 === 'function' && typeof updateSeaweedGpsFlowFromPointV214 === 'function' && typeof openSeaweedTransportSegmentV214 === 'function' && typeof markSeaweedBeachDestinationArrivalV214 === 'function' && typeof markSeaweedBeachReturnDepartedV214 === 'function' && typeof getSeaweedOutboundTransportStartV214 === 'function' && src('buildSnapRoadsSegmentsForJobV211', 'Havstång transport till badplats') && src('getRouteDeviationGpsRole', 'isSeaweedToBeachJob') && src('renderActiveTransportPhaseControl', '!isSeaweedToBeachJob') && APP_FEATURE_MANIFEST.some(item => item.name === 'Havstång GPS-flöde v214'), 'Havstång till badplats har GPS/ETA/fas/Snap-segment utan Lastar/viktkrav samt retur/empty-truck vid returkrav.');
@@ -13232,7 +13307,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Övrig verksamhet klockslag och delkommentar v218', fn('formatOtherWorkEditClockValueV218') && fn('parseOtherWorkEditClockToMsV218') && fn('setOtherWorkCurrentSessionCommentV218') && src('buildOtherWorkEditPartHtml', 'data-field="clock"') && src('saveOtherWorkDayEdit', 'parseOtherWorkEditClockToMsV218') && src('saveActiveComment', 'setOtherWorkCurrentSessionCommentV218') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet klockslag och delkommentar v218'), 'Övrig verksamhet redigerar klockslag, minuter och kommentar per del och aktiv kommentar sparas på aktuell session.');
   addFunctionCheck(results, 'Nivå 2', 'Automatisk mobil-padda kösync v219', fn('queueSyncRunNowV219') && fn('queueSyncImportMobileInboxV219') && fn('queueSyncUploadMobileInboxV219') && fn('queueSyncUploadTabletStatusV219') && fn('markQueuedJobCreatedForSyncV219') && !!el('queueSyncStatusV219') && !!el('queueSyncTopBadgeV226') && src('queueSyncPutJsonFileV219', 'stadslass v219 sync') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk mobil-padda kösync v219'), 'mobilinbox, paddhämtning och paddstatus finns utan att röra aktivt jobb/GPS/vikt/historik.');
   addFunctionCheck(results, 'Nivå 2', 'Synlig autosync-panel v220', !!el('queueSyncPanelV220') && !!el('queueSyncEnabledV219') && !!el('queueSyncOwnerV219') && !!el('queueSyncRepoV219') && !!el('queueSyncBranchV219') && !!el('queueSyncTokenV219') && !!el('queueSyncSaveButtonV220') && !!el('queueSyncRunNowButtonV220') && !!el('queueSyncRunNowSettingsButtonV220') && !!el('queueSyncTopBadgeV226') && !!el('queueSyncRemoteStatusV219') && src('renderQueueSyncSettingsV219', 'queueSyncStatusV219') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig autosync-panel v220'), 'syncpanelen, Synka nu och statusrad finns synligt i UI.');
-  addFunctionCheck(results, 'Nivå 2', 'Paddstatus tidsformat v221', fn('formatQueueSyncDateTimeV221') && src('renderQueueSyncRemoteStatusV219', 'formatQueueSyncDateTimeV221') && !src('renderQueueSyncRemoteStatusV219', 'formatDateTime(') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddstatus tidsformat v221'), 'Läs paddans kö/status använder säker tidsformatering och faller tillbaka till okänd tid.');
+  addFunctionCheck(results, 'Nivå 2', 'Paddstatus tidsformat v221', fn('formatQueueSyncDateTimeV221') && src('renderQueueSyncRemoteStatusV219', 'formatQueueSyncDateTimeV221') && !src('renderQueueSyncRemoteStatusV219', 'formatDateTime(') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddstatus tidsformat v221'), 'Läs lastbilsstatus använder säker tidsformatering och faller tillbaka till okänd tid.');
   addFunctionCheck(results, 'Nivå 2', 'Manuell sync utan autosync v222', fn('queueSyncRunNowV219') && fn('queueSyncPutJsonFileOnceV222') && fn('mergeQueueSyncPayloadForRetryV222') && src('queueSyncRunNowV219', 'Manuell sync saknar GitHub') && !src('queueSyncRunNowV219', 'Autosync är avstängd. Aktivera och spara först.') && src('queueSyncPutJsonFileV219', 'retry efter 409') && src('queueSyncQueueChangedV219', 'queueSyncBusyV219') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuell sync utan autosync v222'), 'Manuell Synka nu kräver bara GitHub-inställningar/token; autosync-checkboxen styr bara bakgrundssync och 409 försöks om.');
   addFunctionCheck(results, 'Nivå 2', 'Syncstatus och fjärr-inbox-kontroll v223', fn('queueSyncInspectRemoteInboxV223') && fn('renderQueueSyncDetailStatusV223') && fn('buildQueueSyncDetailSummaryV223') && !!el('queueSyncInspectSettingsButtonV223') && !!el('queueSyncDetailStatusSettingsV223') && !!el('queueSyncDetailStatusSettingsV223') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncstatus och fjärr-inbox-kontroll v223'), 'Kontrollera syncstatus visar mobil-inbox, nya/hoppade över, autosync-läge och senaste sync.');
   addFunctionCheck(results, 'Nivå 2', 'Tryggare autosync v227', fn('queueSyncRunAutoV227') && fn('getQueueSyncAutoWaitReasonV227') && fn('isQueueSyncTransientAutoErrorV227') && Number(QUEUE_SYNC_INTERVAL_MS_V219 || 0) >= 120000 && Number(QUEUE_SYNC_AUTOSYNC_AFTER_MANUAL_BLOCK_MS_V227 || 0) >= 60000 && src('startQueueAutoSyncV219', 'queueSyncRunAutoV227') && src('queueSyncQueueChangedV219', 'QUEUE_SYNC_AUTOSYNC_AFTER_CHANGE_DELAY_MS_V227') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tryggare autosync v227'), 'Autosync körs lugnare, väntar efter manuell sync och använder gemensam körfunktion.');
@@ -13244,7 +13319,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Mobil-inbox rensas auktoritativt v233', src('buildMobileInboxPayloadV219', 'mobileInboxAuthoritativeV233') && src('mergeQueueSyncPayloadForRetryV222', 'mobileInboxAuthoritativeV233') && src('queueSyncUploadMobileInboxV219', 'clearedRemoteInboxV233') && src('getTabletReceivedSyncKeysV232', 'QUEUE_SYNC_RECEIVED_KEYS_STORAGE_V233') && APP_FEATURE_MANIFEST.some(item => item.name === 'Mobil-inbox rensas auktoritativt v233'), 'Mobilen rensar gamla döda rader ur sync-inbox och paddans mottagna nycklar sparas separat.');
   addFunctionCheck(results, 'Nivå 2', 'Registerkontroll padda/mobil v234', fn('buildQueueSyncRegisterStatusV234') && fn('compareQueueSyncRegisterStatusV234') && fn('queueSyncCheckRegisterStatusV234') && src('buildTabletStatusPayloadV219', 'registerStatusV234') && !!el('queueSyncRegisterCheckButtonV234') && !!el('queueSyncRegisterStatusV234') && APP_FEATURE_MANIFEST.some(item => item.name === 'Registerkontroll padda/mobil v234'), 'Paddan publicerar registerhash och mobilen jämför utan att importera, mergea eller skapa dubbletter.');
   addFunctionCheck(results, 'Nivå 2', 'Hämta master-register från padda v235', fn('buildQueueSyncRegisterPackageV235') && fn('queueSyncImportRegisterFromTabletV235') && fn('applyQueueSyncRegisterSnapshotV235') && src('buildTabletStatusPayloadV219', 'registerPackageV235') && src('queueSyncImportRegisterFromTabletV235', 'saveQueueSyncRegisterBackupV235') && !!el('queueSyncRegisterImportButtonV235') && APP_FEATURE_MANIFEST.some(item => item.name === 'Hämta master-register från padda v235'), 'Mobilen hämtar paddans registerpaket med backup och ersätter sin registerspegel utan merge/dubbletter.');
-  addFunctionCheck(results, 'Nivå 2', 'Kontrollsystem uppdaterat v236', fn('renderControlCenterLightOpenV236') && src('toggleControlCenterManagerV189', 'renderControlCenterLightOpenV236') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollsystem uppdaterat v236') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v251' && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v236 Kontrollsystem')), 'Aktiv övervakning, Kontrollcentralens öppning och kontrollklassning är uppdaterade till v236.');
+  addFunctionCheck(results, 'Nivå 2', 'Kontrollsystem uppdaterat v236', fn('renderControlCenterLightOpenV236') && src('toggleControlCenterManagerV189', 'renderControlCenterLightOpenV236') && APP_FEATURE_MANIFEST.some(item => item.name === 'Kontrollsystem uppdaterat v236') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v253' && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v236 Kontrollsystem')), 'Aktiv övervakning, Kontrollcentralens öppning och kontrollklassning är uppdaterade till v236.');
   addFunctionCheck(results, 'Nivå 2', 'Syncpanelen förenklad v237', !!el('queueSyncMainActionsV237') && !!el('queueSyncRegisterToolsV237') && !!el('queueSyncAdvancedToolsV237') && !!el('queueSyncFetchTabletStatusButtonV237') && !!el('queueSyncTokenToggleButtonV237') && !!el('queueSyncClearSettingsButtonV237') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncpanelen förenklad v237') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v237 Syncpanelen')), 'Syncpanelen har huvudknappar, separat registerdel och Avancerat utan att ändra synclogik.');
   addFunctionCheck(results, 'Nivå 2', 'Paddans kö läsande spegling v238', ((typeof isTabletQueueMirrorMobileAllowedV240 === 'function' && !isTabletQueueMirrorMobileAllowedV240()) || (!!el('tabletQueueMirrorMainButtonV238') && !!el('tabletQueueMirrorCountV238'))) && !!el('tab-paddko') && !!el('tabletQueueMirrorListV238') && fn('openTabletQueueMirrorV238') && fn('refreshTabletQueueMirrorV238') && fn('buildTabletQueueMirrorJobCardV238') && !src('buildTabletQueueMirrorJobCardV238', 'startQueuedJob(') && !src('buildTabletQueueMirrorJobCardV238', 'openEditQueueJob(') && !src('buildTabletQueueMirrorJobCardV238', 'removeQueuedJob(') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddans kö läsande spegling v238') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v238 Paddans kö')), 'Mobilen har Paddans kö-knapp med antal och läsande kökort utan åtgärdsknappar; på padda får knappen saknas helt.');
   addFunctionCheck(results, 'Nivå 2', 'Ködelning idag/framtid v239', fn('isQueuedJobFutureV239') && fn('splitQueuedJobsTodayFutureV239') && fn('getQueueFutureDividerHtmlV239') && src('renderQueue', 'Framtida uppdrag') && src('renderQueue', 'startQueuedJob(') && src('renderQueue', 'scheduleSmartEstimateForVisibleQueue(ordered)') && src('renderTabletQueueMirrorV238', 'Framtida uppdrag') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ködelning idag/framtid v239') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v239 Ködelning')), 'Köerna delas visuellt i dagens/odatum och framtida uppdrag, utan låsning och utan att framtida uppdrag räknas in i dagens prognos.');
@@ -13639,6 +13714,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v241: Paddans kö får hårdare tablet-veto, datum visas i speglingen och Bakgrundsinställningar öppnas bakom knapp.');
   lines.push('v242: Paddans kö får självläkande hårdspärr på padda/tablet, direktflik spärras och Bakgrundsinställningar öppnas fullbrett utanför inställningsrutnätet.');
   lines.push('v243: Paddans kö-knappen är inte längre hårdkodad i huvudmenyn utan skapas dynamiskt bara på tillåten mobil/planeringsenhet.');
+  lines.push('v253: Returkrav kan ändras i Aktivt jobb, Paddans kö heter Lastbils status och speglingen får eget aktivt statusintervall.');
   lines.push('v252: Paddans kö-spegling visar Vikt och statusrutans bakgrund följer fasfärgerna från paddans aktiva läge.');
   lines.push('v211: GPS/Snap/ETA-precision med fasdelad Snap, knappstyrda transportsegment och 2,5 min ETA i verkliga transportfaser.');
   lines.push('v212: Jobbkortets Sträcka använder samma rimlighetsval som Dagens sammanfattning och visar Sträckval-diagnos.');
@@ -13945,6 +14021,7 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('v241: Paddans kö får hårdare tablet-veto, datum visas i speglingen och Bakgrundsinställningar öppnas bakom knapp.');
   lines.push('v242: Paddans kö får självläkande hårdspärr på padda/tablet, direktflik spärras och Bakgrundsinställningar öppnas fullbrett utanför inställningsrutnätet.');
   lines.push('v243: Paddans kö-knappen är inte längre hårdkodad i huvudmenyn utan skapas dynamiskt bara på tillåten mobil/planeringsenhet.');
+  lines.push('v253: Returkrav kan ändras i Aktivt jobb, Paddans kö heter Lastbils status och speglingen får eget aktivt statusintervall.');
   lines.push('v198: ETA/kartanropsdiagnosen skiljer aktivt jobbs anrop från Kontrollcentralens/Systemkontrollens karttest och förklarar GPS-/ruttomräkning.');
   lines.push('v199: Jobbtypskryss i Platser styr Från/Till-listor fullt ut även när gammal basroll/placeUsage säger nej.');
   lines.push('v201: Missad Lastning kan registreras manuellt efter att Från-plats har lämnats, med fullbredd reparationsknapp och bevarad geofence-observerad transportstart.');
@@ -14116,7 +14193,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v252' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v252'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v253' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v253'), APP_VERSION),
     systemCheck('GPS/Snap/ETA precisionsregler v211', typeof buildSnapRoadsSegmentsForJobV211 === 'function' && typeof getJobBestDistanceChoiceV211 === 'function' && typeof evaluateSnapDistanceReasonabilityV211 === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 2.5 && APP_FEATURE_MANIFEST.some(item => item.name === 'GPS/Snap/ETA precisionsregler v211'), 'Fasdelad Snap + rimlighetsval + 2,5 min ETA'),
     systemCheck('Sträckval synligt i jobbkort v212', typeof getJobDistanceChoiceHtmlV212 === 'function' && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceDisplayTextV211(x)') && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceChoiceHtmlV212(x)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212'), 'Jobbkort och Dagens sammanfattning visar samma rimlighetsvalda Sträcka'),
     systemCheck('Bred returknapp v213', functionSourceIncludes('renderActiveTransportPhaseControl', "visualLabel === 'Retur pågår'") && functionSourceIncludes('renderActiveTransportPhaseControl', 'returnWide') && functionSourceIncludes('renderActiveTransportPhaseControl', "btn.classList.add('return-wide')") && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213'), 'Retur pågår-knappen blir fullbredd/centrerad som ren visuell ändring'),
@@ -14127,7 +14204,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Övrig verksamhet klockslag och delkommentar v218', typeof formatOtherWorkEditClockValueV218 === 'function' && typeof parseOtherWorkEditClockToMsV218 === 'function' && typeof setOtherWorkCurrentSessionCommentV218 === 'function' && functionSourceIncludes('buildOtherWorkEditPartHtml', 'data-field="clock"') && functionSourceIncludes('saveOtherWorkDayEdit', 'parseOtherWorkEditClockToMsV218') && functionSourceIncludes('saveActiveComment', 'setOtherWorkCurrentSessionCommentV218') && APP_FEATURE_MANIFEST.some(item => item.name === 'Övrig verksamhet klockslag och delkommentar v218'), 'Övrig verksamhet sparar klockslag, minuter och kommentar per del'),
     systemCheck('Automatisk mobil-padda kösync v219', typeof queueSyncRunNowV219 === 'function' && typeof queueSyncImportMobileInboxV219 === 'function' && typeof queueSyncUploadMobileInboxV219 === 'function' && typeof queueSyncUploadTabletStatusV219 === 'function' && typeof markQueuedJobCreatedForSyncV219 === 'function' && document.getElementById('queueSyncStatusV219') && document.getElementById('queueSyncQueueStatusV219') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk mobil-padda kösync v219'), 'mobilen kan skicka inbox, paddan kan hämta nya köuppdrag och publicera läsbar köstatus'),
     systemCheck('Synlig autosync-panel v220', document.getElementById('queueSyncPanelV220') && document.getElementById('queueSyncEnabledV219') && document.getElementById('queueSyncOwnerV219') && document.getElementById('queueSyncRepoV219') && document.getElementById('queueSyncBranchV219') && document.getElementById('queueSyncTokenV219') && document.getElementById('queueSyncSaveButtonV220') && document.getElementById('queueSyncRunNowButtonV220') && document.getElementById('queueSyncRunNowSettingsButtonV220') && document.getElementById('queueSyncQueueStatusV219') && document.getElementById('queueSyncRemoteStatusV219') && APP_FEATURE_MANIFEST.some(item => item.name === 'Synlig autosync-panel v220'), 'synlig syncpanel, Synka nu och statusrad finns i faktisk HTML'),
-    systemCheck('Paddstatus tidsformat v221', typeof formatQueueSyncDateTimeV221 === 'function' && functionSourceIncludes('renderQueueSyncRemoteStatusV219', 'formatQueueSyncDateTimeV221') && !functionSourceIncludes('renderQueueSyncRemoteStatusV219', 'formatDateTime(') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddstatus tidsformat v221'), 'mobilens Läs paddans kö/status stoppar inte på saknad formatDateTime'),
+    systemCheck('Paddstatus tidsformat v221', typeof formatQueueSyncDateTimeV221 === 'function' && functionSourceIncludes('renderQueueSyncRemoteStatusV219', 'formatQueueSyncDateTimeV221') && !functionSourceIncludes('renderQueueSyncRemoteStatusV219', 'formatDateTime(') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddstatus tidsformat v221'), 'mobilens Läs lastbilsstatus stoppar inte på saknad formatDateTime'),
     systemCheck('Manuell sync utan autosync v222', typeof queueSyncRunNowV219 === 'function' && typeof queueSyncPutJsonFileOnceV222 === 'function' && typeof mergeQueueSyncPayloadForRetryV222 === 'function' && functionSourceIncludes('queueSyncRunNowV219', 'Manuell sync saknar GitHub') && !functionSourceIncludes('queueSyncRunNowV219', 'Autosync är avstängd. Aktivera och spara först.') && functionSourceIncludes('queueSyncPutJsonFileV219', 'retry efter 409') && functionSourceIncludes('queueSyncQueueChangedV219', 'queueSyncBusyV219') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuell sync utan autosync v222'), 'Synka nu fungerar utan autosync, dubbelkörning spärras och 409 skrivkonflikt försöks om'),
     systemCheck('Syncstatus och fjärr-inbox-kontroll v223', typeof queueSyncInspectRemoteInboxV223 === 'function' && typeof renderQueueSyncDetailStatusV223 === 'function' && typeof buildQueueSyncDetailSummaryV223 === 'function' && document.getElementById('queueSyncInspectSettingsButtonV223') && document.getElementById('queueSyncDetailStatusSettingsV223') && document.getElementById('queueSyncDetailStatusSettingsV223') && APP_FEATURE_MANIFEST.some(item => item.name === 'Syncstatus och fjärr-inbox-kontroll v223'), 'synlig knapp och detaljstatus för fjärr-inbox och syncresultat'),
     systemCheck('Sync förenklad vy v224', typeof queueSyncRunNowV219 === 'function' && document.getElementById('queueSyncPanelV220') && document.getElementById('queueSyncDetailDetailsV224') && !document.getElementById('githubQueueFileName') && document.getElementById('queueGithubActionButtonV183') && document.getElementById('queueGithubActionButtonV183').textContent.trim() === 'Sync' && APP_FEATURE_MANIFEST.some(item => item.name === 'Sync förenklad vy och gammal kööverföring borttagen v224'), 'Sync är huvudflöde, gammal GitHub-kö är inte synlig och detaljer är hopfällda'),
@@ -14231,6 +14308,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Platslayout och öppettidsvarning v250', typeof getPlaceOpeningHoursV250 === 'function' && typeof getActiveToPlaceOpeningWarningHtmlV250 === 'function' && typeof normalizePlaceOpeningHoursMapV250 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'place-section-v250') && functionSourceIncludes('buildPlaceManagerRow', 'data-place-opening-enabled-key') && functionSourceIncludes('getActiveToPlaceOpeningWarningHtmlV250', 'job.dest') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslayout och öppettidsvarning v250'), 'Platser har kortlayout och öppettidsregel som varnar för Till-plats utanför öppettid'),
     systemCheck('Paddans aktuella status i spegling v251', typeof getTabletActiveStatusSnapshotV251 === 'function' && typeof renderTabletCurrentStatusV251 === 'function' && !!document.getElementById('tabletCurrentStatusV251') && functionSourceIncludes('buildTabletStatusPayloadV219', 'activeStatusV251') && functionSourceIncludes('renderTabletQueueMirrorV238', 'renderTabletCurrentStatusV251') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddans aktuella status i spegling v251'), 'Paddans kö-spegling visar aktuell paddstatus/aktivt uppdrag som ren läsning'),
     systemCheck('Paddans vikt och fasfärg i spegling v252', typeof getTabletCurrentStatusWeightTextV252 === 'function' && typeof applyTabletCurrentStatusPhaseClassV252 === 'function' && functionSourceIncludes('buildTabletCurrentStatusHtmlV251', 'Vikt') && functionSourceIncludes('renderTabletCurrentStatusV251', 'applyTabletCurrentStatusPhaseClassV252') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddans vikt och fasfärg i spegling v252'), 'Paddans statusruta i speglingen visar vikt och följer fasfärger som ren läsning'),
+    systemCheck('Returkrav och Lastbils status v253', typeof setActiveReturnRequiredV253 === 'function' && typeof renderActiveReturnControlV253 === 'function' && !!document.getElementById('activeReturnControlV253') && !!document.getElementById('queueSyncActiveMirrorSecondsV253') && typeof queueSyncRunActiveMirrorV253 === 'function' && functionSourceIncludes('getQueueSyncSettingsV219', 'activeMirrorMsV253') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returkrav i aktivt jobb och Lastbils status-sync v253'), 'Aktivt jobb kan ändra returkrav och Lastbils status har separat speglingsintervall'),
     systemCheck('Inställningar Platsregister först v249', !!document.querySelector('[data-settings-category-v249="platsregister"]') && document.querySelector('[data-settings-category-v249="platsregister"] h4') && document.querySelector('[data-settings-category-v249="platsregister"] h4').textContent.trim() === 'Platsregister' && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="togglePlaceManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleJobTypeManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleQuickManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleMachineManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleGeofenceManager()"]') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar Platsregister först v249'), 'Inställningar har Platsregister först och använder samma befintliga registerknappar'),
     systemCheck('Nästa mål visar etapptid v206', typeof getActiveEstimateNextTargetRemainingMsV206 === 'function' && functionSourceIncludes('getActiveEstimateCountdownHtml', 'getActiveEstimateNextTargetRemainingMsV206(job, overallDisplayDiff)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nästa mål visar etapptid v206'), 'Tid till visar nästa etapp och Klar ca behåller helslut'),
     systemCheck('Nedräkning och Framme ca för nästa mål v207', functionSourceIncludes('getActiveMultiLoadEstimateCountdownHtml', 'formatActiveEstimateKlarCaHtml') && functionSourceIncludes('getActiveMultiLoadEstimateCountdownHtml', 'Framme ca') && functionSourceIncludes('getActiveMultiLoadEstimateCountdownHtml', 'getActiveEstimateNextTargetRemainingMsV206(job, remainingMs)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nedräkning och Framme ca för nästa mål v207'), 'transportläge visar nedräkning och Framme ca för nästa mål'),
@@ -14681,6 +14759,7 @@ function buildControlCenterReportV189(sourceLabel){
   lines.push('v241: Paddans kö får hårdare tablet-veto, datum visas i speglingen och Bakgrundsinställningar öppnas bakom knapp.');
   lines.push('v242: Paddans kö får självläkande hårdspärr på padda/tablet, direktflik spärras och Bakgrundsinställningar öppnas fullbrett utanför inställningsrutnätet.');
   lines.push('v243: Paddans kö-knappen är inte längre hårdkodad i huvudmenyn utan skapas dynamiskt bara på tillåten mobil/planeringsenhet.');
+  lines.push('v253: Returkrav kan ändras i Aktivt jobb, Paddans kö heter Lastbils status och speglingen får eget aktivt statusintervall.');
   lines.push('v198: ETA/kartanropsdiagnosen skiljer aktivt jobbs anrop från Kontrollcentralens/Systemkontrollens karttest och förklarar GPS-/ruttomräkning.');
   lines.push('v199: Jobbtypskryss i Platser styr Från/Till-listor fullt ut även när gammal basroll/placeUsage säger nej.');
   lines.push('v201: Missad Lastning kan registreras manuellt efter att Från-plats har lämnats, med fullbredd reparationsknapp och bevarad geofence-observerad transportstart.');
@@ -18739,19 +18818,22 @@ const QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244 = {
   auto: 180000,
   afterManual: 60000,
   afterChange: 45000,
-  fastConfirm: 30000
+  fastConfirm: 30000,
+  activeMirror: 30000
 };
 const QUEUE_SYNC_INTERVAL_LIMITS_MS_V244 = {
   auto: {min:60000, max:1800000},
   afterManual: {min:15000, max:600000},
   afterChange: {min:15000, max:600000},
-  fastConfirm: {min:10000, max:300000}
+  fastConfirm: {min:10000, max:300000},
+  activeMirror: {min:15000, max:300000}
 };
 let QUEUE_SYNC_INTERVAL_MS_V219 = QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.auto;
 let QUEUE_SYNC_AUTOSYNC_AFTER_MANUAL_BLOCK_MS_V227 = QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.afterManual;
 let QUEUE_SYNC_AUTOSYNC_AFTER_CHANGE_DELAY_MS_V227 = QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.afterChange;
 let QUEUE_SYNC_FAST_CONFIRM_DELAY_MS_V230 = QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.fastConfirm;
 let QUEUE_SYNC_FAST_CONFIRM_RETRY_DELAY_MS_V230 = QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.fastConfirm;
+let QUEUE_SYNC_ACTIVE_MIRROR_INTERVAL_MS_V253 = QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.activeMirror;
 const QUEUE_SYNC_FAST_CONFIRM_MAX_ATTEMPTS_V230 = 12;
 const QUEUE_SYNC_RECEIVED_KEYS_LIMIT_V232 = 1000;
 const QUEUE_SYNC_RECEIVED_KEYS_STORAGE_V233 = 'stadslass_queue_sync_received_keys_v233';
@@ -18767,6 +18849,8 @@ let queueSyncLastManualAtV222 = 0;
 let queueSyncQueuedChangeTimerV227 = null;
 let queueSyncFastConfirmTimerV230 = null;
 let queueSyncFastConfirmAttemptsV230 = 0;
+let queueSyncActiveMirrorTimerV253 = null;
+let queueSyncLastActiveMirrorAtV253 = 0;
 
 function detectGithubPagesRepoV219(){
   try{
@@ -18801,11 +18885,13 @@ function getQueueSyncIntervalSettingsV244(source){
   const afterManual = normalizeQueueSyncIntervalMsV244(saved.afterManualMsV244, QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.afterManual, QUEUE_SYNC_INTERVAL_LIMITS_MS_V244.afterManual);
   const afterChange = normalizeQueueSyncIntervalMsV244(saved.afterChangeMsV244, QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.afterChange, QUEUE_SYNC_INTERVAL_LIMITS_MS_V244.afterChange);
   const fastConfirm = normalizeQueueSyncIntervalMsV244(saved.fastConfirmMsV244, QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.fastConfirm, QUEUE_SYNC_INTERVAL_LIMITS_MS_V244.fastConfirm);
+  const activeMirror = normalizeQueueSyncIntervalMsV244(saved.activeMirrorMsV253, QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.activeMirror, QUEUE_SYNC_INTERVAL_LIMITS_MS_V244.activeMirror);
   return {
     autoIntervalMsV244:auto,
     afterManualMsV244:afterManual,
     afterChangeMsV244:afterChange,
-    fastConfirmMsV244:fastConfirm
+    fastConfirmMsV244:fastConfirm,
+    activeMirrorMsV253:activeMirror
   };
 }
 
@@ -18816,6 +18902,7 @@ function applyQueueSyncIntervalSettingsV244(intervals){
   QUEUE_SYNC_AUTOSYNC_AFTER_CHANGE_DELAY_MS_V227 = clean.afterChangeMsV244;
   QUEUE_SYNC_FAST_CONFIRM_DELAY_MS_V230 = clean.fastConfirmMsV244;
   QUEUE_SYNC_FAST_CONFIRM_RETRY_DELAY_MS_V230 = clean.fastConfirmMsV244;
+  QUEUE_SYNC_ACTIVE_MIRROR_INTERVAL_MS_V253 = clean.activeMirrorMsV253;
   return clean;
 }
 
@@ -18832,7 +18919,8 @@ function getQueueSyncIntervalSummaryV244(settings){
   const manualText = formatQueueSyncIntervalInputV244(s.afterManualMsV244, 1000);
   const changeText = formatQueueSyncIntervalInputV244(s.afterChangeMsV244, 1000);
   const confirmText = formatQueueSyncIntervalInputV244(s.fastConfirmMsV244, 1000);
-  return 'Intervaller: autosync ' + minText + ' min · efter manuell ' + manualText + ' s · efter köändring ' + changeText + ' s · snabb bekräftelse ' + confirmText + ' s';
+  const mirrorText = formatQueueSyncIntervalInputV244(s.activeMirrorMsV253, 1000);
+  return 'Intervaller: autosync ' + minText + ' min · efter manuell ' + manualText + ' s · efter köändring ' + changeText + ' s · snabb bekräftelse ' + confirmText + ' s · lastbilsstatus ' + mirrorText + ' s';
 }
 
 function readQueueSyncIntervalInputsV244(fallbackSettings){
@@ -18841,11 +18929,13 @@ function readQueueSyncIntervalInputsV244(fallbackSettings){
   const manualEl = document.getElementById('queueSyncAfterManualSecondsV244');
   const changeEl = document.getElementById('queueSyncAfterChangeSecondsV244');
   const confirmEl = document.getElementById('queueSyncFastConfirmSecondsV244');
+  const activeMirrorEl = document.getElementById('queueSyncActiveMirrorSecondsV253');
   return getQueueSyncIntervalSettingsV244({
     autoIntervalMsV244:autoEl ? Number(String(autoEl.value || '').replace(',', '.')) * 60000 : fallback.autoIntervalMsV244,
     afterManualMsV244:manualEl ? Number(String(manualEl.value || '').replace(',', '.')) * 1000 : fallback.afterManualMsV244,
     afterChangeMsV244:changeEl ? Number(String(changeEl.value || '').replace(',', '.')) * 1000 : fallback.afterChangeMsV244,
-    fastConfirmMsV244:confirmEl ? Number(String(confirmEl.value || '').replace(',', '.')) * 1000 : fallback.fastConfirmMsV244
+    fastConfirmMsV244:confirmEl ? Number(String(confirmEl.value || '').replace(',', '.')) * 1000 : fallback.fastConfirmMsV244,
+    activeMirrorMsV253:activeMirrorEl ? Number(String(activeMirrorEl.value || '').replace(',', '.')) * 1000 : fallback.activeMirrorMsV253
   });
 }
 
@@ -18855,10 +18945,12 @@ function renderQueueSyncIntervalInputsV244(settings){
   const manualEl = document.getElementById('queueSyncAfterManualSecondsV244');
   const changeEl = document.getElementById('queueSyncAfterChangeSecondsV244');
   const confirmEl = document.getElementById('queueSyncFastConfirmSecondsV244');
+  const activeMirrorEl = document.getElementById('queueSyncActiveMirrorSecondsV253');
   if(autoEl) autoEl.value = formatQueueSyncIntervalInputV244(s.autoIntervalMsV244, 60000);
   if(manualEl) manualEl.value = formatQueueSyncIntervalInputV244(s.afterManualMsV244, 1000);
   if(changeEl) changeEl.value = formatQueueSyncIntervalInputV244(s.afterChangeMsV244, 1000);
   if(confirmEl) confirmEl.value = formatQueueSyncIntervalInputV244(s.fastConfirmMsV244, 1000);
+  if(activeMirrorEl) activeMirrorEl.value = formatQueueSyncIntervalInputV244(s.activeMirrorMsV253, 1000);
   const status = document.getElementById('queueSyncIntervalStatusV244');
   if(status) status.textContent = getQueueSyncIntervalSummaryV244(s);
 }
@@ -18884,7 +18976,8 @@ function getQueueSyncSettingsV219(){
     autoIntervalMsV244: intervalsV244.autoIntervalMsV244,
     afterManualMsV244: intervalsV244.afterManualMsV244,
     afterChangeMsV244: intervalsV244.afterChangeMsV244,
-    fastConfirmMsV244: intervalsV244.fastConfirmMsV244
+    fastConfirmMsV244: intervalsV244.fastConfirmMsV244,
+    activeMirrorMsV253: intervalsV244.activeMirrorMsV253
   };
 }
 
@@ -18902,6 +18995,7 @@ function saveQueueSyncSettingsObjectV219(next){
   clean.afterManualMsV244 = intervalsV244.afterManualMsV244;
   clean.afterChangeMsV244 = intervalsV244.afterChangeMsV244;
   clean.fastConfirmMsV244 = intervalsV244.fastConfirmMsV244;
+  clean.activeMirrorMsV253 = intervalsV244.activeMirrorMsV253;
   try{ localStorage.setItem(QUEUE_SYNC_SETTINGS_KEY_V219, JSON.stringify(clean)); }catch(e){}
   return getQueueSyncSettingsV219();
 }
@@ -18992,7 +19086,7 @@ function renderQueueSyncSettingsV219(){
       : 'Mobilen jämför sitt register mot paddans master-register och kan hämta paddans register vid behov.';
   }
   if(fetchTabletStatusBtnV237){
-    fetchTabletStatusBtnV237.textContent = settings.deviceRole === 'mobile' ? 'Läs paddans kö/status' : 'Läs statusfil';
+    fetchTabletStatusBtnV237.textContent = settings.deviceRole === 'mobile' ? 'Läs lastbilsstatus' : 'Läs statusfil';
   }
   if(typeof renderQueueSyncRegisterStatusV234 === 'function') renderQueueSyncRegisterStatusV234(getLastQueueSyncRegisterCompareV234 && getLastQueueSyncRegisterCompareV234());
   if(typeof renderQueueSyncDetailStatusV223 === 'function'){
@@ -19023,7 +19117,8 @@ function saveQueueSyncSettingsV219(){
     autoIntervalMsV244: intervalInputsV244.autoIntervalMsV244,
     afterManualMsV244: intervalInputsV244.afterManualMsV244,
     afterChangeMsV244: intervalInputsV244.afterChangeMsV244,
-    fastConfirmMsV244: intervalInputsV244.fastConfirmMsV244
+    fastConfirmMsV244: intervalInputsV244.fastConfirmMsV244,
+    activeMirrorMsV253: intervalInputsV244.activeMirrorMsV253
   });
   setQueueSyncStatusV219((saved.enabled ? 'Autosync sparad och aktiv. ' : 'Autosync sparad men avstängd. ') + getQueueSyncIntervalSummaryV244(saved), false);
   startQueueAutoSyncV219();
@@ -19890,19 +19985,19 @@ function applyTabletCurrentStatusPhaseClassV252(el, payload){
 
 function buildTabletCurrentStatusHtmlV251(payload, note, isError){
   if(isError && !payload){
-    return '<div class="tablet-current-status-v251-title">Aktuell status på paddan</div>' +
+    return '<div class="tablet-current-status-v251-title">Lastbils status</div>' +
       '<div>Kunde inte hämta paddans aktuella status.</div>' +
       (note ? '<div class="muted" style="margin-top:6px">' + escapeHtml(note) + '</div>' : '');
   }
   if(!payload){
-    return '<div class="tablet-current-status-v251-title">Aktuell status på paddan</div>' +
+    return '<div class="tablet-current-status-v251-title">Lastbils status</div>' +
       '<div class="muted">Status är inte hämtad än.</div>';
   }
   const updated = formatQueueSyncDateTimeV221(payload.exportedAt || (payload.activeStatusV251 && payload.activeStatusV251.updatedAt) || '');
   const active = getTabletStatusActiveFromPayloadV251(payload);
   if(!active){
     const queueCount = Number(payload.queueCount || (Array.isArray(payload.queue) ? payload.queue.length : 0) || 0);
-    return '<div class="tablet-current-status-v251-title">Aktuell status på paddan</div>' +
+    return '<div class="tablet-current-status-v251-title">Lastbils status</div>' +
       '<div class="tablet-current-status-v251-main">Inget aktivt uppdrag</div>' +
       '<div class="muted">Senast uppdaterad: ' + escapeHtml(updated) + ' · Kö: ' + queueCount + ' uppdrag</div>';
   }
@@ -19916,7 +20011,7 @@ function buildTabletCurrentStatusHtmlV251(payload, note, isError){
   const material = active.materialCode ? escapeHtml(active.materialCode) : '-';
   const loadsTextV252 = Number(active.loadsCount || 0) + ' last';
   const weightTextV252 = getTabletCurrentStatusWeightTextV252(active);
-  return '<div class="tablet-current-status-v251-title">Aktuell status på paddan</div>' +
+  return '<div class="tablet-current-status-v251-title">Lastbils status</div>' +
     '<div><span class="pill pill-type">Aktivt uppdrag</span><span class="pill">' + escapeHtml(phase) + '</span></div>' +
     '<div class="tablet-current-status-v251-main">' + escapeHtml(type) + ' · ' + escapeHtml(from) + (to && to !== '-' ? ' → ' + escapeHtml(to) : '') + '</div>' +
     '<div class="muted">Senast uppdaterad: ' + escapeHtml(updated) + '</div>' +
@@ -20217,7 +20312,7 @@ async function queueSyncUploadTabletStatusV219(options){
   await queueSyncPutJsonFileV219(QUEUE_SYNC_TABLET_STATUS_FILE_V219, payload, 'stadslass v235 sync tablet status');
   saveState();
   renderQueueSyncDetailStatusV223({settings:getQueueSyncSettingsV219(), tabletStatus:payload});
-  setQueueSyncStatusV219('Paddan publicerade köstatus: ' + payload.queueCount + ' uppdrag i kö.', false);
+  setQueueSyncStatusV219(options.activeMirrorV253 ? 'Lastbilsstatus publicerad för spegling.' : ('Paddan publicerade köstatus: ' + payload.queueCount + ' uppdrag i kö.'), false);
   return {uploaded:payload.queueCount};
 }
 
@@ -20360,7 +20455,7 @@ function renderQueueSyncRemoteStatusV219(payload){
     const compareV234 = typeof compareQueueSyncRegisterStatusV234 === 'function' ? compareQueueSyncRegisterStatusV234(payload) : null;
     if(compareV234) registerLineV234 = '<br>' + escapeHtml(compareV234.label || 'Register') + (compareV234.remote && compareV234.remote.hash ? ' · padda ' + escapeHtml(compareV234.remote.hash) : '');
   }catch(e){}
-  el.innerHTML = '<strong>Paddans kö/status</strong><br>' + escapeHtml(active) + '<br>Kö: ' + Number(payload.queueCount || rows.length || 0) + ' uppdrag · Uppdaterad: ' + escapeHtml(formatQueueSyncDateTimeV221(payload.exportedAt || Date.now())) + registerLineV234 + (rows.length ? '<br>' + rows.map(item => '• ' + escapeHtml((item.displayType || item.type || '-') + ' · ' + (item.placeLabel || item.place || '-') + (item.dest || item.destLabel ? ' → ' + (item.destLabel || item.dest) : ''))).join('<br>') : '');
+  el.innerHTML = '<strong>Lastbilsstatus</strong><br>' + escapeHtml(active) + '<br>Kö: ' + Number(payload.queueCount || rows.length || 0) + ' uppdrag · Uppdaterad: ' + escapeHtml(formatQueueSyncDateTimeV221(payload.exportedAt || Date.now())) + registerLineV234 + (rows.length ? '<br>' + rows.map(item => '• ' + escapeHtml((item.displayType || item.type || '-') + ' · ' + (item.placeLabel || item.place || '-') + (item.dest || item.destLabel ? ' → ' + (item.destLabel || item.dest) : ''))).join('<br>') : '');
 }
 
 async function queueSyncFetchTabletStatusV219(silent){
@@ -20374,7 +20469,7 @@ async function queueSyncFetchTabletStatusV219(silent){
     renderQueueSyncRemoteStatusV219(payload);
     const registerCompareV234 = payload && typeof handleQueueSyncRegisterStatusFromTabletV234 === 'function' ? handleQueueSyncRegisterStatusFromTabletV234(payload, silent) : null;
     if(payload && typeof markMobileQueueItemsConfirmedFromTabletStatusV229 === 'function') markMobileQueueItemsConfirmedFromTabletStatusV229(payload);
-    if(!silent) setQueueSyncStatusV219(payload ? (registerCompareV234 && registerCompareV234.status === 'mismatch' ? 'Paddans kö/status hämtad. Register skiljer sig.' : 'Paddans kö/status hämtad.') : 'Ingen paddstatus hittades.', !payload || (registerCompareV234 && registerCompareV234.status === 'mismatch'));
+    if(!silent) setQueueSyncStatusV219(payload ? (registerCompareV234 && registerCompareV234.status === 'mismatch' ? 'Lastbilsstatus hämtad. Register skiljer sig.' : 'Lastbilsstatus hämtad.') : 'Ingen paddstatus hittades.', !payload || (registerCompareV234 && registerCompareV234.status === 'mismatch'));
     return payload;
   }catch(e){
     if(!silent) setQueueSyncStatusV219('Kunde inte hämta paddstatus: ' + (e && e.message ? e.message : e), true);
@@ -20492,7 +20587,7 @@ function createTabletQueueMirrorButtonV243(){
   btn.setAttribute('data-main-tab', 'paddko');
   btn.setAttribute('data-dynamic-v243', 'true');
   btn.onclick = function(){ return openTabletQueueMirrorV238(); };
-  btn.innerHTML = 'Paddans kö (<span id="tabletQueueMirrorCountV238">?</span>)';
+  btn.innerHTML = 'Lastbils status (<span id="tabletQueueMirrorCountV238">?</span>)';
   const todayBtn = mainTabs.querySelector('button[data-main-tab="idag"]');
   if(todayBtn) mainTabs.insertBefore(btn, todayBtn);
   else mainTabs.appendChild(btn);
@@ -20596,15 +20691,15 @@ function renderTabletQueueMirrorV238(payload, note, isError){
   const currentStatusElV251 = document.getElementById('tabletCurrentStatusV251');
   if(!statusEl || !listEl) return;
   if(!isTabletQueueMirrorMobileAllowedV240()){
-    if(currentStatusElV251) renderTabletCurrentStatusV251(null, 'Paddans status visas bara på tillåten läsenhet.', false);
-    statusEl.innerHTML = 'Paddans kö visas bara på mobil/planeringsenhet. Paddan använder den vanliga vyn Uppdrag i kö.';
+    if(currentStatusElV251) renderTabletCurrentStatusV251(null, 'Lastbils status visas bara på tillåten läsenhet.', false);
+    statusEl.innerHTML = 'Lastbils status visas bara på tillåten läsenhet. Paddan använder den vanliga vyn Uppdrag i kö.';
     listEl.innerHTML = '';
     renderTabletQueueMirrorButtonV238();
     return;
   }
   if(!payload){
-    if(currentStatusElV251) renderTabletCurrentStatusV251(null, note || 'Paddans status är inte hämtad än.', isError);
-    statusEl.innerHTML = escapeHtml(note || 'Paddans kö är inte hämtad än.');
+    if(currentStatusElV251) renderTabletCurrentStatusV251(null, note || 'Lastbilens status är inte hämtad än.', isError);
+    statusEl.innerHTML = escapeHtml(note || 'Lastbils status är inte hämtad än.');
     statusEl.classList.toggle('is-error', !!isError);
     statusEl.classList.toggle('is-ok', false);
     listEl.innerHTML = '<div class="muted">Ingen spegling hämtad.</div>';
@@ -20617,10 +20712,10 @@ function renderTabletQueueMirrorV238(payload, note, isError){
   const updated = formatQueueSyncDateTimeV221(payload.exportedAt || '');
   statusEl.classList.toggle('is-error', !!isError);
   statusEl.classList.toggle('is-ok', !isError);
-  statusEl.innerHTML = '<strong>Paddans kö</strong><br>' +
-    (count === null ? '?' : count) + ' uppdrag på paddan · Senast publicerad: ' + escapeHtml(updated) +
+  statusEl.innerHTML = '<strong>Lastbils status</strong><br>' +
+    (count === null ? '?' : count) + ' uppdrag i lastbilens kö · Senast publicerad: ' + escapeHtml(updated) +
     (note ? '<br>' + escapeHtml(note) : '') +
-    '<br><span class="muted">Ren läsning. Mobilen skriver inte till paddans kö och ändrar inte mobilens egen kö.</span>';
+    '<br><span class="muted">Ren läsning. Den här vyn skriver inte till lastbilens kö och ändrar inte den egna kön.</span>';
   if(rows.length){
     const orderedRowsV239 = rows.slice().sort((a,b) => {
       try{ return compareQueuedJobPlanning(a,b); }catch(e){ return 0; }
@@ -20634,7 +20729,7 @@ function renderTabletQueueMirrorV238(payload, note, isError){
     }
     listEl.innerHTML = partsV239.join('');
   } else {
-    listEl.innerHTML = '<div class="muted">Paddans publicerade kö är tom.</div>';
+    listEl.innerHTML = '<div class="muted">Lastbilens publicerade kö är tom.</div>';
   }
   renderTabletQueueMirrorButtonV238();
 }
@@ -20642,16 +20737,16 @@ function renderTabletQueueMirrorV238(payload, note, isError){
 async function refreshTabletQueueMirrorV238(silent){
   const settings = getQueueSyncSettingsV219();
   if(!isTabletQueueMirrorMobileAllowedV240()){
-    renderTabletQueueMirrorV238(null, 'Paddans kö visas bara på mobil/planeringsenhet.', false);
+    renderTabletQueueMirrorV238(null, 'Lastbils status visas bara på tillåten läsenhet.', false);
     return null;
   }
   if(!settings.owner || !settings.repo || !settings.branch || !settings.token){
-    renderTabletQueueMirrorV238(null, 'Kan inte hämta paddans kö: GitHub ägare/repo/branch eller token saknas.', true);
+    renderTabletQueueMirrorV238(null, 'Kan inte hämta Lastbils status: GitHub ägare/repo/branch eller token saknas.', true);
     return null;
   }
   const statusEl = document.getElementById('tabletQueueMirrorStatusV238');
   if(statusEl && !silent){
-    statusEl.innerHTML = 'Hämtar paddans kö från statusfilen...';
+    statusEl.innerHTML = 'Hämtar Lastbils status från statusfilen...';
     statusEl.classList.remove('is-error','is-ok');
   }
   try{
@@ -20668,14 +20763,14 @@ async function refreshTabletQueueMirrorV238(silent){
 function openTabletQueueMirrorV238(){
   if(!isTabletQueueMirrorMobileAllowedV240()){
     renderTabletQueueMirrorButtonV238();
-    alert('Paddans kö visas bara på mobil/planeringsenhet.');
+    alert('Lastbils status visas bara på tillåten läsenhet.');
     showTab('ko');
     return false;
   }
   showTab('paddko');
   const cached = getStoredTabletQueueMirrorStatusV238();
   if(cached) renderTabletQueueMirrorV238(cached, 'Visar senast hämtad spegling medan ny status hämtas.', false);
-  else renderTabletQueueMirrorV238(null, 'Paddans kö är inte hämtad än.', false);
+  else renderTabletQueueMirrorV238(null, 'Lastbils status är inte hämtad än.', false);
   refreshTabletQueueMirrorV238(!!cached);
 }
 
@@ -20790,10 +20885,41 @@ function queueSyncQueueChangedV219(reason){
   }catch(e){}
 }
 
+
+async function queueSyncRunActiveMirrorV253(reason){
+  try{
+    const settings = getQueueSyncSettingsV219();
+    if(!settings.enabled || settings.deviceRole !== 'pad') return {skipped:true, reason:'not-pad-or-disabled'};
+    if(!isQueueSyncConfiguredV219(settings)) return {skipped:true, reason:'not-configured'};
+    if(queueSyncBusyV219) return {skipped:true, reason:'sync-busy'};
+    if(!state.active && reason === 'timer') return {skipped:true, reason:'no-active-job'};
+    queueSyncBusyV219 = true;
+    queueSyncLastActiveMirrorAtV253 = Date.now();
+    const result = await queueSyncUploadTabletStatusV219({silent:true, auto:true, activeMirrorV253:true});
+    return {ok:true, result:result};
+  }catch(e){
+    if(!isQueueSyncTransientAutoErrorV227(e)) setQueueSyncStatusV219('Lastbilsstatus kunde inte publiceras: ' + (e && e.message ? e.message : e), true);
+    return {ok:false, error:e};
+  }finally{
+    queueSyncBusyV219 = false;
+    try{ renderQueueSyncSettingsV219(); }catch(e){}
+  }
+}
+
+function startQueueActiveMirrorSyncV253(settings){
+  if(queueSyncActiveMirrorTimerV253){ clearInterval(queueSyncActiveMirrorTimerV253); queueSyncActiveMirrorTimerV253 = null; }
+  settings = settings || getQueueSyncSettingsV219();
+  if(!settings.enabled || settings.deviceRole !== 'pad') return;
+  queueSyncActiveMirrorTimerV253 = window.setInterval(() => {
+    queueSyncRunActiveMirrorV253('timer');
+  }, QUEUE_SYNC_ACTIVE_MIRROR_INTERVAL_MS_V253);
+}
+
 function stopQueueAutoSyncV219(){
   if(queueSyncTimerV219){ clearInterval(queueSyncTimerV219); queueSyncTimerV219 = null; }
   if(queueSyncQueuedChangeTimerV227){ clearTimeout(queueSyncQueuedChangeTimerV227); queueSyncQueuedChangeTimerV227 = null; }
   if(typeof clearMobileQueueSyncFastConfirmTimerV230 === 'function') clearMobileQueueSyncFastConfirmTimerV230();
+  if(queueSyncActiveMirrorTimerV253){ clearInterval(queueSyncActiveMirrorTimerV253); queueSyncActiveMirrorTimerV253 = null; }
 }
 
 function startQueueAutoSyncV219(){
@@ -20805,6 +20931,7 @@ function startQueueAutoSyncV219(){
   queueSyncTimerV219 = window.setInterval(() => {
     queueSyncRunAutoV227('timer');
   }, QUEUE_SYNC_INTERVAL_MS_V219);
+  if(typeof startQueueActiveMirrorSyncV253 === 'function') startQueueActiveMirrorSyncV253(settings);
 }
 
 // QUEUE AUTO SYNC V219 END
@@ -24334,12 +24461,13 @@ function switchJob(){
 function renderActive(){
   const none = document.getElementById('activeNone');
   const box = document.getElementById('activeBox');
-  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); const activeMapCallCounterEl = document.getElementById('activeMapCallCounter'); if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = ''; renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); renderActiveWeightButtonVisual(); renderActiveAutoMapStatus(); renderDayForecasts(); return; }
+  if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); const activeMapCallCounterEl = document.getElementById('activeMapCallCounter'); if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = ''; if(typeof renderActiveReturnControlV253 === 'function') renderActiveReturnControlV253(); renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); renderActiveWeightButtonVisual(); renderActiveAutoMapStatus(); renderDayForecasts(); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
 
   const isOtherWork = state.active.type === 'Övrig verksamhet';
 
   document.getElementById('activePills').innerHTML = formatActiveOverviewHtml(state.active);
+  if(typeof renderActiveReturnControlV253 === 'function') renderActiveReturnControlV253();
 
   const activeStartPointEl = document.getElementById('activeStartPoint');
   if(activeStartPointEl){
