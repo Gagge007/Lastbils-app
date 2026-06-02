@@ -3,8 +3,9 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v249
+- Nuvarande version: Stadslass 2.0 v250
 - v249: Inställningar organiseras om visuellt med Platsregister först, tydligare kategorier och oförändrade knappfunktioner.
+- v250: Platser får kortindelad layout och enkel öppettidsregel för Till-platsvarning i aktivt uppdrag.
 - v247: Excel månadsrapport får retroaktiv chefsvänlig exportmall: Sammanfattning exkluderar Övrig verksamhet från antal jobb men visar övrigtid/poster, Diagram exkluderar Övrig verksamhet med infotext, Dag för dag saknar sträcka och Detaljer rensas men behåller Kommentar och Angiven vikt i ton.
 - v246: Trippmätarens inmatningsruta flyttas från Idag till Uppdrag i kö utan ändrad sparning, beräkning, GPS, kötruth, historik eller localStorage.
 - v245: Nytt uppdrags datumkalender släpper alltid skroll-/modal-lås vid valt datum, flikbyte och Lägg i kö så bakdaterade köuppdrag kan läggas direkt utan att appen fryser.
@@ -291,7 +292,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v249';
+  const version = 'Stadslass 2.0 v250';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -1365,6 +1366,81 @@ button{
   display:grid;
   grid-template-columns:1fr;
   gap:10px;
+}
+
+/* v250: snyggare kortindelad layout i Platser och öppettidsinställning */
+#tab-settings .place-row-v250{
+  gap:12px;
+  padding:14px;
+}
+.place-section-v250{
+  border:1px solid #e2e8f0;
+  border-radius:16px;
+  background:#f8fafc;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.place-section-v250.place-section-white-v250{
+  background:#fff;
+}
+.place-section-title-v250{
+  font-weight:900;
+  color:#0f172a;
+  font-size:15px;
+  margin-bottom:2px;
+}
+.place-grid-v250{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+@media(min-width:720px){
+  .place-grid-v250{
+    grid-template-columns:1fr 1fr;
+  }
+}
+.place-opening-toggle-v250{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  margin:0 !important;
+  font-weight:900 !important;
+}
+.place-opening-toggle-v250 input{
+  width:24px !important;
+  height:24px !important;
+  margin:0 !important;
+  accent-color:#0f172a;
+}
+.place-opening-fields-v250{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin-top:4px;
+}
+@media(min-width:620px){
+  .place-opening-fields-v250{
+    grid-template-columns:1fr 1fr 1fr;
+  }
+}
+.place-opening-fields-v250.hidden{
+  display:none !important;
+}
+.active-opening-warning-v250{
+  margin-top:10px;
+  border:1px solid #f59e0b;
+  background:#fff7ed;
+  color:#7c2d12;
+  border-radius:16px;
+  padding:12px;
+  font-weight:800;
+}
+.active-opening-warning-v250 .active-estimate-sub{
+  color:#9a3412;
+  font-weight:700;
+  margin-top:4px;
 }
 
 #tab-settings .place-row .danger{
@@ -2473,7 +2549,7 @@ body.other-work-edit-open{
 </style>
 </head>
 <body>
-<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v249</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
+<div id="appSplashScreen"><div id="startupWatchdogStatus" class="startup-watchdog-status"><div class="startup-watchdog-version">Stadslass 2.0 v250</div><div class="startup-watchdog-main">Uppstartskontroll: tidig startvakt laddad</div></div></div>
 <div class="wrap">
   <div class="app-header">
     <h1>Stadslass</h1>
@@ -2871,7 +2947,7 @@ body.other-work-edit-open{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v249</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v250</div>
     <div class="settings-groups settings-groups-v249">
       <div class="settings-group settings-group-v249" data-settings-category-v249="platsregister">
         <h4>Platsregister</h4>
@@ -3783,6 +3859,16 @@ body.other-work-edit-open{
         <div class="multi-help">Du kan skriva vanlig adress eller Plus Code för framtida Google Maps-koppling.</div>
         <textarea id="newManagedPlaceRequirements" placeholder="Platskrav, ett per rad"></textarea>
         <div class="multi-help">Exempel: HJÄLMKRAV, VARSEL, vågrutin, lossning på särskild yta, ring före.</div>
+        <div class="place-section-v250 place-section-white-v250">
+          <div class="place-section-title-v250">Öppettider</div>
+          <label class="place-opening-toggle-v250"><input id="newManagedPlaceOpeningEnabledV250" type="checkbox" onchange="toggleNewPlaceOpeningHoursV250(this.checked)"> Öppettider</label>
+          <div id="newManagedPlaceOpeningFieldsV250" class="place-opening-fields-v250 hidden">
+            <div><label>Öppet från</label><input id="newManagedPlaceOpeningFromV250" type="time" value="07:00"></div>
+            <div><label>Öppet till</label><input id="newManagedPlaceOpeningToV250" type="time" value="15:30"></div>
+            <div><label>Gäller</label><select id="newManagedPlaceOpeningDaysV250"><option value="weekdays">Vardagar</option><option value="all">Alla dagar</option></select></div>
+          </div>
+          <div class="multi-help">Används bara som varning för Till-platsen när beräknad ankomst ligger utanför öppettiden.</div>
+        </div>
         <div>
           <label>Jobbtyper från</label>
           <select id="newManagedPlaceFromJobType" class="jobtype-select-compact" multiple size="3"></select>
@@ -5880,6 +5966,129 @@ function refreshTruckTypesFromState(){
   sortedTruckTypes = [...truckTypes].sort((a, b) => a.localeCompare(b, 'sv-SE'));
 }
 
+
+function normalizeTimeInputV250(value, fallback){
+  const raw = String(value || '').trim();
+  if(/^\d{1,2}:\d{2}$/.test(raw)){
+    const parts = raw.split(':');
+    const h = Number(parts[0]);
+    const m = Number(parts[1]);
+    if(Number.isInteger(h) && Number.isInteger(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59){
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+  }
+  return fallback || '';
+}
+
+function normalizePlaceOpeningHoursMapV250(map){
+  const src = (map && typeof map === 'object' && !Array.isArray(map)) ? map : {};
+  const out = {};
+  Object.keys(src).forEach(key => {
+    const item = src[key];
+    if(!item || typeof item !== 'object' || Array.isArray(item)) return;
+    const enabled = item.enabled === true;
+    const from = normalizeTimeInputV250(item.from || item.openFrom || '', '07:00');
+    const to = normalizeTimeInputV250(item.to || item.openTo || '', '15:30');
+    const days = String(item.days || item.dayMode || '').trim() === 'all' ? 'all' : 'weekdays';
+    if(enabled && from && to) out[key] = {enabled:true, from, to, days};
+  });
+  return out;
+}
+
+function getPlaceOpeningHoursV250(placeKey){
+  const key = String(placeKey || '').trim();
+  if(!key) return {enabled:false, from:'07:00', to:'15:30', days:'weekdays'};
+  if(!state.placeOpeningHours || typeof state.placeOpeningHours !== 'object' || Array.isArray(state.placeOpeningHours)) state.placeOpeningHours = {};
+  const item = state.placeOpeningHours[key] || null;
+  if(!item) return {enabled:false, from:'07:00', to:'15:30', days:'weekdays'};
+  const normalized = normalizePlaceOpeningHoursMapV250({tmp:item}).tmp;
+  return normalized || {enabled:false, from:'07:00', to:'15:30', days:'weekdays'};
+}
+
+function getPlaceOpeningHoursLabelV250(hours){
+  if(!hours || !hours.enabled) return '';
+  return String(hours.from || '') + '–' + String(hours.to || '') + ' ' + (hours.days === 'all' ? 'alla dagar' : 'vardagar');
+}
+
+function isPlaceOpeningHoursEnabledV250(placeKey){
+  const hours = getPlaceOpeningHoursV250(placeKey);
+  return !!(hours && hours.enabled);
+}
+
+function getOpeningMinutesV250(value){
+  const normalized = normalizeTimeInputV250(value, '');
+  if(!normalized) return null;
+  const parts = normalized.split(':');
+  return Number(parts[0]) * 60 + Number(parts[1]);
+}
+
+function isArrivalInsidePlaceOpeningHoursV250(placeKey, arrivalMs){
+  const hours = getPlaceOpeningHoursV250(placeKey);
+  if(!hours.enabled) return {checked:false, open:true, hours};
+  const d = new Date(Number(arrivalMs || 0));
+  if(!Number.isFinite(d.getTime())) return {checked:false, open:true, hours};
+  const day = d.getDay();
+  if(hours.days === 'weekdays' && (day === 0 || day === 6)){
+    return {checked:true, open:false, hours, reason:'closed_day'};
+  }
+  const from = getOpeningMinutesV250(hours.from);
+  const to = getOpeningMinutesV250(hours.to);
+  if(from === null || to === null) return {checked:false, open:true, hours};
+  const current = d.getHours() * 60 + d.getMinutes();
+  const open = to > from ? (current >= from && current <= to) : (current >= from || current <= to);
+  return {checked:true, open, hours, reason:open ? 'open' : 'closed_time'};
+}
+
+function togglePlaceOpeningHoursEditorV250(key, checked){
+  const selectorKey = cssEscapeValue(key);
+  document.querySelectorAll('[data-place-opening-fields-key="' + selectorKey + '"]').forEach(el => {
+    el.classList.toggle('hidden', !checked);
+  });
+}
+
+function toggleNewPlaceOpeningHoursV250(checked){
+  const fields = document.getElementById('newManagedPlaceOpeningFieldsV250');
+  if(fields) fields.classList.toggle('hidden', !checked);
+}
+
+function getOpeningHoursFromContainerV250(root, key){
+  const selectorKey = cssEscapeValue(key);
+  const enabledEl = document.querySelector(root + ' input[data-place-opening-enabled-key="' + selectorKey + '"]');
+  const fromEl = document.querySelector(root + ' input[data-place-opening-from-key="' + selectorKey + '"]');
+  const toEl = document.querySelector(root + ' input[data-place-opening-to-key="' + selectorKey + '"]');
+  const daysEl = document.querySelector(root + ' select[data-place-opening-days-key="' + selectorKey + '"]');
+  const enabled = !!(enabledEl && enabledEl.checked);
+  if(!enabled) return null;
+  const from = normalizeTimeInputV250(fromEl && fromEl.value, '07:00');
+  const to = normalizeTimeInputV250(toEl && toEl.value, '15:30');
+  const days = String(daysEl && daysEl.value || '').trim() === 'all' ? 'all' : 'weekdays';
+  return {enabled:true, from, to, days};
+}
+
+function getNewPlaceOpeningHoursV250(){
+  const enabledEl = document.getElementById('newManagedPlaceOpeningEnabledV250');
+  if(!enabledEl || !enabledEl.checked) return null;
+  return {
+    enabled:true,
+    from:normalizeTimeInputV250(document.getElementById('newManagedPlaceOpeningFromV250') && document.getElementById('newManagedPlaceOpeningFromV250').value, '07:00'),
+    to:normalizeTimeInputV250(document.getElementById('newManagedPlaceOpeningToV250') && document.getElementById('newManagedPlaceOpeningToV250').value, '15:30'),
+    days:String(document.getElementById('newManagedPlaceOpeningDaysV250') && document.getElementById('newManagedPlaceOpeningDaysV250').value || '').trim() === 'all' ? 'all' : 'weekdays'
+  };
+}
+
+function resetNewPlaceOpeningHoursV250(){
+  const enabledEl = document.getElementById('newManagedPlaceOpeningEnabledV250');
+  const fields = document.getElementById('newManagedPlaceOpeningFieldsV250');
+  const fromEl = document.getElementById('newManagedPlaceOpeningFromV250');
+  const toEl = document.getElementById('newManagedPlaceOpeningToV250');
+  const daysEl = document.getElementById('newManagedPlaceOpeningDaysV250');
+  if(enabledEl) enabledEl.checked = false;
+  if(fields) fields.classList.add('hidden');
+  if(fromEl) fromEl.value = '07:00';
+  if(toEl) toEl.value = '15:30';
+  if(daysEl) daysEl.value = 'weekdays';
+}
+
 function normalizeVehicleState(){
   const normalizeItem = item => {
     if(item && item.vehicle === 'maskin'){
@@ -5894,8 +6103,10 @@ function normalizeVehicleState(){
   if(!('placeAddresses' in state)) state.placeAddresses = {};
   if(!state.placeCoordinates || typeof state.placeCoordinates !== 'object' || Array.isArray(state.placeCoordinates)) state.placeCoordinates = {};
   if(!('placeRequirements' in state)) state.placeRequirements = {};
+  if(!('placeOpeningHours' in state)) state.placeOpeningHours = {};
   if(!Array.isArray(state.hiddenPlaces)) state.hiddenPlaces = [];
   state.placeRequirements = normalizeRequirementMap(state.placeRequirements);
+  state.placeOpeningHours = normalizePlaceOpeningHoursMapV250(state.placeOpeningHours);
   if(!('lastWorkPoint' in state)) state.lastWorkPoint = null;
   if(!Array.isArray(state.trash)) state.trash = [];
   if(!state.placeGeofences || typeof state.placeGeofences !== 'object' || Array.isArray(state.placeGeofences)) state.placeGeofences = {};
@@ -6048,8 +6259,10 @@ function loadState(){
       if(!parsed.placeCoordinates || typeof parsed.placeCoordinates !== 'object' || Array.isArray(parsed.placeCoordinates)) parsed.placeCoordinates = {};
       if(!parsed.placeCoordinateInvalidations || typeof parsed.placeCoordinateInvalidations !== 'object' || Array.isArray(parsed.placeCoordinateInvalidations)) parsed.placeCoordinateInvalidations = {};
       if(!('placeRequirements' in parsed)) parsed.placeRequirements = {};
+      if(!('placeOpeningHours' in parsed)) parsed.placeOpeningHours = {};
       if(!Array.isArray(parsed.hiddenPlaces)) parsed.hiddenPlaces = [];
       parsed.placeRequirements = normalizeRequirementMap(parsed.placeRequirements);
+      parsed.placeOpeningHours = normalizePlaceOpeningHoursMapV250(parsed.placeOpeningHours);
       if(!('lastWorkPoint' in parsed)) parsed.lastWorkPoint = null;
       if(!Array.isArray(parsed.trash)) parsed.trash = [];
       if(!Array.isArray(parsed.activeMonitorEndReports)) parsed.activeMonitorEndReports = [];
@@ -6067,7 +6280,7 @@ function loadState(){
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeCoordinates:{}, placeCoordinateInvalidations:{}, placeRequirements:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeGeofences:{}, disabledPlaceGeofences:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), phaseColorSettings:normalizePhaseColorSettings(null), tripMeterV204:{current:null, history:[]}, jobs:[], queue:[], trash:[], activeMonitorEndReports:[]};
+  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeCoordinates:{}, placeCoordinateInvalidations:{}, placeRequirements:{}, placeOpeningHours:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeGeofences:{}, disabledPlaceGeofences:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), phaseColorSettings:normalizePhaseColorSettings(null), tripMeterV204:{current:null, history:[]}, jobs:[], queue:[], trash:[], activeMonitorEndReports:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -7224,6 +7437,46 @@ function getActiveTargetPreviewHtmlV248(job){
   return '';
 }
 
+
+function getActiveToPlaceOpeningArrivalMsV250(job){
+  if(!job || !job.dest || !isTimeEstimateAllowedForJob(job) || !isTransportPhaseTrackingAllowed(job)) return 0;
+  initializeTransportPhaseForJob(job);
+  const phase = getTransportPhase(job);
+  if(phase !== 'loading') return 0;
+  if(Number(job.loadedAt || job.currentLoadStartedAt || 0) <= 0) return 0;
+  if(isActiveToGeofenceWeightPrompt(job)) return 0;
+  const now = Date.now();
+  let remainingMs = 0;
+  try{
+    const endAt = Number(job.estimatedEndAt || 0);
+    if(Number.isFinite(endAt) && endAt > 0){
+      const holdInfo = syncActiveEstimatePreMovementHold(job);
+      const displayEndAt = holdInfo && holdInfo.held ? Number(holdInfo.endAt || 0) : getActiveEstimateDisplayEndAt(job, endAt);
+      const overallDisplayDiff = displayEndAt - now;
+      const diff = getActiveEstimateNextTargetRemainingMsV206(job, overallDisplayDiff);
+      if(Number.isFinite(diff) && diff > 0) remainingMs = diff;
+    }
+  }catch(e){ remainingMs = 0; }
+  if(!remainingMs || remainingMs <= 0){
+    const minutes = getActivePreviewRouteMinutesV248(job, 'outbound');
+    if(minutes > 0) remainingMs = minutes * 60000;
+  }
+  if(!remainingMs || remainingMs <= 0) return 0;
+  return now + remainingMs;
+}
+
+function getActiveToPlaceOpeningWarningHtmlV250(job){
+  const arrivalMs = getActiveToPlaceOpeningArrivalMsV250(job);
+  if(!arrivalMs) return '';
+  const placeKey = job.dest || '';
+  const check = isArrivalInsidePlaceOpeningHoursV250(placeKey, arrivalMs);
+  if(!check || !check.checked || check.open) return '';
+  const toLabel = getItemPlaceLabel(job, 'dest') || job.dest || 'Till-plats';
+  const hoursLabel = getPlaceOpeningHoursLabelV250(check.hours);
+  return '<div class="active-opening-warning-v250">Varning: ' + escapeHtml(toLabel) + ' verkar vara stängt vid beräknad ankomst ' + escapeHtml(clockTime(arrivalMs)) + '.' +
+    '<div class="active-estimate-sub">Öppettid: ' + escapeHtml(hoursLabel || '-') + '.</div></div>';
+}
+
 function getActiveEstimateCountdownHtml(job){
   if(!job) return '';
   const targetPreviewHtmlV248 = getActiveTargetPreviewHtmlV248(job);
@@ -7290,7 +7543,7 @@ function renderActiveEstimateCountdown(){
   }
   // v159: vanlig Aktivt jobb-vy ska inte visa teknisk Platsläge-/Google/Stadslass-status.
   // Den tekniska statusen finns kvar i beräkningslogik, Aktiv övervakning och kontroller.
-  el.innerHTML = html;
+  el.innerHTML = html + getActiveToPlaceOpeningWarningHtmlV250(state.active);
   renderActivePhaseCalculationBottom();
   el.classList.remove('hidden');
   const endAt = Number(state && state.active && state.active.estimatedEndAt || 0);
@@ -10571,8 +10824,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v249';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v249';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v250';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v250';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -10693,6 +10946,7 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v246 Trippmätare i Uppdrag i kö',
   'v248 ETA-visning före transportnedräkning',
   'v249 Inställningar Platsregister först',
+  'v250 Platslayout och öppettidsvarning',
   'v247 Excel månadsrapport chefsmall',
   'v206 Nästa mål visar etapptid',
   'v207 Nedräkning och Framme ca för nästa mål',
@@ -12391,7 +12645,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v249';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v250';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -12605,6 +12859,7 @@ const APP_FEATURE_MANIFEST = [
   {name:'Platsdata-diagnos v185', status:'Läsande diagnos/reparationsunderlag', purpose:'Lagringskontroll kan skapa kopierbar diagnos av sparad platsdata, placeUsage, placeConfigs, jobbtypskopplingar och Från/Till-listor för att hitta varför listor kollapsar på enheten.', changeRule:'Får bara läsa och visa/kopiera rapport. Får inte ändra, rensa, reparera eller spara driftlogg_v4_full, platser, geofence, snabbval, historik, kö, backup/export, GPS, Snap, vikt eller faser.'},
   {name:'Listlogik skyddad mot kollaps v186', status:'Reparation/listskydd', purpose:'Från/Till-listor faller tillbaka till aktiva platser när ofullständiga sparade jobbtypskopplingar annars skulle kollapsa listan. Från annan plats och Till annan plats hålls rollrätt och Annan destination ignoreras.', changeRule:'Får bara påverka listbyggning och rollrätt Annan plats-val. Får inte ändra sparad platsdata, snabbval, GPS, Snap, geofence, vikt, historik, backup/export, GitHub eller localStorage-nyckel.'},
   {name:'Badplatser spärrade från vanliga listor v187', status:'Reparation/listskydd', purpose:'Badplatser får bara visas i Havstångs Från/Till-listor. Vanliga jobbtyper använder fortsatt kollapsskydd och rollrätt Annan plats utan att släppa in badplatser.', changeRule:'Får bara påverka listbyggning/filtrering av badplatsvärden för icke-Havstång. Får inte ändra sparad platsdata, badplatsregistret, Havstångs speciallista, Snap, GPS, geofence, vikt, historik, backup/export, GitHub eller localStorage-nyckel.'},
+  {name:'Platslayout och öppettidsvarning v250', status:'UI-/platsregel', purpose:'Platser visas i tydligare kort och kan få enkla öppettider med Till-platsvarning i aktivt uppdrag. Varningen spärrar aldrig uppdrag och gäller inte returplats.', changeRule:'Får bara påverka platsredigeringens layout, sparad placeOpeningHours-data och läsande varning för Till-plats. Får inte ändra kö, sync, aktiv faslogik, GPS/Snap, vikt, geofencegränser, historik, Excel eller localStorage-nyckel.'},
   {name:'Tydliga jobbtypskryss i Platser v188', status:'UI-/registerfix', purpose:'Platser visar Jobbtyper från och Jobbtyper till som tydliga kryssrutor i stället för små flervalslistor på padda/mobil. Sparningen använder samma placeConfigs/select-värden som tidigare.', changeRule:'Får bara påverka UI och synk mellan kryssrutor och befintliga jobbtypsval i Platser. Får inte ändra datamodell, sparade platskopplingar automatiskt, Nytt jobb-listor, Havstångslogik, 611-regel, Snap, GPS, geofence, vikt, historik, backup/export, snabbval, GitHub eller localStorage-nyckel.'},
   {name:'Kontrollcentral samlad rapport v189', status:'Kontroll-/rapportfunktion', purpose:'Samlar befintliga kontroller och diagnoser i en Kontrollcentral med Testa alla, enskilda Stadslass-knappar och gemensam rapport som kan kopieras, laddas ner som textfil eller skickas via mailflöde.', changeRule:'Får bara läsa befintliga kontroller/rapporter och skapa gemensam rapport. Får inte ändra uppdrag, kö, historik, GPS, geofence, vikt, backup/export, Nytt jobb, platsernas sparade data, GitHub eller localStorage-nyckel.'},
   {name:'Kontrollfix och Platser-styrda listor v190', status:'Kontroll-/listprincipfix', purpose:'Testa alla-knappen ger tydlig tillfällig färgrespons, v188/v189-kontrollerna kalibreras och vanliga Från/Till-listor styrs strikt av Platsernas Jobbtyper från/till-kryss utan standardbreddning. Kontrollcentralen får Från/Till-listkontroll som bara flaggar fel typ av val, inte få eller tomma listor.', changeRule:'Får ändra kontrollklassning, visuell Testa alla-respons och listbyggning för vanliga uppdrag. Får inte ändra sparade platskopplingar, Havstångs speciallogik, 611-regel, uppdrag, kö, historik, GPS, geofence, vikt, backup/export, GitHub eller localStorage-nyckel.'},
@@ -12974,6 +13229,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sträcka i Dagens sammanfattning v203', fn('getTodaySummaryDistanceKmV203') && fn('getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', 'getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', '<span>Sträcka</span>') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203'), 'Idag/Dagens sammanfattning visar en ruta Sträcka för färdiga jobb idag med bästa rimliga värde: Snap om rimlig, annars GPS/sparad/osäker');
   addFunctionCheck(results, 'Nivå 2', 'Trippmätare med numeriskt tangentbord v204', fn('getTodayTripMeterHtmlV204') && fn('renderTodayTripMeterV204') && fn('setTripMeterValueV204') && fn('updateTripMeterResultsV204') && src('getTodayTripMeterHtmlV204', 'inputmode=\"decimal\"') && src('getTodayTripMeterHtmlV204', 'Skillnad') && !!el('todayTripMeterBox') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare med numeriskt tangentbord v204'), 'Trippmätaren har start/slut km, numeriskt tangentbord, tripp och skillnad mot Stadslass Sträcka');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser spärrade från vanliga listor v187', fn('sanitizeJobTypePlaceValuesV187') && fn('listHasBeachPlaceV187') && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång');
+  addFunctionCheck(results, 'Nivå 2', 'Platslayout och öppettidsvarning v250', typeof getPlaceOpeningHoursV250 === 'function' && typeof getActiveToPlaceOpeningWarningHtmlV250 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'place-section-v250') && functionSourceIncludes('buildPlaceManagerRow', 'data-place-opening-enabled-key') && functionSourceIncludes('getActiveToPlaceOpeningWarningHtmlV250', 'job.dest') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslayout och öppettidsvarning v250'), 'Platser har kortlayout och öppettidsvarning används bara mot Till-plats');
   addFunctionCheck(results, 'Nivå 2', 'Tydliga jobbtypskryss i Platser v188', fn('buildJobTypeCheckboxPanelForSelectV188') && fn('renderPlaceJobTypeCheckboxPanelsV188') && fn('placeJobTypeCheckboxUiIsReadyV188') && src('buildPlaceManagerRow', 'buildJobTypeCheckboxPanelForSelectV188') && src('buildJobTypeCheckboxPanelForSelectV188', 'jobtype-checkbox-panel-v188') && src('clearSelectedValues', 'syncJobTypeCheckboxPanelFromSelectV188') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tydliga jobbtypskryss i Platser v188'), 'Platser har kryssrute-UI för Jobbtyper från/till och sparar via befintliga select/placeConfigs-värden');
   addFunctionCheck(results, 'Nivå 2', 'Kontrollcentral samlad rapport v189', checkControlCenterCoreV191(), 'Kontrollcentralen samlar grundsektioner och djupkontroll i gemensam rapport utan att ändra appdata');
   addFunctionCheck(results, 'Nivå 2', 'Friare Nytt jobb v75 finns', !!el('newReturnRequired') && !!el('newMultiLoad') && !!el('editQueueReturnRequired') && !!el('editQueueMultiLoad') && fn('getFreeDestinationValuesWithStandardFirst') && fn('getStandardDestinationForJobType') && fn('handleNewJobFlagToggle') && fn('handleEditQueueFlagToggle') && src('updateNewJobPlaceSelects', 'getFreeDestinationValuesWithStandardFirst') && src('startManualJob', 'returnRequiredChoice') && src('addManualJobToQueue', 'multiLoadChoice'), 'Nytt jobb har fri Till-lista, Platser-styrda val, Returkrav och Flerlass');
@@ -13270,6 +13526,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v204: Idag har separat trippmätare med start/slut km, numeriskt tangentbord, sparade kompletta dagar och skillnad mot Stadslass Sträcka.');
   lines.push('v205: Trippmätaren visades tidigare före Dagens sammanfattning i Idag. v246 flyttar inmatningen till Uppdrag i kö utan ändrad beräkning.');
   lines.push('v249: Inställningar organiseras visuellt med Platsregister först och tydligare kategorier.');
+  lines.push('v250: Platser får kortindelad layout och enkel öppettidsregel som varnar för Till-platsen vid ankomst utanför öppettid.');
   lines.push('v248: ETA visar Tid till nästa mål direkt efter Lastad/vikt men håller nedräkning/Klar ca tills transport-/returläge.');
   lines.push('v247: Excel månadsrapport får retroaktiv chefsmall med ny Sammanfattning, ÖV-exkluderat Diagram, Dag för dag utan Sträcka och rensade Detaljer.');
   lines.push('v206: Aktiv Uppskattad tid visar nästa mål med nästa etapps tid medan Klar ca behåller helslut.');
@@ -13870,6 +14127,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Trippmätare i Uppdrag i kö v246', !!document.getElementById('todayTripMeterBox') && !!document.getElementById('tab-ko') && !!document.getElementById('tab-idag') && document.getElementById('tab-ko').contains(document.getElementById('todayTripMeterBox')) && !document.getElementById('tab-idag').contains(document.getElementById('todayTripMeterBox')) && !!document.getElementById('queueList') && !!(document.getElementById('todayTripMeterBox').compareDocumentPosition(document.getElementById('queueList')) & Node.DOCUMENT_POSITION_FOLLOWING) && functionSourceIncludes('renderQueue', 'renderTodayTripMeterV204') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare i Uppdrag i kö v246'), 'Trippmätarens inmatning visas i Uppdrag i kö före kölistan utan ändrad beräkning'),
     systemCheck('Excel månadsrapport chefsmall v247', typeof getOtherWorkPostCountV247 === 'function' && typeof getExcelDiagramJobsV247 === 'function' && functionSourceIncludes('buildExcelWorkbookXml', 'Antal jobb exkl. Övrig verksamhet') && functionSourceIncludes('buildExcelWorkbookXml', 'Övrig verksamhet tid timmar') && functionSourceIncludes('buildExcelWorkbookXml', 'Diagrammen visar uppdrag exklusive Övrig verksamhet') && functionSourceIncludes('buildExcelWorkbookXml', 'Angiven vikt i ton') && !functionSourceIncludes('buildExcelWorkbookXml', 'Fordon') && !functionSourceIncludes('buildExcelWorkbookXml', 'Viktroll') && !functionSourceIncludes('buildExcelWorkbookXml', 'Sammanställningsvikt ton') && APP_FEATURE_MANIFEST.some(item => item.name === 'Excel månadsrapport chefsmall v247'), 'Excel-exportens blad följer v247-mallen utan att ändra historik eller sparad data'),
     systemCheck('ETA-visning före transportnedräkning v248', typeof getActiveTargetPreviewHtmlV248 === 'function' && typeof getActivePreviewRouteMinutesV248 === 'function' && typeof isActiveStillAtToPlaceBeforeReturnV248 === 'function' && functionSourceIncludes('getActiveEstimateCountdownHtml', 'targetPreviewHtmlV248') && functionSourceIncludes('getActiveTargetPreviewHtmlV248', "visualLabel !== 'Transport pågår'") && APP_FEATURE_MANIFEST.some(item => item.name === 'ETA-visning före transportnedräkning v248'), 'Tid till nästa mål visas direkt efter Lastad/vikt, men aktiv nedräkning hålls tills transport-/returläge'),
+    systemCheck('Platslayout och öppettidsvarning v250', typeof getPlaceOpeningHoursV250 === 'function' && typeof getActiveToPlaceOpeningWarningHtmlV250 === 'function' && typeof normalizePlaceOpeningHoursMapV250 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'place-section-v250') && functionSourceIncludes('buildPlaceManagerRow', 'data-place-opening-enabled-key') && functionSourceIncludes('getActiveToPlaceOpeningWarningHtmlV250', 'job.dest') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslayout och öppettidsvarning v250'), 'Platser har kortlayout och öppettidsregel som varnar för Till-plats utanför öppettid'),
     systemCheck('Inställningar Platsregister först v249', !!document.querySelector('[data-settings-category-v249="platsregister"]') && document.querySelector('[data-settings-category-v249="platsregister"] h4') && document.querySelector('[data-settings-category-v249="platsregister"] h4').textContent.trim() === 'Platsregister' && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="togglePlaceManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleJobTypeManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleQuickManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleMachineManager()"]') && !!document.querySelector('[data-settings-category-v249="platsregister"] button[onclick="toggleGeofenceManager()"]') && APP_FEATURE_MANIFEST.some(item => item.name === 'Inställningar Platsregister först v249'), 'Inställningar har Platsregister först och använder samma befintliga registerknappar'),
     systemCheck('Nästa mål visar etapptid v206', typeof getActiveEstimateNextTargetRemainingMsV206 === 'function' && functionSourceIncludes('getActiveEstimateCountdownHtml', 'getActiveEstimateNextTargetRemainingMsV206(job, overallDisplayDiff)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nästa mål visar etapptid v206'), 'Tid till visar nästa etapp och Klar ca behåller helslut'),
     systemCheck('Nedräkning och Framme ca för nästa mål v207', functionSourceIncludes('getActiveMultiLoadEstimateCountdownHtml', 'formatActiveEstimateKlarCaHtml') && functionSourceIncludes('getActiveMultiLoadEstimateCountdownHtml', 'Framme ca') && functionSourceIncludes('getActiveMultiLoadEstimateCountdownHtml', 'getActiveEstimateNextTargetRemainingMsV206(job, remainingMs)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Nedräkning och Framme ca för nästa mål v207'), 'transportläge visar nedräkning och Framme ca för nästa mål'),
@@ -18063,7 +18321,7 @@ const BACKUP2_RECEIPT_STORAGE_KEY = 'stadslass_receipts_temp';
 
 function getBackupPartDefinitions(){
   return [
-    {id:'places', label:'Platser och platsinställningar', group:'Struktur', defaultPreset:true, stateKeys:['placeLabels','placeAddresses','placeCoordinates','placeCoordinateInvalidations','placeRequirements','hiddenPlaces','customPlaces','placeConfigs','placeUsage']},
+    {id:'places', label:'Platser och platsinställningar', group:'Struktur', defaultPreset:true, stateKeys:['placeLabels','placeAddresses','placeCoordinates','placeCoordinateInvalidations','placeRequirements','placeOpeningHours','hiddenPlaces','customPlaces','placeConfigs','placeUsage']},
     {id:'geofences', label:'Geofence', group:'Struktur', defaultPreset:true, stateKeys:['placeGeofences','disabledPlaceGeofences']},
     {id:'jobTypes', label:'Jobbtyper och materialregler', group:'Struktur', defaultPreset:true, stateKeys:['jobTypes','jobTypeMeta']},
     {id:'quickItems', label:'Snabbval', group:'Struktur', defaultPreset:true, stateKeys:['quickItems']},
@@ -19092,6 +19350,7 @@ function getQueueSyncRegisterSnapshotV234(){
       placeCoordinates: stableRegisterValueV234(s.placeCoordinates || {}),
       placeCoordinateInvalidations: stableRegisterValueV234(s.placeCoordinateInvalidations || {}),
       placeRequirements: stableRegisterValueV234(s.placeRequirements || {}),
+      placeOpeningHours: stableRegisterValueV234(s.placeOpeningHours || {}),
       hiddenPlaces: sortRegisterStringArrayV234(s.hiddenPlaces || []),
       customPlaces: sortRegisterArrayByKeyV234(s.customPlaces || []),
       placeConfigs: stableRegisterValueV234(s.placeConfigs || {}),
@@ -19144,6 +19403,7 @@ function getQueueSyncRegisterCountsV234(){
     quickItems: Array.isArray(state && state.quickItems) ? state.quickItems.length : 0,
     machines: Array.isArray(state && state.machines) ? state.machines.length : 0,
     placeConfigs: countObjectKeysRegisterV234(state && state.placeConfigs),
+    placeOpeningHours: countObjectKeysRegisterV234(state && state.placeOpeningHours),
     jobTypeMeta: countObjectKeysRegisterV234(state && state.jobTypeMeta)
   };
 }
@@ -19276,6 +19536,7 @@ function applyQueueSyncRegisterSnapshotV235(snapshot){
   state.placeCoordinates = stableRegisterValueV234(places.placeCoordinates || {});
   state.placeCoordinateInvalidations = stableRegisterValueV234(places.placeCoordinateInvalidations || {});
   state.placeRequirements = typeof normalizeRequirementMap === 'function' ? normalizeRequirementMap(stableRegisterValueV234(places.placeRequirements || {})) : stableRegisterValueV234(places.placeRequirements || {});
+  state.placeOpeningHours = typeof normalizePlaceOpeningHoursMapV250 === 'function' ? normalizePlaceOpeningHoursMapV250(stableRegisterValueV234(places.placeOpeningHours || {})) : stableRegisterValueV234(places.placeOpeningHours || {});
   state.hiddenPlaces = Array.isArray(places.hiddenPlaces) ? places.hiddenPlaces.map(item => String(item || '').trim()).filter(Boolean) : [];
   state.customPlaces = Array.isArray(places.customPlaces) ? stableRegisterValueV234(places.customPlaces) : [];
   state.placeConfigs = stableRegisterValueV234(places.placeConfigs || {});
@@ -28409,6 +28670,7 @@ function addManagedPlace(){
   const fromJobEl = document.getElementById('newManagedPlaceFromJobType');
   const toJobEl = document.getElementById('newManagedPlaceToJobType');
   const requirementsEl = document.getElementById('newManagedPlaceRequirements');
+  const openingHoursV250 = getNewPlaceOpeningHoursV250();
 
   const label = (nameEl.value || '').trim();
   const address = addressEl ? (addressEl.value || '').trim() : '';
@@ -28440,10 +28702,15 @@ function addManagedPlace(){
     if(!state.placeRequirements) state.placeRequirements = {};
     state.placeRequirements[key] = requirements;
   }
+  if(openingHoursV250){
+    if(!state.placeOpeningHours) state.placeOpeningHours = {};
+    state.placeOpeningHours[key] = openingHoursV250;
+  }
 
   nameEl.value = '';
   if(addressEl) addressEl.value = '';
   if(requirementsEl) requirementsEl.value = '';
+  resetNewPlaceOpeningHoursV250();
   clearSelectedValues(fromJobEl);
   clearSelectedValues(toJobEl);
   if(typeof renderPlaceJobTypeCheckboxPanelsV188 === 'function') renderPlaceJobTypeCheckboxPanelsV188();
@@ -28465,6 +28732,7 @@ function saveSinglePlaceFromManagerContainer(key, containerSelector){
   if(!state.placeLabels || typeof state.placeLabels !== 'object' || Array.isArray(state.placeLabels)) state.placeLabels = {};
   if(!state.placeAddresses || typeof state.placeAddresses !== 'object' || Array.isArray(state.placeAddresses)) state.placeAddresses = {};
   if(!state.placeRequirements || typeof state.placeRequirements !== 'object' || Array.isArray(state.placeRequirements)) state.placeRequirements = {};
+  if(!state.placeOpeningHours || typeof state.placeOpeningHours !== 'object' || Array.isArray(state.placeOpeningHours)) state.placeOpeningHours = {};
   if(!state.placeConfigs || typeof state.placeConfigs !== 'object' || Array.isArray(state.placeConfigs)) state.placeConfigs = {};
 
   const root = containerSelector || '#placeManagerList';
@@ -28473,6 +28741,7 @@ function saveSinglePlaceFromManagerContainer(key, containerSelector){
   const requirementsInput = document.querySelector(root + ' textarea[data-place-requirements-key="' + cssEscapeValue(key) + '"]');
   const fromSelect = document.querySelector(root + ' select[data-place-from-job-key="' + cssEscapeValue(key) + '"]');
   const toSelect = document.querySelector(root + ' select[data-place-to-job-key="' + cssEscapeValue(key) + '"]');
+  const openingHoursV250 = getOpeningHoursFromContainerV250(root, key);
   const custom = getCustomPlaceByKey(key);
   const oldAddressForCoordinateGuard = addressInput ? getPlaceAddress(key) : '';
 
@@ -28504,6 +28773,12 @@ function saveSinglePlaceFromManagerContainer(key, containerSelector){
     } else {
       delete state.placeRequirements[key];
     }
+  }
+
+  if(openingHoursV250){
+    state.placeOpeningHours[key] = openingHoursV250;
+  } else if(state.placeOpeningHours && state.placeOpeningHours[key]){
+    delete state.placeOpeningHours[key];
   }
 
   const fromJobTypes = getSelectedValues(fromSelect);
@@ -28593,6 +28868,9 @@ function removeManagedPlace(key){
   }
   if(state.placeRequirements && state.placeRequirements[key]){
     delete state.placeRequirements[key];
+  }
+  if(state.placeOpeningHours && state.placeOpeningHours[key]){
+    delete state.placeOpeningHours[key];
   }
   if(state.placeLabels && state.placeLabels[key]){
     delete state.placeLabels[key];
@@ -28686,46 +28964,102 @@ function placeJobTypeCheckboxUiIsReadyV188(){
 function buildPlaceManagerRow(entry, options){
   const opts = options || {};
   const row = document.createElement('div');
-  row.className = 'place-row';
+  row.className = 'place-row place-row-v250';
   row.id = settingsNavTargetId(opts.rowPrefix || 'place', entry.key);
   row.setAttribute('data-settings-nav-row', 'true');
 
-  const label = document.createElement('div');
-  label.className = 'place-key';
-  label.textContent = entry.custom ? getPlaceLabel(entry.key) : entry.key;
+  const title = document.createElement('div');
+  title.className = 'place-key';
+  title.textContent = entry.custom ? getPlaceLabel(entry.key) : entry.key;
+  row.appendChild(title);
 
+  const basicSection = document.createElement('div');
+  basicSection.className = 'place-section-v250';
+  basicSection.innerHTML = '<div class="place-section-title-v250">Grunduppgifter</div>';
+  const basicGrid = document.createElement('div');
+  basicGrid.className = 'place-grid-v250';
+
+  const nameWrap = document.createElement('div');
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Platsnamn';
   const input = document.createElement('input');
   input.value = getPlaceLabel(entry.key);
   input.setAttribute('data-place-key', entry.key);
   input.placeholder = 'Visningsnamn';
+  nameWrap.appendChild(nameLabel);
+  nameWrap.appendChild(input);
 
+  const addressWrap = document.createElement('div');
+  const addressLabel = document.createElement('label');
+  addressLabel.textContent = 'Adress / Plus Code';
   const addressInput = document.createElement('input');
   addressInput.value = getPlaceAddress(entry.key);
   addressInput.setAttribute('data-place-address-key', entry.key);
   addressInput.placeholder = 'Adress eller Plus Code';
+  addressWrap.appendChild(addressLabel);
+  addressWrap.appendChild(addressInput);
 
+  basicGrid.appendChild(nameWrap);
+  basicGrid.appendChild(addressWrap);
+  basicSection.appendChild(basicGrid);
   const mapInfo = document.createElement('div');
   mapInfo.className = 'multi-help';
   mapInfo.textContent = getPlaceMapStatusText(entry.key);
+  basicSection.appendChild(mapInfo);
+  row.appendChild(basicSection);
 
-  const requirementsLabel = document.createElement('label');
-  requirementsLabel.textContent = 'Platskrav';
-
+  const requirementsSection = document.createElement('div');
+  requirementsSection.className = 'place-section-v250 place-section-white-v250';
+  requirementsSection.innerHTML = '<div class="place-section-title-v250">Platskrav</div>';
   const requirementsInput = document.createElement('textarea');
   requirementsInput.value = getPlaceRequirements(entry.key).join('\n');
   requirementsInput.setAttribute('data-place-requirements-key', entry.key);
   requirementsInput.placeholder = 'Platskrav, ett per rad';
-
+  requirementsSection.appendChild(requirementsInput);
   const requirementsHelp = document.createElement('div');
   requirementsHelp.className = 'multi-help';
   requirementsHelp.textContent = opts.requirementsHelp || 'Krav som följer platsen/anläggningen, till exempel hjälm, varsel, vågrutin, lossningsplats eller ring före.';
+  requirementsSection.appendChild(requirementsHelp);
+  row.appendChild(requirementsSection);
+
+  const openingSection = document.createElement('div');
+  openingSection.className = 'place-section-v250 place-section-white-v250';
+  openingSection.innerHTML = '<div class="place-section-title-v250">Öppettider</div>';
+  const hours = getPlaceOpeningHoursV250(entry.key);
+  const openingLabel = document.createElement('label');
+  openingLabel.className = 'place-opening-toggle-v250';
+  const openingBox = document.createElement('input');
+  openingBox.type = 'checkbox';
+  openingBox.checked = !!hours.enabled;
+  openingBox.setAttribute('data-place-opening-enabled-key', entry.key);
+  openingBox.addEventListener('change', () => togglePlaceOpeningHoursEditorV250(entry.key, openingBox.checked));
+  const openingText = document.createElement('span');
+  openingText.textContent = 'Öppettider';
+  openingLabel.appendChild(openingBox);
+  openingLabel.appendChild(openingText);
+  openingSection.appendChild(openingLabel);
+  const fields = document.createElement('div');
+  fields.className = 'place-opening-fields-v250' + (hours.enabled ? '' : ' hidden');
+  fields.setAttribute('data-place-opening-fields-key', entry.key);
+  fields.innerHTML =
+    '<div><label>Öppet från</label><input type="time" data-place-opening-from-key="' + escapeHtml(entry.key) + '" value="' + escapeHtml(hours.from || '07:00') + '"></div>' +
+    '<div><label>Öppet till</label><input type="time" data-place-opening-to-key="' + escapeHtml(entry.key) + '" value="' + escapeHtml(hours.to || '15:30') + '"></div>' +
+    '<div><label>Gäller</label><select data-place-opening-days-key="' + escapeHtml(entry.key) + '"><option value="weekdays"' + (hours.days === 'all' ? '' : ' selected') + '>Vardagar</option><option value="all"' + (hours.days === 'all' ? ' selected' : '') + '>Alla dagar</option></select></div>';
+  openingSection.appendChild(fields);
+  const openingHelp = document.createElement('div');
+  openingHelp.className = 'multi-help';
+  openingHelp.textContent = 'Varnar bara när platsen är Till-plats och beräknad ankomst ligger utanför öppettiden. Returplats kontrolleras inte.';
+  openingSection.appendChild(openingHelp);
+  row.appendChild(openingSection);
 
   const meta = document.createElement('div');
   meta.className = 'place-meta';
 
   const buildJobTypeSelect = (labelText, dataAttr, selectedTypes, helpText) => {
     const wrap = document.createElement('div');
-    const labelEl = document.createElement('label');
+    wrap.className = 'place-section-v250';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'place-section-title-v250';
     labelEl.textContent = labelText;
     const select = document.createElement('select');
     select.setAttribute(dataAttr, entry.key);
@@ -28752,6 +29086,7 @@ function buildPlaceManagerRow(entry, options){
 
   meta.appendChild(buildJobTypeSelect('Jobbtyper från', 'data-place-from-job-key', getPlaceJobTypesForDirection(entry.key, 'from'), opts.fromHelp || 'Välj vilka jobbtyper som får hämtas/starta från platsen.'));
   meta.appendChild(buildJobTypeSelect('Jobbtyper till', 'data-place-to-job-key', getPlaceJobTypesForDirection(entry.key, 'to'), opts.toHelp || 'Välj vilka jobbtyper som får köras/lämnas till platsen.'));
+  row.appendChild(meta);
 
   const actions = document.createElement('div');
   actions.className = 'row';
@@ -28759,19 +29094,10 @@ function buildPlaceManagerRow(entry, options){
   actions.style.alignItems = 'center';
   const saveFunctionName = opts.saveFunctionName || 'saveSingleManagedPlace';
   actions.innerHTML = '<button class="primary inline" onclick="'+saveFunctionName+'(\''+escapeJsSingle(entry.key)+'\')">Spara</button><button class="danger inline" onclick="removeManagedPlace(\''+escapeJsSingle(entry.key)+'\')">Ta bort</button>';
-  meta.appendChild(actions);
+  row.appendChild(actions);
 
-  row.appendChild(label);
-  row.appendChild(input);
-  row.appendChild(addressInput);
-  row.appendChild(mapInfo);
-  row.appendChild(requirementsLabel);
-  row.appendChild(requirementsInput);
-  row.appendChild(requirementsHelp);
-  row.appendChild(meta);
   return row;
 }
-
 function renderBeachPlaceManager(){
   const listEl = document.getElementById('beachPlaceManagerList');
   if(!listEl) return;
@@ -28820,6 +29146,7 @@ function saveManagedPlaces(){
   const nextConfigs = {};
   const nextAddresses = {};
   const nextPlaceRequirements = {};
+  const nextPlaceOpeningHours = {};
   const updatedCustomPlaces = (state.customPlaces || []).map(p => ({...p}));
 
   labelInputs.forEach(input => {
@@ -28852,6 +29179,13 @@ function saveManagedPlaces(){
     }
   });
 
+  const openingEnabledInputsV250 = document.querySelectorAll('#placeManagerList input[data-place-opening-enabled-key]');
+  openingEnabledInputsV250.forEach(input => {
+    const key = input.getAttribute('data-place-opening-enabled-key');
+    const opening = getOpeningHoursFromContainerV250('#placeManagerList', key);
+    if(opening) nextPlaceOpeningHours[key] = opening;
+  });
+
   const fromJobSelects = document.querySelectorAll('#placeManagerList select[data-place-from-job-key]');
   fromJobSelects.forEach(select => {
     const key = select.getAttribute('data-place-from-job-key');
@@ -28882,6 +29216,7 @@ function saveManagedPlaces(){
     if(state.placeLabels && state.placeLabels[key]) nextLabels[key] = state.placeLabels[key];
     if(state.placeAddresses && state.placeAddresses[key]) nextAddresses[key] = state.placeAddresses[key];
     if(state.placeRequirements && state.placeRequirements[key]) nextPlaceRequirements[key] = state.placeRequirements[key];
+    if(state.placeOpeningHours && state.placeOpeningHours[key]) nextPlaceOpeningHours[key] = state.placeOpeningHours[key];
     if(state.placeConfigs && state.placeConfigs[key]) nextConfigs[key] = state.placeConfigs[key];
   });
 
@@ -28893,6 +29228,7 @@ function saveManagedPlaces(){
   state.placeLabels = nextLabels;
   state.placeAddresses = nextAddresses;
   state.placeRequirements = nextPlaceRequirements;
+  state.placeOpeningHours = nextPlaceOpeningHours;
   state.placeConfigs = nextConfigs;
   state.placeUsage = nextUsage;
   state.customPlaces = updatedCustomPlaces;
