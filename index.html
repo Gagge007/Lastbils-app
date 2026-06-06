@@ -3,9 +3,10 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v289
+- Nuvarande version: Stadslass 2.0 v290
 - v284: Inställningar får en datoranpassad översikt i Datorläge med roll, sync-/Google-nyckelstatus, paddkontakt, registerstatus, uppdragsräknare, Synka nu och lokal rensning.
 - v285: Datorläge delar Inställningar i enkel datorpanel och Avancerade inställningar; tekniska registerdelar ligger bakom en knapp i datorläge medan padda-läge är oförändrat.
+- v290: Nytt uppdrag visar Returplats när retur är aktivt. Standard är Från-plats, alternativ styrs av Kan väljas som returplats och Havstång behåller badplats-undantag.
 - v289: Platser får kryssrutan Kan väljas som returplats för vanliga alternativa Returplatser. Standardretur är fortsatt Från-plats och Havstång/badplatser begränsas inte av kryssrutan.
 - v288: Datorläge byter Lastbils status till 189 status och Uppdatera spegling till Uppdatera status; aktivt jobb/status visar Uppdragets väg med Returplats i stället för enkel Returkrav-ruta.
 - v287: Datorläge visar bara uppdrag som väntar på/ligger i 189:s kö; startade/färdiga 189-uppdrag döljs från Uppdrag till 189. Paddans publicerade kö/status sorterar Akut jobb överst.
@@ -330,7 +331,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v289';
+  const version = 'Stadslass 2.0 v290';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -2803,6 +2804,51 @@ button.active-overview-return-toggle-v264:active{
   .active-overview-item strong{font-size:18px;}
 }
 
+/* v290: Returplatsval i Nytt uppdrag */
+.return-place-card-v290{
+  border:1px solid #fed7aa;
+  border-radius:16px;
+  background:#fff7ed;
+  padding:12px;
+  margin-top:10px;
+  box-sizing:border-box;
+}
+.return-place-card-v290 label{
+  margin-top:0;
+}
+.return-route-preview-v290{
+  border:1px solid #fde68a;
+  border-radius:14px;
+  background:#fffbeb;
+  padding:10px 12px;
+  margin-top:10px;
+  font-size:14px;
+  line-height:1.25;
+}
+.return-route-title-v290{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:#92400e;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.return-route-row-v290{
+  display:grid;
+  grid-template-columns:minmax(86px,auto) 1fr;
+  gap:8px;
+  margin-top:4px;
+}
+.return-route-row-v290 span{
+  font-weight:900;
+  color:#64748b;
+}
+.return-route-row-v290 strong{
+  font-weight:900;
+  color:var(--text);
+  overflow-wrap:anywhere;
+}
+
 
 /* TEMP RECEIPT IMPORT MODULE START */
 .phase-color-settings{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px;min-width:0}
@@ -3340,6 +3386,12 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="newReturnRequired" type="checkbox" style="width:auto" onchange="handleNewJobFlagToggle('return')"> Returkrav</label>
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="newMultiLoad" type="checkbox" style="width:auto" onchange="handleNewJobFlagToggle('multi')"> Flerlass</label>
     </div>
+    <div id="newReturnPlaceWrapV290" class="return-place-card-v290 hidden">
+      <label>Returplats</label>
+      <select id="newReturnPlaceV290" onchange="handleNewReturnPlaceManualChangeV290()"></select>
+      <div class="multi-help">Standard är Från-plats. Alternativa Returplatser styrs från Inställningar → Platser. Havstång kan även använda badplatser i sitt isolerade flöde.</div>
+      <div id="newReturnRoutePreviewV290" class="return-route-preview-v290"></div>
+    </div>
     <div class="new-job-date-block">
       <label>Datum för att utföra</label>
       <input id="newPlannedDate" type="hidden">
@@ -3594,7 +3646,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v289</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v290</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -9761,6 +9813,7 @@ function setNewJobFlagDefaultsFromType(){
   const multiLoad = !returnRequired && getJobTypeMultiLoad(type);
   returnEl.checked = returnRequired;
   multiEl.checked = multiLoad;
+  if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(true);
 }
 
 function handleNewJobFlagToggle(mode){
@@ -9769,6 +9822,8 @@ function handleNewJobFlagToggle(mode){
   if(!returnEl || !multiEl) return;
   if(mode === 'return' && returnEl.checked) multiEl.checked = false;
   if(mode === 'multi' && multiEl.checked) returnEl.checked = false;
+  if(mode === 'return' && typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(true);
+  else if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(false);
 }
 
 function getNewJobReturnRequiredChoice(){
@@ -10341,6 +10396,7 @@ function clearTemporaryOtherPlaceFieldsV175(context, role){
 function resetNewTemporaryOtherPlaceFieldsV175(){
   ['from','to'].forEach(role => clearTemporaryOtherPlaceFieldsV175('new', role));
   updateTemporaryOtherPlaceUIV175('new');
+  if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(false);
 }
 
 function buildTemporaryOtherPlaceLabelV175(role, name, reference){
@@ -11504,6 +11560,7 @@ function updateNewJobPlaceSelects(preserveValues){
     }
   }
   updateTemporaryOtherPlaceUIV175('new');
+  if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(false);
 }
 
 function ensureSelectHasOption(idName, value, label){
@@ -11991,8 +12048,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v289';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v289';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v290';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v290';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -12118,6 +12175,7 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v253 Returkrav i aktivt jobb och Lastbils status-sync',
   'v256 Klar ca i Lastbils status från aktiv ETA-visning',
   'v260 Trippmätare i Idag-spegling',
+  'v290 Returplatsval i Nytt uppdrag',
   'v289 Returplatsinställning i Platser',
   'v288 Returplatsvisning och 189 status-språk',
   'v286 Datorläge 189-språk, grå funktionsknappar och akut köordning',
@@ -13849,7 +13907,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v289';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v290';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -13874,6 +13932,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Returplatsval i Nytt uppdrag v290', status:'Nytt uppdrag/returplats', purpose:'När Returkrav är valt visas Returplats och Uppdragets väg i Nytt uppdrag. Standardretur är Från-plats, alternativa Returplatser styrs av Kan väljas som returplats och Havstång behåller badplats-undantag.', changeRule:'Får bara lägga till val, spara och visa Returplats på nya/queue-startade uppdrag. Får inte ändra faktisk ETA, GPS/inlärning, aktivt arbetsflöde, syncens grundlogik, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
   {name:'Returplatsinställning i Platser v289', status:'Platsregister/returplats', purpose:'Inställningar → Platser får kryssrutan Kan väljas som returplats för vanliga alternativa Returplatser. Standardretur är fortfarande Från-plats och badplatser kan användas som Returplats i Havstång utan kryss.', changeRule:'Får bara lägga till/spara platsens returplatsgodkännande och registerpaketfält. Får inte ändra faktisk returflödeslogik, ETA, GPS/inlärning, syncens kötruth, aktivt jobb, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
   {name:'Returplatsvisning och 189 status-språk v288', status:'Aktivt jobb/Datorläge/UX', purpose:'Datorläge visar 189 status och Uppdatera status i stället för Lastbils status/Uppdatera spegling. Aktivt jobb och 189 status visar Uppdragets väg med Från, Till och Returplats i stället för bara Returkrav: Ja.', changeRule:'Får bara ändra synlig text och visning av befintlig returinformation. Får inte ändra returplatslogik, aktivt jobb, sync, kötruth, historik, GPS/Snap, geofence, vikt, ETA, backup/export eller driftlogg_v4_full.'},
   {name:'Datorläge 189-språk, grå funktionsknappar och akut köordning v286', status:'Datorläge/UX/köordning', purpose:'I Datorläge byts padd-texter till 189, Synka nu visas som Skicka / hämta, funktionsknapparna i Uppdrag till 189 och Lastbils status får grå Stadslass-design, Lastbils status-knappen markeras när vyn är öppen och Akut jobb sorteras överst i kön utan automatisk start.', changeRule:'Får bara påverka synliga texter, knappdesign, aktiv huvudknappsmarkering och kösortering för akutmarkerade köuppdrag. Får inte ändra aktivt uppdrag, syncens dataflöde, register, historik, GPS/Snap, geofence, vikt, ETA, backup/export eller driftlogg_v4_full.'},
@@ -14471,6 +14530,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sträcka i Dagens sammanfattning v203', fn('getTodaySummaryDistanceKmV203') && fn('getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', 'getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', '<span>Sträcka</span>') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203'), 'Idag/Dagens sammanfattning visar en ruta Sträcka för färdiga jobb idag med bästa rimliga värde: Snap om rimlig, annars GPS/sparad/osäker');
   addFunctionCheck(results, 'Nivå 2', 'Trippmätare med numeriskt tangentbord v204', fn('getTodayTripMeterHtmlV204') && fn('renderTodayTripMeterV204') && fn('setTripMeterValueV204') && fn('updateTripMeterResultsV204') && src('getTodayTripMeterHtmlV204', 'inputmode=\"decimal\"') && src('getTodayTripMeterHtmlV204', 'Skillnad') && !!el('todayTripMeterBox') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare med numeriskt tangentbord v204'), 'Trippmätaren har start/slut km, numeriskt tangentbord, tripp och skillnad mot Stadslass Sträcka');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser spärrade från vanliga listor v187', fn('sanitizeJobTypePlaceValuesV187') && fn('listHasBeachPlaceV187') && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång');
+  addFunctionCheck(results, 'Nivå 2', 'Returplatsval i Nytt uppdrag v290', fn('updateNewReturnPlaceUIV290') && fn('getNewReturnPlaceChoiceV290') && fn('applyReturnPlaceFieldsToJobV290') && !!el('newReturnPlaceV290') && !!el('newReturnRoutePreviewV290') && src('startManualJob', 'returnPlaceChoiceV290') && src('addManualJobToQueue', 'returnPlaceChoiceV290') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsval i Nytt uppdrag v290') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v290', 'Nytt uppdrag visar/sparar Returplats när Returkrav är valt utan att ändra ETA/GPS-inlärning.');
   addFunctionCheck(results, 'Nivå 2', 'Returplatsinställning i Platser v289', fn('normalizePlaceReturnEligibilityV289') && fn('isPlaceReturnEligibleV289') && fn('getOrdinaryReturnPlaceValuesV289') && src('buildPlaceManagerRow', 'data-place-return-eligible-key') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsinställning i Platser v289'), 'Platser har kryssruta för alternativa Returplatser; standardretur är Från-plats och badplatser är Havstång-undantag');
   addFunctionCheck(results, 'Nivå 2', 'Platslayout och öppettidsvarning v250', typeof getPlaceOpeningHoursV250 === 'function' && typeof getActiveToPlaceOpeningWarningHtmlV250 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'place-section-v250') && functionSourceIncludes('buildPlaceManagerRow', 'data-place-opening-enabled-key') && functionSourceIncludes('getActiveToPlaceOpeningWarningHtmlV250', 'job.dest') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslayout och öppettidsvarning v250'), 'Platser har kortlayout och öppettidsvarning används bara mot Till-plats');
   addFunctionCheck(results, 'Nivå 2', 'Paddans aktuella status i spegling v251', typeof getTabletActiveStatusSnapshotV251 === 'function' && typeof renderTabletCurrentStatusV251 === 'function' && !!el('tabletCurrentStatusV251') && functionSourceIncludes('buildTabletStatusPayloadV219', 'activeStatusV251') && functionSourceIncludes('renderTabletQueueMirrorV238', 'renderTabletCurrentStatusV251') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddans aktuella status i spegling v251'), 'Paddans kö-spegling visar aktuell paddstatus/aktivt uppdrag som ren läsning utan arbetsknappar.');
@@ -14826,6 +14886,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v243: Paddans kö-knappen är inte längre hårdkodad i huvudmenyn utan skapas dynamiskt bara på tillåten mobil/planeringsenhet.');
   lines.push('v283: Annan plats får tillfälligt 80 m geofence med lastnings-/lossningslås beroende på Från/Till-roll.');
   lines.push('v286: Datorläge byter till 189-språk, Synka nu heter Skicka / hämta, funktionsknappar får grå Stadslass-design, Lastbils status markeras som aktiv vy och Akut jobb sorteras överst i kön.');
+  lines.push('v290: Nytt uppdrag visar Returplats och Uppdragets väg när Returkrav är valt. Standard är Från-plats och alternativa Returplatser styrs av platsinställningen.');
   lines.push('v289: Platser har Kan väljas som returplats för vanliga alternativa Returplatser. Standardretur är Från-plats och Havstång/badplatser undantas.');
   lines.push('v288: Datorläge visar 189 status/Uppdatera status och aktiv status visar Uppdragets väg med Returplats i stället för enkel Returkrav-ruta.');
   lines.push('v288: Datorläge visar 189 status/Uppdatera status och aktiv status visar Uppdragets väg med Returplats i stället för enkel Returkrav-ruta.');
@@ -15368,7 +15429,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v289' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v289'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v290' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v290'), APP_VERSION),
     systemCheck('GPS/Snap/ETA precisionsregler v211', typeof buildSnapRoadsSegmentsForJobV211 === 'function' && typeof getJobBestDistanceChoiceV211 === 'function' && typeof evaluateSnapDistanceReasonabilityV211 === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 2.5 && APP_FEATURE_MANIFEST.some(item => item.name === 'GPS/Snap/ETA precisionsregler v211'), 'Fasdelad Snap + rimlighetsval + 2,5 min ETA'),
     systemCheck('Sträckval synligt i jobbkort v212', typeof getJobDistanceChoiceHtmlV212 === 'function' && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceDisplayTextV211(x)') && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceChoiceHtmlV212(x)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212'), 'Jobbkort och Dagens sammanfattning visar samma rimlighetsvalda Sträcka'),
     systemCheck('Bred returknapp v213', functionSourceIncludes('renderActiveTransportPhaseControl', "visualLabel === 'Retur pågår'") && functionSourceIncludes('renderActiveTransportPhaseControl', 'returnWide') && functionSourceIncludes('renderActiveTransportPhaseControl', "btn.classList.add('return-wide')") && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213'), 'Retur pågår-knappen blir fullbredd/centrerad som ren visuell ändring'),
@@ -15502,6 +15563,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Datorläge syncade uppdrag kvar i lista v277', document.getElementById('queuePanelTitleV274') && typeof isComputerDeviceModeV274 === 'function' && typeof getQueueVisibleItemsForDeviceModeV274 === 'function' && functionSourceIncludes('getQueueVisibleItemsForDeviceModeV274', 'v277: Datorläge ska behålla även Syncad-rader') && !functionSourceIncludes('getQueueVisibleItemsForDeviceModeV274', 'list.filter(item => !isQueueJobConfirmedSyncedV274(item))') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge syncade uppdrag kvar i lista v277'), 'Datorläge behåller även Syncad-rader synliga med statusbadge för felsökning'),
     systemCheck('Ren datorläge-synclista utan arbetsknappar v280', typeof getQueueEditActionHtmlV280 === 'function' && typeof getQueueCompleteActionHtmlV280 === 'function' && functionSourceIncludes('getQueueEditActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('getQueueCompleteActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('renderQueue', 'getQueueEditActionHtmlV280') && functionSourceIncludes('renderQueue', 'getQueueCompleteActionHtmlV280') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ren datorläge-synclista utan arbetsknappar v280'), 'Datorlägets lokala synclista döljer Redigera och Uppdrag slutfört men behåller Ta bort'),
     systemCheck('Datorläge 189-språk och akut köordning v286', typeof getComputerSyncButtonLabelV286 === 'function' && typeof updateComputerActionLabelsV286 === 'function' && functionSourceIncludes('getQueueTabLabelV273', 'Uppdrag till 189') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'Mottaget av 189') && functionSourceIncludes('getComputerQueueGroupedPartsV278', 'Väntar på 189') && functionSourceIncludes('compareQueuedJobPlanning', 'urgentB - urgentA') && document.getElementById('queueCalculateTimesButtonV286') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge 189-språk, grå funktionsknappar och akut köordning v286'), 'Datorläge använder 189-språk/Skicka-hämta och akutmarkerade köuppdrag sorteras överst'),
+    systemCheck('Returplatsval i Nytt uppdrag v290', typeof updateNewReturnPlaceUIV290 === 'function' && typeof getNewReturnPlaceChoiceV290 === 'function' && typeof applyReturnPlaceFieldsToJobV290 === 'function' && !!document.getElementById('newReturnPlaceV290') && !!document.getElementById('newReturnRoutePreviewV290') && functionSourceIncludes('addManualJobToQueue', 'returnPlaceChoiceV290') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsval i Nytt uppdrag v290'), 'Nytt uppdrag visar och sparar Returplats när Returkrav är valt'),
     systemCheck('Returplatsinställning i Platser v289', typeof normalizePlaceReturnEligibilityV289 === 'function' && typeof isPlaceReturnEligibleV289 === 'function' && typeof getReturnPlaceValuesForJobTypeV289 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'data-place-return-eligible-key') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsinställning i Platser v289'), 'Platser kan godkännas som alternativa Returplatser; Havstång/badplatser undantas från vanliga begränsningar'),
     systemCheck('Returplatsvisning och 189 status-språk v288', typeof getTabletStatusUiTitleV288 === 'function' && typeof updateTabletStatusLabelsV288 === 'function' && typeof getJobReturnPlaceLabelV288 === 'function' && typeof getJobRouteSummaryHtmlV288 === 'function' && functionSourceIncludes('formatActiveOverviewHtml', 'Uppdragets väg') && functionSourceIncludes('buildTabletCurrentStatusHtmlV251', 'Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsvisning och 189 status-språk v288'), 'Datorläge visar 189 status/Uppdatera status och aktiv status visar Uppdragets väg med Returplats'),
     systemCheck('Datorläge köstadium och akut köstatus v287', typeof isQueueJobHandledByTabletV287 === 'function' && typeof getTabletStatusQueueKeysV287 === 'function' && typeof buildFinishedSyncItemsV287 === 'function' && functionSourceIncludes('markMobileQueueItemsConfirmedFromTabletStatusV229', 'startat_189') && functionSourceIncludes('getQueueVisibleItemsForDeviceModeV274', 'isQueueJobHandledByTabletV287') && functionSourceIncludes('buildTabletStatusPayloadV219', 'finishedSyncItemsV287') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge köstadium och akut köstatus v287'), 'startade/färdiga datoruppdrag döljs från Uppdrag till 189 och paddstatus sorterar akutjobb överst'),
@@ -20511,6 +20573,12 @@ function sanitizeQueueItemForSyncV219(item){
   clean.sourceDeviceRoleV219 = String(item.createdOnDeviceRoleV219 || getQueueSyncSettingsV219().deviceRole || 'unknown');
   clean.returnRequired = !!getJobReturnRequiredValue(item);
   clean.returnRequiredAtStart = clean.returnRequired;
+  if(clean.returnRequired && item.returnPlace){
+    clean.returnPlace = item.returnPlace;
+    clean.returnPlaceLabel = item.returnPlaceLabel || getReturnPlaceLabelForValueV290(item.returnPlace);
+    clean.routeReturnPlace = clean.returnPlace;
+    clean.routeReturnLabel = clean.returnPlaceLabel;
+  }
   clean.multiLoadAtStart = !!getQueueJobMultiLoadChoice(item);
   clean.manualMultiLoad = clean.multiLoadAtStart;
   clean.urgentJob = !!item.urgentJob || hasUrgentJobComment(item.comment);
@@ -22115,6 +22183,12 @@ function normalizeImportedSyncQueueItemV219(item){
   normalized.returnRequiredAtStart = normalized.returnRequired;
   normalized.routeRule = normalized.returnRequired ? 'returkrav_ja' : 'returkrav_nej';
   normalized.routeEndPlace = normalized.returnRequired ? (normalized.place || '') : (normalized.dest || '');
+  if(normalized.returnRequired && (item.returnPlace || item.routeReturnPlace)){
+    normalized.returnPlace = item.returnPlace || item.routeReturnPlace;
+    normalized.returnPlaceLabel = item.returnPlaceLabel || item.routeReturnLabel || getReturnPlaceLabelForValueV290(normalized.returnPlace);
+    normalized.routeReturnPlace = normalized.returnPlace;
+    normalized.routeReturnLabel = normalized.returnPlaceLabel;
+  }
   normalized.multiLoadAtStart = !!item.multiLoadAtStart || !!item.manualMultiLoad;
   normalized.manualMultiLoad = normalized.multiLoadAtStart;
   normalized.canBeMultiLoad = !normalized.returnRequired && normalized.multiLoadAtStart;
@@ -22943,7 +23017,7 @@ function activeJobMatchesQueueActionV275(action){
 
 function applyEditedQueueFieldsFromActionV275(job, updated){
   if(!job || !updated) return;
-  const fields = ['type','displayType','vehicle','place','dest','placeLabel','destLabel','comment','plannedDate','plannedTime','date','returnRequired','returnRequiredAtStart','routeRule','routeEndPlace','multiLoadAtStart','manualMultiLoad','canBeMultiLoad','temporaryPlaces','urgentJob'];
+  const fields = ['type','displayType','vehicle','place','dest','placeLabel','destLabel','comment','plannedDate','plannedTime','date','returnRequired','returnRequiredAtStart','routeRule','routeEndPlace','multiLoadAtStart','manualMultiLoad','canBeMultiLoad','temporaryPlaces','urgentJob','returnPlace','returnPlaceLabel','routeReturnPlace','routeReturnLabel'];
   fields.forEach(key => {
     if(updated[key] === undefined) return;
     if(key === 'temporaryPlaces' && updated[key] && typeof updated[key] === 'object') job[key] = JSON.parse(JSON.stringify(updated[key]));
@@ -25264,6 +25338,8 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   const safeComment = applyUrgentJobComment(comment || '', urgentJob);
   const returnRequired = typeof jobOptions.returnRequired === 'boolean' ? jobOptions.returnRequired : getJobTypeReturnRequired(jobTypeKey);
   const multiLoadAtStart = !returnRequired && (typeof jobOptions.multiLoad === 'boolean' ? jobOptions.multiLoad : getJobTypeMultiLoad(jobTypeKey));
+  const returnPlaceV290 = returnRequired && typeof normalizeReturnPlaceForJobV290 === 'function' ? normalizeReturnPlaceForJobV290(jobOptions.returnPlace || jobOptions.routeReturnPlace || place, place) : '';
+  const returnPlaceLabelV290 = returnRequired && returnPlaceV290 ? (jobOptions.returnPlaceLabel || jobOptions.routeReturnLabel || (typeof getReturnPlaceLabelForValueV290 === 'function' ? getReturnPlaceLabelForValueV290(returnPlaceV290) : getStoredPlaceLabel(returnPlaceV290))) : '';
   const calculationStartPlace = getCurrentCalculationStartPlace(place);
   const calculationStartLabel = getCurrentCalculationStartLabel(place);
 
@@ -25284,6 +25360,10 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     manualMultiLoad: multiLoadAtStart,
     routeEndPlace: returnRequired ? place : dest,
     routeRule: returnRequired ? 'returkrav_ja' : 'returkrav_nej',
+    returnPlace:returnPlaceV290,
+    returnPlaceLabel:returnPlaceLabelV290,
+    routeReturnPlace:returnPlaceV290,
+    routeReturnLabel:returnPlaceLabelV290,
     startPointStatus:'pending',
     placeLabel:getStoredPlaceLabel(place),
     destLabel:getStoredPlaceLabel(dest),
@@ -25308,6 +25388,10 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   }
   if(jobOptions.temporaryPlaces){
     applyTemporaryOtherPlacesToJobV175(state.active, jobOptions.temporaryPlaces);
+    if(returnRequired && state.active.returnPlace && state.active.returnPlace === state.active.place && state.active.placeLabel){
+      state.active.returnPlaceLabel = state.active.placeLabel;
+      state.active.routeReturnLabel = state.active.placeLabel;
+    }
   }
   prepareSeaweedGpsFlowV214(state.active);
   state.active.canBeMultiLoad = !returnRequired && isMultiLoadSensitiveJob(state.active);
@@ -25424,6 +25508,8 @@ function resetNewJobForm(){
   setNewPlannedDate(todayStr());
   setNewPlannedTime('');
   resetNewTemporaryOtherPlaceFieldsV175();
+  if(typeof resetNewReturnPlaceManualV290 === 'function') resetNewReturnPlaceManualV290();
+  if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(true);
 
   updateNewMachineUI();
   updateNewSeaweedUI();
@@ -25460,6 +25546,8 @@ async function startManualJob(){
   const privateComment = document.getElementById('newPrivateComment') ? document.getElementById('newPrivateComment').value : '';
   const urgentJob = isNewUrgentJobActive();
   const returnRequiredChoice = getNewJobReturnRequiredChoice();
+  const returnPlaceChoiceV290 = returnRequiredChoice && typeof getNewReturnPlaceChoiceV290 === 'function' ? getNewReturnPlaceChoiceV290() : '';
+  const returnPlaceLabelChoiceV290 = returnRequiredChoice && typeof getNewReturnPlaceLabelChoiceV290 === 'function' ? getNewReturnPlaceLabelChoiceV290() : '';
   const multiLoadChoice = getNewJobMultiLoadChoice();
 
   if(!validateNewJobSelection(type, place, dest)) return;
@@ -25480,7 +25568,7 @@ async function startManualJob(){
 
   comment = applyUrgentJobComment(comment, urgentJob);
 
-  startJob(vehicle, type, place, dest, comment, '', privateComment, {returnRequired:returnRequiredChoice, multiLoad:multiLoadChoice, urgentJob:urgentJob, temporaryPlaces:temporaryPlaces});
+  startJob(vehicle, type, place, dest, comment, '', privateComment, {returnRequired:returnRequiredChoice, returnPlace:returnPlaceChoiceV290, returnPlaceLabel:returnPlaceLabelChoiceV290, multiLoad:multiLoadChoice, urgentJob:urgentJob, temporaryPlaces:temporaryPlaces});
   if(state.active){
     resetNewJobForm();
     showTab('ko');
@@ -25501,6 +25589,8 @@ async function addManualJobToQueue(){
   const plannedDate = getNewPlannedDate();
   const plannedTime = getNewPlannedTime();
   const returnRequiredChoice = getNewJobReturnRequiredChoice();
+  const returnPlaceChoiceV290 = returnRequiredChoice && typeof getNewReturnPlaceChoiceV290 === 'function' ? getNewReturnPlaceChoiceV290() : '';
+  const returnPlaceLabelChoiceV290 = returnRequiredChoice && typeof getNewReturnPlaceLabelChoiceV290 === 'function' ? getNewReturnPlaceLabelChoiceV290() : '';
   const multiLoadChoice = getNewJobMultiLoadChoice();
 
   if(!validateNewJobSelection(type, place, dest)) return;
@@ -25542,11 +25632,19 @@ async function addManualJobToQueue(){
     returnRequiredAtStart:returnRequiredChoice,
     routeRule:returnRequiredChoice ? 'returkrav_ja' : 'returkrav_nej',
     routeEndPlace:returnRequiredChoice ? (place || '') : (dest || ''),
+    returnPlace:returnRequiredChoice ? returnPlaceChoiceV290 : '',
+    returnPlaceLabel:returnRequiredChoice ? returnPlaceLabelChoiceV290 : '',
+    routeReturnPlace:returnRequiredChoice ? returnPlaceChoiceV290 : '',
+    routeReturnLabel:returnRequiredChoice ? returnPlaceLabelChoiceV290 : '',
     multiLoadAtStart:multiLoadChoice,
     manualMultiLoad:multiLoadChoice,
     canBeMultiLoad:!returnRequiredChoice && multiLoadChoice
   };
   applyTemporaryOtherPlacesToJobV175(queuedJob, temporaryPlaces);
+  if(returnRequiredChoice && queuedJob.returnPlace && queuedJob.returnPlace === queuedJob.place && queuedJob.placeLabel){
+    queuedJob.returnPlaceLabel = queuedJob.placeLabel;
+    queuedJob.routeReturnLabel = queuedJob.placeLabel;
+  }
   markQueuedJobCreatedForSyncV219(queuedJob);
   state.queue.push(queuedJob);
   queueSyncQueueChangedV219('manual-add');
@@ -25623,7 +25721,9 @@ function startQueuedJob(qid){
   const queuedReturnRequired = typeof q.returnRequiredAtStart === 'boolean' ? q.returnRequiredAtStart : (typeof q.returnRequired === 'boolean' ? q.returnRequired : getJobTypeReturnRequired(getJobTypeSettingsKey(q.type)));
   const queuedMultiLoad = !queuedReturnRequired && getQueueJobMultiLoadChoice(q);
   const queuedUrgentJob = !!q.urgentJob || hasUrgentJobComment(q.comment);
-  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, getAllowedPrivateComment(q.type, q.privateComment || ''), {returnRequired:queuedReturnRequired, multiLoad:queuedMultiLoad, urgentJob:queuedUrgentJob, temporaryPlaces:q.temporaryPlaces || null});
+  const queuedReturnPlaceV290 = queuedReturnRequired ? (q.returnPlace || q.returplats || q.routeReturnPlace || q.place || '') : '';
+  const queuedReturnPlaceLabelV290 = queuedReturnRequired ? (q.returnPlaceLabel || q.returplatsLabel || q.routeReturnLabel || getReturnPlaceLabelForValueV290(queuedReturnPlaceV290)) : '';
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, getAllowedPrivateComment(q.type, q.privateComment || ''), {returnRequired:queuedReturnRequired, returnPlace:queuedReturnPlaceV290, returnPlaceLabel:queuedReturnPlaceLabelV290, multiLoad:queuedMultiLoad, urgentJob:queuedUrgentJob, temporaryPlaces:q.temporaryPlaces || null});
   if(!started) return;
 
   if(state.active && q.plannedDate){
@@ -25635,6 +25735,7 @@ function startQueuedJob(qid){
   if(state.active){
     if(q.placeLabel) state.active.placeLabel = q.placeLabel;
     if(q.destLabel) state.active.destLabel = q.destLabel;
+    if(queuedReturnRequired && typeof applyReturnPlaceFieldsToJobV290 === 'function') applyReturnPlaceFieldsToJobV290(state.active, true, queuedReturnPlaceV290, q.place);
     ['sourceJobId','syncKeyV219','createdOnDeviceRoleV219','syncReceivedFromV219','syncImportedAtV219','syncConfirmedAtV229'].forEach(key => { if(q[key] !== undefined) state.active[key] = q[key]; });
     if(q.temporaryPlaces) applyTemporaryOtherPlacesToJobV175(state.active, q.temporaryPlaces);
     if(q.urgentJob || hasUrgentJobComment(q.comment)){
@@ -31964,12 +32065,142 @@ function getReturnPlaceValuesForJobTypeV289(jobType, fromPlace){
   if(fromPlace) values.push(String(fromPlace));
   getOrdinaryReturnPlaceValuesV289().forEach(key => { if(key && !values.includes(key)) values.push(key); });
   if(type === 'Havstång'){
+    const seaweedValues = [];
+    try{
+      if(typeof getSeaweedPlaceValues === 'function'){
+        getSeaweedPlaceValues('to').forEach(key => seaweedValues.push(key));
+        getSeaweedPlaceValues('from').forEach(key => seaweedValues.push(key));
+      }
+    }catch(e){}
     (typeof getBeachPlaceEntries === 'function' ? getBeachPlaceEntries() : []).forEach(entry => {
       const key = entry && entry.key;
-      if(key && !values.includes(key)) values.push(key);
+      if(key) seaweedValues.push(key);
     });
+    seaweedValues.forEach(key => { if(key && !values.includes(key)) values.push(key); });
   }
   return values;
+}
+
+
+// v290: Returplatsval i Nytt uppdrag.
+function normalizeReturnPlaceForJobV290(value, fallbackFrom){
+  const raw = String(value || '').trim();
+  if(raw) return raw;
+  return String(fallbackFrom || '').trim();
+}
+function getReturnPlaceLabelForValueV290(value){
+  const raw = String(value || '').trim();
+  if(!raw) return '';
+  try{ return getStoredPlaceLabel(raw) || getPlaceLabel(raw) || raw; }catch(e){ return raw; }
+}
+function resetNewReturnPlaceManualV290(){
+  const el = document.getElementById('newReturnPlaceV290');
+  if(el){
+    el.dataset.manualV290 = '0';
+    el.dataset.autoValueV290 = '';
+  }
+}
+function isNewReturnPlaceManuallySelectedV290(){
+  const el = document.getElementById('newReturnPlaceV290');
+  return !!(el && el.dataset.manualV290 === '1');
+}
+function handleNewReturnPlaceManualChangeV290(){
+  const el = document.getElementById('newReturnPlaceV290');
+  if(el) el.dataset.manualV290 = '1';
+  renderNewReturnRoutePreviewV290();
+}
+function fillReturnPlaceSelectV290(idName, values, fallbackValue){
+  const el = document.getElementById(idName);
+  if(!el) return;
+  const unique = Array.from(new Set((values || []).map(v => String(v || '').trim()).filter(Boolean)));
+  if(fallbackValue && !unique.includes(fallbackValue)) unique.unshift(fallbackValue);
+  fillSelect(idName, unique, false);
+}
+function getNewReturnPlaceChoiceV290(){
+  const returnEl = document.getElementById('newReturnRequired');
+  if(!returnEl || !returnEl.checked) return '';
+  const placeEl = document.getElementById('newPlace');
+  const selectEl = document.getElementById('newReturnPlaceV290');
+  const fallback = placeEl ? placeEl.value : '';
+  return normalizeReturnPlaceForJobV290(selectEl ? selectEl.value : '', fallback);
+}
+function getNewReturnPlaceLabelChoiceV290(){
+  return getReturnPlaceLabelForValueV290(getNewReturnPlaceChoiceV290());
+}
+function renderNewReturnRoutePreviewV290(){
+  const preview = document.getElementById('newReturnRoutePreviewV290');
+  if(!preview) return;
+  const typeEl = document.getElementById('newType');
+  const fromEl = document.getElementById('newPlace');
+  const toEl = document.getElementById('newDest');
+  const returnEl = document.getElementById('newReturnRequired');
+  if(!returnEl || !returnEl.checked){
+    preview.innerHTML = '';
+    return;
+  }
+  const fromValue = fromEl ? fromEl.value : '';
+  const toValue = toEl ? toEl.value : '';
+  const returnValue = getNewReturnPlaceChoiceV290();
+  const fromLabel = getReturnPlaceLabelForValueV290(fromValue) || 'Ej valt';
+  const toLabel = getReturnPlaceLabelForValueV290(toValue) || 'Ej valt';
+  const returnLabel = getReturnPlaceLabelForValueV290(returnValue) || fromLabel || 'Ej valt';
+  preview.innerHTML = '<div class="return-route-title-v290">Uppdragets väg</div>' +
+    '<div class="return-route-row-v290"><span>Från</span><strong>' + escapeHtml(fromLabel) + '</strong></div>' +
+    '<div class="return-route-row-v290"><span>Till</span><strong>' + escapeHtml(toLabel) + '</strong></div>' +
+    '<div class="return-route-row-v290"><span>Returplats</span><strong>' + escapeHtml(returnLabel) + '</strong></div>';
+}
+function updateNewReturnPlaceUIV290(resetManual){
+  const wrap = document.getElementById('newReturnPlaceWrapV290');
+  const selectEl = document.getElementById('newReturnPlaceV290');
+  const returnEl = document.getElementById('newReturnRequired');
+  const typeEl = document.getElementById('newType');
+  const placeEl = document.getElementById('newPlace');
+  if(!wrap || !selectEl || !returnEl || !typeEl || !placeEl) return;
+  const enabled = !!returnEl.checked;
+  wrap.classList.toggle('hidden', !enabled);
+  if(!enabled){
+    selectEl.innerHTML = '';
+    resetNewReturnPlaceManualV290();
+    renderNewReturnRoutePreviewV290();
+    return;
+  }
+  if(resetManual === true) resetNewReturnPlaceManualV290();
+  const previous = selectEl.value;
+  const manual = isNewReturnPlaceManuallySelectedV290();
+  const fromValue = placeEl.value || '';
+  const values = getReturnPlaceValuesForJobTypeV289(typeEl.value, fromValue);
+  fillReturnPlaceSelectV290('newReturnPlaceV290', values, fromValue);
+  const hasPrevious = previous && Array.from(selectEl.options).some(o => o.value === previous);
+  if(manual && hasPrevious){
+    selectEl.value = previous;
+  } else if(fromValue && Array.from(selectEl.options).some(o => o.value === fromValue)){
+    selectEl.value = fromValue;
+    selectEl.dataset.manualV290 = '0';
+    selectEl.dataset.autoValueV290 = fromValue;
+  } else if(selectEl.options.length){
+    selectEl.selectedIndex = 0;
+    selectEl.dataset.manualV290 = '0';
+    selectEl.dataset.autoValueV290 = selectEl.value;
+  }
+  renderNewReturnRoutePreviewV290();
+}
+function applyReturnPlaceFieldsToJobV290(job, returnRequired, returnPlace, fallbackFrom){
+  if(!job || !returnRequired){
+    if(job){
+      delete job.returnPlace;
+      delete job.returnPlaceLabel;
+      delete job.routeReturnPlace;
+      delete job.routeReturnLabel;
+    }
+    return job;
+  }
+  const placeValue = normalizeReturnPlaceForJobV290(returnPlace, fallbackFrom || job.place);
+  const placeLabel = getReturnPlaceLabelForValueV290(placeValue);
+  job.returnPlace = placeValue;
+  job.returnPlaceLabel = placeLabel;
+  job.routeReturnPlace = placeValue;
+  job.routeReturnLabel = placeLabel;
+  return job;
 }
 
 function addManagedPlace(){
@@ -32613,6 +32844,7 @@ updateTemporaryOtherPlaceUIV175('new');
 updateTemporaryOtherPlaceUIV175('editQueue');
 
 document.getElementById('newType').addEventListener('change', function(){
+  if(typeof resetNewReturnPlaceManualV290 === 'function') resetNewReturnPlaceManualV290();
   updateNewJobPlaceSelects(false);
   updateNewMachineUI();
   updateNewSeaweedUI();
@@ -32620,6 +32852,7 @@ document.getElementById('newType').addEventListener('change', function(){
   setNewJobFlagDefaultsFromType();
   applySopsandDefaultDestination();
   updateNewPrivateCommentVisibility();
+  if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(true);
 });
 
 document.getElementById('newPlace').addEventListener('change', function(){
@@ -32628,11 +32861,13 @@ document.getElementById('newPlace').addEventListener('change', function(){
   applyStandardDestinationSuggestion('newType', 'newPlace', 'newDest');
   applySopsandDefaultDestination();
   updateTemporaryOtherPlaceUIV175('new');
+  if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(false);
 });
 
 document.getElementById('newDest').addEventListener('change', function(){
   updateNewJobPlaceSelects(true);
   updateTemporaryOtherPlaceUIV175('new');
+  if(typeof renderNewReturnRoutePreviewV290 === 'function') renderNewReturnRoutePreviewV290();
 });
 
 
