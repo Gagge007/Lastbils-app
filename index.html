@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v296
+- Nuvarande version: Stadslass 2.0 v297
+- v297: Aktivt jobb visar inte längre dubbel Uppdragets väg-ruta, Returplats får ljusblå Stadslass-bricka, Datorläge får rätt kö-rubrik/hjälptext och Padda-läge döljer 189-syncbrickor.
 - v296: Nytt uppdrag visar Returplats som ett enkelt direkt valfält utan ruta, Uppdragets väg eller extra förklaringstext.
 - v295: Historik, sammanställning och export visar Returplats tydligare och Nytt uppdrag visar Returplats utan teknisk förklaring.
 - v294: GPS-/tidsinlärning och Snap/transportfönster skiljer retursträckor på Returplats så Till→Ringön inte blandas med Till→Flaklager.
@@ -337,7 +338,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v296';
+  const version = 'Stadslass 2.0 v297';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -543,6 +544,13 @@ button{
 
 .pill-type{ background:#fff8cc !important; }
 .pill-code{ background:#eef2ff !important; font-weight:700 !important; }
+.pill-return-place-v297{
+  background:#e0f2fe !important;
+  border-color:#7dd3fc !important;
+  color:#075985 !important;
+  font-weight:800 !important;
+}
+
 .private-comment-note{ background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; border-radius:12px; padding:8px 10px; font-size:14px; }
 
 #activePills{
@@ -2719,7 +2727,7 @@ body[data-stadslass-device-mode-v272="computer"] #todayTripMeterBox,body[data-st
 }
 .active-overview-from{background:#ecfdf5;}
 .active-overview-to{background:#fef2f2;}
-.active-overview-return{background:#fff7ed;}
+.active-overview-return{background:#e0f2fe;}
 .active-overview-code{background:#eef2ff;}
 button.active-overview-item{
   font-family:inherit;
@@ -2737,7 +2745,7 @@ button.active-overview-return-toggle-v264:active{
   margin-top:4px;
   font-size:11px;
   line-height:1.1;
-  color:#9a3412;
+  color:#075985;
   font-weight:800;
   text-transform:none;
   letter-spacing:0;
@@ -3426,7 +3434,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-ko" class="card hidden">
       <h3><span id="queuePanelTitleV274">Uppdrag i kö</span></h3>
-      <div class="muted">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Snabbval eller Nytt uppdrag.</div>
+      <div class="muted" id="queuePanelHelpTextV297">Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Snabbval eller Nytt uppdrag.</div>
       <div class="row" style="margin-top:12px; margin-bottom:12px">
         <button id="queueSyncRunNowButtonV220" class="primary inline" data-sync-run-now-v286="1" onclick="queueSyncRunNowV219()">Synka nu</button>
         <button id="queueCalculateTimesButtonV286" class="primary inline" onclick="calculateQueueTimesFromCurrentGps()">Beräkna tider i kö</button>
@@ -3650,7 +3658,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v296</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v297</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -7501,7 +7509,6 @@ function formatActiveOverviewHtml(job){
     : '<button type="button" class="active-overview-item active-overview-return active-overview-return-toggle-v264" onclick="toggleActiveReturnRequiredFromOverviewV264()"><span>Returplats</span><strong>' + escapeHtml(returnPlaceTextV288) + '</strong><em class="active-overview-return-hint-v264">Tryck för att ändra retur</em></button>';
   return '<div class="active-overview">' +
     '<div class="active-overview-title">' + escapeHtml(title) + '</div>' +
-    getJobRouteSummaryHtmlV288(job, 'active-overview-route-v288') +
     '<div class="active-overview-grid">' +
       '<div class="active-overview-item active-overview-from"><span>Från</span><strong>' + escapeHtml(fromLabel) + '</strong></div>' +
       '<div class="active-overview-item active-overview-to"><span>Till</span><strong>' + escapeHtml(toLabel) + '</strong></div>' +
@@ -11879,9 +11886,17 @@ function getQueueEmptyTextForDeviceModeV274(){
   return isComputerDeviceModeV274() ? 'Inga uppdrag till 189.' : 'Inga uppdrag i kö.';
 }
 
+function getQueuePanelHelpTextV297(){
+  return isComputerDeviceModeV274()
+    ? 'Här visas uppdrag som ska skickas till eller redan ligger i 189:s kö. Nya uppdrag lägger du in från Snabbval eller Nytt uppdrag.'
+    : 'Här visas uppdrag som ligger i kö. Nya uppdrag lägger du in från Snabbval eller Nytt uppdrag.';
+}
+
 function renderQueuePanelTitleV274(){
   const el = document.getElementById('queuePanelTitleV274');
   if(el) el.textContent = getQueueTabLabelV273();
+  const help = document.getElementById('queuePanelHelpTextV297');
+  if(help && typeof getQueuePanelHelpTextV297 === 'function') help.textContent = getQueuePanelHelpTextV297();
 }
 
 // v276: Datorläge får inte starta uppdrag. Det får bara lägga uppdrag i kö.
@@ -11936,6 +11951,7 @@ function renderDeviceModeButtonV272(){
   if(computerOption) computerOption.classList.toggle('is-selected', mode === 'computer');
   if(document.body) document.body.setAttribute('data-stadslass-device-mode-v272', mode);
   renderQueueTabLabelV273();
+  if(typeof renderQueuePanelTitleV274 === 'function') renderQueuePanelTitleV274();
   if(typeof updateComputerActionLabelsV286 === 'function') updateComputerActionLabelsV286();
   if(typeof updateTabletStatusLabelsV288 === 'function') updateTabletStatusLabelsV288();
   if(typeof applyComputerStartGuardsV276 === 'function') applyComputerStartGuardsV276();
@@ -12103,8 +12119,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v296';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v296';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v297';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v297';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -12231,6 +12247,7 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v256 Klar ca i Lastbils status från aktiv ETA-visning',
   'v260 Trippmätare i Idag-spegling',
   'v292 Uppstartsfix systemkontroll',
+  'v297 Returplats UI-städning',
   'v296 Returplats enkel lista i Nytt uppdrag',
   'v295 Returplats i historik/export/sammanställning',
   'v294 Returplats i GPS/inlärning',
@@ -13969,7 +13986,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v296';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v297';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -13994,6 +14011,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Returplats UI-städning v297', status:'UI/Aktivt jobb/Kökort/Datorläge', purpose:'Aktivt jobb visar inte längre dubbel Uppdragets väg-ruta, Returplats-brickor är ljusblå, Datorläge uppdaterar kövyns rubrik/hjälptext och Padda-läge döljer 189-syncbrickor.', changeRule:'Får bara påverka visning och CSS. Får inte ändra returplatslogik, syncens dataflöde, kötruth, aktivt jobb, ETA, GPS/inlärning, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
   {name:'Returplats i historik/export/sammanställning v295', status:'Historik/export/sammanställning/Returplats', purpose:'Historik, Sammanställning, 189-sammanställning, Excel-export och avslutsrapport visar Returplats tydligare. Nytt uppdrag visar Returplats utan teknisk förklaringstext.', changeRule:'Får bara påverka visning och export av redan sparad Returplats samt ta bort teknisk hjälptext i Nytt uppdrag. Får inte ändra faktisk returplatslogik, aktivt jobb, ETA, GPS/inlärning, sync, kötruth, vikt, geofence, backup/exportdata i lagring eller driftlogg_v4_full.'},
   {name:'Returplats enkel lista i Nytt uppdrag v296', status:'UI/Nytt uppdrag/Returplats', purpose:'Nytt uppdrag visar Returplats som ett enkelt direkt valfält utan informationsruta, Uppdragets väg eller extra teknisk text.', changeRule:'Får bara påverka synlig UI kring Returplats i Nytt uppdrag. Får inte ändra returplatslogik, listinnehåll, ETA, GPS/inlärning, sync, kötruth, historik, export, vikt, geofence eller driftlogg_v4_full.'},
   {name:'Returplats i aktivt jobb och ETA v293', status:'Aktivt jobb/ETA/Returplats', purpose:'Aktivt jobb och ETA använder vald Returplats som mål efter Till-plats vid returkrav. Äldre uppdrag utan Returplats använder Från-plats som fallback.', changeRule:'Får bara låta aktiv ETA, aktivt mål och kartberäkning för returben använda Returplats. Får inte ändra kötruth, syncens grundlogik, historik, GPS/Snap-inlärning, vikt, geofence-register, backup/export eller driftlogg_v4_full.'},
@@ -14960,6 +14978,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v283: Annan plats får tillfälligt 80 m geofence med lastnings-/lossningslås beroende på Från/Till-roll.');
   lines.push('v286: Datorläge byter till 189-språk, Synka nu heter Skicka / hämta, funktionsknappar får grå Stadslass-design, Lastbils status markeras som aktiv vy och Akut jobb sorteras överst i kön.');
   lines.push('v292: Uppstartsfix som rättar syntaxfel i systemkontrollistan efter v291 utan ändrad returplatslogik.');
+  lines.push('v297: Aktivt jobb visar inte längre dubbel Uppdragets väg-ruta, Returplats-brickor är ljusblå och Dator/Padda-läge visar rätt kötext/syncbrickor.');
   lines.push('v296: Nytt uppdrag visar Returplats som enkel direkt lista utan ruta, Uppdragets väg eller extra text.');
   lines.push('v295: Historik, sammanställning och export visar Returplats tydligare. Nytt uppdrag visar returlistan utan teknisk förklaring.');
   lines.push('v294: GPS-/tidsinlärning och Snap/transportfönster skiljer retursträckor på Returplats.');
@@ -15644,6 +15663,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Datorläge 189-språk och akut köordning v286', typeof getComputerSyncButtonLabelV286 === 'function' && typeof updateComputerActionLabelsV286 === 'function' && functionSourceIncludes('getQueueTabLabelV273', 'Uppdrag till 189') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'Mottaget av 189') && functionSourceIncludes('getComputerQueueGroupedPartsV278', 'Väntar på 189') && functionSourceIncludes('compareQueuedJobPlanning', 'urgentB - urgentA') && document.getElementById('queueCalculateTimesButtonV286') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge 189-språk, grå funktionsknappar och akut köordning v286'), 'Datorläge använder 189-språk/Skicka-hämta och akutmarkerade köuppdrag sorteras överst'),
     systemCheck('Uppstartsfix systemkontroll v292', APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292'), 'v292 reparerar systemkontrollistan utan ändrad returplatslogik'),
     systemCheck('Returplats i historik/export/sammanställning v295', typeof getSummaryRowReturnPlaceV295 === 'function' && typeof getJobRouteSummaryHtmlV295 === 'function' && typeof summarizeJobsByReturnPlaceV295 === 'function' && functionSourceIncludes('renderHistoryRegularJobCard', 'getJobRouteSummaryHtmlV295') && functionSourceIncludes('renderSummary', 'sumByReturnPlaceV295') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplatser') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i historik/export/sammanställning v295'), 'Historik, sammanställning, spegling och export visar Returplats tydligare'),
+
+    systemCheck('Returplats UI-städning v297', typeof getQueuePanelHelpTextV297 === 'function' && functionSourceIncludes('formatActiveOverviewHtml', 'active-overview-grid') && !functionSourceIncludes('formatActiveOverviewHtml', 'getJobRouteSummaryHtmlV288(job') && functionSourceIncludes('getJobReturnPlacePillHtmlV291', 'pill-return-place-v297') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'isComputerDeviceModeV274') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats UI-städning v297'), 'v297 städar bort dubbel vägvisning i aktivt jobb, visar Returplats som ljusblå bricka och döljer 189-syncbrickor i Padda-läge'),
     systemCheck('Returplats enkel lista i Nytt uppdrag v296', !!document.getElementById('newReturnPlaceV290') && !!document.getElementById('newReturnPlaceWrapV290') && !document.getElementById('newReturnRoutePreviewV290') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats enkel lista i Nytt uppdrag v296'), 'Nytt uppdrag visar bara Returplats-listan utan extra ruta'),
     systemCheck('Returplats i GPS/inlärning v294', typeof getMaterialReturnLearningPartV294 === 'function' && functionSourceIncludes('materialFlowEstimateKey', 'getMaterialReturnLearningPartV294') && functionSourceIncludes('buildStadslass20TransportWindows', 'returnPlaceLabelV294') && functionSourceIncludes('buildRouteRoleSnapSegmentsV211', 'Retur Till→Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i GPS/inlärning v294'), 'GPS-/tidsinlärning och Snap/transportfönster skiljer retursträckor på Returplats'),
     systemCheck('Returplats i aktivt jobb och ETA v293', typeof buildMapPointFromJobReturnPlaceV293 === 'function' && typeof resolveMapPointFromJobReturnPlaceV293 === 'function' && typeof getReturnGeofenceForJobV293 === 'function' && functionSourceIncludes('getActiveTransportEtaLegV215', 'returnPlace') && functionSourceIncludes('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildSmartMapRouteKey', 'retur:'), 'Aktivt jobb och ETA använder Returplats som returbenets mål'),
@@ -20986,7 +21007,10 @@ function markMobileInboxItemsUploadErrorV229(items, error){
 
 function getQueueSyncJobBadgeHtmlV229(job){
   // v282 tidigare texter: Mottaget av paddan, Väntar på paddan, Borttaget från paddan. v286 använder 189.
-  if(!isMobileQueueSyncDeviceV229()) return '';
+  // v297: 189-syncbrickor hör hemma i Datorläge/överlämningsvyn, inte i Padda-lägets vanliga kökort.
+  if(typeof isComputerDeviceModeV274 === 'function'){
+    if(!isComputerDeviceModeV274()) return '';
+  }else if(!isMobileQueueSyncDeviceV229()) return '';
   if(!job || job.syncReceivedFromV219 === 'pad') return '';
   let status = String(job.syncStatusV229 || '').trim();
   if(!status) status = 'ej_syncad';
@@ -32544,7 +32568,7 @@ function getJobReturnPlacePillHtmlV291(job){
   try{ ret = typeof getJobReturnRequiredValue === 'function' ? !!getJobReturnRequiredValue(job) : !!(job.returnRequired || job.returnRequiredAtStart); }catch(e){ ret = !!(job.returnRequired || job.returnRequiredAtStart); }
   if(!ret) return '';
   const label = typeof getJobReturnPlaceLabelV288 === 'function' ? getJobReturnPlaceLabelV288(job) : (job.returnPlaceLabel || job.returnPlace || job.place || 'Från-plats');
-  return '<span class="pill pill-alert">Returplats ' + escapeHtml(label || 'Från-plats') + '</span>';
+  return '<span class="pill pill-return-place-v297">Returplats ' + escapeHtml(label || 'Från-plats') + '</span>';
 }
 
 function addManagedPlace(){
