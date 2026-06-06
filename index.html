@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v294
+- Nuvarande version: Stadslass 2.0 v295
+- v295: Historik, sammanställning och export visar Returplats tydligare och Nytt uppdrag visar Returplats utan teknisk förklaring.
 - v294: GPS-/tidsinlärning och Snap/transportfönster skiljer retursträckor på Returplats så Till→Ringön inte blandas med Till→Flaklager.
 - v284: Inställningar får en datoranpassad översikt i Datorläge med roll, sync-/Google-nyckelstatus, paddkontakt, registerstatus, uppdragsräknare, Synka nu och lokal rensning.
 - v293: Aktivt jobb och ETA använder Returplats som mål efter Till-plats vid returkrav, med Från-plats som fallback för äldre uppdrag.
@@ -335,7 +336,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v294';
+  const version = 'Stadslass 2.0 v295';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3393,7 +3394,6 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
     <div id="newReturnPlaceWrapV290" class="return-place-card-v290 hidden">
       <label>Returplats</label>
       <select id="newReturnPlaceV290" onchange="handleNewReturnPlaceManualChangeV290()"></select>
-      <div class="multi-help">Standard är Från-plats. Alternativa Returplatser styrs från Inställningar → Platser. Havstång kan även använda badplatser i sitt isolerade flöde.</div>
       <div id="newReturnRoutePreviewV290" class="return-route-preview-v290"></div>
     </div>
     <div class="new-job-date-block">
@@ -3650,7 +3650,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v294</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v295</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -4132,6 +4132,10 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
     <div class="card">
       <h3 id="sumByTypeTitle">Per jobbtyp</h3>
       <div id="sumByType"></div>
+    </div>
+    <div class="card">
+      <h3 id="sumByReturnPlaceTitleV295">Returplatser</h3>
+      <div id="sumByReturnPlaceV295"></div>
     </div>
   </div>
     <div id="historyManagerWrap" class="place-manager hidden">
@@ -7399,6 +7403,48 @@ function getJobRouteSummaryHtmlV288(job, className){
     '<div class="' + rowClass + '"><span>Till</span><strong>' + escapeHtml(route.toLabel) + '</strong></div>' +
     '<div class="' + rowClass + '"><span>Returplats</span><strong>' + escapeHtml(route.returnPlaceLabel) + '</strong></div>' +
   '</div>';
+}
+
+// v295: Returplats visas tydligare i historik, sammanställning och export.
+function getSummaryRowReturnPlaceV295(job){
+  if(!job) return '';
+  let returnRequired = false;
+  try{ returnRequired = typeof getJobReturnRequiredValue === 'function' ? !!getJobReturnRequiredValue(job) : !!(job.returnRequired || job.returnRequiredAtStart); }catch(e){ returnRequired = !!(job.returnRequired || job.returnRequiredAtStart); }
+  if(!returnRequired) return '';
+  const label = typeof getJobReturnPlaceLabelV288 === 'function' ? getJobReturnPlaceLabelV288(job) : (job.returnPlaceLabel || job.routeReturnLabel || '');
+  if(label && label !== 'Ingen retur') return label;
+  return getItemPlaceLabel(job, 'place') || job.placeLabel || job.place || 'Från-plats';
+}
+
+function getJobRouteSummaryHtmlV295(job, className){
+  if(typeof getJobRouteSummaryHtmlV288 !== 'function') return '';
+  return getJobRouteSummaryHtmlV288(job, className || 'active-overview-route-v288 history-route-v295');
+}
+
+function summarizeJobsByReturnPlaceV295(jobs){
+  const byReturn = {};
+  (jobs || []).forEach(job => {
+    if(!job || isOtherWorkJob(job) || job.receiptImported) return;
+    const returnLabel = getSummaryRowReturnPlaceV295(job);
+    if(!returnLabel) return;
+    if(!byReturn[returnLabel]) byReturn[returnLabel] = {jobs:0, loads:0, weight:0, distance:0, timeMs:0};
+    byReturn[returnLabel].jobs += 1;
+    byReturn[returnLabel].loads += getSummaryRowLoadCount(job);
+    byReturn[returnLabel].weight += getSummaryRowWeight(job);
+    byReturn[returnLabel].distance += getSummaryRowDistance(job);
+    byReturn[returnLabel].timeMs += getSummaryRowTimeMs(job);
+  });
+  return byReturn;
+}
+
+function buildSummaryReturnPlacesHtmlV295(jobs){
+  const byReturn = summarizeJobsByReturnPlaceV295(jobs || []);
+  const keys = Object.keys(byReturn).sort((a,b) => a.localeCompare(b, 'sv-SE', {sensitivity:'base', numeric:true}));
+  if(!keys.length) return '<div class="muted">Inga uppdrag med returplats för vald period.</div>';
+  return keys.map(key => {
+    const row = byReturn[key];
+    return '<div class="job"><strong>Returplats: ' + escapeHtml(key) + '</strong><div style="margin-top:6px">Jobb: ' + escapeHtml(String(row.jobs)) + ' · Antal last: ' + escapeHtml(String(row.loads)) + ' · Total vikt i ton: ' + escapeHtml(row.weight.toFixed(1)) + ' ton · Tid: ' + escapeHtml(mins(row.timeMs)) + '</div></div>';
+  }).join('');
 }
 
 function formatActiveEstimateCardHtml(label, value, subText){
@@ -12057,8 +12103,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v294';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v294';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v295';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v295';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -12185,6 +12231,7 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v256 Klar ca i Lastbils status från aktiv ETA-visning',
   'v260 Trippmätare i Idag-spegling',
   'v292 Uppstartsfix systemkontroll',
+  'v295 Returplats i historik/export/sammanställning',
   'v294 Returplats i GPS/inlärning',
   'v293 Returplats i aktivt jobb och ETA',
   'v291 Returplats genom kö/sync/189 status',
@@ -13661,6 +13708,7 @@ function buildActiveMonitorEndReport(job, completedFrom){
   lines.push('Till: ' + activeMonitorSafe(job && (getItemPlaceLabel(job, 'dest') || job.dest), '-'));
   lines.push('Mtrl kod: ' + activeMonitorSafe(job && getMaterialCodeForJob(job), 'Ej aktuell'));
   lines.push('Returkrav: ' + activeMonitorBool(job && getJobReturnRequiredValue(job)));
+  if(job && getJobReturnRequiredValue(job)) lines.push('Returplats: ' + activeMonitorSafe(getSummaryRowReturnPlaceV295(job), '-'));
   lines.push('Flerlass: ' + activeMonitorBool(job && isMultiLoadLearningMode(job)));
   lines.push('Antal lass: ' + loads.length);
   lines.push('Total vikt: ' + activeMonitorNumber(job && job.totalWeight, 2) + ' ton');
@@ -13920,7 +13968,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v294';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v295';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -13945,6 +13993,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Returplats i historik/export/sammanställning v295', status:'Historik/export/sammanställning/Returplats', purpose:'Historik, Sammanställning, 189-sammanställning, Excel-export och avslutsrapport visar Returplats tydligare. Nytt uppdrag visar Returplats utan teknisk förklaringstext.', changeRule:'Får bara påverka visning och export av redan sparad Returplats samt ta bort teknisk hjälptext i Nytt uppdrag. Får inte ändra faktisk returplatslogik, aktivt jobb, ETA, GPS/inlärning, sync, kötruth, vikt, geofence, backup/exportdata i lagring eller driftlogg_v4_full.'},
   {name:'Returplats i aktivt jobb och ETA v293', status:'Aktivt jobb/ETA/Returplats', purpose:'Aktivt jobb och ETA använder vald Returplats som mål efter Till-plats vid returkrav. Äldre uppdrag utan Returplats använder Från-plats som fallback.', changeRule:'Får bara låta aktiv ETA, aktivt mål och kartberäkning för returben använda Returplats. Får inte ändra kötruth, syncens grundlogik, historik, GPS/Snap-inlärning, vikt, geofence-register, backup/export eller driftlogg_v4_full.'},
   {name:'Returplats i GPS/inlärning v294', status:'GPS/Snap/tidsinlärning/Returplats', purpose:'Tidsinlärning, ruttavvikelse och fas-/Snap-underlag håller isär olika retursträckor genom att Returplats ingår i retur-/materialnycklar och returtransportfönster.', changeRule:'Får bara påverka GPS-/tidsinlärningsnycklar, returtransportfönster och Snap-/fasetiketter för retur. Får inte ändra faktisk uppdragsstyrning, vikt, kötruth, syncens grundlogik, historikdata, geofence-register, backup/export eller driftlogg_v4_full.'},
   {name:'Uppstartsfix systemkontroll v292', status:'Uppstart/systemkontroll', purpose:'Rättar felaktigt skiljetecken i systemkontrollistan efter v291 så appen kan starta och v291:s Returplats-data behålls.', changeRule:'Får bara reparera uppstart/syntax i kontrollistan. Får inte ändra sync, kö, Returplats-data, aktivt jobb, GPS/inlärning, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
@@ -14547,6 +14596,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sträcka i Dagens sammanfattning v203', fn('getTodaySummaryDistanceKmV203') && fn('getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', 'getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', '<span>Sträcka</span>') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203'), 'Idag/Dagens sammanfattning visar en ruta Sträcka för färdiga jobb idag med bästa rimliga värde: Snap om rimlig, annars GPS/sparad/osäker');
   addFunctionCheck(results, 'Nivå 2', 'Trippmätare med numeriskt tangentbord v204', fn('getTodayTripMeterHtmlV204') && fn('renderTodayTripMeterV204') && fn('setTripMeterValueV204') && fn('updateTripMeterResultsV204') && src('getTodayTripMeterHtmlV204', 'inputmode=\"decimal\"') && src('getTodayTripMeterHtmlV204', 'Skillnad') && !!el('todayTripMeterBox') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare med numeriskt tangentbord v204'), 'Trippmätaren har start/slut km, numeriskt tangentbord, tripp och skillnad mot Stadslass Sträcka');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser spärrade från vanliga listor v187', fn('sanitizeJobTypePlaceValuesV187') && fn('listHasBeachPlaceV187') && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång');
+  addFunctionCheck(results, 'Nivå 2', 'Returplats i historik/export/sammanställning v295', fn('getSummaryRowReturnPlaceV295') && fn('getJobRouteSummaryHtmlV295') && fn('summarizeJobsByReturnPlaceV295') && src('renderHistoryRegularJobCard', 'getJobRouteSummaryHtmlV295') && src('renderSummary', 'sumByReturnPlaceV295') && src('buildExcelWorkbookXml', 'Returplatser') && src('buildSummaryMirrorPeriodHtmlV261', 'buildSummaryReturnPlacesHtmlV295') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i historik/export/sammanställning v295') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v295', 'Returplats syns tydligare i historik, sammanställning/spegling och Excel-/avslutsrapport utan ändrad returtruth.');
   addFunctionCheck(results, 'Nivå 2', 'Returplats i GPS/inlärning v294', fn('getMaterialReturnLearningPartV294') && src('materialFlowEstimateKey', 'getMaterialReturnLearningPartV294') && src('buildStadslass20TransportWindows', 'returnPlaceLabelV294') && src('buildRouteRoleSnapSegmentsV211', 'Retur Till→Returplats') && src('buildSnapRoadsSegmentsForJobV211', 'Retur Till→Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i GPS/inlärning v294') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v294', 'GPS-/tidsinlärning håller isär retursträckor via Returplats och Snap/transportfönster visar Returplats i returben.');
   addFunctionCheck(results, 'Nivå 2', 'Returplats i aktivt jobb och ETA v293', fn('buildMapPointFromJobReturnPlaceV293') && fn('resolveMapPointFromJobReturnPlaceV293') && fn('getReturnGeofenceForJobV293') && src('getActiveTransportEtaLegV215', 'returnPlace') && src('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && src('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && src('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && src('buildSmartMapRouteKey', 'retur:') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i aktivt jobb och ETA v293') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v294', 'Aktiv ETA och kartberäkning använder Returplats som returbenets mål med Från-plats som fallback.');
   addFunctionCheck(results, 'Nivå 2', 'Uppstartsfix systemkontroll v292', APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v292', 'v292 markerar uppstartsfixen utan att ändra Returplats- eller synclogik.');
@@ -14908,6 +14958,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v283: Annan plats får tillfälligt 80 m geofence med lastnings-/lossningslås beroende på Från/Till-roll.');
   lines.push('v286: Datorläge byter till 189-språk, Synka nu heter Skicka / hämta, funktionsknappar får grå Stadslass-design, Lastbils status markeras som aktiv vy och Akut jobb sorteras överst i kön.');
   lines.push('v292: Uppstartsfix som rättar syntaxfel i systemkontrollistan efter v291 utan ändrad returplatslogik.');
+  lines.push('v295: Historik, sammanställning och export visar Returplats tydligare. Nytt uppdrag visar returlistan utan teknisk förklaring.');
   lines.push('v294: GPS-/tidsinlärning och Snap/transportfönster skiljer retursträckor på Returplats.');
   lines.push('v293: Aktivt jobb och ETA använder Returplats som mål efter Till-plats vid returkrav.');
   lines.push('v291: Returplats följer med genom kö, sync, 189 status och köfiler. Snabbval/gamla köuppdrag använder Från-plats som standardretur.');
@@ -15589,6 +15640,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Ren datorläge-synclista utan arbetsknappar v280', typeof getQueueEditActionHtmlV280 === 'function' && typeof getQueueCompleteActionHtmlV280 === 'function' && functionSourceIncludes('getQueueEditActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('getQueueCompleteActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('renderQueue', 'getQueueEditActionHtmlV280') && functionSourceIncludes('renderQueue', 'getQueueCompleteActionHtmlV280') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ren datorläge-synclista utan arbetsknappar v280'), 'Datorlägets lokala synclista döljer Redigera och Uppdrag slutfört men behåller Ta bort'),
     systemCheck('Datorläge 189-språk och akut köordning v286', typeof getComputerSyncButtonLabelV286 === 'function' && typeof updateComputerActionLabelsV286 === 'function' && functionSourceIncludes('getQueueTabLabelV273', 'Uppdrag till 189') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'Mottaget av 189') && functionSourceIncludes('getComputerQueueGroupedPartsV278', 'Väntar på 189') && functionSourceIncludes('compareQueuedJobPlanning', 'urgentB - urgentA') && document.getElementById('queueCalculateTimesButtonV286') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge 189-språk, grå funktionsknappar och akut köordning v286'), 'Datorläge använder 189-språk/Skicka-hämta och akutmarkerade köuppdrag sorteras överst'),
     systemCheck('Uppstartsfix systemkontroll v292', APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292'), 'v292 reparerar systemkontrollistan utan ändrad returplatslogik'),
+    systemCheck('Returplats i historik/export/sammanställning v295', typeof getSummaryRowReturnPlaceV295 === 'function' && typeof getJobRouteSummaryHtmlV295 === 'function' && typeof summarizeJobsByReturnPlaceV295 === 'function' && functionSourceIncludes('renderHistoryRegularJobCard', 'getJobRouteSummaryHtmlV295') && functionSourceIncludes('renderSummary', 'sumByReturnPlaceV295') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplatser') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i historik/export/sammanställning v295'), 'Historik, sammanställning, spegling och export visar Returplats tydligare'),
     systemCheck('Returplats i GPS/inlärning v294', typeof getMaterialReturnLearningPartV294 === 'function' && functionSourceIncludes('materialFlowEstimateKey', 'getMaterialReturnLearningPartV294') && functionSourceIncludes('buildStadslass20TransportWindows', 'returnPlaceLabelV294') && functionSourceIncludes('buildRouteRoleSnapSegmentsV211', 'Retur Till→Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i GPS/inlärning v294'), 'GPS-/tidsinlärning och Snap/transportfönster skiljer retursträckor på Returplats'),
     systemCheck('Returplats i aktivt jobb och ETA v293', typeof buildMapPointFromJobReturnPlaceV293 === 'function' && typeof resolveMapPointFromJobReturnPlaceV293 === 'function' && typeof getReturnGeofenceForJobV293 === 'function' && functionSourceIncludes('getActiveTransportEtaLegV215', 'returnPlace') && functionSourceIncludes('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildSmartMapRouteKey', 'retur:'), 'Aktivt jobb och ETA använder Returplats som returbenets mål'),
     systemCheck('Returplats genom kö/sync/189 status v291', typeof applyStandardReturnPlaceToQueuedJobV291 === 'function' && typeof getJobReturnPlaceValueV291 === 'function' && typeof normalizeJobReturnPlaceFieldsV291 === 'function' && functionSourceIncludes('sanitizeQueueItemForSyncV219', 'returnPlaceV291') && functionSourceIncludes('normalizeImportedSyncQueueItemV219', 'routeReturnPlace') && functionSourceIncludes('sanitizeQueueItemForTransfer', 'routeReturnPlace') && functionSourceIncludes('quickQueue', 'applyStandardReturnPlaceToQueuedJobV291') && functionSourceIncludes('buildTabletStatusPayloadV219', 'routeReturnPlace') && functionSourceIncludes('buildTabletQueueMirrorJobCardV238', 'getJobReturnPlacePillHtmlV291') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats genom kö/sync/189 status v291'), 'Returplats följer med i kö, sync, köfiler och 189 status'),
@@ -16475,6 +16527,7 @@ function renderHistoryOtherWorkCard(job){
 function renderHistoryRegularJobCard(job){
   return '<div class="job">'+
     '<div><span class="pill pill-type">'+escapeHtml(job.type || '')+'</span><span class="pill pill-place">Från '+escapeHtml(getItemPlaceLabel(job, 'place'))+'</span>'+(job.dest ? '<span class="pill pill-dest">Till '+escapeHtml(getItemPlaceLabel(job, 'dest'))+'</span>' : '')+'</div>'+ 
+    getJobRouteSummaryHtmlV295(job)+
     '<div style="margin-top:6px">Datum: '+escapeHtml(formatShortDate(job.date || ''))+' · Start: '+clockTime(job.start)+' · Slut: '+clockTime(job.end)+'</div>'+ 
     '<div style="margin-top:6px">Tid: '+mins((job.end||Date.now()) - job.start)+' · Antal last: '+(job.loads||[]).length+' · Total vikt i ton: '+(job.totalWeight||0).toFixed(1)+' ton · Sträcka: '+km(job.distanceKm||0)+'</div>'+ 
     getSeaweedWeightRoleHtml(job)+
@@ -21594,9 +21647,11 @@ function buildSummaryMirrorPeriodHtmlV261(selection, rows){
     const row = byType[k];
     return '<div class="job"><strong>' + escapeHtml(k) + '</strong><div style="margin-top:6px">Jobb: ' + escapeHtml(String(row.jobs)) + ' · Antal last: ' + escapeHtml(String(row.loads)) + ' · Total vikt i ton: ' + escapeHtml(row.weight.toFixed(1)) + ' ton · Tid: ' + escapeHtml(mins(row.timeMs)) + '</div></div>';
   }).join('') : '<div class="muted">Ingen data för vald period.</div>';
+  const returnPlacesHtmlV295 = typeof buildSummaryReturnPlacesHtmlV295 === 'function' ? buildSummaryReturnPlacesHtmlV295(filtered) : '<div class="muted">Returplatsunderlag saknas.</div>';
   return '<div class="summary-mirror-period-v261" data-period-label="' + escapeHtml(label) + '">' +
     statsHtml +
     '<div class="card"><h3>Per jobbtyp – ' + escapeHtml(label) + '</h3><div class="summary-mirror-bytype-v261">' + byTypeHtml + '</div></div>' +
+    '<div class="card"><h3>Returplatser – ' + escapeHtml(label) + '</h3><div class="summary-mirror-returnplaces-v295">' + returnPlacesHtmlV295 + '</div></div>' +
   '</div>';
 }
 
@@ -30499,6 +30554,7 @@ function buildExcelWorkbookXml(selection, filtered){
 
   const byDate = summarizeJobsByDate(excelRows);
   const byType = summarizeJobsByType(excelRows);
+  const byReturnPlaceV295 = summarizeJobsByReturnPlaceV295(excelRows);
   const monthlyDiagramRows = buildMonthlyJobDiagramRows(getExcelDiagramJobsV247(selection, excelRows), label);
 
   let summaryRows = '';
@@ -30534,8 +30590,20 @@ function buildExcelWorkbookXml(selection, filtered){
     );
   });
 
+  let returnPlaceRowsV295 = '';
+  returnPlaceRowsV295 += xmlRow(['Returplats', 'Jobb', 'Antal last', 'Total vikt i ton', 'Tid timmar']);
+  const returnPlaceKeysV295 = Object.keys(byReturnPlaceV295).sort((a,b) => a.localeCompare(b, 'sv-SE', {sensitivity:'base', numeric:true}));
+  if(returnPlaceKeysV295.length){
+    returnPlaceKeysV295.forEach(key => {
+      const row = byReturnPlaceV295[key];
+      returnPlaceRowsV295 += xmlRow([key, row.jobs, row.loads, row.weight.toFixed(1), decimalHours(row.timeMs).toFixed(2)], ['String','Number','Number','Number','Number']);
+    });
+  } else {
+    returnPlaceRowsV295 += xmlRow(['Inga returplatser för vald period', 0, 0, '0.0', '0.00'], ['String','Number','Number','Number','Number']);
+  }
+
   let detailRows = '';
-  detailRows += xmlRow(['Datum', 'Jobbtyp', 'Från', 'Till', 'Mtrl kod', 'Antal last', 'Angiven vikt i ton', 'Tid timmar', 'Kommentar']);
+  detailRows += xmlRow(['Datum', 'Jobbtyp', 'Från', 'Till', 'Returplats', 'Mtrl kod', 'Antal last', 'Angiven vikt i ton', 'Tid timmar', 'Kommentar']);
   excelRows
     .slice()
     .sort((a,b) => (a.date || '').localeCompare(b.date || '') || (a.start || 0) - (b.start || 0))
@@ -30546,13 +30614,14 @@ function buildExcelWorkbookXml(selection, filtered){
           job.type || '',
           getItemPlaceLabel(job, 'place'),
           getItemPlaceLabel(job, 'dest'),
+          getSummaryRowReturnPlaceV295(job),
           getMaterialCodeForJob(job) || '',
           getSummaryRowLoadCount(job),
           Number(job.totalWeight || 0).toFixed(1),
           decimalHours(getSummaryRowTimeMs(job)).toFixed(2),
           getSummaryRowComment(job)
         ],
-        ['String','String','String','String','String','Number','Number','Number','String']
+        ['String','String','String','String','String','String','Number','Number','Number','String']
       );
     });
 
@@ -30570,6 +30639,7 @@ function buildExcelWorkbookXml(selection, filtered){
     + '<Worksheet ss:Name="Diagram månad"><Table>' + monthlyDiagramRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Dag för dag"><Table>' + dayRows + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Per jobbtyp"><Table>' + typeRows + '</Table></Worksheet>'
+    + '<Worksheet ss:Name="Returplatser"><Table>' + returnPlaceRowsV295 + '</Table></Worksheet>'
     + '<Worksheet ss:Name="Detaljer"><Table>' + detailRows + '</Table></Worksheet>'
     + '</Workbook>';
   return xml;
@@ -30604,6 +30674,8 @@ function renderSummary(){
   document.getElementById('sumDistanceLabel').textContent = 'Sträcka ' + label;
   document.getElementById('sumTimeLabel').textContent = 'Tid ' + label;
   document.getElementById('sumByTypeTitle').textContent = 'Per jobbtyp – ' + label;
+  const sumByReturnTitleV295 = document.getElementById('sumByReturnPlaceTitleV295');
+  if(sumByReturnTitleV295) sumByReturnTitleV295.textContent = 'Returplatser – ' + label;
 
   document.getElementById('sumJobs').textContent = countUniqueSummaryJobs(filtered);
   document.getElementById('sumLoads').textContent = filtered.reduce((a,x)=>a+getSummaryRowLoadCount(x),0);
@@ -30617,6 +30689,9 @@ function renderSummary(){
   el.innerHTML = keys.length ? keys.map(k =>
     '<div class="job"><strong>'+k+'</strong><div style="margin-top:6px">Jobb: '+byType[k].jobs+' · Antal last: '+byType[k].loads+' · Total vikt i ton: '+byType[k].weight.toFixed(1)+' ton · Tid: '+mins(byType[k].timeMs)+'</div></div>'
   ).join('') : '<div class="muted">Ingen data för vald period.</div>';
+
+  const returnElV295 = document.getElementById('sumByReturnPlaceV295');
+  if(returnElV295) returnElV295.innerHTML = buildSummaryReturnPlacesHtmlV295(filtered);
 }
 
 
