@@ -3,8 +3,9 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v292
+- Nuvarande version: Stadslass 2.0 v293
 - v284: Inställningar får en datoranpassad översikt i Datorläge med roll, sync-/Google-nyckelstatus, paddkontakt, registerstatus, uppdragsräknare, Synka nu och lokal rensning.
+- v293: Aktivt jobb och ETA använder Returplats som mål efter Till-plats vid returkrav, med Från-plats som fallback för äldre uppdrag.
 - v285: Datorläge delar Inställningar i enkel datorpanel och Avancerade inställningar; tekniska registerdelar ligger bakom en knapp i datorläge medan padda-läge är oförändrat.
 - v292: Uppstartsfix efter v291; rättar syntaxfel i systemkontrollistan utan ändrad returplatslogik.
 - v291: Returplats följer med genom kö, sync, 189 status och köfiler. Standard är fortsatt Från-plats för gamla/enkla köuppdrag.
@@ -333,7 +334,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v292';
+  const version = 'Stadslass 2.0 v293';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3648,7 +3649,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v292</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v293</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -7926,9 +7927,9 @@ function getActiveEstimateTargetPlaceLabel(job){
   if(activeLegV215 && activeLegV215.active && activeLegV215.targetLabel) return activeLegV215.targetLabel;
   const split = typeof getReturnSplitCountdownInfo === 'function' ? getReturnSplitCountdownInfo(job) : null;
 
-  if(split && split.mode === 'return') return fromLabel || 'Från-plats';
+  if(split && split.mode === 'return') return (typeof getJobReturnPlaceLabelV293 === 'function' ? (getJobReturnPlaceLabelV293(job) || fromLabel) : fromLabel) || 'Returplats';
   if(split && split.mode === 'outbound') return toLabel || 'Till-plats';
-  if(phase === 'returning') return fromLabel || 'Från-plats';
+  if(phase === 'returning') return (typeof getJobReturnPlaceLabelV293 === 'function' ? (getJobReturnPlaceLabelV293(job) || fromLabel) : fromLabel) || 'Returplats';
   if(phase === 'start') return fromLabel || 'Från-plats';
   if(phase === 'loading' || phase === 'load_complete' || phase === 'between_loads') return toLabel || fromLabel || 'Till-plats';
   return toLabel || fromLabel || '';
@@ -8554,8 +8555,9 @@ function getReturnSplitRouteLegMinutes(job){
   try{
     const fromPoint = buildMapPointFromJobPlace(job, 'place', 'Från-platsen');
     const toPoint = buildMapPointFromJobPlace(job, 'dest', 'Till-platsen');
+    const returnPointV293 = buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen');
     const outboundResult = getRouteResultFromCacheOrSamePoint(fromPoint, toPoint);
-    const returnResult = getRouteResultFromCacheOrSamePoint(toPoint, fromPoint);
+    const returnResult = getRouteResultFromCacheOrSamePoint(toPoint, returnPointV293);
     outboundMinutes = outboundResult ? mapSecondsToEstimateMinutes(Number(outboundResult.durationSeconds || 0)) : 0;
     returnMinutes = returnResult ? mapSecondsToEstimateMinutes(Number(returnResult.durationSeconds || 0)) : 0;
   }catch(e){
@@ -9204,7 +9206,8 @@ function getCachedMapMaterialDistanceMetersForJob(job){
     if(!outboundResult) return 0;
     let meters = Number(outboundResult.distanceMeters || 0);
     if(getJobReturnRequiredValue(job)){
-      const returnResult = getRouteResultFromCacheOrSamePoint(toPoint, fromPoint);
+      const returnPointV293 = typeof buildMapPointFromJobReturnPlaceV293 === 'function' ? buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen') : fromPoint;
+      const returnResult = getRouteResultFromCacheOrSamePoint(toPoint, returnPointV293);
       if(!returnResult) return 0;
       meters += Number(returnResult.distanceMeters || 0);
     }
@@ -9364,7 +9367,9 @@ function buildRouteGpsMetaForJob(job){
     calculationStartPlace: job.calculationStartPlace || '',
     calculationStartLabel: getCalculationStartLabelForJob(job),
     returnRequired: getJobReturnRequiredValue(job),
-    routeRule: getJobReturnRequiredValue(job) ? 'returkrav_ja' : 'returkrav_nej'
+    returnPlace: typeof getJobReturnPlaceValueV293 === 'function' ? getJobReturnPlaceValueV293(job) : (job.returnPlace || job.place || ''),
+    returnPlaceLabel: typeof getJobReturnPlaceLabelV293 === 'function' ? getJobReturnPlaceLabelV293(job) : (job.returnPlaceLabel || getItemPlaceLabel(job, 'place')),
+    routeRule: getJobReturnRequiredValue(job) ? 'returplats_v293' : 'returkrav_nej'
   };
 }
 
@@ -9730,11 +9735,12 @@ async function runActiveMapRouteCalculation(){
     const fromPoint = await resolveMapPointFromJobPlace(job, 'place', 'Från-platsen');
     const toPoint = await resolveMapPointFromJobPlace(job, 'dest', 'Till-platsen');
     const returnRequired = getJobReturnRequiredValue(job);
+    const returnPointV293 = returnRequired ? await resolveMapPointFromJobReturnPlaceV293(job, 'Returplatsen') : null;
     const startResult = await requestGoogleRouteByPointsForTotal(startPoint, fromPoint);
     if(!state.active || state.active.id !== activeId) return;
     const outboundResult = await requestGoogleRouteByPointsForTotal(fromPoint, toPoint);
     if(!state.active || state.active.id !== activeId) return;
-    const returnResult = returnRequired ? await requestGoogleRouteByPointsForTotal(toPoint, fromPoint) : null;
+    const returnResult = returnRequired ? await requestGoogleRouteByPointsForTotal(toPoint, returnPointV293) : null;
     if(!state.active || state.active.id !== activeId) return;
     const results = [startResult, outboundResult].concat(returnResult ? [returnResult] : []);
     const totalSeconds = results.reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
@@ -9746,7 +9752,7 @@ async function runActiveMapRouteCalculation(){
     rows += buildMapSegmentRow('Starttillägg', startPoint.label, fromPoint.label, startResult);
     rows += buildMapSegmentRow('Materialflöde ut', fromPoint.label, toPoint.label, outboundResult);
     if(returnResult){
-      rows += buildMapSegmentRow('Returkrav tillbaka', toPoint.label, fromPoint.label, returnResult);
+      rows += buildMapSegmentRow('Retur till Returplats', toPoint.label, (returnPointV293 ? returnPointV293.label : fromPoint.label), returnResult);
     }
     const sourceText = 'Källa: ' + googleCount + ' nytt/nya Google-anrop, ' + cacheCount + ' från cache' + (skippedCount ? ', ' + skippedCount + ' samma plats' : '') + '.';
     const historicalText = buildActiveMapHistoricalText(job);
@@ -12050,8 +12056,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v292';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v292';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v293';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v293';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -12178,6 +12184,7 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v256 Klar ca i Lastbils status från aktiv ETA-visning',
   'v260 Trippmätare i Idag-spegling',
   'v292 Uppstartsfix systemkontroll',
+  'v293 Returplats i aktivt jobb och ETA',
   'v291 Returplats genom kö/sync/189 status',
   'v290 Returplatsval i Nytt uppdrag',
   'v289 Returplatsinställning i Platser',
@@ -13911,7 +13918,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v292';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v293';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -13936,6 +13943,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Returplats i aktivt jobb och ETA v293', status:'Aktivt jobb/ETA/Returplats', purpose:'Aktivt jobb och ETA använder vald Returplats som mål efter Till-plats vid returkrav. Äldre uppdrag utan Returplats använder Från-plats som fallback.', changeRule:'Får bara låta aktiv ETA, aktivt mål och kartberäkning för returben använda Returplats. Får inte ändra kötruth, syncens grundlogik, historik, GPS/Snap-inlärning, vikt, geofence-register, backup/export eller driftlogg_v4_full.'},
   {name:'Uppstartsfix systemkontroll v292', status:'Uppstart/systemkontroll', purpose:'Rättar felaktigt skiljetecken i systemkontrollistan efter v291 så appen kan starta och v291:s Returplats-data behålls.', changeRule:'Får bara reparera uppstart/syntax i kontrollistan. Får inte ändra sync, kö, Returplats-data, aktivt jobb, GPS/inlärning, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
   {name:'Returplats genom kö/sync/189 status v291', status:'Kö/sync/189 status/returplats', purpose:'Returplats följer med i köuppdrag, köfiler, GitHub/sync-inbox, 189 status och speglad kö. Snabbval och gamla köuppdrag med returkrav får standard Returplats = Från-plats.', changeRule:'Får bara normalisera och föra vidare Returplats som data/visning genom kö och sync. Får inte ändra faktisk ETA, GPS/inlärning, returtransportlogik, aktivt arbetsflöde, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
   {name:'Returplatsval i Nytt uppdrag v290', status:'Nytt uppdrag/returplats', purpose:'När Returkrav är valt visas Returplats och Uppdragets väg i Nytt uppdrag. Standardretur är Från-plats, alternativa Returplatser styrs av Kan väljas som returplats och Havstång behåller badplats-undantag.', changeRule:'Får bara lägga till val, spara och visa Returplats på nya/queue-startade uppdrag. Får inte ändra faktisk ETA, GPS/inlärning, aktivt arbetsflöde, syncens grundlogik, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
@@ -14536,6 +14544,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sträcka i Dagens sammanfattning v203', fn('getTodaySummaryDistanceKmV203') && fn('getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', 'getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', '<span>Sträcka</span>') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203'), 'Idag/Dagens sammanfattning visar en ruta Sträcka för färdiga jobb idag med bästa rimliga värde: Snap om rimlig, annars GPS/sparad/osäker');
   addFunctionCheck(results, 'Nivå 2', 'Trippmätare med numeriskt tangentbord v204', fn('getTodayTripMeterHtmlV204') && fn('renderTodayTripMeterV204') && fn('setTripMeterValueV204') && fn('updateTripMeterResultsV204') && src('getTodayTripMeterHtmlV204', 'inputmode=\"decimal\"') && src('getTodayTripMeterHtmlV204', 'Skillnad') && !!el('todayTripMeterBox') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare med numeriskt tangentbord v204'), 'Trippmätaren har start/slut km, numeriskt tangentbord, tripp och skillnad mot Stadslass Sträcka');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser spärrade från vanliga listor v187', fn('sanitizeJobTypePlaceValuesV187') && fn('listHasBeachPlaceV187') && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång');
+  addFunctionCheck(results, 'Nivå 2', 'Returplats i aktivt jobb och ETA v293', fn('buildMapPointFromJobReturnPlaceV293') && fn('resolveMapPointFromJobReturnPlaceV293') && fn('getReturnGeofenceForJobV293') && src('getActiveTransportEtaLegV215', 'returnPlace') && src('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && src('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && src('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && src('buildSmartMapRouteKey', 'retur:') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i aktivt jobb och ETA v293') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v293', 'Aktiv ETA och kartberäkning använder Returplats som returbenets mål med Från-plats som fallback.');
   addFunctionCheck(results, 'Nivå 2', 'Uppstartsfix systemkontroll v292', APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v292', 'v292 markerar uppstartsfixen utan att ändra Returplats- eller synclogik.');
   addFunctionCheck(results, 'Nivå 2', 'Returplats genom kö/sync/189 status v291', fn('applyStandardReturnPlaceToQueuedJobV291') && fn('getJobReturnPlaceValueV291') && fn('normalizeJobReturnPlaceFieldsV291') && src('sanitizeQueueItemForSyncV219', 'returnPlaceV291') && src('normalizeImportedSyncQueueItemV219', 'routeReturnPlace') && src('sanitizeQueueItemForTransfer', 'routeReturnPlace') && src('quickQueue', 'applyStandardReturnPlaceToQueuedJobV291') && src('buildTabletStatusPayloadV219', 'routeReturnPlace') && src('buildTabletQueueMirrorJobCardV238', 'getJobReturnPlacePillHtmlV291') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats genom kö/sync/189 status v291') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v292', 'Returplats normaliseras och följer med i kö, sync, köfiler och 189 status utan att ändra ETA/GPS.');
   addFunctionCheck(results, 'Nivå 2', 'Returplatsval i Nytt uppdrag v290', fn('updateNewReturnPlaceUIV290') && fn('getNewReturnPlaceChoiceV290') && fn('applyReturnPlaceFieldsToJobV290') && !!el('newReturnPlaceV290') && !!el('newReturnRoutePreviewV290') && src('startManualJob', 'returnPlaceChoiceV290') && src('addManualJobToQueue', 'returnPlaceChoiceV290') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsval i Nytt uppdrag v290') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v292', 'Nytt uppdrag visar/sparar Returplats när Returkrav är valt utan att ändra ETA/GPS-inlärning.');
@@ -14895,6 +14904,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v283: Annan plats får tillfälligt 80 m geofence med lastnings-/lossningslås beroende på Från/Till-roll.');
   lines.push('v286: Datorläge byter till 189-språk, Synka nu heter Skicka / hämta, funktionsknappar får grå Stadslass-design, Lastbils status markeras som aktiv vy och Akut jobb sorteras överst i kön.');
   lines.push('v292: Uppstartsfix som rättar syntaxfel i systemkontrollistan efter v291 utan ändrad returplatslogik.');
+  lines.push('v293: Aktivt jobb och ETA använder Returplats som mål efter Till-plats vid returkrav.');
   lines.push('v291: Returplats följer med genom kö, sync, 189 status och köfiler. Snabbval/gamla köuppdrag använder Från-plats som standardretur.');
   lines.push('v290: Nytt uppdrag visar Returplats och Uppdragets väg när Returkrav är valt. Standard är Från-plats och alternativa Returplatser styrs av platsinställningen.');
   lines.push('v289: Platser har Kan väljas som returplats för vanliga alternativa Returplatser. Standardretur är Från-plats och Havstång/badplatser undantas.');
@@ -15574,6 +15584,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Ren datorläge-synclista utan arbetsknappar v280', typeof getQueueEditActionHtmlV280 === 'function' && typeof getQueueCompleteActionHtmlV280 === 'function' && functionSourceIncludes('getQueueEditActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('getQueueCompleteActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('renderQueue', 'getQueueEditActionHtmlV280') && functionSourceIncludes('renderQueue', 'getQueueCompleteActionHtmlV280') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ren datorläge-synclista utan arbetsknappar v280'), 'Datorlägets lokala synclista döljer Redigera och Uppdrag slutfört men behåller Ta bort'),
     systemCheck('Datorläge 189-språk och akut köordning v286', typeof getComputerSyncButtonLabelV286 === 'function' && typeof updateComputerActionLabelsV286 === 'function' && functionSourceIncludes('getQueueTabLabelV273', 'Uppdrag till 189') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'Mottaget av 189') && functionSourceIncludes('getComputerQueueGroupedPartsV278', 'Väntar på 189') && functionSourceIncludes('compareQueuedJobPlanning', 'urgentB - urgentA') && document.getElementById('queueCalculateTimesButtonV286') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge 189-språk, grå funktionsknappar och akut köordning v286'), 'Datorläge använder 189-språk/Skicka-hämta och akutmarkerade köuppdrag sorteras överst'),
     systemCheck('Uppstartsfix systemkontroll v292', APP_VERSION === 'Stadslass 2.0 v292' && APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292') && ACTIVE_MONITOR_UPDATED_FOR_SHORT === 'v292', 'v292 reparerar systemkontrollistan utan ändrad returplatslogik'),
+    systemCheck('Returplats i aktivt jobb och ETA v293', typeof buildMapPointFromJobReturnPlaceV293 === 'function' && typeof resolveMapPointFromJobReturnPlaceV293 === 'function' && typeof getReturnGeofenceForJobV293 === 'function' && functionSourceIncludes('getActiveTransportEtaLegV215', 'returnPlace') && functionSourceIncludes('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildSmartMapRouteKey', 'retur:'), 'Aktivt jobb och ETA använder Returplats som returbenets mål'),
     systemCheck('Returplats genom kö/sync/189 status v291', typeof applyStandardReturnPlaceToQueuedJobV291 === 'function' && typeof getJobReturnPlaceValueV291 === 'function' && typeof normalizeJobReturnPlaceFieldsV291 === 'function' && functionSourceIncludes('sanitizeQueueItemForSyncV219', 'returnPlaceV291') && functionSourceIncludes('normalizeImportedSyncQueueItemV219', 'routeReturnPlace') && functionSourceIncludes('sanitizeQueueItemForTransfer', 'routeReturnPlace') && functionSourceIncludes('quickQueue', 'applyStandardReturnPlaceToQueuedJobV291') && functionSourceIncludes('buildTabletStatusPayloadV219', 'routeReturnPlace') && functionSourceIncludes('buildTabletQueueMirrorJobCardV238', 'getJobReturnPlacePillHtmlV291') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats genom kö/sync/189 status v291'), 'Returplats följer med i kö, sync, köfiler och 189 status'),
     systemCheck('Returplatsval i Nytt uppdrag v290', typeof updateNewReturnPlaceUIV290 === 'function' && typeof getNewReturnPlaceChoiceV290 === 'function' && typeof applyReturnPlaceFieldsToJobV290 === 'function' && !!document.getElementById('newReturnPlaceV290') && !!document.getElementById('newReturnRoutePreviewV290') && functionSourceIncludes('addManualJobToQueue', 'returnPlaceChoiceV290') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsval i Nytt uppdrag v290'), 'Nytt uppdrag visar och sparar Returplats när Returkrav är valt'),
     systemCheck('Returplatsinställning i Platser v289', typeof normalizePlaceReturnEligibilityV289 === 'function' && typeof isPlaceReturnEligibleV289 === 'function' && typeof getReturnPlaceValuesForJobTypeV289 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'data-place-return-eligible-key') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsinställning i Platser v289'), 'Platser kan godkännas som alternativa Returplatser; Havstång/badplatser undantas från vanliga begränsningar'),
@@ -17717,6 +17728,9 @@ function getActiveTransportEtaLegV215(job, point, options){
   const insideTo = !!(toZone && checkPoint && isPointInsideOrNearGeofence(checkPoint, toZone, {accuracyMeters:accuracy}));
   const fromLabel = getItemPlaceLabel(job, 'place') || job.place || 'Från-plats';
   const toLabel = getItemPlaceLabel(job, 'dest') || job.dest || 'Till-plats';
+  const returnLabelV293 = typeof getJobReturnPlaceLabelV293 === 'function' ? (getJobReturnPlaceLabelV293(job) || fromLabel) : fromLabel;
+  const returnZoneV293 = typeof getReturnGeofenceForJobV293 === 'function' ? getReturnGeofenceForJobV293(job) : fromZone;
+  const insideReturnV293 = !!(returnZoneV293 && checkPoint && isPointInsideOrNearGeofence(checkPoint, returnZoneV293, {accuracyMeters:accuracy}));
   const returnRequired = getJobReturnRequiredValue(job);
   const multiLoad = isMultiLoadLearningMode(job);
   const seaweedBeach = typeof isSeaweedToBeachJob === 'function' && isSeaweedToBeachJob(job);
@@ -17739,8 +17753,8 @@ function getActiveTransportEtaLegV215(job, point, options){
     return make(seaweedBeach ? 'seaweed_outbound' : 'outbound', 'dest', toLabel, Number(job.observedTransportStartAt || job.seaweedTransportOpenedAt || job.currentLoadStartedAt || job.loadedAt || now), {allowStartGeofence:true, reason:seaweedBeach ? 'Havstång transport till badplats' : 'transport Från → Till'});
   }
   if(phase === 'returning'){
-    if(insideFrom && !opts.allowInsideTarget) return {active:false, mode:seaweedBeach ? 'seaweed_return' : 'return', targetRole:'place', targetLabel:fromLabel, phase, targetReached:true, reason:'vid returplats', v215:true};
-    return make(seaweedBeach ? 'seaweed_return' : 'return', 'place', fromLabel, Number(job.seaweedReturnStartedAt || job.returnRequirementWeightAt || job.lastWeightAt || job.currentReturnStartedAt || now), {reason:seaweedBeach ? 'Havstång retur/empty-truck' : 'returtransport'});
+    if(insideReturnV293 && !opts.allowInsideTarget) return {active:false, mode:seaweedBeach ? 'seaweed_return' : 'return', targetRole:'returnPlace', targetLabel:returnLabelV293, phase, targetReached:true, reason:'vid returplats', v215:true};
+    return make(seaweedBeach ? 'seaweed_return' : 'return', 'returnPlace', returnLabelV293, Number(job.seaweedReturnStartedAt || job.returnRequirementWeightAt || job.lastWeightAt || job.currentReturnStartedAt || now), {reason:seaweedBeach ? 'Havstång retur/empty-truck' : 'returtransport'});
   }
   if(phase === 'between_loads' && multiLoad && !returnRequired){
     if(insideFrom || isMultiLoadReadyForNextLoadAtFrom(job)) return {active:false, mode:'between_loads_return', targetRole:'place', targetLabel:fromLabel, phase, targetReached:true, reason:'vid Från-plats mellan lass', v215:true};
@@ -17759,7 +17773,9 @@ function getActiveTransportEtaRoutePointsV215(job, point, options){
   else if(leg.mode === 'return' || leg.mode === 'seaweed_return') fromPoint = buildMapPointFromJobPlace(job, 'dest', 'Till-platsen');
   else if(leg.mode === 'outbound' || leg.mode === 'seaweed_outbound') fromPoint = buildMapPointFromJobPlace(job, 'place', 'Från-platsen');
   else fromPoint = buildMapPointFromJobStart(job);
-  const toPoint = leg.targetRole === 'place' ? buildMapPointFromJobPlace(job, 'place', 'Från-platsen') : buildMapPointFromJobPlace(job, 'dest', 'Till-platsen');
+  const toPoint = leg.targetRole === 'returnPlace'
+    ? buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen')
+    : (leg.targetRole === 'place' ? buildMapPointFromJobPlace(job, 'place', 'Från-platsen') : buildMapPointFromJobPlace(job, 'dest', 'Till-platsen'));
   if(!fromPoint || !toPoint) return null;
   return {mode:leg.mode, fromPoint, toPoint, leg};
 }
@@ -17863,9 +17879,9 @@ function buildActiveAutoMapRoutePoints(job, point, reason){
   const mode = getActiveAutoMapMode(job, reason);
   if(!mode) return null;
   if(reason === 'return_weight' && mode === 'return'){
-    return {mode, fromPoint:buildMapPointFromJobPlace(job, 'dest', 'Till-platsen'), toPoint:buildMapPointFromJobPlace(job, 'place', 'Returplatsen')};
+    return {mode, fromPoint:buildMapPointFromJobPlace(job, 'dest', 'Till-platsen'), toPoint:buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen')};
   }
-  return {mode, fromPoint:buildMapPointFromGpsPoint(point, 'Aktuell GPS-position'), toPoint: mode === 'return' || mode === 'between_loads_return' || mode === 'seaweed_return' ? buildMapPointFromJobPlace(job, 'place', 'Returplatsen') : (mode === 'start' ? buildMapPointFromJobPlace(job, 'place', 'Från-platsen') : buildMapPointFromJobPlace(job, 'dest', 'Till-platsen'))};
+  return {mode, fromPoint:buildMapPointFromGpsPoint(point, 'Aktuell GPS-position'), toPoint: mode === 'return' || mode === 'seaweed_return' ? buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen') : (mode === 'between_loads_return' ? buildMapPointFromJobPlace(job, 'place', 'Från-platsen') : (mode === 'start' ? buildMapPointFromJobPlace(job, 'place', 'Från-platsen') : buildMapPointFromJobPlace(job, 'dest', 'Till-platsen')))};
 }
 
 function shouldRunActiveAutoMapRecalculation(job, point, options){
@@ -18089,7 +18105,8 @@ async function runMapTotalRouteTest(){
     const toPoint = buildMapPointFromPlace(toPlace, 'Till-platsen');
     const startResult = await requestGoogleRouteByPointsForTotal(startPoint, fromPoint);
     const outboundResult = await requestGoogleRouteByPointsForTotal(fromPoint, toPoint);
-    const returnResult = returnRequired ? await requestGoogleRouteByPointsForTotal(toPoint, fromPoint) : null;
+    const returnPointV293 = returnRequired ? await resolveMapPointFromJobReturnPlaceV293(job, 'Returplatsen') : null;
+    const returnResult = returnRequired ? await requestGoogleRouteByPointsForTotal(toPoint, returnPointV293) : null;
     const results = [startResult, outboundResult].concat(returnResult ? [returnResult] : []);
     const totalSeconds = results.reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
     const totalDistance = results.reduce((sum, item) => sum + (Number(item.distanceMeters) || 0), 0);
@@ -18100,7 +18117,7 @@ async function runMapTotalRouteTest(){
     rows += buildMapSegmentRow('Starttillägg', startPoint.label, fromPoint.label, startResult);
     rows += buildMapSegmentRow('Materialflöde ut', fromPoint.label, toPoint.label, outboundResult);
     if(returnResult){
-      rows += buildMapSegmentRow('Returkrav tillbaka', toPoint.label, fromPoint.label, returnResult);
+      rows += buildMapSegmentRow('Retur till Returplats', toPoint.label, (typeof returnPointV293 !== 'undefined' && returnPointV293 ? returnPointV293.label : fromPoint.label), returnResult);
     }
     const sourceText = 'Källa: ' + googleCount + ' nytt/nya Google-anrop, ' + cacheCount + ' från cache' + (skippedCount ? ', ' + skippedCount + ' hoppades över som samma plats' : '') + '.';
     const historicalText = buildHistoricalEstimateTextForTotal(fromPlace, toPlace, returnRequired);
@@ -27425,7 +27442,8 @@ function getMaterialRouteText(job){
   if(!job) return '';
   const fromLabel = getItemPlaceLabel(job, 'place') || job.place || 'Från';
   const toLabel = getItemPlaceLabel(job, 'dest') || job.dest || 'Till';
-  if(getJobReturnRequiredValue(job)) return fromLabel + ' → ' + toLabel + ' → ' + fromLabel;
+  const returnLabelV293 = typeof getJobReturnPlaceLabelV293 === 'function' ? (getJobReturnPlaceLabelV293(job) || fromLabel) : fromLabel;
+  if(getJobReturnRequiredValue(job)) return fromLabel + ' → ' + toLabel + ' → ' + returnLabelV293;
   return fromLabel + ' → ' + toLabel;
 }
 
@@ -27555,8 +27573,11 @@ function buildSmartMapRouteKey(job){
     const startPoint = buildSmartMapPointFromJobStart(job);
     const fromKey = getMapRouteKeyPartFromJobPlace(job, 'place', 'Från-platsen');
     const toKey = getMapRouteKeyPartFromJobPlace(job, 'dest', 'Till-platsen');
-    if(!startPoint || !fromKey || !toKey) return '';
-    return [startPoint.cacheKey, fromKey, toKey, getJobReturnRequiredValue(job) ? 'retur' : 'ejretur'].join('|');
+    const returnKeyV293 = getJobReturnRequiredValue(job)
+      ? (typeof getMapRouteKeyPartFromJobReturnPlaceV293 === 'function' ? getMapRouteKeyPartFromJobReturnPlaceV293(job, 'Returplatsen') : fromKey)
+      : 'ejretur';
+    if(!startPoint || !fromKey || !toKey || !returnKeyV293) return '';
+    return [startPoint.cacheKey, fromKey, toKey, getJobReturnRequiredValue(job) ? ('retur:' + returnKeyV293) : 'ejretur'].join('|');
   }catch(e){
     return '';
   }
@@ -27576,10 +27597,11 @@ function getCachedMapTotalsForJob(job){
     const startPoint = buildSmartMapPointFromJobStart(job);
     const fromPoint = buildMapPointFromJobPlace(job, 'place', 'Från-platsen');
     const toPoint = buildMapPointFromJobPlace(job, 'dest', 'Till-platsen');
-    if(!startPoint || !fromPoint || !toPoint) return null;
+    const returnPointV293 = getJobReturnRequiredValue(job) ? buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen') : null;
+    if(!startPoint || !fromPoint || !toPoint || (getJobReturnRequiredValue(job) && !returnPointV293)) return null;
     const startResult = getRouteResultFromCacheOrSamePoint(startPoint, fromPoint);
     const outboundResult = getRouteResultFromCacheOrSamePoint(fromPoint, toPoint);
-    const returnResult = getJobReturnRequiredValue(job) ? getRouteResultFromCacheOrSamePoint(toPoint, fromPoint) : buildZeroMapRouteResult();
+    const returnResult = getJobReturnRequiredValue(job) ? getRouteResultFromCacheOrSamePoint(toPoint, returnPointV293) : buildZeroMapRouteResult();
     if(!startResult || !outboundResult || !returnResult) return null;
     const routeResults = [startResult, outboundResult, returnResult];
     const totalSeconds = routeResults.reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
@@ -28330,9 +28352,10 @@ async function calculateSmartMapTotalsForJob(job){
   if(!startPoint) throw new Error('Startpunkt saknar koordinater.');
   const fromPoint = await resolveMapPointFromJobPlace(job, 'place', 'Från-platsen');
   const toPoint = await resolveMapPointFromJobPlace(job, 'dest', 'Till-platsen');
+  const returnPointV293 = getJobReturnRequiredValue(job) ? await resolveMapPointFromJobReturnPlaceV293(job, 'Returplatsen') : null;
   const startResult = await requestGoogleRouteByPointsForTotal(startPoint, fromPoint);
   const outboundResult = await requestGoogleRouteByPointsForTotal(fromPoint, toPoint);
-  const returnResult = getJobReturnRequiredValue(job) ? await requestGoogleRouteByPointsForTotal(toPoint, fromPoint) : buildZeroMapRouteResult();
+  const returnResult = getJobReturnRequiredValue(job) ? await requestGoogleRouteByPointsForTotal(toPoint, returnPointV293) : buildZeroMapRouteResult();
   const routeResults = [startResult, outboundResult, returnResult];
   const callCounts = countMapResultsForJob(routeResults);
   const totalSeconds = routeResults.reduce((sum, item) => sum + (Number(item.durationSeconds) || 0), 0);
@@ -30891,7 +30914,8 @@ function getQuickTimeBasisRouteCacheEstimateV267(job){
     const toPoint = buildMapPointFromJobPlace(job, 'dest', 'Till-platsen');
     if(!fromPoint || !toPoint) return null;
     const outboundResult = getRouteResultFromCacheOrSamePoint(fromPoint, toPoint);
-    const returnResult = getJobReturnRequiredValue(job) ? getRouteResultFromCacheOrSamePoint(toPoint, fromPoint) : buildZeroMapRouteResult();
+    const returnPointV293 = getJobReturnRequiredValue(job) ? buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen') : null;
+    const returnResult = getJobReturnRequiredValue(job) ? getRouteResultFromCacheOrSamePoint(toPoint, returnPointV293) : buildZeroMapRouteResult();
     if(!outboundResult || !returnResult) return null;
     const materialSeconds = (Number(outboundResult.durationSeconds) || 0) + (Number(returnResult.durationSeconds) || 0);
     const materialMinutes = mapSecondsToEstimateMinutes(materialSeconds);
@@ -32260,6 +32284,85 @@ function applyReturnPlaceFieldsToJobV290(job, returnRequired, returnPlace, fallb
   return job;
 }
 
+
+
+// v293: Aktivt jobb och ETA ska använda vald Returplats efter Till-plats.
+function getJobReturnPlaceValueV293(job){
+  if(!job || typeof job !== 'object') return '';
+  try{
+    if(typeof getJobReturnPlaceValueV291 === 'function') return getJobReturnPlaceValueV291(job) || String(job.place || '').trim();
+  }catch(e){}
+  return String(job.returnPlace || job.routeReturnPlace || job.returplats || job.returnLocation || job.place || '').trim();
+}
+function getJobReturnPlaceLabelV293(job){
+  if(!job || typeof job !== 'object') return '';
+  try{
+    if(typeof getJobReturnPlaceLabelV288 === 'function') return getJobReturnPlaceLabelV288(job) || getItemPlaceLabel(job, 'place') || job.place || 'Returplats';
+  }catch(e){}
+  const value = getJobReturnPlaceValueV293(job);
+  try{ return getReturnPlaceLabelForValueV290(value) || getStoredPlaceLabel(value) || getPlaceLabel(value) || value || 'Returplats'; }catch(e){ return value || 'Returplats'; }
+}
+function isJobReturnPlaceSameAsFromV293(job){
+  if(!job) return true;
+  return String(getJobReturnPlaceValueV293(job) || '').trim() === String(job.place || '').trim();
+}
+function isJobReturnPlaceSameAsDestV293(job){
+  if(!job) return false;
+  return String(getJobReturnPlaceValueV293(job) || '').trim() === String(job.dest || '').trim();
+}
+function buildMapPointFromJobReturnPlaceV293(job, roleLabel){
+  const value = getJobReturnPlaceValueV293(job) || (job && job.place) || '';
+  const label = roleLabel || getJobReturnPlaceLabelV293(job) || 'Returplatsen';
+  if(!job) return null;
+  if(isJobReturnPlaceSameAsFromV293(job)) return buildMapPointFromJobPlace(job, 'place', label);
+  if(isJobReturnPlaceSameAsDestV293(job)) return buildMapPointFromJobPlace(job, 'dest', label);
+  if(isCurrentLocationPlace(value)){
+    const point = getCurrentLocationPointForJob(job, label);
+    if(!point) throw new Error(label + ' kräver aktuell GPS-position.');
+    return point;
+  }
+  return buildMapPointFromPlace(value, label);
+}
+async function resolveMapPointFromJobReturnPlaceV293(job, roleLabel){
+  const value = getJobReturnPlaceValueV293(job) || (job && job.place) || '';
+  const label = roleLabel || getJobReturnPlaceLabelV293(job) || 'Returplatsen';
+  if(!job) return null;
+  if(isJobReturnPlaceSameAsFromV293(job)) return resolveMapPointFromJobPlace(job, 'place', label);
+  if(isJobReturnPlaceSameAsDestV293(job)) return resolveMapPointFromJobPlace(job, 'dest', label);
+  if(isCurrentLocationPlace(value)){
+    const point = getCurrentLocationPointForJob(job, label);
+    if(!point) throw new Error(label + ' kräver aktuell GPS-position.');
+    return point;
+  }
+  return resolveMapPointFromPlace(value, label);
+}
+function getMapRouteKeyPartFromJobReturnPlaceV293(job, roleLabel){
+  const value = getJobReturnPlaceValueV293(job) || (job && job.place) || '';
+  if(!job) return '';
+  if(isJobReturnPlaceSameAsFromV293(job)) return getMapRouteKeyPartFromJobPlace(job, 'place', roleLabel || 'Returplatsen');
+  if(isJobReturnPlaceSameAsDestV293(job)) return getMapRouteKeyPartFromJobPlace(job, 'dest', roleLabel || 'Returplatsen');
+  if(isCurrentLocationPlace(value)){
+    const point = getCurrentLocationPointForJob(job, roleLabel || 'Returplatsen');
+    return point ? point.cacheKey : '';
+  }
+  return getMapRouteKeyPartFromPlace(value);
+}
+function getReturnGeofenceForJobV293(job){
+  if(!job) return null;
+  const value = getJobReturnPlaceValueV293(job) || job.place || '';
+  const label = getJobReturnPlaceLabelV293(job) || value || 'Returplatsen';
+  if(isJobReturnPlaceSameAsFromV293(job)) return typeof getFromGeofenceForJob === 'function' ? getFromGeofenceForJob(job) : null;
+  if(isJobReturnPlaceSameAsDestV293(job)) return typeof getToGeofenceForJob === 'function' ? getToGeofenceForJob(job) : null;
+  try{
+    return getPlaceGeofenceForScenario(value, label, 'return') || getPlaceGeofenceForScenario(value, label, 'from') || getPlaceGeofenceForScenario(value, label, 'to');
+  }catch(e){ return null; }
+}
+function getReturnRoutePointPairV293(job){
+  return {
+    fromPoint: buildMapPointFromJobPlace(job, 'dest', 'Till-platsen'),
+    toPoint: buildMapPointFromJobReturnPlaceV293(job, 'Returplatsen')
+  };
+}
 
 
 // v292: Uppstartsfix rättar syntaxfel i systemkontrollistan utan ändrad returplatslogik.
