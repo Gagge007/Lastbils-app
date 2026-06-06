@@ -3,9 +3,10 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v288
+- Nuvarande version: Stadslass 2.0 v289
 - v284: Inställningar får en datoranpassad översikt i Datorläge med roll, sync-/Google-nyckelstatus, paddkontakt, registerstatus, uppdragsräknare, Synka nu och lokal rensning.
 - v285: Datorläge delar Inställningar i enkel datorpanel och Avancerade inställningar; tekniska registerdelar ligger bakom en knapp i datorläge medan padda-läge är oförändrat.
+- v289: Platser får kryssrutan Kan väljas som returplats för vanliga alternativa Returplatser. Standardretur är fortsatt Från-plats och Havstång/badplatser begränsas inte av kryssrutan.
 - v288: Datorläge byter Lastbils status till 189 status och Uppdatera spegling till Uppdatera status; aktivt jobb/status visar Uppdragets väg med Returplats i stället för enkel Returkrav-ruta.
 - v287: Datorläge visar bara uppdrag som väntar på/ligger i 189:s kö; startade/färdiga 189-uppdrag döljs från Uppdrag till 189. Paddans publicerade kö/status sorterar Akut jobb överst.
 - v286: Datorläge byter padd-texter till 189, Synka nu till Skicka / hämta, markerar rätt huvudvy, gråmarkerar funktionsknappar och lägger Akut jobb överst i kön.
@@ -329,7 +330,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v288';
+  const version = 'Stadslass 2.0 v289';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3593,7 +3594,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v288</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v289</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -4552,6 +4553,11 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
             <div><label>Gäller</label><select id="newManagedPlaceOpeningDaysV250"><option value="weekdays">Vardagar</option><option value="all">Alla dagar</option></select></div>
           </div>
           <div class="multi-help">Används bara som varning för Till-platsen när beräknad ankomst ligger utanför öppettiden.</div>
+        </div>
+        <div class="place-section-v250 place-section-white-v250">
+          <div class="place-section-title-v250">Returplats</div>
+          <label class="place-opening-toggle-v250"><input id="newManagedPlaceReturnEligibleV289" type="checkbox"> Kan väljas som returplats</label>
+          <div class="multi-help">Godkänner platsen som alternativ Returplats för vanliga uppdrag när Returplats ska vara annan än Från-plats. Standardretur är alltid Från-plats.</div>
         </div>
         <div>
           <label>Jobbtyper från</label>
@@ -6994,9 +7000,11 @@ function loadState(){
       if(!parsed.placeCoordinateInvalidations || typeof parsed.placeCoordinateInvalidations !== 'object' || Array.isArray(parsed.placeCoordinateInvalidations)) parsed.placeCoordinateInvalidations = {};
       if(!('placeRequirements' in parsed)) parsed.placeRequirements = {};
       if(!('placeOpeningHours' in parsed)) parsed.placeOpeningHours = {};
+      if(!parsed.placeReturnEligibility || typeof parsed.placeReturnEligibility !== 'object' || Array.isArray(parsed.placeReturnEligibility)) parsed.placeReturnEligibility = {};
       if(!Array.isArray(parsed.hiddenPlaces)) parsed.hiddenPlaces = [];
       parsed.placeRequirements = normalizeRequirementMap(parsed.placeRequirements);
       parsed.placeOpeningHours = normalizePlaceOpeningHoursMapV250(parsed.placeOpeningHours);
+      parsed.placeReturnEligibility = normalizePlaceReturnEligibilityV289(parsed.placeReturnEligibility);
       if(!('lastWorkPoint' in parsed)) parsed.lastWorkPoint = null;
       if(!Array.isArray(parsed.trash)) parsed.trash = [];
       if(!Array.isArray(parsed.activeMonitorEndReports)) parsed.activeMonitorEndReports = [];
@@ -7014,7 +7022,7 @@ function loadState(){
       return parsed;
     }
   }catch(e){}
-  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeCoordinates:{}, placeCoordinateInvalidations:{}, placeRequirements:{}, placeOpeningHours:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeGeofences:{}, disabledPlaceGeofences:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), phaseColorSettings:normalizePhaseColorSettings(null), tripMeterV204:{current:null, history:[]}, jobs:[], queue:[], trash:[], activeMonitorEndReports:[]};
+  return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeCoordinates:{}, placeCoordinateInvalidations:{}, placeRequirements:{}, placeOpeningHours:{}, placeReturnEligibility:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeGeofences:{}, disabledPlaceGeofences:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, machines:cloneDefaultMachines(), phaseColorSettings:normalizePhaseColorSettings(null), tripMeterV204:{current:null, history:[]}, jobs:[], queue:[], trash:[], activeMonitorEndReports:[]};
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -11983,8 +11991,8 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v288';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v288';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v289';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v289';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -12110,6 +12118,7 @@ const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v253 Returkrav i aktivt jobb och Lastbils status-sync',
   'v256 Klar ca i Lastbils status från aktiv ETA-visning',
   'v260 Trippmätare i Idag-spegling',
+  'v289 Returplatsinställning i Platser',
   'v288 Returplatsvisning och 189 status-språk',
   'v286 Datorläge 189-språk, grå funktionsknappar och akut köordning',
   'v287 Datorläge köstadium och akut köstatus',
@@ -13840,7 +13849,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v288';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v289';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -13865,6 +13874,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Returplatsinställning i Platser v289', status:'Platsregister/returplats', purpose:'Inställningar → Platser får kryssrutan Kan väljas som returplats för vanliga alternativa Returplatser. Standardretur är fortfarande Från-plats och badplatser kan användas som Returplats i Havstång utan kryss.', changeRule:'Får bara lägga till/spara platsens returplatsgodkännande och registerpaketfält. Får inte ändra faktisk returflödeslogik, ETA, GPS/inlärning, syncens kötruth, aktivt jobb, historik, vikt, geofence, backup/export eller driftlogg_v4_full.'},
   {name:'Returplatsvisning och 189 status-språk v288', status:'Aktivt jobb/Datorläge/UX', purpose:'Datorläge visar 189 status och Uppdatera status i stället för Lastbils status/Uppdatera spegling. Aktivt jobb och 189 status visar Uppdragets väg med Från, Till och Returplats i stället för bara Returkrav: Ja.', changeRule:'Får bara ändra synlig text och visning av befintlig returinformation. Får inte ändra returplatslogik, aktivt jobb, sync, kötruth, historik, GPS/Snap, geofence, vikt, ETA, backup/export eller driftlogg_v4_full.'},
   {name:'Datorläge 189-språk, grå funktionsknappar och akut köordning v286', status:'Datorläge/UX/köordning', purpose:'I Datorläge byts padd-texter till 189, Synka nu visas som Skicka / hämta, funktionsknapparna i Uppdrag till 189 och Lastbils status får grå Stadslass-design, Lastbils status-knappen markeras när vyn är öppen och Akut jobb sorteras överst i kön utan automatisk start.', changeRule:'Får bara påverka synliga texter, knappdesign, aktiv huvudknappsmarkering och kösortering för akutmarkerade köuppdrag. Får inte ändra aktivt uppdrag, syncens dataflöde, register, historik, GPS/Snap, geofence, vikt, ETA, backup/export eller driftlogg_v4_full.'},
   {name:'Datorläge köstadium och akut köstatus v287', status:'Datorläge/sync/köordning', purpose:'Uppdrag till 189 visar bara uppdrag som väntar på 189 eller fortfarande ligger i 189:s kö. Uppdrag som 189 har startat eller avslutat döljs från överlämningslistan och följs i Lastbils status/Idag. Paddans publicerade kö/status sorterar Akut jobb överst utan automatisk start.', changeRule:'Får bara påverka datorlägets visning/statusklassning av datoruppdrag och paddans köstatusordning för akutmarkerade köuppdrag. Får inte ändra aktivt uppdrag, arbetsknappar, historik, register, GPS/Snap, geofence, vikt, ETA, backup/export eller driftlogg_v4_full.'},
@@ -14461,6 +14471,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sträcka i Dagens sammanfattning v203', fn('getTodaySummaryDistanceKmV203') && fn('getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', 'getTodaySummaryTotalDistanceKmV203') && src('getTodaySummaryHtml', '<span>Sträcka</span>') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203'), 'Idag/Dagens sammanfattning visar en ruta Sträcka för färdiga jobb idag med bästa rimliga värde: Snap om rimlig, annars GPS/sparad/osäker');
   addFunctionCheck(results, 'Nivå 2', 'Trippmätare med numeriskt tangentbord v204', fn('getTodayTripMeterHtmlV204') && fn('renderTodayTripMeterV204') && fn('setTripMeterValueV204') && fn('updateTripMeterResultsV204') && src('getTodayTripMeterHtmlV204', 'inputmode=\"decimal\"') && src('getTodayTripMeterHtmlV204', 'Skillnad') && !!el('todayTripMeterBox') && APP_FEATURE_MANIFEST.some(item => item.name === 'Trippmätare med numeriskt tangentbord v204'), 'Trippmätaren har start/slut km, numeriskt tangentbord, tripp och skillnad mot Stadslass Sträcka');
   addFunctionCheck(results, 'Nivå 2', 'Badplatser spärrade från vanliga listor v187', fn('sanitizeJobTypePlaceValuesV187') && fn('listHasBeachPlaceV187') && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång');
+  addFunctionCheck(results, 'Nivå 2', 'Returplatsinställning i Platser v289', fn('normalizePlaceReturnEligibilityV289') && fn('isPlaceReturnEligibleV289') && fn('getOrdinaryReturnPlaceValuesV289') && src('buildPlaceManagerRow', 'data-place-return-eligible-key') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsinställning i Platser v289'), 'Platser har kryssruta för alternativa Returplatser; standardretur är Från-plats och badplatser är Havstång-undantag');
   addFunctionCheck(results, 'Nivå 2', 'Platslayout och öppettidsvarning v250', typeof getPlaceOpeningHoursV250 === 'function' && typeof getActiveToPlaceOpeningWarningHtmlV250 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'place-section-v250') && functionSourceIncludes('buildPlaceManagerRow', 'data-place-opening-enabled-key') && functionSourceIncludes('getActiveToPlaceOpeningWarningHtmlV250', 'job.dest') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslayout och öppettidsvarning v250'), 'Platser har kortlayout och öppettidsvarning används bara mot Till-plats');
   addFunctionCheck(results, 'Nivå 2', 'Paddans aktuella status i spegling v251', typeof getTabletActiveStatusSnapshotV251 === 'function' && typeof renderTabletCurrentStatusV251 === 'function' && !!el('tabletCurrentStatusV251') && functionSourceIncludes('buildTabletStatusPayloadV219', 'activeStatusV251') && functionSourceIncludes('renderTabletQueueMirrorV238', 'renderTabletCurrentStatusV251') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddans aktuella status i spegling v251'), 'Paddans kö-spegling visar aktuell paddstatus/aktivt uppdrag som ren läsning utan arbetsknappar.');
   addFunctionCheck(results, 'Nivå 2', 'Paddans vikt och fasfärg i spegling v252', typeof getTabletCurrentStatusWeightTextV252 === 'function' && typeof applyTabletCurrentStatusPhaseClassV252 === 'function' && functionSourceIncludes('buildTabletCurrentStatusHtmlV251', 'Vikt') && functionSourceIncludes('renderTabletCurrentStatusV251', 'applyTabletCurrentStatusPhaseClassV252') && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddans vikt och fasfärg i spegling v252'), 'Paddans kö-spegling visar Vikt/ej angiven vikt och statusrutans bakgrund följer fasfärger utan styrknappar.');
@@ -14815,6 +14826,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v243: Paddans kö-knappen är inte längre hårdkodad i huvudmenyn utan skapas dynamiskt bara på tillåten mobil/planeringsenhet.');
   lines.push('v283: Annan plats får tillfälligt 80 m geofence med lastnings-/lossningslås beroende på Från/Till-roll.');
   lines.push('v286: Datorläge byter till 189-språk, Synka nu heter Skicka / hämta, funktionsknappar får grå Stadslass-design, Lastbils status markeras som aktiv vy och Akut jobb sorteras överst i kön.');
+  lines.push('v289: Platser har Kan väljas som returplats för vanliga alternativa Returplatser. Standardretur är Från-plats och Havstång/badplatser undantas.');
   lines.push('v288: Datorläge visar 189 status/Uppdatera status och aktiv status visar Uppdragets väg med Returplats i stället för enkel Returkrav-ruta.');
   lines.push('v288: Datorläge visar 189 status/Uppdatera status och aktiv status visar Uppdragets väg med Returplats i stället för enkel Returkrav-ruta.');
   lines.push('v287: Uppdrag till 189 visar bara uppdrag i överlämnings-/köstadiet; startade/färdiga datoruppdrag följs i Lastbils status eller Idag. Paddans publicerade köstatus sorterar Akut jobb överst.');
@@ -15356,7 +15368,7 @@ function buildSystemControlInternalChecks(){
   const fc = runFunctionControlChecks();
   const fcFailed = fc.filter(item => !item.ok);
   return [
-    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v288' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v288'), APP_VERSION),
+    systemCheck('Version', APP_VERSION === 'Stadslass 2.0 v289' && document.getElementById('appVersionInfo') && document.getElementById('appVersionInfo').textContent.includes('Stadslass 2.0 v289'), APP_VERSION),
     systemCheck('GPS/Snap/ETA precisionsregler v211', typeof buildSnapRoadsSegmentsForJobV211 === 'function' && typeof getJobBestDistanceChoiceV211 === 'function' && typeof evaluateSnapDistanceReasonabilityV211 === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 2.5 && APP_FEATURE_MANIFEST.some(item => item.name === 'GPS/Snap/ETA precisionsregler v211'), 'Fasdelad Snap + rimlighetsval + 2,5 min ETA'),
     systemCheck('Sträckval synligt i jobbkort v212', typeof getJobDistanceChoiceHtmlV212 === 'function' && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceDisplayTextV211(x)') && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceChoiceHtmlV212(x)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212'), 'Jobbkort och Dagens sammanfattning visar samma rimlighetsvalda Sträcka'),
     systemCheck('Bred returknapp v213', functionSourceIncludes('renderActiveTransportPhaseControl', "visualLabel === 'Retur pågår'") && functionSourceIncludes('renderActiveTransportPhaseControl', 'returnWide') && functionSourceIncludes('renderActiveTransportPhaseControl', "btn.classList.add('return-wide')") && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213'), 'Retur pågår-knappen blir fullbredd/centrerad som ren visuell ändring'),
@@ -15490,6 +15502,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Datorläge syncade uppdrag kvar i lista v277', document.getElementById('queuePanelTitleV274') && typeof isComputerDeviceModeV274 === 'function' && typeof getQueueVisibleItemsForDeviceModeV274 === 'function' && functionSourceIncludes('getQueueVisibleItemsForDeviceModeV274', 'v277: Datorläge ska behålla även Syncad-rader') && !functionSourceIncludes('getQueueVisibleItemsForDeviceModeV274', 'list.filter(item => !isQueueJobConfirmedSyncedV274(item))') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge syncade uppdrag kvar i lista v277'), 'Datorläge behåller även Syncad-rader synliga med statusbadge för felsökning'),
     systemCheck('Ren datorläge-synclista utan arbetsknappar v280', typeof getQueueEditActionHtmlV280 === 'function' && typeof getQueueCompleteActionHtmlV280 === 'function' && functionSourceIncludes('getQueueEditActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('getQueueCompleteActionHtmlV280', 'isComputerDeviceModeV274') && functionSourceIncludes('renderQueue', 'getQueueEditActionHtmlV280') && functionSourceIncludes('renderQueue', 'getQueueCompleteActionHtmlV280') && APP_FEATURE_MANIFEST.some(item => item.name === 'Ren datorläge-synclista utan arbetsknappar v280'), 'Datorlägets lokala synclista döljer Redigera och Uppdrag slutfört men behåller Ta bort'),
     systemCheck('Datorläge 189-språk och akut köordning v286', typeof getComputerSyncButtonLabelV286 === 'function' && typeof updateComputerActionLabelsV286 === 'function' && functionSourceIncludes('getQueueTabLabelV273', 'Uppdrag till 189') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'Mottaget av 189') && functionSourceIncludes('getComputerQueueGroupedPartsV278', 'Väntar på 189') && functionSourceIncludes('compareQueuedJobPlanning', 'urgentB - urgentA') && document.getElementById('queueCalculateTimesButtonV286') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge 189-språk, grå funktionsknappar och akut köordning v286'), 'Datorläge använder 189-språk/Skicka-hämta och akutmarkerade köuppdrag sorteras överst'),
+    systemCheck('Returplatsinställning i Platser v289', typeof normalizePlaceReturnEligibilityV289 === 'function' && typeof isPlaceReturnEligibleV289 === 'function' && typeof getReturnPlaceValuesForJobTypeV289 === 'function' && functionSourceIncludes('buildPlaceManagerRow', 'data-place-return-eligible-key') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsinställning i Platser v289'), 'Platser kan godkännas som alternativa Returplatser; Havstång/badplatser undantas från vanliga begränsningar'),
     systemCheck('Returplatsvisning och 189 status-språk v288', typeof getTabletStatusUiTitleV288 === 'function' && typeof updateTabletStatusLabelsV288 === 'function' && typeof getJobReturnPlaceLabelV288 === 'function' && typeof getJobRouteSummaryHtmlV288 === 'function' && functionSourceIncludes('formatActiveOverviewHtml', 'Uppdragets väg') && functionSourceIncludes('buildTabletCurrentStatusHtmlV251', 'Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplatsvisning och 189 status-språk v288'), 'Datorläge visar 189 status/Uppdatera status och aktiv status visar Uppdragets väg med Returplats'),
     systemCheck('Datorläge köstadium och akut köstatus v287', typeof isQueueJobHandledByTabletV287 === 'function' && typeof getTabletStatusQueueKeysV287 === 'function' && typeof buildFinishedSyncItemsV287 === 'function' && functionSourceIncludes('markMobileQueueItemsConfirmedFromTabletStatusV229', 'startat_189') && functionSourceIncludes('getQueueVisibleItemsForDeviceModeV274', 'isQueueJobHandledByTabletV287') && functionSourceIncludes('buildTabletStatusPayloadV219', 'finishedSyncItemsV287') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge köstadium och akut köstatus v287'), 'startade/färdiga datoruppdrag döljs från Uppdrag till 189 och paddstatus sorterar akutjobb överst'),
     systemCheck('Datorläge vanligt syncspråk v282', typeof getQueueTabLabelV273 === 'function' && typeof getQueueSyncJobBadgeHtmlV229 === 'function' && typeof getComputerQueueGroupedPartsV278 === 'function' && functionSourceIncludes('getQueueTabLabelV273', 'Uppdrag till paddan') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'Mottaget av paddan') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'Väntar på paddan') && functionSourceIncludes('getComputerQueueGroupedPartsV278', 'Väntar på paddan') && functionSourceIncludes('getComputerQueueGroupedPartsV278', 'Mottaget av paddan') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge vanligt syncspråk v282'), 'datorläge visar Uppdrag till paddan, Väntar på paddan och Mottaget av paddan utan ändrad synclogik'),
@@ -19701,7 +19714,7 @@ const BACKUP2_RECEIPT_STORAGE_KEY = 'stadslass_receipts_temp';
 
 function getBackupPartDefinitions(){
   return [
-    {id:'places', label:'Platser och platsinställningar', group:'Struktur', defaultPreset:true, stateKeys:['placeLabels','placeAddresses','placeCoordinates','placeCoordinateInvalidations','placeRequirements','placeOpeningHours','hiddenPlaces','customPlaces','placeConfigs','placeUsage']},
+    {id:'places', label:'Platser och platsinställningar', group:'Struktur', defaultPreset:true, stateKeys:['placeLabels','placeAddresses','placeCoordinates','placeCoordinateInvalidations','placeRequirements','placeOpeningHours','placeReturnEligibility','hiddenPlaces','customPlaces','placeConfigs','placeUsage']},
     {id:'geofences', label:'Geofence', group:'Struktur', defaultPreset:true, stateKeys:['placeGeofences','disabledPlaceGeofences']},
     {id:'jobTypes', label:'Jobbtyper och materialregler', group:'Struktur', defaultPreset:true, stateKeys:['jobTypes','jobTypeMeta']},
     {id:'quickItems', label:'Snabbval', group:'Struktur', defaultPreset:true, stateKeys:['quickItems']},
@@ -20914,6 +20927,7 @@ function getQueueSyncRegisterSnapshotV234(){
       placeCoordinateInvalidations: stableRegisterValueV234(s.placeCoordinateInvalidations || {}),
       placeRequirements: stableRegisterValueV234(s.placeRequirements || {}),
       placeOpeningHours: stableRegisterValueV234(s.placeOpeningHours || {}),
+      placeReturnEligibility: stableRegisterValueV234(s.placeReturnEligibility || {}),
       hiddenPlaces: sortRegisterStringArrayV234(s.hiddenPlaces || []),
       customPlaces: sortRegisterArrayByKeyV234(s.customPlaces || []),
       placeConfigs: stableRegisterValueV234(s.placeConfigs || {}),
@@ -20967,6 +20981,7 @@ function getQueueSyncRegisterCountsV234(){
     machines: Array.isArray(state && state.machines) ? state.machines.length : 0,
     placeConfigs: countObjectKeysRegisterV234(state && state.placeConfigs),
     placeOpeningHours: countObjectKeysRegisterV234(state && state.placeOpeningHours),
+    returplatser: countObjectKeysRegisterV234(state && state.placeReturnEligibility),
     jobTypeMeta: countObjectKeysRegisterV234(state && state.jobTypeMeta)
   };
 }
@@ -21100,6 +21115,7 @@ function applyQueueSyncRegisterSnapshotV235(snapshot){
   state.placeCoordinateInvalidations = stableRegisterValueV234(places.placeCoordinateInvalidations || {});
   state.placeRequirements = typeof normalizeRequirementMap === 'function' ? normalizeRequirementMap(stableRegisterValueV234(places.placeRequirements || {})) : stableRegisterValueV234(places.placeRequirements || {});
   state.placeOpeningHours = typeof normalizePlaceOpeningHoursMapV250 === 'function' ? normalizePlaceOpeningHoursMapV250(stableRegisterValueV234(places.placeOpeningHours || {})) : stableRegisterValueV234(places.placeOpeningHours || {});
+  state.placeReturnEligibility = typeof normalizePlaceReturnEligibilityV289 === 'function' ? normalizePlaceReturnEligibilityV289(stableRegisterValueV234(places.placeReturnEligibility || {})) : stableRegisterValueV234(places.placeReturnEligibility || {});
   state.hiddenPlaces = Array.isArray(places.hiddenPlaces) ? places.hiddenPlaces.map(item => String(item || '').trim()).filter(Boolean) : [];
   state.customPlaces = Array.isArray(places.customPlaces) ? stableRegisterValueV234(places.customPlaces) : [];
   state.placeConfigs = stableRegisterValueV234(places.placeConfigs || {});
@@ -31909,6 +31925,53 @@ function togglePlaceManager(){
   });
 }
 
+
+// v289: Platser kan märkas som godkända alternativa Returplatser för vanliga uppdrag.
+function normalizePlaceReturnEligibilityV289(value){
+  const out = {};
+  const src = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  Object.keys(src).forEach(key => {
+    if(src[key] === true) out[String(key)] = true;
+  });
+  return out;
+}
+function ensurePlaceReturnEligibilityMapV289(){
+  if(!state.placeReturnEligibility || typeof state.placeReturnEligibility !== 'object' || Array.isArray(state.placeReturnEligibility)) state.placeReturnEligibility = {};
+  state.placeReturnEligibility = normalizePlaceReturnEligibilityV289(state.placeReturnEligibility);
+  return state.placeReturnEligibility;
+}
+function isPlaceReturnEligibleV289(key){
+  if(!key) return false;
+  return !!ensurePlaceReturnEligibilityMapV289()[String(key)];
+}
+function setPlaceReturnEligibleV289(key, enabled){
+  if(!key) return;
+  const map = ensurePlaceReturnEligibilityMapV289();
+  if(enabled) map[String(key)] = true;
+  else delete map[String(key)];
+}
+function isBeachPlaceKeyV289(key){
+  const custom = typeof getCustomPlaceByKey === 'function' ? getCustomPlaceByKey(key) : null;
+  return !!(custom && custom.category === 'badplats') || String(key || '').indexOf('beach_') === 0;
+}
+function getOrdinaryReturnPlaceValuesV289(){
+  const entries = typeof getManageablePlaces === 'function' ? getManageablePlaces() : [];
+  return entries.map(entry => entry && entry.key).filter(key => key && !isBeachPlaceKeyV289(key) && isPlaceReturnEligibleV289(key));
+}
+function getReturnPlaceValuesForJobTypeV289(jobType, fromPlace){
+  const type = String(jobType || '').trim();
+  const values = [];
+  if(fromPlace) values.push(String(fromPlace));
+  getOrdinaryReturnPlaceValuesV289().forEach(key => { if(key && !values.includes(key)) values.push(key); });
+  if(type === 'Havstång'){
+    (typeof getBeachPlaceEntries === 'function' ? getBeachPlaceEntries() : []).forEach(entry => {
+      const key = entry && entry.key;
+      if(key && !values.includes(key)) values.push(key);
+    });
+  }
+  return values;
+}
+
 function addManagedPlace(){
   const nameEl = document.getElementById('newManagedPlaceName');
   const addressEl = document.getElementById('newManagedPlaceAddress');
@@ -31916,6 +31979,7 @@ function addManagedPlace(){
   const toJobEl = document.getElementById('newManagedPlaceToJobType');
   const requirementsEl = document.getElementById('newManagedPlaceRequirements');
   const openingHoursV250 = getNewPlaceOpeningHoursV250();
+  const returnEligibleElV289 = document.getElementById('newManagedPlaceReturnEligibleV289');
 
   const label = (nameEl.value || '').trim();
   const address = addressEl ? (addressEl.value || '').trim() : '';
@@ -31951,11 +32015,13 @@ function addManagedPlace(){
     if(!state.placeOpeningHours) state.placeOpeningHours = {};
     state.placeOpeningHours[key] = openingHoursV250;
   }
+  setPlaceReturnEligibleV289(key, !!(returnEligibleElV289 && returnEligibleElV289.checked));
 
   nameEl.value = '';
   if(addressEl) addressEl.value = '';
   if(requirementsEl) requirementsEl.value = '';
   resetNewPlaceOpeningHoursV250();
+  if(returnEligibleElV289) returnEligibleElV289.checked = false;
   clearSelectedValues(fromJobEl);
   clearSelectedValues(toJobEl);
   if(typeof renderPlaceJobTypeCheckboxPanelsV188 === 'function') renderPlaceJobTypeCheckboxPanelsV188();
@@ -31978,6 +32044,7 @@ function saveSinglePlaceFromManagerContainer(key, containerSelector){
   if(!state.placeAddresses || typeof state.placeAddresses !== 'object' || Array.isArray(state.placeAddresses)) state.placeAddresses = {};
   if(!state.placeRequirements || typeof state.placeRequirements !== 'object' || Array.isArray(state.placeRequirements)) state.placeRequirements = {};
   if(!state.placeOpeningHours || typeof state.placeOpeningHours !== 'object' || Array.isArray(state.placeOpeningHours)) state.placeOpeningHours = {};
+  ensurePlaceReturnEligibilityMapV289();
   if(!state.placeConfigs || typeof state.placeConfigs !== 'object' || Array.isArray(state.placeConfigs)) state.placeConfigs = {};
 
   const root = containerSelector || '#placeManagerList';
@@ -31987,6 +32054,7 @@ function saveSinglePlaceFromManagerContainer(key, containerSelector){
   const fromSelect = document.querySelector(root + ' select[data-place-from-job-key="' + cssEscapeValue(key) + '"]');
   const toSelect = document.querySelector(root + ' select[data-place-to-job-key="' + cssEscapeValue(key) + '"]');
   const openingHoursV250 = getOpeningHoursFromContainerV250(root, key);
+  const returnEligibleInputV289 = document.querySelector(root + ' input[data-place-return-eligible-key="' + cssEscapeValue(key) + '"]');
   const custom = getCustomPlaceByKey(key);
   const oldAddressForCoordinateGuard = addressInput ? getPlaceAddress(key) : '';
 
@@ -32024,6 +32092,13 @@ function saveSinglePlaceFromManagerContainer(key, containerSelector){
     state.placeOpeningHours[key] = openingHoursV250;
   } else if(state.placeOpeningHours && state.placeOpeningHours[key]){
     delete state.placeOpeningHours[key];
+  }
+  if(state.placeReturnEligibility && state.placeReturnEligibility[key]){
+    delete state.placeReturnEligibility[key];
+  }
+
+  if(returnEligibleInputV289){
+    setPlaceReturnEligibleV289(key, !!returnEligibleInputV289.checked);
   }
 
   const fromJobTypes = getSelectedValues(fromSelect);
@@ -32297,6 +32372,33 @@ function buildPlaceManagerRow(entry, options){
   openingSection.appendChild(openingHelp);
   row.appendChild(openingSection);
 
+  const returnSectionV289 = document.createElement('div');
+  returnSectionV289.className = 'place-section-v250 place-section-white-v250';
+  returnSectionV289.innerHTML = '<div class="place-section-title-v250">Returplats</div>';
+  if(isBeachPlaceKeyV289(entry.key)){
+    const beachInfo = document.createElement('div');
+    beachInfo.className = 'multi-help';
+    beachInfo.innerHTML = '<strong>Badplats:</strong> kan väljas som Returplats i Havstång utan separat kryss. Vanliga uppdrag får inte badplatser som Returplats.';
+    returnSectionV289.appendChild(beachInfo);
+  } else {
+    const returnLabelV289 = document.createElement('label');
+    returnLabelV289.className = 'place-opening-toggle-v250';
+    const returnBoxV289 = document.createElement('input');
+    returnBoxV289.type = 'checkbox';
+    returnBoxV289.checked = isPlaceReturnEligibleV289(entry.key);
+    returnBoxV289.setAttribute('data-place-return-eligible-key', entry.key);
+    const returnTextV289 = document.createElement('span');
+    returnTextV289.textContent = 'Kan väljas som returplats';
+    returnLabelV289.appendChild(returnBoxV289);
+    returnLabelV289.appendChild(returnTextV289);
+    returnSectionV289.appendChild(returnLabelV289);
+    const returnHelpV289 = document.createElement('div');
+    returnHelpV289.className = 'multi-help';
+    returnHelpV289.textContent = 'Godkänner platsen som alternativ Returplats för vanliga uppdrag. Standard är alltid Från-plats även utan kryss.';
+    returnSectionV289.appendChild(returnHelpV289);
+  }
+  row.appendChild(returnSectionV289);
+
   const meta = document.createElement('div');
   meta.className = 'place-meta';
 
@@ -32392,6 +32494,7 @@ function saveManagedPlaces(){
   const nextAddresses = {};
   const nextPlaceRequirements = {};
   const nextPlaceOpeningHours = {};
+  const nextPlaceReturnEligibilityV289 = {};
   const updatedCustomPlaces = (state.customPlaces || []).map(p => ({...p}));
 
   labelInputs.forEach(input => {
@@ -32429,6 +32532,12 @@ function saveManagedPlaces(){
     const key = input.getAttribute('data-place-opening-enabled-key');
     const opening = getOpeningHoursFromContainerV250('#placeManagerList', key);
     if(opening) nextPlaceOpeningHours[key] = opening;
+  });
+
+  const returnEligibleInputsV289 = document.querySelectorAll('#placeManagerList input[data-place-return-eligible-key]');
+  returnEligibleInputsV289.forEach(input => {
+    const key = input.getAttribute('data-place-return-eligible-key');
+    if(key && input.checked) nextPlaceReturnEligibilityV289[key] = true;
   });
 
   const fromJobSelects = document.querySelectorAll('#placeManagerList select[data-place-from-job-key]');
@@ -32474,6 +32583,7 @@ function saveManagedPlaces(){
   state.placeAddresses = nextAddresses;
   state.placeRequirements = nextPlaceRequirements;
   state.placeOpeningHours = nextPlaceOpeningHours;
+  state.placeReturnEligibility = normalizePlaceReturnEligibilityV289(nextPlaceReturnEligibilityV289);
   state.placeConfigs = nextConfigs;
   state.placeUsage = nextUsage;
   state.customPlaces = updatedCustomPlaces;
