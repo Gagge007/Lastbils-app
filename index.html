@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v315
+- Nuvarande version: Stadslass 2.0 v316
+- v316: Separat fasmedian för Stadslass-tider från 2026-05-19, minst 3 uppdrag per fas, median fas-för-fas och synligt underlag i fasuträkningen.
 - v315: QR-kod REG IMPREGNERAT visas i Tryckimpregnerat lossningsfas under Pausa/Klart och ovanför tillfällig fasuträkning, med tryckbart större scanningsläge.
 - v314: Pausade/fortsatta uppdrag över datum delas i sammanställning och Excel med Pausat uppdrag/Fortsättning uppdrag, vikt på avslutande del och jobbtyp-sammanfattning räknar samma uppdrag en gång.
 - v313: Transportinstruktioner/jobbkrav från jobbtyp visas utan prefixet Jobbtyp: i aktivt jobb.
@@ -353,7 +354,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v315';
+  const version = 'Stadslass 2.0 v316';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3883,7 +3884,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v315</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v316</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -9234,6 +9235,11 @@ function applyEstimatedCountdownAtStart(job){
     job.estimatedGoogleMaterialTransportMinutesAtStart = Number(estimate.googleMaterialTransportMinutes || 0);
     job.estimatedStadslassWorkMinutesAtStart = Number(estimate.stadslassWorkMinutes || estimate.practicalAddonMinutes || 0);
     job.estimatedStadslassWorkSourceAtStart = estimate.stadslassWorkSource || '';
+    if(estimate.stadslassPhaseEstimateV316){
+      job.estimatedStadslassPhaseV316AtStart = JSON.parse(JSON.stringify(estimate.stadslassPhaseEstimateV316));
+    } else {
+      delete job.estimatedStadslassPhaseV316AtStart;
+    }
     if(getSmartMapSkipReasonForDisplay(job) !== String(job.smartMapSkipReason || '').trim()){
       delete job.smartMapSkipReason;
       delete job.smartMapSkipAt;
@@ -12412,9 +12418,10 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v315';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v315';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v316';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v316';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v316 Separat fasmedian Stadslass-tider',
   'v315 Tryckimpregnerat QR-kod i lossningsfas',
   'v80 Klar ca',
   'v81 Övrig verksamhet utan GPS',
@@ -12988,6 +12995,11 @@ function getActiveMonitorChecks(snapshot){
     ok('PHASE-OV-140', 'Fasuträkning är mer uppdelad', 'v140 ska kunna visa separata faser som Från-plats, Transport, Till-plats och Retur när underlag finns.', 'Rader=' + s.phaseCalculation139.rows.map(row => row.name).join(' → '), 'v140 Fasuträkning uppdelade faser', 'rows=' + JSON.stringify(s.phaseCalculation139.rows));
   } else if(s.hasActive && s.estimatedMinutesAtStart > 0){
     warn('PHASE-OV-139', 'Fasuträkning saknas trots aktiv ETA', 'Aktiv ETA ska kunna beskrivas i fasuträkning.', 'ETA=' + activeMonitorNumber(s.estimatedMinutesAtStart, 0) + ' min men fasuträkning saknas.', 'v139-rutan kan vara urkopplad från renderingen.', 'v139 Tillfällig fasuträkning', 'phaseCalculation139=' + activeMonitorSafe(JSON.stringify(s.phaseCalculation139 || null), '-'));
+  }
+  if(typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19'){
+    ok('PHASE-OV-316', 'Separat fasmedian v316 är inkopplad', 'Stadslass egna fasrader använder minst 3 uppdrag per fas och median från 2026-05-19.', 'cutoff=' + STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO + '; min=' + STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES, 'v316 Separat fasmedian', 'active=' + activeMonitorBool(!!s.hasActive));
+  } else {
+    warn('PHASE-OV-316', 'Separat fasmedian v316 saknas', 'v316 ska ha separata fasmedianfunktioner och brytdatum.', 'funktion eller brytdatum saknas', 'Kontrollera v316-inläggningen.', 'v316 Separat fasmedian', '');
   }
 
   const mapCtxV198 = getActiveMapCallContextV198(s);
@@ -14294,7 +14306,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v315';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v316';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -14319,6 +14331,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Separat fasmedian Stadslass-tider v316', status:'Uppskattad tid/fasuträkning', purpose:'Stadslass egna fasrader använder ren historik från 2026-05-19 och framåt, minst 3 matchande uppdrag per fas och median fas-för-fas för Från-plats, Till-plats och Retur/avslut. Fasuträkningen visar hur många uppdrag som används eller hur nära 3-underlaget fasen är.', changeRule:'Får bara påverka Stadslass arbetstidsberäkning och visning av fasunderlag. Får inte ändra knappar, vikt, geofence, GPS/Snap, sync, historik, backup/export eller driftlogg_v4_full.'},
   {name:'Tryckimpregnerat QR-kod i lossningsfas v315', status:'Aktivt jobb/lossningsfas/transportdokument', purpose:'Tryckimpregnerat visar REG IMPREGNERAT QR-kod endast i lossningsfas, under Pausa/Klart och ovanför tillfällig fasuträkning. QR-rutan är stor, högkontrast, offline-inbäddad och kan öppnas större för mobilscanning.', changeRule:'Får bara påverka visning av QR-kod för Tryckimpregnerat i lossningsfas. Får inte ändra materialkod, destination, transportdokumentdata, vikt, Klart, Pausa, fasdata, GPS/Snap, ETA, geofence, sync, historik, Excel/export eller driftlogg_v4_full.'},
   {name:'Pausade uppdrag Excel/dagdelning v314', status:'Sammanställning/Excel/pausade uppdrag', purpose:'Pausade och fortsatta uppdrag som har aktiv arbetstid på flera datum delas i sammanställning och Excel per datum. Delrader märks Pausat uppdrag respektive Fortsättning uppdrag, vikten följer endast den avslutande/finala delen och sammanfattning per jobbtyp räknar samma uppdrag som ett uppdrag.', changeRule:'Får bara påverka härledda sammanställningsrader och Excel-export för pausade/delade uppdrag. Får inte ändra sparad historik, aktivt jobb, kötruth, sync, GPS/Snap, ETA, Returplats, viktregistrering, geofence, backup/exportformat i övrigt eller driftlogg_v4_full.'},
   {name:'Jobbtypskrav utan Jobbtyp-prefix v313', status:'Aktivt jobb/Transportinstruktioner', purpose:'Transportinstruktioner och jobbkrav som kommer från jobbtypen visas i aktivt jobb utan prefixet Jobbtyp:. Platskrav från Från-/Till-plats fortsätter vara märkta med platsroll.', changeRule:'Får bara påverka visningstexten för jobbtypens krav i aktivt jobb. Får inte ändra jobbtypens data, kravlagring, materialkod, destination, sync, kötruth, aktivt jobb, Returplats, GPS/Snap, ETA, vikt, historik, geofence, backup/export eller driftlogg_v4_full.'},
@@ -15005,6 +15018,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Startsträcka ingår i aktiv uppskattad tid', fn('getVisibleEstimateMinutesForPhase') && fn('getEstimateStartAddonMinutes') && fn('applyEstimatedCountdownAtStart') && src('toggleActiveTransportPhase', 'applyEstimatedCountdownAtStart'), 'starttillägg ingår före Lastar och kan räknas bort efter fasstart');
   addFunctionCheck(results, 'Nivå 2', 'Materialflödesnyckel hålls separat från startpunkt', fn('materialFlowEstimateKey') && fn('startAddonEstimateKey') && !src('materialFlowEstimateKey', 'calculationStart') && src('startAddonEstimateKey', 'getStartAddonEstimateSource'), 'materialflöde och starttillägg har separata nycklar');
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum och stabilt underlag', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-19' && fn('isTimeLearningSampleAllowed') && fn('isStableMaterialFlowSample'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
+  addFunctionCheck(results, 'Nivå 2', 'Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'minst 3 uppdrag, median fas-för-fas och synligt fasunderlag');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkert underlag', fn('getFinishedJobsForUnderlag') && src('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag') && src('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'uppskattad tid/GPS-lärning hämtar underlag via getFinishedJobsForUnderlag');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkert underlag', fn('getFilteredSummaryJobs') && src('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag') && fn('getReceiptSummaryJobs'), 'sammanställning + kvittorader utan papperskorg');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', fn('getHistoryCalendarJobsForDisplay') && fn('getFinishedJobsForUnderlag') && src('renderHistoryManager', 'getHistoryCalendarJobsForDisplay') && fn('renderToday'), 'historik använder samlat visningsunderlag, Idag använder avslutade jobb');
@@ -16342,6 +16356,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Google/Stadslass transport-arbete v137', typeof getStadslass137ModeForJob === 'function' && typeof getStadslass137WorkMinutesForEstimate === 'function' && functionSourceIncludes('shouldScheduleSmartEstimate', 'historik får inte stoppa nytt Google-underlag') && functionSourceIncludes('getTimeEstimateForQueuedJob', 'google+stadslass') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google/Stadslass transport-arbete v137'), 'Google tar transporttid, Stadslass tar arbetstid/platsläge och testerna följer v137'),
     systemCheck('Startsträcka hålls före rörelse v138', typeof getActiveEstimatePreMovementHoldInfo === 'function' && typeof syncActiveEstimatePreMovementHold === 'function' && typeof getActiveEstimateDisplayEndAtForNow === 'function' && functionSourceIncludes('getActiveEstimateCountdownHtml', 'syncActiveEstimatePreMovementHold') && functionSourceIncludes('renderActiveEstimateCountdown', 'getActiveEstimateDisplayEndAtForNow') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138'), 'uppskattad tid minskar inte före faktisk rörelse i startsträcka'),
     systemCheck('Tillfällig fasuträkning v139', typeof buildStadslass139PhaseCalculation === 'function' && typeof getStadslass139PhaseCalculationHtml === 'function' && typeof renderActivePhaseCalculationBottom === 'function' && functionSourceIncludes('renderActivePhaseCalculationBottom', 'getStadslass139PhaseCalculationHtml') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139'), 'Uppskattad tid visar fasuträkning som tillfällig kontrollfunktion'),
+    systemCheck('Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'Stadslass fasrader lärs separat med median från minst 3 uppdrag per fas från 2026-05-19'),
     systemCheck('Fasuträkning uppdelade faser v140', typeof getStadslass140GoogleLegMinutes === 'function' && typeof getStadslass140WorkPhaseRows === 'function' && functionSourceIncludes('buildStadslass139PhaseCalculation', 'Retur/avslut vid Från') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140'), 'Uppskattad tid delar upp startsträcka, Från-plats, transport, Till-plats, retur och retur/avslut'),
     systemCheck('Vikt 0 godkänd transport v140', typeof addLoadToCurrent === 'function' && functionSourceIncludes('addLoadToCurrent', 'n < 0') && functionSourceIncludes('addLoadToCurrent', '0 ton är tillåtet') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140'), 'Ange vikt accepterar 0 ton som godkänd transport/tomt flak utan att använda Ingen tömning'),
     systemCheck('Snabblistor/alfabetisk ordning v141', typeof buildSettingsNavigatorHtml === 'function' && typeof jumpToSettingsNavTarget === 'function' && functionSourceIncludes('renderPlaceManager', 'Snabblista platser') && functionSourceIncludes('renderQuickManager', 'Snabblista snabbval') && functionSourceIncludes('renderJobTypeManager', 'Snabblista jobbtyper') && functionSourceIncludes('renderGeofenceManager', 'Snabblista geofence') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141'), 'Platser, Snabbval, Jobbtyper och Geofence har snabblista och alfabetisk visning'),
@@ -29180,6 +29195,7 @@ function getStadslass139WorkSourceLabel(source){
   const text = String(source || '').toLocaleLowerCase('sv-SE');
   if(text.indexOf('tillfällig') >= 0 && text.indexOf('historik') >= 0) return 'Stadslass historik · tillfällig plats';
   if(text.indexOf('tillfällig') >= 0 && text.indexOf('standard') >= 0) return 'Stadslass osäker tid · tillfällig plats';
+  if(text.indexOf('fasmedian') >= 0 || text.indexOf('phase-median') >= 0) return 'Stadslass median';
   if(text.indexOf('historik') >= 0) return 'Stadslass historik';
   if(text.indexOf('standard') >= 0) return 'Stadslass standardtid';
   if(text.indexOf('fallback') >= 0) return 'Stadslass fallback';
@@ -29264,12 +29280,244 @@ function getStadslass140GoogleLegMinutes(job, startFallback, materialFallback){
   return out;
 }
 
+
+// v316: Separat fasmedian för Stadslass egna tider.
+// Använder endast färdiga uppdrag från 2026-05-19 och framåt, kräver minst 3 rimliga prover per fas
+// och räknar median fas-för-fas. Google-rader, GPS, geofence och jobbets manuella sanning påverkas inte.
+const STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO = '2026-05-19';
+const STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES = 3;
+const STADSLASS316_MIN_PHASE_MS = 30000;
+const STADSLASS316_MAX_PHASE_MS = 3 * 60 * 60 * 1000;
+
+function normalizeStadslass316PlaceAlias(value){
+  const text = normalizeEstimatePart(value);
+  if(text === 'ringön') return 'ringön (bas)';
+  if(text === 'ringön bas') return 'ringön (bas)';
+  if(text === 'von utfall' || text === 'vonutfall') return 'von utfallsgatan';
+  return text;
+}
+
+function getStadslass316PlaceLearningPart(job, role){
+  if(!job) return 'plats:okänd';
+  const normalizedRole = role === 'to' ? 'to' : 'from';
+  try{
+    const temporary = getTemporaryLearningRolePartV209(job, normalizedRole);
+    if(temporary) return temporary;
+  }catch(e){}
+  const field = normalizedRole === 'to' ? 'dest' : 'place';
+  const raw = String(job[field] || '').trim();
+  let key = raw;
+  try{
+    if(state && state.placeLabels && typeof state.placeLabels === 'object'){
+      Object.keys(state.placeLabels).some(placeKey => {
+        const label = String(state.placeLabels[placeKey] || '').trim();
+        if(label && normalizeEstimatePart(label) === normalizeEstimatePart(raw)){
+          key = placeKey;
+          return true;
+        }
+        return false;
+      });
+    }
+  }catch(e){}
+  return 'plats:' + normalizeStadslass316PlaceAlias(key || raw || 'okänd');
+}
+
+function extractStadslass316VariantText(job){
+  if(!job) return '';
+  const parts = [job.comment, job.displayType, job.type].map(value => String(value || '')).filter(Boolean);
+  const joined = parts.join(' ');
+  const numberMatch = joined.match(/\b\d{4,6}\b/);
+  if(numberMatch) return numberMatch[0];
+  const display = normalizeEstimatePart(job.displayType || '');
+  const type = normalizeEstimatePart(job.type || '');
+  if(display && display !== type) return display;
+  return '';
+}
+
+function getStadslass316JobTypeLearningPart(job){
+  if(!job) return 'jobb:okänd';
+  let code = '';
+  try{ code = String(getMaterialCodeForJob(job) || '').trim(); }catch(e){ code = ''; }
+  if(!code) code = String(job.materialCode || job.mtrlCode || job.code || '').trim();
+  const settingsKey = String((typeof getJobTypeSettingsKeyForJob === 'function' ? getJobTypeSettingsKeyForJob(job) : '') || job.jobTypeKey || job.type || '').trim();
+  const variant = extractStadslass316VariantText(job);
+  if(code) return 'mtrl:' + normalizeEstimatePart(code) + '|jobb:' + normalizeEstimatePart(settingsKey || job.type || '') + '|variant:' + normalizeEstimatePart(variant);
+  return 'jobb:' + normalizeEstimatePart(settingsKey || job.type || '') + '|variant:' + normalizeEstimatePart(variant);
+}
+
+function getStadslass316ReturnLearningPart(job){
+  if(!job) return 'retur:okänd';
+  let returnRequired = false;
+  try{ returnRequired = !!getJobReturnRequiredValue(job); }catch(e){ returnRequired = !!(job.returnRequired || job.returnRequiredAtStart); }
+  if(!returnRequired) return 'retur:nej';
+  const clone = Object.assign({}, job);
+  if(!clone.returnPlace && !clone.routeReturnPlace){
+    clone.returnPlace = clone.place;
+    clone.routeReturnPlace = clone.place;
+  }
+  let value = '';
+  try{ value = String(getJobReturnPlaceValueV293(clone) || '').trim(); }catch(e){ value = String(clone.returnPlace || clone.routeReturnPlace || clone.place || '').trim(); }
+  if(!value) value = String(clone.place || '').trim();
+  return 'returplats:' + normalizeStadslass316PlaceAlias(value || 'okänd');
+}
+
+function getStadslass316PhaseFlowKey(job){
+  if(!job) return '';
+  return [
+    getStadslass316JobTypeLearningPart(job),
+    getStadslass316PlaceLearningPart(job, 'from'),
+    getStadslass316PlaceLearningPart(job, 'to'),
+    getStadslass316ReturnLearningPart(job),
+    normalizeEstimatePart(getTimeLearningTransportMode(job))
+  ].join('|');
+}
+
+function getStadslass316JobActiveMs(job){
+  if(!job) return 0;
+  if(Array.isArray(job.workSessions) && job.workSessions.length){
+    return job.workSessions.reduce((sum, session) => {
+      const start = Number(session && session.startedAt || 0);
+      const end = Number(session && session.endedAt || 0);
+      const ms = end - start;
+      return sum + (Number.isFinite(ms) && ms > 0 ? ms : 0);
+    }, 0);
+  }
+  const start = Number(job.start || 0);
+  const end = Number(job.end || job.completedAt || 0);
+  const ms = end - start;
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
+function getStadslass316PhaseDurationObject(job){
+  if(!job) return null;
+  if(job.stadslass20Phase && job.stadslass20Phase.durationsMs) return job.stadslass20Phase.durationsMs;
+  if(job.stadslass20PhaseDurationsMs) return job.stadslass20PhaseDurationsMs;
+  return null;
+}
+
+function getStadslass316PhaseTimeObject(job){
+  if(!job) return null;
+  return job.stadslass20Phase || job;
+}
+
+function getStadslass316ManualPhaseMsFromTimes(job, role){
+  const model = getStadslass316PhaseTimeObject(job);
+  if(!model) return null;
+  let fromAt = 0;
+  let toAt = 0;
+  if(role === 'from'){
+    fromAt = Number(model.fromArrivedAt || 0);
+    toAt = Number(model.loadingRegisteredAt || 0);
+  } else if(role === 'to'){
+    fromAt = Number(model.toArrivedAt || 0);
+    toAt = Number(model.weightRegisteredAt || model.lastWeightRegisteredAt || 0);
+  } else if(role === 'return'){
+    fromAt = Number(model.returnFromArrivedAt || 0);
+    toAt = Number(model.completedAt || model.finalizedAt || job.end || 0);
+  }
+  const ms = toAt - fromAt;
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+}
+
+function isStadslass316PhaseSampleDateAllowed(job){
+  const key = getJobLearningDateKey(job);
+  return !!key && key >= STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO;
+}
+
+function isStadslass316PhaseSampleMsAllowed(job, ms){
+  const value = Number(ms || 0);
+  if(!Number.isFinite(value)) return false;
+  if(value < STADSLASS316_MIN_PHASE_MS) return false;
+  if(value > STADSLASS316_MAX_PHASE_MS) return false;
+  const activeMs = getStadslass316JobActiveMs(job);
+  if(Number.isFinite(activeMs) && activeMs > 0 && value > activeMs) return false;
+  return true;
+}
+
+function getStadslass316PhaseSampleMs(job, role){
+  if(!job || !isTimeEstimateAllowedForJob(job) || !isStadslass316PhaseSampleDateAllowed(job)) return null;
+  if(!job.stadslass20Phase && !job.stadslass20PhaseDurationsMs) return null;
+  const durations = getStadslass316PhaseDurationObject(job) || {};
+  let ms = null;
+  if(role === 'from') ms = Number(durations.franHanteringMs || 0);
+  if(role === 'to') ms = Number(durations.tillHanteringMs || 0);
+  if(role === 'return'){
+    let returnRequired = false;
+    try{ returnRequired = !!getJobReturnRequiredValue(job); }catch(e){ returnRequired = !!(job.returnRequired || job.returnRequiredAtStart); }
+    if(!returnRequired) return null;
+    ms = Number(durations.returhanteringMs || 0);
+  }
+  if(!isStadslass316PhaseSampleMsAllowed(job, ms)) ms = getStadslass316ManualPhaseMsFromTimes(job, role);
+  return isStadslass316PhaseSampleMsAllowed(job, ms) ? Number(ms) : null;
+}
+
+function getStadslass316PhaseStats(job, role){
+  const key = getStadslass316PhaseFlowKey(job);
+  if(!key) return {role, count:0, medianMs:null, minutes:0, ready:false, cutoff:STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO};
+  const samples = getFinishedJobsForUnderlag()
+    .filter(finished => finished && isTimeEstimateAllowedForJob(finished) && isStadslass316PhaseSampleDateAllowed(finished) && getStadslass316PhaseFlowKey(finished) === key)
+    .map(finished => getStadslass316PhaseSampleMs(finished, role))
+    .filter(ms => Number.isFinite(ms) && ms >= STADSLASS316_MIN_PHASE_MS);
+  const medianMs = samples.length >= STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES ? medianDurationMs(samples) : null;
+  return {
+    role,
+    count:samples.length,
+    medianMs,
+    minutes:Number.isFinite(medianMs) ? estimateMinutesFromMs(medianMs) : 0,
+    ready:samples.length >= STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES && Number.isFinite(medianMs),
+    cutoff:STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO
+  };
+}
+
+function getStadslass316OwnerLabel(stats, fallbackOwner){
+  const count = Number(stats && stats.count || 0);
+  if(stats && stats.ready) return 'Stadslass median · ' + count + ' uppdrag';
+  const base = String(fallbackOwner || 'Stadslass standardtid').trim() || 'Stadslass standardtid';
+  return base + ' · ' + count + '/' + STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES + ' uppdrag';
+}
+
+function getStadslass316PhaseDetailSuffix(stats){
+  if(!stats) return '';
+  if(stats.ready) return ' Median från rena fasdata från ' + STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO + ' och framåt.';
+  return ' Väntar på ' + STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES + ' rena fasprover från ' + STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO + ' och framåt.';
+}
+
+function buildStadslass316WorkPhaseRows(job, workMinutes, fallbackOwner){
+  const total = Math.max(0, Math.round(Number(workMinutes || 0)));
+  const returnRequired = getJobReturnRequiredValue(job);
+  const weights = returnRequired ? [5,7,3] : [5,10];
+  const split = splitStadslass140Minutes(total, weights);
+  const fallback = String(fallbackOwner || 'Stadslass standardtid').trim() || 'Stadslass standardtid';
+  const rows = [];
+  const fromStats = getStadslass316PhaseStats(job, 'from');
+  const toStats = getStadslass316PhaseStats(job, 'to');
+  const returnStats = returnRequired ? getStadslass316PhaseStats(job, 'return') : null;
+  const fromMinutes = fromStats.ready ? fromStats.minutes : (split[0] || 0);
+  const toMinutes = toStats.ready ? toStats.minutes : (split[1] || 0);
+  const returnMinutes = returnRequired ? (returnStats && returnStats.ready ? returnStats.minutes : (split[2] || 0)) : 0;
+  if(fromMinutes > 0) rows.push({name:'Från-plats', owner:getStadslass316OwnerLabel(fromStats, fallback), minutes:fromMinutes, detail:addTemporaryHandlingDetailV209(job, 'from', 'Lastning, flakhantering och rangering vid Från.') + getStadslass316PhaseDetailSuffix(fromStats), stadslass316:true, phaseRole:'from', sampleCount:fromStats.count, medianUsed:fromStats.ready});
+  if(toMinutes > 0) rows.push({name:'Till-plats', owner:getStadslass316OwnerLabel(toStats, fallback), minutes:toMinutes, detail:addTemporaryHandlingDetailV209(job, 'to', returnRequired ? 'In-/utvägning, lossning, väntan och hantering vid Till.' : 'In-/utvägning, lossning, väntan och övrig hantering vid Till.') + getStadslass316PhaseDetailSuffix(toStats), stadslass316:true, phaseRole:'to', sampleCount:toStats.count, medianUsed:toStats.ready});
+  if(returnRequired && returnMinutes > 0) rows.push({name:'Retur/avslut vid Returplats', owner:getStadslass316OwnerLabel(returnStats, fallback), minutes:returnMinutes, detail:'Returhantering, avslut och övrig plats-/flakhantering vid vald Returplats.' + getStadslass316PhaseDetailSuffix(returnStats), stadslass316:true, phaseRole:'return', sampleCount:returnStats ? returnStats.count : 0, medianUsed:returnStats && returnStats.ready});
+  return rows;
+}
+
+function getStadslass316WorkEstimateForJob(job, fallbackWorkMinutes, fallbackOwner){
+  const rows = buildStadslass316WorkPhaseRows(job, fallbackWorkMinutes, fallbackOwner || 'Stadslass standardtid');
+  const hasMedian = rows.some(row => row && row.medianUsed);
+  const minutes = rows.reduce((sum, row) => sum + Math.max(0, Math.round(Number(row.minutes || 0))), 0);
+  return {rows, minutes, hasMedian, source:hasMedian ? 'stadslass-fasmedian-v316' : '', sampleCounts:rows.map(row => ({role:row.phaseRole, count:row.sampleCount || 0, medianUsed:!!row.medianUsed}))};
+}
+
 function getStadslass140WorkPhaseRows(job, workMinutes){
   const total = Math.max(0, Math.round(Number(workMinutes || 0)));
   if(total <= 0) return [];
+  const workSource = getStadslass139WorkSourceLabel(job.estimatedStadslassWorkSourceAtStart || job.estimatedSourceAtStart || '');
+  if(typeof getStadslass316WorkEstimateForJob === 'function'){
+    const phaseEstimate = getStadslass316WorkEstimateForJob(job, total, workSource || 'Stadslass standardtid');
+    if(phaseEstimate && Array.isArray(phaseEstimate.rows) && phaseEstimate.rows.length) return phaseEstimate.rows;
+  }
   const returnRequired = getJobReturnRequiredValue(job);
   const rows = [];
-  const workSource = getStadslass139WorkSourceLabel(job.estimatedStadslassWorkSourceAtStart || job.estimatedSourceAtStart || '');
   if(returnRequired){
     const split = splitStadslass140Minutes(total, [5,7,3]);
     if(split[0] > 0) rows.push({name:'Från-plats', owner:workSource, minutes:split[0], detail:addTemporaryHandlingDetailV209(job, 'from', 'Lastning, flakhantering och rangering vid Från.')});
@@ -29419,18 +29667,40 @@ function getStadslass137WorkMinutesForEstimate(job, materialEstimate, mapTotals)
   let minutes = getHistoricalPracticalAddonMinutes(job, materialEstimate, mapTotals);
   if(minutes === null || !Number.isFinite(Number(minutes))){
     minutes = SMART_ESTIMATE_DEFAULT_OVERHEAD_MINUTES;
+    const phaseEstimate316 = typeof getStadslass316WorkEstimateForJob === 'function' ? getStadslass316WorkEstimateForJob(job, minutes, 'Stadslass standardtid') : null;
+    if(phaseEstimate316 && phaseEstimate316.hasMedian && Number(phaseEstimate316.minutes || 0) > 0){
+      return {
+        minutes:Math.max(0, Math.round(Number(phaseEstimate316.minutes))),
+        source:'stadslass-fasmedian-v316',
+        standard:false,
+        temporaryHandlingV209:temporaryHandling,
+        phaseEstimateV316:phaseEstimate316
+      };
+    }
     return {
       minutes:Math.max(0, Math.round(Number(minutes))),
       source:temporaryHandling ? 'stadslass-standard-tillfällig-plats' : 'stadslass-standard',
       standard:true,
-      temporaryHandlingV209:temporaryHandling
+      temporaryHandlingV209:temporaryHandling,
+      phaseEstimateV316:phaseEstimate316
+    };
+  }
+  const phaseEstimate316 = typeof getStadslass316WorkEstimateForJob === 'function' ? getStadslass316WorkEstimateForJob(job, minutes, 'Stadslass fallback') : null;
+  if(phaseEstimate316 && phaseEstimate316.hasMedian && Number(phaseEstimate316.minutes || 0) > 0){
+    return {
+      minutes:Math.max(0, Math.round(Number(phaseEstimate316.minutes))),
+      source:'stadslass-fasmedian-v316',
+      standard:false,
+      temporaryHandlingV209:temporaryHandling,
+      phaseEstimateV316:phaseEstimate316
     };
   }
   return {
     minutes:Math.max(0, Math.round(Number(minutes))),
     source:temporaryHandling ? 'stadslass-historik-tillfällig-plats' : 'stadslass-historik',
     standard:false,
-    temporaryHandlingV209:temporaryHandling
+    temporaryHandlingV209:temporaryHandling,
+    phaseEstimateV316:phaseEstimate316
   };
 }
 
@@ -29561,6 +29831,7 @@ function getTimeEstimateForQueuedJob(queueJob){
     practicalAddonMinutes,
     stadslassWorkMinutes: practicalAddonMinutes,
     stadslassWorkSource: workEstimate ? workEstimate.source : (source === 'stadslass-fallback-historik' ? 'historik-fallback' : ''),
+    stadslassPhaseEstimateV316: workEstimate && workEstimate.phaseEstimateV316 ? workEstimate.phaseEstimateV316 : null,
     temporaryHandlingV209: workEstimate ? !!workEstimate.temporaryHandlingV209 : hasTemporaryHandlingPlaceV209(queueJob),
     googleTransportMinutes: mapTotals ? Math.max(0, Math.round(Number(mapTotals.totalMinutes || 0))) : 0,
     googleMaterialTransportMinutes: mapTotals ? Math.max(0, Math.round(Number(mapTotals.materialMinutes || 0))) : 0,
