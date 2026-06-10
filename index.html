@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v317
+- Nuvarande version: Stadslass 2.0 v318
+- v318: Tillfällig padda-internetdiagnos kan skapa internetrapport som txt-fil och dela/öppna mailflöde utan att skicka automatiskt eller ändra arbetslogik.
 - v317: Tillfällig padda-internetdiagnos loggar Stadslass egna nätanrop per post med uppskattad datamängd, topposter och rapport, utan att ändra arbetslogik.
 - v316: Separat fasmedian för Stadslass-tider från 2026-05-19, minst 3 uppdrag per fas, median fas-för-fas och synligt underlag i fasuträkningen.
 - v315: QR-kod REG IMPREGNERAT visas i Tryckimpregnerat lossningsfas under Pausa/Klart och ovanför tillfällig fasuträkning, med tryckbart större scanningsläge.
@@ -355,7 +356,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v317';
+  const version = 'Stadslass 2.0 v318';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3885,7 +3886,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v317</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v318</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -4028,14 +4029,20 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
     </div>
 
     <div id="internetUsageDiagnosticWrapV317" class="place-manager hidden" data-temp-internet-diagnostic-v317="1">
-      <div class="place-help"><strong>Tillfällig Internetdiagnos v317 – endast padda.</strong> Loggar Stadslass egna internetanrop per post så att det går att ringa in exakt vilken kategori, vilket uppdrag och vilken fas som drar mest data. Funktionen mäter/uppskattar bara och ändrar inte Snap, Routes, sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full.</div>
+      <div class="place-help"><strong>Tillfällig Internetdiagnos v317/v318 – endast padda.</strong> Loggar Stadslass egna internetanrop per post så att det går att ringa in exakt vilken kategori, vilket uppdrag och vilken fas som drar mest data. Funktionen mäter/uppskattar bara och ändrar inte Snap, Routes, sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full.</div>
       <div class="place-row">
         <div class="place-key">Internetanvändning på padda</div>
         <div class="multi-help">Stadslass kan inte läsa Androids Samsung Browser-räknare direkt, men den här loggen räknar appens egna anrop till Google, GitHub och andra nätkällor. API-nycklar och token sparas inte i loggen.</div>
+        <div class="report-mail-settings-v168" style="margin-top:10px">
+          <label>Rapportmottagare för mail</label>
+          <input data-report-mail-recipient type="email" inputmode="email" placeholder="din e-postadress" oninput="saveReportMailRecipientV168(this.value)" onfocus="syncReportMailRecipientInputsV168()">
+          <div class="multi-help">Används bara som hjälp när internetrapporten delas/öppnas i mail. Androids delningsruta kan även låta dig välja Gmail/Outlook utan sparad mottagare.</div>
+        </div>
         <div class="row" style="margin-top:10px">
           <button class="primary inline" onclick="renderInternetUsageDiagnosticV317()">Uppdatera internetanalys</button>
           <button class="inline" onclick="copyInternetUsageReportV317()">Kopiera internetrapport</button>
           <button class="inline" onclick="downloadInternetUsageReportV317()">Exportera rapport som text</button>
+          <button class="inline" onclick="shareInternetUsageReportFileV318()">Skapa fil och dela via mail</button>
           <button class="danger inline" onclick="clearInternetUsageLogV317()">Nollställ interneträknare</button>
         </div>
         <div id="internetUsageGuardV317" class="multi-help" style="margin-top:10px"></div>
@@ -12442,9 +12449,10 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v317';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v317';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v318';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v318';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v318 Internetdiagnos fil/mail på padda',
   'v317 Tillfällig padda-internetdiagnos',
   'v316 Separat fasmedian Stadslass-tider',
   'v315 Tryckimpregnerat QR-kod i lossningsfas',
@@ -13024,6 +13032,7 @@ function getActiveMonitorChecks(snapshot){
   if(typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19'){
     ok('PHASE-OV-316', 'Separat fasmedian v316 är inkopplad', 'Stadslass egna fasrader använder minst 3 uppdrag per fas och median från 2026-05-19.', 'cutoff=' + STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO + '; min=' + STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES, 'v316 Separat fasmedian', 'active=' + activeMonitorBool(!!s.hasActive));
     if(typeof buildInternetUsageReportV317 === 'function') ok('NET-OV-317', 'Tillfällig padda-internetdiagnos finns', 'v317 kan logga Stadslass egna internetanrop per post på padda/driftenhet.', 'poster=' + (typeof getInternetUsageLogV317 === 'function' ? getInternetUsageLogV317().length : '-'), 'v317 Internetdiagnos', 'allowed=' + (typeof getInternetUsageAllowedV317 === 'function' ? activeMonitorBool(getInternetUsageAllowedV317().allowed) : '-'));
+    if(typeof shareInternetUsageReportFileV318 === 'function') ok('NET-MAIL-OV-318', 'Internetdiagnos kan skapa fil och dela via mail', 'v318 skapar txt-fil från internetrapporten och använder Android-delning eller mailto-fallback utan automatisk sändning.', 'shareFn=true', 'v318 Internetdiagnos mailfil', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Internetdiagnos fil/mail på padda v318')));
   } else {
     warn('PHASE-OV-316', 'Separat fasmedian v316 saknas', 'v316 ska ha separata fasmedianfunktioner och brytdatum.', 'funktion eller brytdatum saknas', 'Kontrollera v316-inläggningen.', 'v316 Separat fasmedian', '');
   }
@@ -14332,7 +14341,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v317';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v318';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -14357,6 +14366,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Internetdiagnos fil/mail på padda v318', status:'Kontroll/Felsökning/Internet/Mail', purpose:'Tillfällig padda-internetdiagnos kan skapa Stadslass internetrapport som txt-fil och dela den via Androids delningsruta eller öppna mejl/Gmail med filnamn och instruktion för manuell bilaga.', changeRule:'Får bara påverka internetdiagnosens rapportdelning på padda. Får inte skicka automatiskt, logga API-nycklar eller token, ändra Snap, Routes, Geocoding, GitHub-sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full.'},
   {name:'Tillfällig padda-internetdiagnos v317', status:'Kontroll/Felsökning/Internet', purpose:'Tillfällig diagnos på padda/driftenhet som loggar Stadslass egna internetanrop per post, uppskattar skickad/mottagen datamängd, visar största poster, detaljlogg och kopierbar/exporterbar rapport.', changeRule:'Får bara mäta och visa internetanvändning på padda. Får inte stoppa eller ändra Snap, Routes, Geocoding, GitHub-sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full. Inga API-nycklar eller token får loggas.'},
   {name:'Separat fasmedian Stadslass-tider v316', status:'Uppskattad tid/fasuträkning', purpose:'Stadslass egna fasrader använder ren historik från 2026-05-19 och framåt, minst 3 matchande uppdrag per fas och median fas-för-fas för Från-plats, Till-plats och Retur/avslut. Fasuträkningen visar hur många uppdrag som används eller hur nära 3-underlaget fasen är.', changeRule:'Får bara påverka Stadslass arbetstidsberäkning och visning av fasunderlag. Får inte ändra knappar, vikt, geofence, GPS/Snap, sync, historik, backup/export eller driftlogg_v4_full.'},
   {name:'Tryckimpregnerat QR-kod i lossningsfas v315', status:'Aktivt jobb/lossningsfas/transportdokument', purpose:'Tryckimpregnerat visar REG IMPREGNERAT QR-kod endast i lossningsfas, under Pausa/Klart och ovanför tillfällig fasuträkning. QR-rutan är stor, högkontrast, offline-inbäddad och kan öppnas större för mobilscanning.', changeRule:'Får bara påverka visning av QR-kod för Tryckimpregnerat i lossningsfas. Får inte ändra materialkod, destination, transportdokumentdata, vikt, Klart, Pausa, fasdata, GPS/Snap, ETA, geofence, sync, historik, Excel/export eller driftlogg_v4_full.'},
@@ -15047,6 +15057,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum och stabilt underlag', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-19' && fn('isTimeLearningSampleAllowed') && fn('isStableMaterialFlowSample'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
   addFunctionCheck(results, 'Nivå 2', 'Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'minst 3 uppdrag, median fas-för-fas och synligt fasunderlag');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig padda-internetdiagnos v317', typeof installInternetUsageFetchLoggerV317 === 'function' && typeof buildInternetUsageReportV317 === 'function' && typeof renderInternetUsageDiagnosticV317 === 'function' && typeof getInternetUsageAllowedV317 === 'function' && !!el('internetUsageDiagButtonV317') && !!el('internetUsageDiagnosticWrapV317') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig padda-internetdiagnos v317'), 'padda-spärrad postlogg för Google/GitHub/internet utan API-nycklar eller token');
+  addFunctionCheck(results, 'Nivå 2', 'Internetdiagnos fil/mail på padda v318', typeof shareInternetUsageReportFileV318 === 'function' && typeof createInternetUsageReportFileV318 === 'function' && typeof downloadInternetUsageReportFileV318 === 'function' && src('shareInternetUsageReportFileV318', 'navigator.share') && src('shareInternetUsageReportFileV318', 'mailto:') && APP_FEATURE_MANIFEST.some(item => item.name === 'Internetdiagnos fil/mail på padda v318'), 'skapar txt-fil och delar via Android/mailflöde utan automatisk sändning');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkert underlag', fn('getFinishedJobsForUnderlag') && src('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag') && src('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'uppskattad tid/GPS-lärning hämtar underlag via getFinishedJobsForUnderlag');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkert underlag', fn('getFilteredSummaryJobs') && src('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag') && fn('getReceiptSummaryJobs'), 'sammanställning + kvittorader utan papperskorg');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', fn('getHistoryCalendarJobsForDisplay') && fn('getFinishedJobsForUnderlag') && src('renderHistoryManager', 'getHistoryCalendarJobsForDisplay') && fn('renderToday'), 'historik använder samlat visningsunderlag, Idag använder avslutade jobb');
@@ -16386,6 +16397,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Tillfällig fasuträkning v139', typeof buildStadslass139PhaseCalculation === 'function' && typeof getStadslass139PhaseCalculationHtml === 'function' && typeof renderActivePhaseCalculationBottom === 'function' && functionSourceIncludes('renderActivePhaseCalculationBottom', 'getStadslass139PhaseCalculationHtml') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139'), 'Uppskattad tid visar fasuträkning som tillfällig kontrollfunktion'),
     systemCheck('Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'Stadslass fasrader lärs separat med median från minst 3 uppdrag per fas från 2026-05-19'),
     systemCheck('Tillfällig padda-internetdiagnos v317', typeof installInternetUsageFetchLoggerV317 === 'function' && typeof buildInternetUsageReportV317 === 'function' && typeof renderInternetUsageDiagnosticV317 === 'function' && !!document.getElementById('internetUsageDiagButtonV317') && !!document.getElementById('internetUsageDiagnosticWrapV317') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig padda-internetdiagnos v317'), 'Loggar Stadslass egna internetanrop per post endast på padda/driftenhet och kan kopiera/exportera rapport'),
+    systemCheck('Internetdiagnos fil/mail på padda v318', typeof shareInternetUsageReportFileV318 === 'function' && typeof createInternetUsageReportFileV318 === 'function' && typeof downloadInternetUsageReportFileV318 === 'function' && !!document.querySelector('button[onclick="shareInternetUsageReportFileV318()"]') && APP_FEATURE_MANIFEST.some(item => item.name === 'Internetdiagnos fil/mail på padda v318'), 'Skapar internetrapport som txt-fil och delar/öppnar mailflöde utan att skicka automatiskt'),
     systemCheck('Fasuträkning uppdelade faser v140', typeof getStadslass140GoogleLegMinutes === 'function' && typeof getStadslass140WorkPhaseRows === 'function' && functionSourceIncludes('buildStadslass139PhaseCalculation', 'Retur/avslut vid Från') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140'), 'Uppskattad tid delar upp startsträcka, Från-plats, transport, Till-plats, retur och retur/avslut'),
     systemCheck('Vikt 0 godkänd transport v140', typeof addLoadToCurrent === 'function' && functionSourceIncludes('addLoadToCurrent', 'n < 0') && functionSourceIncludes('addLoadToCurrent', '0 ton är tillåtet') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140'), 'Ange vikt accepterar 0 ton som godkänd transport/tomt flak utan att använda Ingen tömning'),
     systemCheck('Snabblistor/alfabetisk ordning v141', typeof buildSettingsNavigatorHtml === 'function' && typeof jumpToSettingsNavTarget === 'function' && functionSourceIncludes('renderPlaceManager', 'Snabblista platser') && functionSourceIncludes('renderQuickManager', 'Snabblista snabbval') && functionSourceIncludes('renderJobTypeManager', 'Snabblista jobbtyper') && functionSourceIncludes('renderGeofenceManager', 'Snabblista geofence') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141'), 'Platser, Snabbval, Jobbtyper och Geofence har snabblista och alfabetisk visning'),
@@ -16815,7 +16827,7 @@ function buildControlCenterReportV189(sourceLabel){
     lines.push('');
   });
   lines.push('RAW');
-  lines.push('controlCenterFunctions=toggleControlCenterManagerV189/renderControlCenterLightOpenV236/setControlCenterToggleBusyV196/controlCenterReportVersionSlugV196/getActiveMapCallContextV198/runControlCenterAllV189/controlCenterYieldV195/controlCenterSetRunProgressV195/runControlCenterListControlV190/runControlCenterFullV193/buildControlCenterFullRunReportV193/buildControlCenterTopSummaryV192/buildControlCenterReportV189/getControlCenterExtendedChecksV303/checkControlCenterV304Fixes/scheduleQueueSyncAfterActiveButtonV309/downloadControlCenterReportFileV303/copyControlCenterReportV189/downloadControlCenterReportV189/emailControlCenterReportV189');
+  lines.push('controlCenterFunctions=toggleControlCenterManagerV189/renderControlCenterLightOpenV236/setControlCenterToggleBusyV196/controlCenterReportVersionSlugV196/getActiveMapCallContextV198/runControlCenterAllV189/controlCenterYieldV195/controlCenterSetRunProgressV195/runControlCenterListControlV190/runControlCenterFullV193/buildControlCenterFullRunReportV193/buildControlCenterTopSummaryV192/buildControlCenterReportV189/getControlCenterExtendedChecksV303/checkControlCenterV304Fixes/scheduleQueueSyncAfterActiveButtonV309/downloadControlCenterReportFileV303/copyControlCenterReportV189/downloadControlCenterReportV189/emailControlCenterReportV189/shareInternetUsageReportFileV318');
   lines.push('storageKey=' + KEY);
   lines.push('includedSections=' + included + '/' + sections.length);
   return lines.join('\n');
@@ -35581,7 +35593,7 @@ function buildInternetUsageReportV317(){
   const top = entries.slice().sort((a,b) => Number(b.totalBytes || 0) - Number(a.totalBytes || 0)).slice(0, 50);
   const latest = entries.slice().sort((a,b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 80);
   const lines = [];
-  lines.push('STADSLASS INTERNETANVÄNDNING v317');
+  lines.push('STADSLASS INTERNETANVÄNDNING v318');
   lines.push('Status: ' + (guard.allowed ? 'PADD-DIAGNOS AKTIV' : 'SPÄRRAD PÅ DENNA ENHET'));
   lines.push('Version: ' + APP_VERSION);
   lines.push('Skapad: ' + new Date().toLocaleString('sv-SE'));
@@ -35679,7 +35691,7 @@ function downloadInternetUsageReportV317(){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'stadslass-internetanvandning-v317-' + fileDate + '.txt';
+    a.download = 'stadslass-internetanvandning-' + (typeof controlCenterReportVersionSlugV196 === 'function' ? controlCenterReportVersionSlugV196() : 'v318') + '-' + fileDate + '.txt';
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 1000);
@@ -35696,6 +35708,103 @@ function clearInternetUsageLogV317(){
   renderInternetUsageDiagnosticV317();
   const status = document.getElementById('internetUsageCopyStatusV317');
   if(status) status.textContent = 'Interneträknaren nollställd. Appens arbetsdata påverkas inte.';
+}
+
+// v318: skapa fil och dela internetrapport via Android/mailflöde. Skickar aldrig automatiskt.
+function internetUsageFileDateV318(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '_' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+}
+
+function internetUsageReportFilenameV318(){
+  let slug = '';
+  try{ slug = controlCenterReportVersionSlugV196(); }catch(e){ slug = String(APP_VERSION || 'stadslass').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+  return 'stadslass-internetanvandning-' + slug + '-' + internetUsageFileDateV318() + '.txt';
+}
+
+function createInternetUsageReportFileV318(){
+  const text = buildInternetUsageReportV317();
+  const filename = internetUsageReportFilenameV318();
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  let file = null;
+  try{ file = new File([blob], filename, {type:'text/plain'}); }catch(e){ file = null; }
+  return {text:text, filename:filename, blob:blob, file:file};
+}
+
+function downloadInternetUsageReportFileV318(fileInfo, statusMessage){
+  const info = fileInfo || createInternetUsageReportFileV318();
+  const status = document.getElementById('internetUsageCopyStatusV317');
+  if(!String(info.text || '').trim()){
+    if(status) status.textContent = 'Ingen internetrapport att skapa fil av. Uppdatera internetanalysen först.';
+    return '';
+  }
+  try{
+    const url = URL.createObjectURL(info.blob || new Blob([info.text], {type:'text/plain;charset=utf-8'}));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = info.filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 1000);
+    if(status && statusMessage) status.textContent = statusMessage;
+    return info.filename;
+  }catch(e){
+    if(status) status.textContent = 'Kunde inte skapa rapportfil. Använd Kopiera internetrapport som reserv.';
+    return '';
+  }
+}
+
+async function shareInternetUsageReportFileV318(){
+  const allowed = renderInternetUsageVisibilityV317();
+  const status = document.getElementById('internetUsageCopyStatusV317');
+  if(!allowed){
+    const guard = getInternetUsageAllowedV317();
+    if(status) status.textContent = guard.reason || 'Internetdiagnosen är spärrad på denna enhet.';
+    return false;
+  }
+  renderInternetUsageDiagnosticV317();
+  const info = createInternetUsageReportFileV318();
+  if(!String(info.text || '').trim()){
+    if(status) status.textContent = 'Ingen internetrapport finns att dela. Uppdatera internetanalysen först.';
+    return false;
+  }
+  const shareTitle = 'Stadslass internetrapport';
+  const shareText = 'Stadslass internetrapport skapad som txt-fil. Välj mailapp och kontrollera innan du skickar.';
+  try{
+    if(info.file && navigator.share && (!navigator.canShare || navigator.canShare({files:[info.file]}))){
+      await navigator.share({title:shareTitle, text:shareText, files:[info.file]});
+      if(status) status.textContent = 'Delningsruta öppnad. Välj Gmail/Outlook/mail och kontrollera innan du skickar.';
+      return true;
+    }
+  }catch(e){
+    if(status) status.textContent = 'Delningsrutan kunde inte användas. Skapar txt-fil och öppnar mailflöde som reserv.';
+  }
+  const filename = downloadInternetUsageReportFileV318(info, 'Internetrapport skapad som txt-fil. Mejl/Gmail öppnas som reserv; bifoga filen manuellt.');
+  syncReportMailRecipientInputsV168();
+  const recipient = getReportMailRecipientV168();
+  if(!recipient){
+    if(status) status.textContent = 'Internetrapport skapad som txt-fil: ' + (filename || info.filename) + '. Android kunde inte dela fil direkt. Skriv rapportmottagare eller öppna mail manuellt och bifoga filen.';
+    return false;
+  }
+  const subject = reportMailSubjectV168('Stadslass internetrapport');
+  const body = 'Stadslass internetrapport är skapad som txt-fil och bifogas manuellt.\n\nFil: ' + (filename || info.filename) + '\nVersion: ' + String(APP_VERSION || '') + '\nSkapad: ' + reportMailCreatedDateV168() + '\n\nObs: Stadslass skickar inte automatiskt. Kontrollera mottagare och bifoga txt-filen innan du skickar.';
+  const mailto = 'mailto:' + encodeURIComponent(recipient) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  try{
+    window.location.href = mailto;
+    setTimeout(() => { if(status) status.textContent = 'Txt-fil skapad och mejl/Gmail öppnat. Bifoga filen manuellt och kontrollera innan du skickar.'; }, 250);
+    return true;
+  }catch(e){
+    if(status) status.textContent = 'Txt-fil skapad men mejl/Gmail kunde inte öppnas. Öppna mail manuellt och bifoga filen.';
+    return false;
+  }
+}
+
+function checkTemporaryInternetDiagnosticMailFileV318(){
+  return typeof shareInternetUsageReportFileV318 === 'function'
+    && typeof createInternetUsageReportFileV318 === 'function'
+    && typeof downloadInternetUsageReportFileV318 === 'function'
+    && !!document.querySelector('button[onclick="shareInternetUsageReportFileV318()"]')
+    && APP_FEATURE_MANIFEST.some(item => item.name === 'Internetdiagnos fil/mail på padda v318');
 }
 
 function checkTemporaryInternetDiagnosticV317(){
