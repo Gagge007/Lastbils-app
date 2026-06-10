@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v318
+- Nuvarande version: Stadslass 2.0 v319
+- v319: Paddans GitHub-statussync blir datasnål på mobilnät: oförändrad Lastbils status skrivs inte om, paddan återläser inte sin egen status i onödan och köåtgärdskontroll glesas vid stilla/Övrig verksamhet.
 - v318: Tillfällig padda-internetdiagnos kan skapa internetrapport som txt-fil och dela/öppna mailflöde utan att skicka automatiskt eller ändra arbetslogik.
 - v317: Tillfällig padda-internetdiagnos loggar Stadslass egna nätanrop per post med uppskattad datamängd, topposter och rapport, utan att ändra arbetslogik.
 - v316: Separat fasmedian för Stadslass-tider från 2026-05-19, minst 3 uppdrag per fas, median fas-för-fas och synligt underlag i fasuträkningen.
@@ -356,7 +357,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v318';
+  const version = 'Stadslass 2.0 v319';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3886,7 +3887,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v318</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v319</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -4029,7 +4030,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
     </div>
 
     <div id="internetUsageDiagnosticWrapV317" class="place-manager hidden" data-temp-internet-diagnostic-v317="1">
-      <div class="place-help"><strong>Tillfällig Internetdiagnos v317/v318 – endast padda.</strong> Loggar Stadslass egna internetanrop per post så att det går att ringa in exakt vilken kategori, vilket uppdrag och vilken fas som drar mest data. Funktionen mäter/uppskattar bara och ändrar inte Snap, Routes, sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full.</div>
+      <div class="place-help"><strong>Tillfällig Internetdiagnos v317–v319 – endast padda.</strong> Loggar Stadslass egna internetanrop per post så att det går att ringa in exakt vilken kategori, vilket uppdrag och vilken fas som drar mest data. Funktionen mäter/uppskattar bara och ändrar inte Snap, Routes, sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full.</div>
       <div class="place-row">
         <div class="place-key">Internetanvändning på padda</div>
         <div class="multi-help">Stadslass kan inte läsa Androids Samsung Browser-räknare direkt, men den här loggen räknar appens egna anrop till Google, GitHub och andra nätkällor. API-nycklar och token sparas inte i loggen.</div>
@@ -12449,9 +12450,10 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v318';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v318';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v319';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v319';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v319 Datasnål paddstatus på mobilnät',
   'v318 Internetdiagnos fil/mail på padda',
   'v317 Tillfällig padda-internetdiagnos',
   'v316 Separat fasmedian Stadslass-tider',
@@ -13033,6 +13035,7 @@ function getActiveMonitorChecks(snapshot){
     ok('PHASE-OV-316', 'Separat fasmedian v316 är inkopplad', 'Stadslass egna fasrader använder minst 3 uppdrag per fas och median från 2026-05-19.', 'cutoff=' + STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO + '; min=' + STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES, 'v316 Separat fasmedian', 'active=' + activeMonitorBool(!!s.hasActive));
     if(typeof buildInternetUsageReportV317 === 'function') ok('NET-OV-317', 'Tillfällig padda-internetdiagnos finns', 'v317 kan logga Stadslass egna internetanrop per post på padda/driftenhet.', 'poster=' + (typeof getInternetUsageLogV317 === 'function' ? getInternetUsageLogV317().length : '-'), 'v317 Internetdiagnos', 'allowed=' + (typeof getInternetUsageAllowedV317 === 'function' ? activeMonitorBool(getInternetUsageAllowedV317().allowed) : '-'));
     if(typeof shareInternetUsageReportFileV318 === 'function') ok('NET-MAIL-OV-318', 'Internetdiagnos kan skapa fil och dela via mail', 'v318 skapar txt-fil från internetrapporten och använder Android-delning eller mailto-fallback utan automatisk sändning.', 'shareFn=true', 'v318 Internetdiagnos mailfil', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Internetdiagnos fil/mail på padda v318')));
+    if(typeof shouldSkipTabletStatusUploadV319 === 'function' && typeof buildTabletStatusFingerprintV319 === 'function' && typeof shouldCheckQueueActionsV319 === 'function') ok('SYNC-DATA-OV-319', 'Datasnål paddstatus på mobilnät finns', 'v319 ska hoppa över oförändrad paddstatus, återanvända tablet-status-SHA och glesa queue-actions-kontroll på mobilnät.', 'skipFn=true; shaCache=true; actionThrottle=true', 'v319 Datasnål paddstatus', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Datasnål paddstatus på mobilnät v319')));
   } else {
     warn('PHASE-OV-316', 'Separat fasmedian v316 saknas', 'v316 ska ha separata fasmedianfunktioner och brytdatum.', 'funktion eller brytdatum saknas', 'Kontrollera v316-inläggningen.', 'v316 Separat fasmedian', '');
   }
@@ -14341,7 +14344,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v318';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v319';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -14366,6 +14369,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Datasnål paddstatus på mobilnät v319', status:'Sync/Internet/Padda', purpose:'Paddans Lastbils status-publicering spärras mot onödiga GitHub GET/PUT när aktiv status är oförändrad, särskilt på mobilnät och vid Övrig verksamhet/stillastående. Queue-actions kontrolleras glesare på mobilnät och tablet-status-SHA återanvänds för att paddan inte ska läsa tillbaka sin egen stora statusfil inför varje skrivning.', changeRule:'Får bara minska onödiga GitHub-anrop för paddans status/snabbsync när inget viktigt ändrats. Manuell sync, verkliga köändringar, aktiv fasändring, vikt, paus, klart, registerdata, GPS/Snap, geofence, historik, backup/export och driftlogg_v4_full får inte ändras.'},
   {name:'Internetdiagnos fil/mail på padda v318', status:'Kontroll/Felsökning/Internet/Mail', purpose:'Tillfällig padda-internetdiagnos kan skapa Stadslass internetrapport som txt-fil och dela den via Androids delningsruta eller öppna mejl/Gmail med filnamn och instruktion för manuell bilaga.', changeRule:'Får bara påverka internetdiagnosens rapportdelning på padda. Får inte skicka automatiskt, logga API-nycklar eller token, ändra Snap, Routes, Geocoding, GitHub-sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full.'},
   {name:'Tillfällig padda-internetdiagnos v317', status:'Kontroll/Felsökning/Internet', purpose:'Tillfällig diagnos på padda/driftenhet som loggar Stadslass egna internetanrop per post, uppskattar skickad/mottagen datamängd, visar största poster, detaljlogg och kopierbar/exporterbar rapport.', changeRule:'Får bara mäta och visa internetanvändning på padda. Får inte stoppa eller ändra Snap, Routes, Geocoding, GitHub-sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full. Inga API-nycklar eller token får loggas.'},
   {name:'Separat fasmedian Stadslass-tider v316', status:'Uppskattad tid/fasuträkning', purpose:'Stadslass egna fasrader använder ren historik från 2026-05-19 och framåt, minst 3 matchande uppdrag per fas och median fas-för-fas för Från-plats, Till-plats och Retur/avslut. Fasuträkningen visar hur många uppdrag som används eller hur nära 3-underlaget fasen är.', changeRule:'Får bara påverka Stadslass arbetstidsberäkning och visning av fasunderlag. Får inte ändra knappar, vikt, geofence, GPS/Snap, sync, historik, backup/export eller driftlogg_v4_full.'},
@@ -15057,6 +15061,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum och stabilt underlag', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-19' && fn('isTimeLearningSampleAllowed') && fn('isStableMaterialFlowSample'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
   addFunctionCheck(results, 'Nivå 2', 'Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'minst 3 uppdrag, median fas-för-fas och synligt fasunderlag');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig padda-internetdiagnos v317', typeof installInternetUsageFetchLoggerV317 === 'function' && typeof buildInternetUsageReportV317 === 'function' && typeof renderInternetUsageDiagnosticV317 === 'function' && typeof getInternetUsageAllowedV317 === 'function' && !!el('internetUsageDiagButtonV317') && !!el('internetUsageDiagnosticWrapV317') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig padda-internetdiagnos v317'), 'padda-spärrad postlogg för Google/GitHub/internet utan API-nycklar eller token');
+  addFunctionCheck(results, 'Nivå 2', 'Datasnål paddstatus på mobilnät v319', typeof shouldSkipTabletStatusUploadV319 === 'function' && typeof buildTabletStatusFingerprintV319 === 'function' && typeof shouldCheckQueueActionsV319 === 'function' && typeof getQueueSyncPadActiveMirrorDelayV319 === 'function' && src('queueSyncPutJsonFileV219', 'queueSyncGithubShaCacheV319') && src('queueSyncRunActiveMirrorV253', 'shouldCheckQueueActionsV319') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datasnål paddstatus på mobilnät v319'), 'hoppar över oförändrad status, återanvänder SHA och glesar köåtgärdskontroll på mobilnät');
   addFunctionCheck(results, 'Nivå 2', 'Internetdiagnos fil/mail på padda v318', typeof shareInternetUsageReportFileV318 === 'function' && typeof createInternetUsageReportFileV318 === 'function' && typeof downloadInternetUsageReportFileV318 === 'function' && src('shareInternetUsageReportFileV318', 'navigator.share') && src('shareInternetUsageReportFileV318', 'mailto:') && APP_FEATURE_MANIFEST.some(item => item.name === 'Internetdiagnos fil/mail på padda v318'), 'skapar txt-fil och delar via Android/mailflöde utan automatisk sändning');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkert underlag', fn('getFinishedJobsForUnderlag') && src('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag') && src('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'uppskattad tid/GPS-lärning hämtar underlag via getFinishedJobsForUnderlag');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkert underlag', fn('getFilteredSummaryJobs') && src('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag') && fn('getReceiptSummaryJobs'), 'sammanställning + kvittorader utan papperskorg');
@@ -16397,6 +16402,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Tillfällig fasuträkning v139', typeof buildStadslass139PhaseCalculation === 'function' && typeof getStadslass139PhaseCalculationHtml === 'function' && typeof renderActivePhaseCalculationBottom === 'function' && functionSourceIncludes('renderActivePhaseCalculationBottom', 'getStadslass139PhaseCalculationHtml') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139'), 'Uppskattad tid visar fasuträkning som tillfällig kontrollfunktion'),
     systemCheck('Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'Stadslass fasrader lärs separat med median från minst 3 uppdrag per fas från 2026-05-19'),
     systemCheck('Tillfällig padda-internetdiagnos v317', typeof installInternetUsageFetchLoggerV317 === 'function' && typeof buildInternetUsageReportV317 === 'function' && typeof renderInternetUsageDiagnosticV317 === 'function' && !!document.getElementById('internetUsageDiagButtonV317') && !!document.getElementById('internetUsageDiagnosticWrapV317') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig padda-internetdiagnos v317'), 'Loggar Stadslass egna internetanrop per post endast på padda/driftenhet och kan kopiera/exportera rapport'),
+    systemCheck('Datasnål paddstatus på mobilnät v319', typeof shouldSkipTabletStatusUploadV319 === 'function' && typeof buildTabletStatusFingerprintV319 === 'function' && typeof shouldCheckQueueActionsV319 === 'function' && typeof getQueueSyncPadActiveMirrorDelayV319 === 'function' && functionSourceIncludes('queueSyncUploadTabletStatusV219', 'Paddstatus oförändrad') && functionSourceIncludes('queueSyncPutJsonFileV219', 'queueSyncGithubShaCacheV319') && functionSourceIncludes('queueSyncRunActiveMirrorV253', 'shouldCheckQueueActionsV319') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datasnål paddstatus på mobilnät v319'), 'Oförändrad paddstatus ger ingen PUT, tablet-status-SHA återanvänds och queue-actions kontrolleras glesare'),
     systemCheck('Internetdiagnos fil/mail på padda v318', typeof shareInternetUsageReportFileV318 === 'function' && typeof createInternetUsageReportFileV318 === 'function' && typeof downloadInternetUsageReportFileV318 === 'function' && !!document.querySelector('button[onclick="shareInternetUsageReportFileV318()"]') && APP_FEATURE_MANIFEST.some(item => item.name === 'Internetdiagnos fil/mail på padda v318'), 'Skapar internetrapport som txt-fil och delar/öppnar mailflöde utan att skicka automatiskt'),
     systemCheck('Fasuträkning uppdelade faser v140', typeof getStadslass140GoogleLegMinutes === 'function' && typeof getStadslass140WorkPhaseRows === 'function' && functionSourceIncludes('buildStadslass139PhaseCalculation', 'Retur/avslut vid Från') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140'), 'Uppskattad tid delar upp startsträcka, Från-plats, transport, Till-plats, retur och retur/avslut'),
     systemCheck('Vikt 0 godkänd transport v140', typeof addLoadToCurrent === 'function' && functionSourceIncludes('addLoadToCurrent', 'n < 0') && functionSourceIncludes('addLoadToCurrent', '0 ton är tillåtet') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140'), 'Ange vikt accepterar 0 ton som godkänd transport/tomt flak utan att använda Ingen tömning'),
@@ -20973,6 +20979,140 @@ let tabletTimeBasisMirrorVisibleV269 = false;
 let tabletSummaryMirrorSelectedPeriodV261 = "";
 let tabletMirrorQueueEditContextV275 = null;
 
+// v319: datasnål paddstatus på mobilnät. Minskar upprepade GitHub GET/PUT när Lastbils status inte ändrats.
+const QUEUE_SYNC_TABLET_STATUS_HEARTBEAT_MS_V319 = 10 * 60 * 1000;
+const QUEUE_SYNC_TABLET_STATUS_HEARTBEAT_WIFI_MS_V319 = 3 * 60 * 1000;
+const QUEUE_SYNC_QUEUE_ACTIONS_CELLULAR_MIN_MS_V319 = 5 * 60 * 1000;
+const QUEUE_SYNC_QUEUE_ACTIONS_WIFI_MIN_MS_V319 = 60 * 1000;
+const QUEUE_SYNC_PAD_ACTIVE_MIRROR_CELLULAR_MIN_MS_V319 = 5 * 60 * 1000;
+let queueSyncLastTabletStatusFingerprintV319 = '';
+let queueSyncLastTabletStatusUploadAtV319 = 0;
+let queueSyncLastQueueActionsCheckAtV319 = 0;
+let queueSyncGithubShaCacheV319 = {};
+
+function getQueueSyncNetworkKindV319(){
+  try{
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const raw = c ? String(c.type || c.effectiveType || '').toLowerCase() : '';
+    if(/wifi|ethernet|wlan/.test(raw)) return 'wifi';
+    if(/cell|2g|3g|4g|5g/.test(raw)) return 'cellular';
+  }catch(e){}
+  try{
+    if(typeof getInternetUsageDeviceContextV317 === 'function'){
+      const ctx = getInternetUsageDeviceContextV317();
+      const net = String(ctx && ctx.network || '').toLowerCase();
+      if(/wifi|ethernet|wlan/.test(net)) return 'wifi';
+      if(/cell|2g|3g|4g|5g/.test(net)) return 'cellular';
+    }
+  }catch(e){}
+  return 'unknown';
+}
+
+function isQueueSyncCellularV319(){
+  return getQueueSyncNetworkKindV319() === 'cellular';
+}
+
+function isQueueSyncActiveOtherWorkStillV319(){
+  try{
+    const job = state && state.active ? state.active : null;
+    if(!job) return false;
+    const type = String(job.type || job.displayType || '').toLowerCase();
+    return type.indexOf('övrig verksamhet') >= 0 || type.indexOf('ovrig verksamhet') >= 0;
+  }catch(e){ return false; }
+}
+
+function queueSyncStableValueV319(value){
+  if(value == null) return '';
+  if(typeof value === 'number') return Math.round(value * 1000) / 1000;
+  if(typeof value === 'boolean') return !!value;
+  return String(value || '');
+}
+
+function buildTabletStatusFingerprintV319(payload){
+  payload = payload || {};
+  const q = Array.isArray(payload.queue) ? payload.queue : [];
+  const active = payload.active || {};
+  const activeStatus = payload.activeStatusV251 || {};
+  const finished = Array.isArray(payload.finishedSyncItemsV287) ? payload.finishedSyncItemsV287 : [];
+  const registerStatus = payload.registerStatusV234 || (payload.registerPackageV235 && payload.registerPackageV235.status) || null;
+  const queueBrief = q.map(item => ({
+    id:queueSyncStableValueV319(item.syncKeyV219 || item.sourceJobId || item.id || item.githubKey),
+    status:queueSyncStableValueV319(item.status),
+    type:queueSyncStableValueV319(item.type || item.displayType),
+    place:queueSyncStableValueV319(item.place || item.placeLabel),
+    dest:queueSyncStableValueV319(item.dest || item.destLabel),
+    plannedDate:queueSyncStableValueV319(item.plannedDate || item.date),
+    plannedTime:queueSyncStableValueV319(item.plannedTime),
+    comment:queueSyncStableValueV319(item.comment),
+    urgent:!!item.urgentJob,
+    returnRequired:!!(item.returnRequired || item.returnRequiredAtStart),
+    returnPlace:queueSyncStableValueV319(item.returnPlace || item.routeReturnPlace)
+  }));
+  const activeBrief = active ? {
+    id:queueSyncStableValueV319(active.syncKeyV219 || active.sourceJobId || active.id),
+    type:queueSyncStableValueV319(active.type || active.displayType),
+    machine:queueSyncStableValueV319(active.machine || active.machineName),
+    place:queueSyncStableValueV319(active.place || active.placeLabel),
+    dest:queueSyncStableValueV319(active.dest || active.destLabel),
+    phase:queueSyncStableValueV319(active.phase || activeStatus.phase),
+    phaseLabel:queueSyncStableValueV319(active.phaseLabel || activeStatus.phaseLabel),
+    phaseClassName:queueSyncStableValueV319(active.phaseClassName || activeStatus.phaseClassName),
+    startedAt:queueSyncStableValueV319(active.startedAt),
+    materialCode:queueSyncStableValueV319(active.materialCode || activeStatus.materialCode),
+    loadsCount:Number(active.loadsCount || activeStatus.loadsCount || 0),
+    totalWeight:queueSyncStableValueV319(active.totalWeight || activeStatus.totalWeight || 0),
+    comment:queueSyncStableValueV319(active.comment),
+    returnRequired:!!active.returnRequired,
+    returnPlace:queueSyncStableValueV319(active.returnPlace || active.routeReturnPlace)
+  } : null;
+  return JSON.stringify({
+    queueCount:Number(payload.queueCount || queueBrief.length || 0),
+    queue:queueBrief,
+    active:activeBrief,
+    finishedKeys:finished.map(item => queueSyncStableValueV319(item && (item.syncKeyV219 || item.sourceJobId || item.id))).filter(Boolean).slice(0,200),
+    registerHash:queueSyncStableValueV319(registerStatus && (registerStatus.hash || registerStatus.registerHash || registerStatus.fullHash)),
+    receivedSyncCount:Number(payload.receivedSyncCountV232 || 0)
+  });
+}
+
+function shouldSkipTabletStatusUploadV319(options, payload){
+  options = options || {};
+  if(options.manual || options.forceFullV319 || options.forceStatusV319 || options.startupV310) return {skip:false, reason:'forced'};
+  if(!options.auto && !options.activeMirrorV253) return {skip:false, reason:'not-auto'};
+  const fp = buildTabletStatusFingerprintV319(payload);
+  const now = Date.now();
+  const cellular = isQueueSyncCellularV319();
+  const heartbeat = cellular ? QUEUE_SYNC_TABLET_STATUS_HEARTBEAT_MS_V319 : QUEUE_SYNC_TABLET_STATUS_HEARTBEAT_WIFI_MS_V319;
+  const unchanged = !!fp && fp === queueSyncLastTabletStatusFingerprintV319;
+  if(unchanged && queueSyncLastTabletStatusUploadAtV319 && (now - queueSyncLastTabletStatusUploadAtV319) < heartbeat){
+    return {skip:true, reason:'oförändrad paddstatus v319', fingerprint:fp, cellular:cellular, nextAllowedAt:queueSyncLastTabletStatusUploadAtV319 + heartbeat};
+  }
+  return {skip:false, reason:unchanged ? 'heartbeat' : 'changed', fingerprint:fp, cellular:cellular};
+}
+
+function rememberTabletStatusUploadV319(payload, result){
+  try{
+    queueSyncLastTabletStatusFingerprintV319 = buildTabletStatusFingerprintV319(payload);
+    queueSyncLastTabletStatusUploadAtV319 = Date.now();
+    const sha = result && result.content && result.content.sha ? result.content.sha : (result && result.sha ? result.sha : '');
+    if(sha) queueSyncGithubShaCacheV319[QUEUE_SYNC_TABLET_STATUS_FILE_V219] = sha;
+  }catch(e){}
+}
+
+function shouldCheckQueueActionsV319(reason){
+  const now = Date.now();
+  if(reason && reason !== 'timer') return true;
+  const minMs = isQueueSyncCellularV319() ? QUEUE_SYNC_QUEUE_ACTIONS_CELLULAR_MIN_MS_V319 : QUEUE_SYNC_QUEUE_ACTIONS_WIFI_MIN_MS_V319;
+  return !queueSyncLastQueueActionsCheckAtV319 || (now - queueSyncLastQueueActionsCheckAtV319) >= minMs;
+}
+
+function getQueueSyncPadActiveMirrorDelayV319(){
+  const settings = getQueueSyncSettingsV219();
+  const base = normalizeQueueSyncIntervalMsV244(settings.activeMirrorMsV253 || QUEUE_SYNC_ACTIVE_MIRROR_INTERVAL_MS_V253, QUEUE_SYNC_INTERVAL_DEFAULTS_MS_V244.activeMirror, QUEUE_SYNC_INTERVAL_LIMITS_MS_V244.activeMirror);
+  if(isQueueSyncCellularV319()) return Math.max(base, QUEUE_SYNC_PAD_ACTIVE_MIRROR_CELLULAR_MIN_MS_V319);
+  return base;
+}
+
 function detectGithubPagesRepoV219(){
   try{
     const host = String(location.hostname || '');
@@ -21371,6 +21511,7 @@ async function queueSyncGetJsonFileV219(filename){
   if(response.status === 404) return null;
   if(!response.ok) throw new Error('GitHub läsning misslyckades: ' + response.status);
   const data = await response.json();
+  if(data && data.sha) queueSyncGithubShaCacheV319[filename] = data.sha;
   if(!data || !data.content) return null;
   const json = decodeBase64UnicodeV219(String(data.content || '').replace(/\s/g, ''));
   const parsed = JSON.parse(json || 'null');
@@ -21422,7 +21563,12 @@ async function queueSyncPutJsonFileOnceV222(filename, payload, message, sha){
     error.status = response.status;
     throw error;
   }
-  return await response.json();
+  const result = await response.json();
+  try{
+    const newSha = result && result.content && result.content.sha ? result.content.sha : '';
+    if(newSha) queueSyncGithubShaCacheV319[filename] = newSha;
+  }catch(e){}
+  return result;
 }
 
 async function queueSyncPutJsonFileV219(filename, payload, message){
@@ -21430,8 +21576,13 @@ async function queueSyncPutJsonFileV219(filename, payload, message){
   if(!isQueueSyncConfiguredV219(settings)) throw new Error('Sync saknar GitHub ägare, repo, branch eller token.');
   let sha = '';
   try{
-    const existing = await queueSyncGetJsonFileV219(filename);
-    sha = existing && existing._githubShaV219 ? existing._githubShaV219 : '';
+    // v319: paddan ska inte behöva läsa tillbaka sin egen stora tablet-status inför varje status-PUT.
+    if(String(filename || '') === QUEUE_SYNC_TABLET_STATUS_FILE_V219 && queueSyncGithubShaCacheV319[filename]){
+      sha = queueSyncGithubShaCacheV319[filename];
+    }else{
+      const existing = await queueSyncGetJsonFileV219(filename);
+      sha = existing && existing._githubShaV219 ? existing._githubShaV219 : '';
+    }
   }catch(e){
     if(String(e && e.message || '').indexOf('404') < 0){}
   }
@@ -21439,6 +21590,7 @@ async function queueSyncPutJsonFileV219(filename, payload, message){
     return await queueSyncPutJsonFileOnceV222(filename, payload, message || ('stadslass v235 sync ' + filename), sha);
   }catch(firstError){
     if(Number(firstError && firstError.status) !== 409) throw firstError;
+    try{ delete queueSyncGithubShaCacheV319[filename]; }catch(e){}
     const latest = await queueSyncGetJsonFileV219(filename);
     const latestSha = latest && latest._githubShaV219 ? latest._githubShaV219 : '';
     const retryPayload = mergeQueueSyncPayloadForRetryV222(filename, payload, latest);
@@ -23329,12 +23481,19 @@ async function queueSyncUploadTabletStatusV219(options){
     if(!options.silent) setQueueSyncStatusV219('Padd-status saknar GitHub-inställningar/token.', true);
     return {skipped:true, reason:'not-configured'};
   }
-  const payload = buildTabletStatusPayloadV219(options);
-  await queueSyncPutJsonFileV219(QUEUE_SYNC_TABLET_STATUS_FILE_V219, payload, 'stadslass v235 sync tablet status');
+  const payload = options.prebuiltTabletStatusPayloadV319 || buildTabletStatusPayloadV219(options);
+  const skipDecisionV319 = shouldSkipTabletStatusUploadV319(options, payload);
+  if(skipDecisionV319 && skipDecisionV319.skip){
+    if(!options.silent) setQueueSyncStatusV219('Paddstatus oförändrad – ingen GitHub-skrivning behövs.', false);
+    try{ renderQueueSyncDetailStatusV223({settings:getQueueSyncSettingsV219(), tabletStatus:payload, note:'v319: Paddstatus oförändrad, GitHub-PUT hoppades över för att spara mobildata.'}); }catch(e){}
+    return {skipped:true, reason:skipDecisionV319.reason || 'unchanged-v319', queueCount:payload.queueCount || 0, dataSaverV319:true};
+  }
+  const putResultV319 = await queueSyncPutJsonFileV219(QUEUE_SYNC_TABLET_STATUS_FILE_V219, payload, 'stadslass v319 sync tablet status');
+  rememberTabletStatusUploadV319(payload, putResultV319);
   saveState();
   renderQueueSyncDetailStatusV223({settings:getQueueSyncSettingsV219(), tabletStatus:payload});
   setQueueSyncStatusV219(options.activeMirrorV253 ? 'Lastbilsstatus publicerad för spegling.' : ('Paddan publicerade köstatus: ' + payload.queueCount + ' uppdrag i kö.'), false);
-  return {uploaded:payload.queueCount};
+  return {uploaded:payload.queueCount, dataSaverV319:true};
 }
 
 
@@ -24354,9 +24513,18 @@ async function queueSyncRunActiveMirrorV253(reason){
     if(queueSyncBusyV219) return {skipped:true, reason:'sync-busy'};
     queueSyncBusyV219 = true;
     queueSyncLastActiveMirrorAtV253 = Date.now();
-    const actionResultV275 = typeof queueSyncApplyQueueActionsV275 === 'function' ? await queueSyncApplyQueueActionsV275({silent:true, source:'snabbsync'}) : {hadPending:false};
+    let actionResultV275 = {skipped:true, reason:'v319 queue-actions ej förfallen', hadPending:false};
+    if(typeof queueSyncApplyQueueActionsV275 === 'function' && shouldCheckQueueActionsV319(reason)){
+      queueSyncLastQueueActionsCheckAtV319 = Date.now();
+      actionResultV275 = await queueSyncApplyQueueActionsV275({silent:true, source:'snabbsync-v319'});
+    }
     if(!state.active && reason === 'timer' && !(actionResultV275 && actionResultV275.hadPending)) return {skipped:true, reason:'no-active-job'};
-    const result = await queueSyncUploadTabletStatusV219({silent:true, auto:true, activeMirrorV253:true});
+    const prebuiltPayloadV319 = buildTabletStatusPayloadV219({silent:true, auto:true, activeMirrorV253:true});
+    const skipDecisionV319 = shouldSkipTabletStatusUploadV319({silent:true, auto:true, activeMirrorV253:true}, prebuiltPayloadV319);
+    if(skipDecisionV319 && skipDecisionV319.skip && !(actionResultV275 && actionResultV275.hadPending)){
+      return {skipped:true, reason:'oförändrad Lastbils status v319', dataSaverV319:true, actionResultV275:actionResultV275};
+    }
+    const result = await queueSyncUploadTabletStatusV219({silent:true, auto:true, activeMirrorV253:true, prebuiltTabletStatusPayloadV319:prebuiltPayloadV319});
     return {ok:true, result:result, actionResultV275:actionResultV275};
   }catch(e){
     if(!isQueueSyncTransientAutoErrorV227(e)) setQueueSyncStatusV219('Lastbilsstatus kunde inte publiceras: ' + (e && e.message ? e.message : e), true);
@@ -24585,9 +24753,10 @@ function startQueueActiveMirrorSyncV253(settings){
   if(queueSyncActiveMirrorTimerV253){ clearInterval(queueSyncActiveMirrorTimerV253); queueSyncActiveMirrorTimerV253 = null; }
   settings = settings || getQueueSyncSettingsV219();
   if(!settings.enabled || settings.deviceRole !== 'pad') return;
+  const intervalV319 = getQueueSyncPadActiveMirrorDelayV319();
   queueSyncActiveMirrorTimerV253 = window.setInterval(() => {
     queueSyncRunActiveMirrorV253('timer');
-  }, QUEUE_SYNC_ACTIVE_MIRROR_INTERVAL_MS_V253);
+  }, intervalV319);
 }
 
 function stopQueueAutoSyncV219(){
@@ -35593,7 +35762,7 @@ function buildInternetUsageReportV317(){
   const top = entries.slice().sort((a,b) => Number(b.totalBytes || 0) - Number(a.totalBytes || 0)).slice(0, 50);
   const latest = entries.slice().sort((a,b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 80);
   const lines = [];
-  lines.push('STADSLASS INTERNETANVÄNDNING v318');
+  lines.push('STADSLASS INTERNETANVÄNDNING v319');
   lines.push('Status: ' + (guard.allowed ? 'PADD-DIAGNOS AKTIV' : 'SPÄRRAD PÅ DENNA ENHET'));
   lines.push('Version: ' + APP_VERSION);
   lines.push('Skapad: ' + new Date().toLocaleString('sv-SE'));
@@ -35691,7 +35860,7 @@ function downloadInternetUsageReportV317(){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'stadslass-internetanvandning-' + (typeof controlCenterReportVersionSlugV196 === 'function' ? controlCenterReportVersionSlugV196() : 'v318') + '-' + fileDate + '.txt';
+    a.download = 'stadslass-internetanvandning-' + (typeof controlCenterReportVersionSlugV196 === 'function' ? controlCenterReportVersionSlugV196() : 'v319') + '-' + fileDate + '.txt';
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 1000);
