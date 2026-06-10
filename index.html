@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v316
+- Nuvarande version: Stadslass 2.0 v317
+- v317: Tillfällig padda-internetdiagnos loggar Stadslass egna nätanrop per post med uppskattad datamängd, topposter och rapport, utan att ändra arbetslogik.
 - v316: Separat fasmedian för Stadslass-tider från 2026-05-19, minst 3 uppdrag per fas, median fas-för-fas och synligt underlag i fasuträkningen.
 - v315: QR-kod REG IMPREGNERAT visas i Tryckimpregnerat lossningsfas under Pausa/Klart och ovanför tillfällig fasuträkning, med tryckbart större scanningsläge.
 - v314: Pausade/fortsatta uppdrag över datum delas i sammanställning och Excel med Pausat uppdrag/Fortsättning uppdrag, vikt på avslutande del och jobbtyp-sammanfattning räknar samma uppdrag en gång.
@@ -354,7 +355,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v316';
+  const version = 'Stadslass 2.0 v317';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3884,7 +3885,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v316</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v317</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -3955,6 +3956,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
           <button id="controlCenterToggleButtonV196" class="primary" onclick="toggleControlCenterManagerV189(this)">Kontrollcentral</button>
           <button class="primary" onclick="toggleSystemControlManager()">Systemkontroll</button>
           <button class="primary" onclick="toggleFunctionControlManager()">Funktionskontroll</button>
+          <button id="internetUsageDiagButtonV317" class="primary" onclick="toggleInternetUsageDiagnosticV317()">Internetanvändning</button>
           <button class="primary" onclick="toggleGpsTestManager()">GPS-test</button>
           <button class="primary" onclick="toggleActiveMonitorManager()">Aktiv övervakning</button>
           <button class="primary" onclick="toggleStorageControlManager()">Lagringskontroll</button>
@@ -3997,6 +3999,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
           <button type="button" class="stadslass-action-btn control-center-action-v189" onclick="runControlCenterListControlV190()">Från/Till-listkontroll</button>
           <button type="button" class="stadslass-action-btn control-center-action-v189" onclick="runControlCenterFullV193()">Djupkontroll</button>
           <button type="button" class="stadslass-action-btn control-center-action-v189" onclick="runControlCenterFunctionV189()">Funktionskontroll</button>
+          <button id="controlCenterInternetButtonV317" type="button" class="stadslass-action-btn control-center-action-v189" onclick="runControlCenterInternetV317()">Internetanvändning</button>
           <button type="button" class="stadslass-action-btn control-center-action-v189" onclick="runControlCenterStorageV189()">Lagringskontroll</button>
           <button type="button" class="stadslass-action-btn control-center-action-v189" onclick="runControlCenterPlaceDataV189()">Platsdata-diagnos</button>
           <button type="button" class="stadslass-action-btn control-center-action-v189" onclick="runControlCenterSystemV189()">Systemkontroll</button>
@@ -4021,6 +4024,26 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
         <label style="margin-top:12px">Kopierbar gemensam kontrollrapport</label>
         <textarea id="controlCenterReportV189" class="geofence-points-input control-center-report-v189" readonly placeholder="Tryck Testa alla eller kör en enskild kontroll."></textarea>
         <div id="controlCenterStatusV189" class="multi-help"></div>
+      </div>
+    </div>
+
+    <div id="internetUsageDiagnosticWrapV317" class="place-manager hidden" data-temp-internet-diagnostic-v317="1">
+      <div class="place-help"><strong>Tillfällig Internetdiagnos v317 – endast padda.</strong> Loggar Stadslass egna internetanrop per post så att det går att ringa in exakt vilken kategori, vilket uppdrag och vilken fas som drar mest data. Funktionen mäter/uppskattar bara och ändrar inte Snap, Routes, sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full.</div>
+      <div class="place-row">
+        <div class="place-key">Internetanvändning på padda</div>
+        <div class="multi-help">Stadslass kan inte läsa Androids Samsung Browser-räknare direkt, men den här loggen räknar appens egna anrop till Google, GitHub och andra nätkällor. API-nycklar och token sparas inte i loggen.</div>
+        <div class="row" style="margin-top:10px">
+          <button class="primary inline" onclick="renderInternetUsageDiagnosticV317()">Uppdatera internetanalys</button>
+          <button class="inline" onclick="copyInternetUsageReportV317()">Kopiera internetrapport</button>
+          <button class="inline" onclick="downloadInternetUsageReportV317()">Exportera rapport som text</button>
+          <button class="danger inline" onclick="clearInternetUsageLogV317()">Nollställ interneträknare</button>
+        </div>
+        <div id="internetUsageGuardV317" class="multi-help" style="margin-top:10px"></div>
+        <div id="internetUsageSummaryV317" class="map-test-result" style="margin-top:10px">Inte körd.</div>
+        <div id="internetUsageBreakdownV317" style="margin-top:10px"></div>
+        <label style="margin-top:12px">Kopierbar internetrapport</label>
+        <textarea id="internetUsageReportV317" class="geofence-points-input control-center-report-v189" readonly placeholder="Tryck Uppdatera internetanalys."></textarea>
+        <div id="internetUsageCopyStatusV317" class="multi-help"></div>
       </div>
     </div>
 
@@ -12256,6 +12279,7 @@ function renderDeviceModeButtonV272(){
   if(typeof applyComputerStartGuardsV276 === 'function') applyComputerStartGuardsV276();
   if(typeof renderComputerSettingsPanelV284 === 'function') renderComputerSettingsPanelV284();
   if(typeof renderComputerAdvancedSettingsV285 === 'function') renderComputerAdvancedSettingsV285();
+  if(typeof renderInternetUsageVisibilityV317 === 'function') renderInternetUsageVisibilityV317();
 }
 
 
@@ -12418,9 +12442,10 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v316';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v316';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v317';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v317';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v317 Tillfällig padda-internetdiagnos',
   'v316 Separat fasmedian Stadslass-tider',
   'v315 Tryckimpregnerat QR-kod i lossningsfas',
   'v80 Klar ca',
@@ -12998,6 +13023,7 @@ function getActiveMonitorChecks(snapshot){
   }
   if(typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19'){
     ok('PHASE-OV-316', 'Separat fasmedian v316 är inkopplad', 'Stadslass egna fasrader använder minst 3 uppdrag per fas och median från 2026-05-19.', 'cutoff=' + STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO + '; min=' + STADSLASS316_PHASE_MEDIAN_MIN_SAMPLES, 'v316 Separat fasmedian', 'active=' + activeMonitorBool(!!s.hasActive));
+    if(typeof buildInternetUsageReportV317 === 'function') ok('NET-OV-317', 'Tillfällig padda-internetdiagnos finns', 'v317 kan logga Stadslass egna internetanrop per post på padda/driftenhet.', 'poster=' + (typeof getInternetUsageLogV317 === 'function' ? getInternetUsageLogV317().length : '-'), 'v317 Internetdiagnos', 'allowed=' + (typeof getInternetUsageAllowedV317 === 'function' ? activeMonitorBool(getInternetUsageAllowedV317().allowed) : '-'));
   } else {
     warn('PHASE-OV-316', 'Separat fasmedian v316 saknas', 'v316 ska ha separata fasmedianfunktioner och brytdatum.', 'funktion eller brytdatum saknas', 'Kontrollera v316-inläggningen.', 'v316 Separat fasmedian', '');
   }
@@ -13398,7 +13424,7 @@ function getActiveMonitorChecks(snapshot){
       && typeof toggleBackgroundSettingsManagerV241 === 'function'
       && functionSourceIncludes('getTabletQueueMirrorDeviceGuardV240', 'tabletVetoV241')
       && functionSourceIncludes('getTabletQueueMirrorPlannedHtmlV238', 'Utförs')
-      && !!document.getElementById('phaseColorSettingsWrapV241')
+      && !!document.getElementById('phaseColorSettingsWrapV241','internetUsageDiagnosticWrapV317')
       && APP_FEATURE_MANIFEST.some(item => item.name === 'Paddans kö spärr och bakgrundspanel v241');
     if(guard241){
       ok('SYNC-OV-241', 'Paddans kö v241-spärr och datumvisning finns', 'v241 ska hindra Paddans kö på padda/tablet, visa utförandedatum i speglingen och lägga Bakgrundsinställningar bakom knapp.', 'v241=true', 'v241 Paddans kö datum och bakgrundspanel', 'tabletVetoV241/ensureQueueSyncDateFieldsV241/phaseColorSettingsWrapV241');
@@ -14306,7 +14332,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v316';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v317';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -14331,6 +14357,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Tillfällig padda-internetdiagnos v317', status:'Kontroll/Felsökning/Internet', purpose:'Tillfällig diagnos på padda/driftenhet som loggar Stadslass egna internetanrop per post, uppskattar skickad/mottagen datamängd, visar största poster, detaljlogg och kopierbar/exporterbar rapport.', changeRule:'Får bara mäta och visa internetanvändning på padda. Får inte stoppa eller ändra Snap, Routes, Geocoding, GitHub-sync, GPS, geofence, aktivt jobb, kö, vikt, historik, backup/export eller driftlogg_v4_full. Inga API-nycklar eller token får loggas.'},
   {name:'Separat fasmedian Stadslass-tider v316', status:'Uppskattad tid/fasuträkning', purpose:'Stadslass egna fasrader använder ren historik från 2026-05-19 och framåt, minst 3 matchande uppdrag per fas och median fas-för-fas för Från-plats, Till-plats och Retur/avslut. Fasuträkningen visar hur många uppdrag som används eller hur nära 3-underlaget fasen är.', changeRule:'Får bara påverka Stadslass arbetstidsberäkning och visning av fasunderlag. Får inte ändra knappar, vikt, geofence, GPS/Snap, sync, historik, backup/export eller driftlogg_v4_full.'},
   {name:'Tryckimpregnerat QR-kod i lossningsfas v315', status:'Aktivt jobb/lossningsfas/transportdokument', purpose:'Tryckimpregnerat visar REG IMPREGNERAT QR-kod endast i lossningsfas, under Pausa/Klart och ovanför tillfällig fasuträkning. QR-rutan är stor, högkontrast, offline-inbäddad och kan öppnas större för mobilscanning.', changeRule:'Får bara påverka visning av QR-kod för Tryckimpregnerat i lossningsfas. Får inte ändra materialkod, destination, transportdokumentdata, vikt, Klart, Pausa, fasdata, GPS/Snap, ETA, geofence, sync, historik, Excel/export eller driftlogg_v4_full.'},
   {name:'Pausade uppdrag Excel/dagdelning v314', status:'Sammanställning/Excel/pausade uppdrag', purpose:'Pausade och fortsatta uppdrag som har aktiv arbetstid på flera datum delas i sammanställning och Excel per datum. Delrader märks Pausat uppdrag respektive Fortsättning uppdrag, vikten följer endast den avslutande/finala delen och sammanfattning per jobbtyp räknar samma uppdrag som ett uppdrag.', changeRule:'Får bara påverka härledda sammanställningsrader och Excel-export för pausade/delade uppdrag. Får inte ändra sparad historik, aktivt jobb, kötruth, sync, GPS/Snap, ETA, Returplats, viktregistrering, geofence, backup/exportformat i övrigt eller driftlogg_v4_full.'},
@@ -15019,6 +15046,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Materialflödesnyckel hålls separat från startpunkt', fn('materialFlowEstimateKey') && fn('startAddonEstimateKey') && !src('materialFlowEstimateKey', 'calculationStart') && src('startAddonEstimateKey', 'getStartAddonEstimateSource'), 'materialflöde och starttillägg har separata nycklar');
   addFunctionCheck(results, 'Nivå 2', 'Tidsinlärning använder brytdatum och stabilt underlag', typeof TIME_LEARNING_CUTOFF_ISO === 'string' && TIME_LEARNING_CUTOFF_ISO === '2026-05-19' && fn('isTimeLearningSampleAllowed') && fn('isStableMaterialFlowSample'), 'brytdatum=' + TIME_LEARNING_CUTOFF_ISO);
   addFunctionCheck(results, 'Nivå 2', 'Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'minst 3 uppdrag, median fas-för-fas och synligt fasunderlag');
+  addFunctionCheck(results, 'Nivå 2', 'Tillfällig padda-internetdiagnos v317', typeof installInternetUsageFetchLoggerV317 === 'function' && typeof buildInternetUsageReportV317 === 'function' && typeof renderInternetUsageDiagnosticV317 === 'function' && typeof getInternetUsageAllowedV317 === 'function' && !!el('internetUsageDiagButtonV317') && !!el('internetUsageDiagnosticWrapV317') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig padda-internetdiagnos v317'), 'padda-spärrad postlogg för Google/GitHub/internet utan API-nycklar eller token');
   addFunctionCheck(results, 'Nivå 2', 'Uppskattad tid använder papperskorgssäkert underlag', fn('getFinishedJobsForUnderlag') && src('getMaterialFlowEstimateForJob', 'getFinishedJobsForUnderlag') && src('getSavedRouteGpsRecordsForUnderlag', 'getFinishedJobsForUnderlag'), 'uppskattad tid/GPS-lärning hämtar underlag via getFinishedJobsForUnderlag');
   addFunctionCheck(results, 'Nivå 2', 'Sammanställning använder papperskorgssäkert underlag', fn('getFilteredSummaryJobs') && src('getFilteredSummaryJobs', 'getFinishedJobsForUnderlag') && fn('getReceiptSummaryJobs'), 'sammanställning + kvittorader utan papperskorg');
   addFunctionCheck(results, 'Nivå 2', 'Historik/Idag använder papperskorgssäkert underlag', fn('getHistoryCalendarJobsForDisplay') && fn('getFinishedJobsForUnderlag') && src('renderHistoryManager', 'getHistoryCalendarJobsForDisplay') && fn('renderToday'), 'historik använder samlat visningsunderlag, Idag använder avslutade jobb');
@@ -16357,6 +16385,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Startsträcka hålls före rörelse v138', typeof getActiveEstimatePreMovementHoldInfo === 'function' && typeof syncActiveEstimatePreMovementHold === 'function' && typeof getActiveEstimateDisplayEndAtForNow === 'function' && functionSourceIncludes('getActiveEstimateCountdownHtml', 'syncActiveEstimatePreMovementHold') && functionSourceIncludes('renderActiveEstimateCountdown', 'getActiveEstimateDisplayEndAtForNow') && APP_FEATURE_MANIFEST.some(item => item.name === 'Startsträcka hålls före rörelse v138'), 'uppskattad tid minskar inte före faktisk rörelse i startsträcka'),
     systemCheck('Tillfällig fasuträkning v139', typeof buildStadslass139PhaseCalculation === 'function' && typeof getStadslass139PhaseCalculationHtml === 'function' && typeof renderActivePhaseCalculationBottom === 'function' && functionSourceIncludes('renderActivePhaseCalculationBottom', 'getStadslass139PhaseCalculationHtml') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig fasuträkning i Uppskattad tid v139'), 'Uppskattad tid visar fasuträkning som tillfällig kontrollfunktion'),
     systemCheck('Separat fasmedian v316', typeof STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === 'string' && STADSLASS316_PHASE_MEDIAN_CUTOFF_ISO === '2026-05-19' && typeof getStadslass316PhaseStats === 'function' && typeof getStadslass316WorkEstimateForJob === 'function' && functionSourceIncludes('buildStadslass316WorkPhaseRows', 'Stadslass median ·') && APP_FEATURE_MANIFEST.some(item => item.name === 'Separat fasmedian Stadslass-tider v316'), 'Stadslass fasrader lärs separat med median från minst 3 uppdrag per fas från 2026-05-19'),
+    systemCheck('Tillfällig padda-internetdiagnos v317', typeof installInternetUsageFetchLoggerV317 === 'function' && typeof buildInternetUsageReportV317 === 'function' && typeof renderInternetUsageDiagnosticV317 === 'function' && !!document.getElementById('internetUsageDiagButtonV317') && !!document.getElementById('internetUsageDiagnosticWrapV317') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig padda-internetdiagnos v317'), 'Loggar Stadslass egna internetanrop per post endast på padda/driftenhet och kan kopiera/exportera rapport'),
     systemCheck('Fasuträkning uppdelade faser v140', typeof getStadslass140GoogleLegMinutes === 'function' && typeof getStadslass140WorkPhaseRows === 'function' && functionSourceIncludes('buildStadslass139PhaseCalculation', 'Retur/avslut vid Från') && APP_FEATURE_MANIFEST.some(item => item.name === 'Fasuträkning uppdelade faser v140'), 'Uppskattad tid delar upp startsträcka, Från-plats, transport, Till-plats, retur och retur/avslut'),
     systemCheck('Vikt 0 godkänd transport v140', typeof addLoadToCurrent === 'function' && functionSourceIncludes('addLoadToCurrent', 'n < 0') && functionSourceIncludes('addLoadToCurrent', '0 ton är tillåtet') && APP_FEATURE_MANIFEST.some(item => item.name === 'Vikt 0 godkänd transport v140'), 'Ange vikt accepterar 0 ton som godkänd transport/tomt flak utan att använda Ingen tömning'),
     systemCheck('Snabblistor/alfabetisk ordning v141', typeof buildSettingsNavigatorHtml === 'function' && typeof jumpToSettingsNavTarget === 'function' && functionSourceIncludes('renderPlaceManager', 'Snabblista platser') && functionSourceIncludes('renderQuickManager', 'Snabblista snabbval') && functionSourceIncludes('renderJobTypeManager', 'Snabblista jobbtyper') && functionSourceIncludes('renderGeofenceManager', 'Snabblista geofence') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snabblistor och alfabetisk ordning i inställningar v141'), 'Platser, Snabbval, Jobbtyper och Geofence har snabblista och alfabetisk visning'),
@@ -16525,6 +16554,7 @@ function getControlCenterSectionTextsV189(){
     {title:'FRÅN/TILL-LISTKONTROLL', text:lastListControlReportV190 || buildFromToListControlReportV190()},
     {title:'DJUPKONTROLL / FULL KONTROLL', text:lastFullControlReportV193 || buildControlCenterFullRunReportV193()},
     {title:'FUNKTIONSKONTROLL', text:getControlCenterAreaValueV189('functionControlReport')},
+    {title:'INTERNETANVÄNDNING', text:getControlCenterAreaValueV189('internetUsageReportV317')},
     {title:'LAGRINGSKONTROLL', text:getControlCenterAreaValueV189('storageControlReport')},
     {title:'PLATSDATA-DIAGNOS', text:getControlCenterAreaValueV189('placeDataDiagnosticReportV185')},
     {title:'SYSTEMKONTROLL', text:getControlCenterAreaValueV189('systemControlReport')}
@@ -16772,6 +16802,7 @@ function buildControlCenterReportV189(sourceLabel){
   lines.push('- Från/Till-listkontroll: med i rapport');
   lines.push('- Djupkontroll: ' + ((lastFullControlReportV193 || buildControlCenterFullRunReportV193()).trim() ? 'med i rapport' : 'inte körd'));
   lines.push('- Funktionskontroll: ' + (getControlCenterAreaValueV189('functionControlReport').trim() ? 'med i rapport' : 'inte körd'));
+  lines.push('- Internetanvändning: ' + (getControlCenterAreaValueV189('internetUsageReportV317').trim() ? 'med i rapport' : 'inte körd'));
   lines.push('- Lagringskontroll: ' + (getControlCenterAreaValueV189('storageControlReport').trim() ? 'med i rapport' : 'inte körd'));
   lines.push('- Platsdata-diagnos: ' + (getControlCenterAreaValueV189('placeDataDiagnosticReportV185').trim() ? 'med i rapport' : 'inte körd'));
   lines.push('- Systemkontroll: ' + (getControlCenterAreaValueV189('systemControlReport').trim() ? 'med i rapport' : 'inte körd'));
@@ -16839,6 +16870,12 @@ function runControlCenterFunctionV189(){
   return writeControlCenterReportV189('Kontrollcentral · Funktionskontroll', 'Funktionskontroll körd och gemensam rapport uppdaterad.');
 }
 
+function runControlCenterInternetV317(){
+  try{ renderInternetUsageDiagnosticV317(); }
+  catch(e){ const status = document.getElementById('controlCenterStatusV189'); if(status) status.textContent = 'Internetanvändning kunde inte köras: ' + (e && e.message ? e.message : e); }
+  return writeControlCenterReportV189('Kontrollcentral · Internetanvändning', 'Internetanvändning körd och gemensam rapport uppdaterad.');
+}
+
 function runControlCenterStorageV189(){
   try{ renderStorageControl(); }
   catch(e){ const status = document.getElementById('controlCenterStatusV189'); if(status) status.textContent = 'Lagringskontroll kunde inte köras: ' + (e && e.message ? e.message : e); }
@@ -16893,7 +16930,7 @@ async function runControlCenterAllV189(){
   const summary = document.getElementById('controlCenterSummaryV189');
   const button = document.getElementById('controlCenterTestAllButtonV189');
   const oldText = button ? button.textContent : '';
-  const totalSteps = 7;
+  const totalSteps = 8;
   if(button){
     button.classList.add('control-center-running-v190');
     button.textContent = 'Testar...';
@@ -16923,9 +16960,10 @@ async function runControlCenterAllV189(){
   await runStep(2, 'Från/Till-listkontroll', () => { lastListControlReportV190 = buildFromToListControlReportV190(); }, e => { lastListControlReportV190 = 'STADSLASS FRÅN/TILL-LISTKONTROLL\nStatus: FEL\nKunde inte köras: ' + ((e && e.message) || String(e)); });
   await runStep(3, 'Djupkontroll', () => { lastFullControlReportV193 = buildControlCenterFullRunReportV193(); }, e => { lastFullControlReportV193 = 'STADSLASS DJUPKONTROLL / FULL KONTROLL\nStatus: FEL\nKunde inte köras: ' + ((e && e.message) || String(e)); });
   await runStep(4, 'Funktionskontroll', () => runFunctionControlUi());
-  await runStep(5, 'Lagringskontroll', () => renderStorageControl());
-  await runStep(6, 'Platsdata-diagnos', () => renderPlaceDataDiagnosticV185());
-  await runStep(7, 'Systemkontroll med karttest/cache', () => runSystemControlWithMaps());
+  await runStep(5, 'Internetanvändning', () => renderInternetUsageDiagnosticV317());
+  await runStep(6, 'Lagringskontroll', () => renderStorageControl());
+  await runStep(7, 'Platsdata-diagnos', () => renderPlaceDataDiagnosticV185());
+  await runStep(8, 'Systemkontroll med karttest/cache', () => runSystemControlWithMaps());
 
   controlCenterSetRunProgressV195(totalSteps, totalSteps, 'Skapar gemensam rapport');
   await controlCenterYieldV195();
@@ -18932,6 +18970,7 @@ function saveGoogleBudgetDeviceRoleV169(role){
   updateQueueGithubActionButtonV183();
   if(typeof enforceTabletQueueMirrorAccessV242 === 'function') enforceTabletQueueMirrorAccessV242(true);
   else if(typeof renderTabletQueueMirrorButtonV238 === 'function') renderTabletQueueMirrorButtonV238();
+  if(typeof renderInternetUsageVisibilityV317 === 'function') renderInternetUsageVisibilityV317();
 }
 
 function getGoogleBudgetRoleLabelV169(role){
@@ -21226,6 +21265,7 @@ function renderQueueSyncSettingsV219(){
     fetchTabletStatusBtnV237.textContent = settings.deviceRole === 'mobile' ? 'Läs paddans kö/status' : 'Läs statusfil';
   }
   if(typeof renderQueueSyncRegisterStatusV234 === 'function') renderQueueSyncRegisterStatusV234(getLastQueueSyncRegisterCompareV234 && getLastQueueSyncRegisterCompareV234());
+  if(typeof renderInternetUsageVisibilityV317 === 'function') renderInternetUsageVisibilityV317();
   if(typeof renderQueueSyncDetailStatusV223 === 'function'){
     const detailEl = document.getElementById('queueSyncDetailStatusV223');
     const detailSettingsEl = document.getElementById('queueSyncDetailStatusSettingsV223');
@@ -35208,6 +35248,469 @@ function updateConnectionStatus(){
   if(typeof renderQueueSyncTopBadgeV226 === 'function') renderQueueSyncTopBadgeV226();
 }
 
+
+// v317: tillfällig, padda-begränsad internetdiagnos. Loggar endast Stadslass egna anrop och sparar inte nycklar/token.
+const INTERNET_USAGE_LOG_KEY_V317 = 'stadslass_temp_internet_diagnostic_v317';
+const INTERNET_USAGE_MAX_ENTRIES_V317 = 750;
+
+function getInternetUsageDeviceContextV317(){
+  let syncRole = '';
+  let budgetRole = '';
+  let deviceMode = 'pad';
+  let tablet = false;
+  try{ syncRole = String(getQueueSyncSettingsV219().deviceRole || ''); }catch(e){}
+  try{ budgetRole = String(getGoogleBudgetSettingsV169().deviceRole || ''); }catch(e){}
+  try{ deviceMode = String(getDeviceModeV272() || 'pad'); }catch(e){ deviceMode = 'pad'; }
+  try{ tablet = !!isLikelyTabletDeviceV241(); }catch(e){ tablet = false; }
+  let net = 'okänt';
+  try{
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if(c) net = String(c.type || c.effectiveType || 'okänt');
+  }catch(e){}
+  return {syncRole:syncRole, budgetRole:budgetRole, deviceMode:deviceMode, likelyTablet:tablet, network:net};
+}
+
+function getInternetUsageAllowedV317(){
+  const ctx = getInternetUsageDeviceContextV317();
+  const hasPadRole = ctx.syncRole === 'pad' || ctx.budgetRole === 'pad';
+  const blockedByMobile = ctx.syncRole === 'mobile' || ctx.budgetRole === 'mobile';
+  const allowed = ctx.deviceMode === 'pad' && hasPadRole && !blockedByMobile && ctx.likelyTablet;
+  let reason = 'padda/driftenhet';
+  if(allowed) reason = 'Tillåten: padda/driftenhet.';
+  else if(ctx.deviceMode === 'computer') reason = 'Spärrad: datorläge.';
+  else if(blockedByMobile) reason = 'Spärrad: mobilroll/planeringsenhet.';
+  else if(!ctx.likelyTablet) reason = 'Spärrad: enheten ser inte ut som padda/tablet.';
+  else if(!hasPadRole) reason = 'Spärrad: padda-roll saknas i sync/Google-budget.';
+  return {allowed:allowed, reason:reason, context:ctx};
+}
+
+function renderInternetUsageVisibilityV317(){
+  const guard = getInternetUsageAllowedV317();
+  ['internetUsageDiagButtonV317','controlCenterInternetButtonV317'].forEach(id => {
+    const btn = document.getElementById(id);
+    if(btn){
+      btn.style.display = guard.allowed ? '' : 'none';
+      btn.disabled = !guard.allowed;
+      btn.dataset.internetDiagGuardV317 = guard.reason || '';
+    }
+  });
+  const box = document.getElementById('internetUsageGuardV317');
+  if(box) box.textContent = guard.reason + ' Roll: sync=' + (guard.context.syncRole || '-') + ', budget=' + (guard.context.budgetRole || '-') + ', läge=' + guard.context.deviceMode + ', nät=' + guard.context.network + '.';
+  if(!guard.allowed){
+    const wrap = document.getElementById('internetUsageDiagnosticWrapV317');
+    if(wrap) wrap.classList.add('hidden');
+  }
+  return guard.allowed;
+}
+
+function getInternetUsageStoreV317(){
+  let store = null;
+  try{ store = JSON.parse(localStorage.getItem(INTERNET_USAGE_LOG_KEY_V317) || 'null'); }catch(e){ store = null; }
+  if(!store || typeof store !== 'object') store = {};
+  if(!Array.isArray(store.entries)) store.entries = [];
+  if(!store.createdAt) store.createdAt = new Date().toISOString();
+  store.version = APP_VERSION;
+  return store;
+}
+
+function saveInternetUsageStoreV317(store){
+  if(!store || typeof store !== 'object') store = {entries:[]};
+  if(!Array.isArray(store.entries)) store.entries = [];
+  if(store.entries.length > INTERNET_USAGE_MAX_ENTRIES_V317) store.entries = store.entries.slice(store.entries.length - INTERNET_USAGE_MAX_ENTRIES_V317);
+  try{ localStorage.setItem(INTERNET_USAGE_LOG_KEY_V317, JSON.stringify(store)); }catch(e){}
+}
+
+function getInternetUsageLogV317(){
+  return getInternetUsageStoreV317().entries || [];
+}
+
+function byteLengthV317(value){
+  try{
+    if(value === undefined || value === null) return 0;
+    if(typeof value === 'string') return new TextEncoder().encode(value).length;
+    if(value instanceof ArrayBuffer) return value.byteLength;
+    if(ArrayBuffer.isView && ArrayBuffer.isView(value)) return value.byteLength || 0;
+    if(value instanceof Blob) return value.size || 0;
+    if(value instanceof URLSearchParams) return new TextEncoder().encode(value.toString()).length;
+    if(typeof FormData !== 'undefined' && value instanceof FormData) return 0;
+    return new TextEncoder().encode(String(value)).length;
+  }catch(e){ try{ return String(value || '').length; }catch(err){ return 0; } }
+}
+
+function formatInternetBytesV317(bytes){
+  const n = Number(bytes || 0);
+  if(!Number.isFinite(n) || n <= 0) return '0 B';
+  if(n < 1024) return Math.round(n) + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(n >= 10*1024 ? 0 : 1).replace('.', ',') + ' kB';
+  return (n/1024/1024).toFixed(n >= 10*1024*1024 ? 1 : 2).replace('.', ',') + ' MB';
+}
+
+function getInternetRequestUrlV317(input){
+  try{
+    if(typeof input === 'string') return input;
+    if(input && input.url) return String(input.url || '');
+  }catch(e){}
+  return '';
+}
+
+function getInternetRequestMethodV317(input, init){
+  try{ if(init && init.method) return String(init.method || 'GET').toUpperCase(); }catch(e){}
+  try{ if(input && input.method) return String(input.method || 'GET').toUpperCase(); }catch(e){}
+  return 'GET';
+}
+
+function getInternetRequestBodyBytesV317(input, init){
+  try{ if(init && init.body !== undefined) return byteLengthV317(init.body); }catch(e){}
+  try{ if(input && input.bodyUsed === false && input._bodyInit) return byteLengthV317(input._bodyInit); }catch(e){}
+  return 0;
+}
+
+function sanitizeInternetUrlV317(rawUrl){
+  const raw = String(rawUrl || '');
+  try{
+    const u = new URL(raw, location.href);
+    return u.origin + u.pathname;
+  }catch(e){
+    return raw.split('?')[0].replace(/(key|token|access_token)=[^&]+/gi, '$1=***');
+  }
+}
+
+function classifyInternetRequestV317(rawUrl, method, bodyBytes){
+  const url = String(rawUrl || '');
+  const lower = url.toLowerCase();
+  let category = 'Övrigt/okänt nätanrop';
+  let trigger = 'okänt';
+  if(lower.includes('roads.googleapis.com') && lower.includes('snaptoroads')){ category = 'Google Roads / Snap to Roads'; trigger = 'Snap to Roads'; }
+  else if(lower.includes('routes.googleapis.com') && lower.includes('computeroutes')){ category = 'Google Routes / ETA'; trigger = 'Rutt/ETA'; }
+  else if(lower.includes('maps.googleapis.com/maps/api/geocode')){ category = 'Google Geocoding'; trigger = 'Geokodning'; }
+  else if(lower.includes('api.github.com/repos')){ category = method === 'PUT' ? 'GitHub-sync skrivning' : 'GitHub-sync läsning'; trigger = method === 'PUT' ? 'GitHub PUT' : 'GitHub GET'; }
+  else if(/github.*\.json/i.test(lower) || lower.includes('stadslass-mobile-inbox') || lower.includes('stadslass-tablet-status')){ category = 'GitHub kö/status/spegling'; trigger = 'GitHub fil'; }
+  let gpsPoints = 0;
+  let subRequests = 1;
+  try{
+    const u = new URL(url, location.href);
+    const path = u.searchParams.get('path') || '';
+    if(path){ gpsPoints = path.split('|').filter(Boolean).length; }
+  }catch(e){}
+  if(category === 'Google Roads / Snap to Roads' && gpsPoints > 0) subRequests = Math.max(1, Math.ceil(gpsPoints / 100));
+  return {category:category, trigger:trigger, gpsPoints:gpsPoints, subRequests:subRequests};
+}
+
+function getInternetCurrentJobContextV317(){
+  const job = state && state.active ? state.active : null;
+  if(!job) return {jobId:'', jobType:'', from:'', to:'', returnPlace:'', phase:''};
+  let from = job.placeLabel || job.place || '';
+  let to = job.destLabel || job.dest || '';
+  try{ from = (typeof getItemPlaceLabel === 'function' ? getItemPlaceLabel(job, 'place') : from) || from; }catch(e){}
+  try{ to = (typeof getItemPlaceLabel === 'function' ? getItemPlaceLabel(job, 'dest') : to) || to; }catch(e){}
+  return {
+    jobId:String(job.id || ''),
+    jobType:String(job.displayType || job.type || ''),
+    from:String(from || ''),
+    to:String(to || ''),
+    returnPlace:String(job.returnPlaceLabel || job.routeReturnLabel || job.returnPlace || ''),
+    phase:String(job.transportPhase || job.phase || '')
+  };
+}
+
+function addInternetUsageEntryV317(entry){
+  const guard = getInternetUsageAllowedV317();
+  if(!guard.allowed) return null;
+  const store = getInternetUsageStoreV317();
+  const clean = Object.assign({
+    id:'net_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7),
+    at:new Date().toISOString(),
+    appVersion:APP_VERSION,
+    deviceMode:guard.context.deviceMode,
+    syncRole:guard.context.syncRole || '',
+    budgetRole:guard.context.budgetRole || '',
+    network:guard.context.network || 'okänt',
+    temporary:true
+  }, entry || {});
+  clean.requestBytes = Math.max(0, Math.round(Number(clean.requestBytes || 0)));
+  clean.responseBytes = Math.max(0, Math.round(Number(clean.responseBytes || 0)));
+  clean.totalBytes = Math.max(0, Math.round(Number(clean.totalBytes || clean.requestBytes + clean.responseBytes || 0)));
+  store.entries.push(clean);
+  saveInternetUsageStoreV317(store);
+  return clean;
+}
+
+function updateInternetUsageEntryV317(id, patch){
+  if(!id) return;
+  const store = getInternetUsageStoreV317();
+  const list = store.entries || [];
+  const idx = list.findIndex(item => item && item.id === id);
+  if(idx < 0) return;
+  Object.assign(list[idx], patch || {});
+  list[idx].responseBytes = Math.max(0, Math.round(Number(list[idx].responseBytes || 0)));
+  list[idx].totalBytes = Math.max(0, Math.round(Number(list[idx].requestBytes || 0) + Number(list[idx].responseBytes || 0)));
+  saveInternetUsageStoreV317(store);
+}
+
+function installInternetUsageFetchLoggerV317(){
+  if(window.__stadslassInternetFetchLoggerV317) return;
+  const nativeFetch = window.fetch;
+  if(typeof nativeFetch !== 'function') return;
+  window.__stadslassInternetFetchLoggerV317 = true;
+  window.__stadslassNativeFetchV317 = nativeFetch;
+  window.fetch = async function(input, init){
+    const started = Date.now();
+    const rawUrl = getInternetRequestUrlV317(input);
+    const method = getInternetRequestMethodV317(input, init);
+    const bodyBytes = getInternetRequestBodyBytesV317(input, init);
+    const classify = classifyInternetRequestV317(rawUrl, method, bodyBytes);
+    const urlBytes = byteLengthV317(rawUrl);
+    const jobCtx = getInternetCurrentJobContextV317();
+    let logged = null;
+    try{
+      logged = addInternetUsageEntryV317(Object.assign({
+        method:method,
+        category:classify.category,
+        trigger:classify.trigger,
+        url:sanitizeInternetUrlV317(rawUrl),
+        requestBytes:urlBytes + bodyBytes,
+        responseBytes:0,
+        totalBytes:urlBytes + bodyBytes,
+        gpsPoints:classify.gpsPoints || 0,
+        subRequests:classify.subRequests || 1,
+        status:'pågår',
+        httpStatus:'',
+        durationMs:0,
+        cache:'okänt'
+      }, jobCtx));
+    }catch(e){}
+    try{
+      const response = await nativeFetch.apply(this, arguments);
+      const finished = Date.now();
+      let headerLength = 0;
+      try{ headerLength = Number(response.headers && response.headers.get('content-length') || 0); }catch(e){ headerLength = 0; }
+      if(logged){
+        updateInternetUsageEntryV317(logged.id, {status:response.ok ? 'OK' : 'HTTP-fel', httpStatus:String(response.status || ''), durationMs:finished-started, responseBytes:headerLength || 0});
+        try{
+          const clone = response.clone();
+          clone.arrayBuffer().then(buf => {
+            updateInternetUsageEntryV317(logged.id, {responseBytes:buf && buf.byteLength ? buf.byteLength : (headerLength || 0)});
+            if(typeof renderInternetUsageIfOpenV317 === 'function') renderInternetUsageIfOpenV317();
+          }).catch(() => {});
+        }catch(e){}
+      }
+      return response;
+    }catch(error){
+      if(logged) updateInternetUsageEntryV317(logged.id, {status:'Fel', errorMessage:String((error && error.message) || error || 'okänt fel'), durationMs:Date.now()-started});
+      throw error;
+    }
+  };
+}
+
+function recordInternetNavigationEntryV317(){
+  if(sessionStorage && sessionStorage.getItem('stadslass_nav_logged_v317_' + APP_VERSION)) return;
+  const guard = getInternetUsageAllowedV317();
+  if(!guard.allowed) return;
+  let nav = null;
+  try{ nav = performance.getEntriesByType('navigation')[0] || null; }catch(e){ nav = null; }
+  if(!nav) return;
+  const transfer = Number(nav.transferSize || 0);
+  const encoded = Number(nav.encodedBodySize || 0);
+  const decoded = Number(nav.decodedBodySize || 0);
+  addInternetUsageEntryV317({
+    category:'App/laddning/cache',
+    trigger:'Appfil/navigering',
+    method:'GET',
+    url:'index.html',
+    requestBytes:0,
+    responseBytes:transfer || encoded || decoded || 0,
+    totalBytes:transfer || encoded || decoded || 0,
+    status:transfer ? 'OK' : 'OK/cache/okänt',
+    httpStatus:'navigation',
+    durationMs:Math.round(Number(nav.duration || 0)),
+    cache:transfer ? 'nät/cache-mix' : 'cache/okänt',
+    gpsPoints:0,
+    subRequests:1,
+    jobId:'', jobType:'', from:'', to:'', returnPlace:'', phase:''
+  });
+  try{ sessionStorage.setItem('stadslass_nav_logged_v317_' + APP_VERSION, '1'); }catch(e){}
+}
+
+function internetUsageDateKeyV317(iso){
+  try{ return new Date(iso || Date.now()).toLocaleDateString('sv-SE'); }catch(e){ return ''; }
+}
+function internetUsageTodayKeyV317(){ return internetUsageDateKeyV317(new Date().toISOString()); }
+
+function summarizeInternetEntriesV317(entries, filterToday){
+  const today = internetUsageTodayKeyV317();
+  const list = (entries || []).filter(item => !filterToday || internetUsageDateKeyV317(item.at) === today);
+  const byCat = {};
+  let total = 0;
+  list.forEach(item => {
+    const cat = item.category || 'Övrigt/okänt nätanrop';
+    const bytes = Number(item.totalBytes || 0);
+    total += bytes;
+    if(!byCat[cat]) byCat[cat] = {category:cat, bytes:0, count:0, requestBytes:0, responseBytes:0, gpsPoints:0, subRequests:0};
+    byCat[cat].bytes += bytes;
+    byCat[cat].requestBytes += Number(item.requestBytes || 0);
+    byCat[cat].responseBytes += Number(item.responseBytes || 0);
+    byCat[cat].gpsPoints += Number(item.gpsPoints || 0);
+    byCat[cat].subRequests += Number(item.subRequests || 0);
+    byCat[cat].count += 1;
+  });
+  const categories = Object.values(byCat).sort((a,b) => b.bytes - a.bytes);
+  return {entries:list, total:total, categories:categories};
+}
+
+function describeInternetEntryV317(item){
+  const job = item.jobType ? (item.jobType + (item.from || item.to ? ' · ' + (item.from || '-') + ' → ' + (item.to || '-') : '')) : '-';
+  return [
+    (item.at ? new Date(item.at).toLocaleString('sv-SE') : '-'),
+    item.category || '-',
+    item.trigger || '-',
+    job,
+    item.phase ? ('Fas: ' + item.phase) : 'Fas: -',
+    'Metod/status: ' + (item.method || '-') + ' / ' + (item.httpStatus || item.status || '-'),
+    'Punkter/delanrop: ' + (item.gpsPoints || 0) + ' / ' + (item.subRequests || 1),
+    'Skickat: ' + formatInternetBytesV317(item.requestBytes) + ', mottaget: ' + formatInternetBytesV317(item.responseBytes) + ', totalt: ' + formatInternetBytesV317(item.totalBytes),
+    item.url ? ('URL-typ: ' + item.url) : ''
+  ].filter(Boolean).join(' | ');
+}
+
+function buildInternetUsageReportV317(){
+  const guard = getInternetUsageAllowedV317();
+  const store = getInternetUsageStoreV317();
+  const entries = store.entries || [];
+  const today = summarizeInternetEntriesV317(entries, true);
+  const period = summarizeInternetEntriesV317(entries, false);
+  const top = entries.slice().sort((a,b) => Number(b.totalBytes || 0) - Number(a.totalBytes || 0)).slice(0, 50);
+  const latest = entries.slice().sort((a,b) => String(b.at || '').localeCompare(String(a.at || ''))).slice(0, 80);
+  const lines = [];
+  lines.push('STADSLASS INTERNETANVÄNDNING v317');
+  lines.push('Status: ' + (guard.allowed ? 'PADD-DIAGNOS AKTIV' : 'SPÄRRAD PÅ DENNA ENHET'));
+  lines.push('Version: ' + APP_VERSION);
+  lines.push('Skapad: ' + new Date().toLocaleString('sv-SE'));
+  lines.push('Loggstart: ' + (store.createdAt || '-'));
+  lines.push('Enhet: läge=' + guard.context.deviceMode + ', sync=' + (guard.context.syncRole || '-') + ', budget=' + (guard.context.budgetRole || '-') + ', tablet=' + (guard.context.likelyTablet ? 'ja' : 'nej') + ', nät=' + guard.context.network);
+  lines.push('Begränsning: Android/Samsung Browser totalräknare kan inte läsas direkt. Rapporten visar Stadslass egna loggade/uppskattade nätanrop. API-nycklar och token loggas inte.');
+  lines.push('');
+  lines.push('SAMMANFATTNING IDAG');
+  lines.push('Totalt uppskattat: ' + formatInternetBytesV317(today.total) + ' · Poster: ' + today.entries.length);
+  today.categories.forEach(cat => lines.push('- ' + cat.category + ': ' + cat.count + ' poster · ' + formatInternetBytesV317(cat.bytes) + ' · skickat ' + formatInternetBytesV317(cat.requestBytes) + ' · mottaget ' + formatInternetBytesV317(cat.responseBytes) + (cat.gpsPoints ? ' · GPS-punkter ' + cat.gpsPoints : '')));
+  lines.push('');
+  lines.push('SAMMANFATTNING PERIOD');
+  lines.push('Totalt uppskattat: ' + formatInternetBytesV317(period.total) + ' · Poster: ' + period.entries.length + ' · Max sparade poster: ' + INTERNET_USAGE_MAX_ENTRIES_V317);
+  period.categories.forEach(cat => lines.push('- ' + cat.category + ': ' + cat.count + ' poster · ' + formatInternetBytesV317(cat.bytes) + ' · skickat ' + formatInternetBytesV317(cat.requestBytes) + ' · mottaget ' + formatInternetBytesV317(cat.responseBytes) + (cat.gpsPoints ? ' · GPS-punkter ' + cat.gpsPoints : '')));
+  lines.push('');
+  lines.push('STÖRSTA ENSKILDA POSTER');
+  if(!top.length) lines.push('- Inga loggade internetposter ännu.');
+  top.forEach((item, idx) => lines.push((idx+1) + '. ' + describeInternetEntryV317(item)));
+  lines.push('');
+  lines.push('SENASTE POSTER');
+  if(!latest.length) lines.push('- Inga loggade internetposter ännu.');
+  latest.forEach((item, idx) => lines.push((idx+1) + '. ' + describeInternetEntryV317(item)));
+  lines.push('');
+  lines.push('RAW');
+  lines.push('storageKey=' + INTERNET_USAGE_LOG_KEY_V317 + '; temporary=true; maxEntries=' + INTERNET_USAGE_MAX_ENTRIES_V317);
+  return lines.join('\n');
+}
+
+function renderInternetUsageDiagnosticV317(){
+  const allowed = renderInternetUsageVisibilityV317();
+  const summary = document.getElementById('internetUsageSummaryV317');
+  const breakdown = document.getElementById('internetUsageBreakdownV317');
+  const report = document.getElementById('internetUsageReportV317');
+  const guard = getInternetUsageAllowedV317();
+  if(!allowed){
+    if(summary){ summary.classList.remove('is-ok'); summary.classList.add('is-error'); summary.textContent = guard.reason; }
+    if(report) report.value = buildInternetUsageReportV317();
+    return;
+  }
+  const text = buildInternetUsageReportV317();
+  if(report) report.value = text;
+  const entries = getInternetUsageLogV317();
+  const today = summarizeInternetEntriesV317(entries, true);
+  const period = summarizeInternetEntriesV317(entries, false);
+  if(summary){
+    summary.classList.remove('is-error'); summary.classList.add('is-ok');
+    const topCat = period.categories[0];
+    summary.innerHTML = '<strong>Internetanvändning: ' + escapeHtml(formatInternetBytesV317(period.total)) + ' uppskattat denna loggperiod</strong>' +
+      '<div class="map-test-section">Idag: <strong>' + escapeHtml(formatInternetBytesV317(today.total)) + '</strong> · Poster idag: <strong>' + today.entries.length + '</strong> · Periodposter: <strong>' + period.entries.length + '</strong></div>' +
+      '<div class="map-test-section">Största datakälla: <strong>' + escapeHtml(topCat ? topCat.category : '-') + '</strong>' + (topCat ? ' · ' + escapeHtml(formatInternetBytesV317(topCat.bytes)) : '') + '</div>' +
+      '<div class="map-test-section">Detta är en tillfällig padda-diagnos. Den mäter och visar, men stoppar inga anrop.</div>';
+  }
+  if(breakdown){
+    const topEntries = entries.slice().sort((a,b) => Number(b.totalBytes || 0) - Number(a.totalBytes || 0)).slice(0, 12);
+    const catHtml = period.categories.map(cat => '<div class="job"><strong>' + escapeHtml(cat.category) + '</strong><br><span class="muted">' + escapeHtml(String(cat.count)) + ' poster · ' + escapeHtml(formatInternetBytesV317(cat.bytes)) + ' · skickat ' + escapeHtml(formatInternetBytesV317(cat.requestBytes)) + ' · mottaget ' + escapeHtml(formatInternetBytesV317(cat.responseBytes)) + (cat.gpsPoints ? ' · GPS-punkter ' + escapeHtml(String(cat.gpsPoints)) : '') + '</span></div>').join('');
+    const topHtml = topEntries.map((item, idx) => '<div class="job"><strong>' + (idx+1) + '. ' + escapeHtml(item.category || '-') + ' · ' + escapeHtml(formatInternetBytesV317(item.totalBytes)) + '</strong><br><span class="muted">' + escapeHtml(describeInternetEntryV317(item)) + '</span></div>').join('');
+    breakdown.innerHTML = '<h4>Fördelning per kategori</h4>' + (catHtml || '<div class="muted">Inga internetposter loggade ännu.</div>') + '<h4>Största enskilda poster</h4>' + (topHtml || '<div class="muted">Inga internetposter loggade ännu.</div>');
+  }
+}
+
+function renderInternetUsageIfOpenV317(){
+  const wrap = document.getElementById('internetUsageDiagnosticWrapV317');
+  if(wrap && !wrap.classList.contains('hidden')) renderInternetUsageDiagnosticV317();
+}
+
+function toggleInternetUsageDiagnosticV317(){
+  const guard = getInternetUsageAllowedV317();
+  if(!guard.allowed){
+    renderInternetUsageVisibilityV317();
+    return false;
+  }
+  toggleSettingsPanel('internetUsageDiagnosticWrapV317', () => renderInternetUsageDiagnosticV317());
+  return true;
+}
+
+function copyInternetUsageReportV317(){
+  const area = document.getElementById('internetUsageReportV317');
+  if(area && !String(area.value || '').trim()) renderInternetUsageDiagnosticV317();
+  const text = area ? String(area.value || '') : buildInternetUsageReportV317();
+  const status = document.getElementById('internetUsageCopyStatusV317');
+  const done = () => { if(status) status.textContent = 'Internetrapport kopierad.'; };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(() => { if(status) status.textContent = 'Kunde inte kopiera automatiskt. Markera rapporten och kopiera manuellt.'; }); }
+    else { if(area){ area.focus(); area.select(); document.execCommand('copy'); done(); } }
+  }catch(e){ if(status) status.textContent = 'Kunde inte kopiera automatiskt. Markera rapporten och kopiera manuellt.'; }
+}
+
+function downloadInternetUsageReportV317(){
+  const text = buildInternetUsageReportV317();
+  const status = document.getElementById('internetUsageCopyStatusV317');
+  try{
+    const d = new Date();
+    const fileDate = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '_' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+    const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'stadslass-internetanvandning-v317-' + fileDate + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 1000);
+    if(status) status.textContent = 'Internetrapport exporterad som textfil.';
+  }catch(e){ if(status) status.textContent = 'Kunde inte exportera textfil. Använd Kopiera internetrapport.'; }
+}
+
+function clearInternetUsageLogV317(){
+  const ok = window.confirm ? window.confirm('Nollställa den tillfälliga internetdiagnosen på denna padda? Detta ändrar inte uppdrag, GPS, sync eller historik.') : true;
+  if(!ok) return;
+  saveInternetUsageStoreV317({createdAt:new Date().toISOString(), version:APP_VERSION, entries:[]});
+  try{ sessionStorage.removeItem('stadslass_nav_logged_v317_' + APP_VERSION); }catch(e){}
+  recordInternetNavigationEntryV317();
+  renderInternetUsageDiagnosticV317();
+  const status = document.getElementById('internetUsageCopyStatusV317');
+  if(status) status.textContent = 'Interneträknaren nollställd. Appens arbetsdata påverkas inte.';
+}
+
+function checkTemporaryInternetDiagnosticV317(){
+  return typeof installInternetUsageFetchLoggerV317 === 'function'
+    && typeof buildInternetUsageReportV317 === 'function'
+    && typeof renderInternetUsageDiagnosticV317 === 'function'
+    && typeof getInternetUsageAllowedV317 === 'function'
+    && !!document.getElementById('internetUsageDiagButtonV317')
+    && !!document.getElementById('internetUsageDiagnosticWrapV317')
+    && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig padda-internetdiagnos v317');
+}
+
+installInternetUsageFetchLoggerV317();
+setTimeout(() => { try{ recordInternetNavigationEntryV317(); renderInternetUsageVisibilityV317(); }catch(e){} }, 1800);
+
 window.addEventListener('online', updateConnectionStatus);
 window.addEventListener('offline', updateConnectionStatus);
 
@@ -35226,6 +35729,7 @@ updateSummaryControls();
 updateGpsEnvironmentInfo();
 updateConnectionStatus();
 renderDeviceModeButtonV272();
+if(typeof renderInternetUsageVisibilityV317 === 'function') renderInternetUsageVisibilityV317();
 if(typeof renderComputerSettingsPanelV284 === 'function') renderComputerSettingsPanelV284();
 renderQueueSyncSettingsV219();
 startQueueAutoSyncV219();
