@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v323
+- Nuvarande version: Stadslass 2.0 v324
+- v324: Tung tablet-status får tydlig orsak/metadata i statuspaket och internetdiagnos så 200 kB-masterpaket kan skiljas från live-status, avslut, register, manuell sync och spärrade tomkörningar.
 - v323: Datorläge döljer det lokala Aktivt jobb-kortet och 189 status får renare användartext utan tekniska synckällor eller Snabbsync-förklaring.
 - v322: Synliga Returplatser – all tid-rutor tas bort från vanlig sammanställning/spegling, returplatstid räknas fortsatt in i respektive uppdrag och 189 begränsar tunga tablet-statuspaket vid uppstart/resume/idle så liten live-status används som huvudpaket.
 - v321: Lätt live-statusfil stadslass-189-live-status.json används för aktiv spegling med tider, faser och vikter, medan tung tablet-status behålls för start/register/avslut och inte används som löpande livepaket.
@@ -361,7 +362,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v323';
+  const version = 'Stadslass 2.0 v324';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3896,7 +3897,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v323</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v324</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -12476,9 +12477,11 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v323';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v322';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v324';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v324';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v324 Masterstatusorsak i internetdiagnos',
+  'v323 Datorläge renare 189-status',
   'v322 Begränsad masterstatus och returplatssummering borttagen',
   'v321 Lätt live-status för spegling',
   'v320 Enhetsväljare 189',
@@ -13067,6 +13070,7 @@ function getActiveMonitorChecks(snapshot){
     if(typeof shouldSkipTabletStatusUploadV319 === 'function' && typeof buildTabletStatusFingerprintV319 === 'function' && typeof shouldCheckQueueActionsV319 === 'function') ok('SYNC-DATA-OV-319', 'Datasnål paddstatus på mobilnät finns', 'v319 ska hoppa över oförändrad paddstatus, återanvända tablet-status-SHA och glesa queue-actions-kontroll på mobilnät.', 'skipFn=true; shaCache=true; actionThrottle=true', 'v319 Datasnål paddstatus', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Datasnål paddstatus på mobilnät v319')));
     if(typeof buildQueueSyncLiveStatusPayloadV321 === 'function' && typeof queueSyncUploadLiveStatusV321 === 'function' && typeof mergeLiveStatusIntoTabletStatusV321 === 'function') ok('SYNC-LIVE-OV-321', 'Lätt live-status för spegling finns', 'v321 använder separat liten live-statusfil för aktiv spegling så tablet-status inte behöver skickas som löpande livepaket.', 'file=' + (typeof QUEUE_SYNC_LIVE_STATUS_FILE_V321 !== 'undefined' ? QUEUE_SYNC_LIVE_STATUS_FILE_V321 : '-'), 'v321 Lätt live-status', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Lätt live-status för spegling v321')));
     if(typeof shouldUploadFullTabletStatusV322 === 'function' && typeof displayDeviceRoleV322 === 'function') ok('SYNC-MASTER-OV-322', 'Tung masterstatus är begränsad', 'v322 spärrar tung tablet-status vid vanlig uppstart/resume och lugn autosync, och synlig returplatssummering är borttagen.', 'masterGuard=true; returRuta=' + activeMonitorBool(!document.getElementById('sumByReturnPlaceV295')), 'v322 Begränsad masterstatus', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Begränsad masterstatus och returplatssummering borttagen v322')));
+    if(typeof getFullTabletStatusReasonV324 === 'function' && typeof sanitizeSyncReasonForGithubMessageV324 === 'function' && typeof extractGithubCommitMessageV324 === 'function') ok('SYNC-MASTER-OV-324', 'Masterstatus får orsak i diagnos', 'v324 märker tung tablet-status med orsak/metadata och gör GitHub PUT-rader tydligare i internetdiagnosen.', 'reasonFn=true; internetExtract=true', 'v324 Masterstatusorsak', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Masterstatusorsak i internetdiagnos v324')));
     if(typeof isDeviceSelector189LabelV320 === 'function') ok('DEVICE-UI-OV-320', 'Enhetsväljare visar 189', 'v320 byter bara synlig text i enhetsväljaren från Padda till 189 utan att ändra intern pad-roll.', 'label189=' + activeMonitorBool(isDeviceSelector189LabelV320()), 'v320 Enhetsväljare 189', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Enhetsväljare visar 189 v320')));
   } else {
     warn('PHASE-OV-316', 'Separat fasmedian v316 saknas', 'v316 ska ha separata fasmedianfunktioner och brytdatum.', 'funktion eller brytdatum saknas', 'Kontrollera v316-inläggningen.', 'v316 Separat fasmedian', '');
@@ -14376,7 +14380,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v323';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v324';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -14401,6 +14405,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Masterstatusorsak i internetdiagnos v324', status:'Sync/Internetdiagnos/Masterstatus', purpose:'Varje tung stadslass-tablet-status.json-publicering får orsak/metadata i payload och GitHub commit-meddelande. Internetdiagnosen kan visa orsaken på GitHub PUT-raden så 200 kB-masterpaket kan skiljas från avslut, registerändring, manuell sync, import/action eller blockerad lugn uppstart.', changeRule:'Får bara märka och redovisa orsaken till tung masterstatus samt förbättra internetdiagnosens text. Får inte ändra aktivt jobb, kölogik, live-status, vikt, GPS/Snap, Google, historik/export, backup eller driftlogg_v4_full.'},
   {name:'Datorläge renare 189-status v323', status:'Datorläge/UI/189 status', purpose:'Datorläge döljer det lokala Aktivt jobb-kortet och 189 status visar kort användartext utan tekniska källrader eller Snabbsync-förklaring. Planeringsknappar, kö och spegling finns kvar.', changeRule:'Får bara påverka synlig text och visning i datorläge. Får inte ändra 189-läge, aktivt uppdrag, kölogik, syncdata, vikt, GPS/Snap, Google, historik/export, backup eller driftlogg_v4_full.'},
   {name:'Begränsad masterstatus och returplatssummering borttagen v322', status:'Sync/Sammanställning/Internet', purpose:'189 skickar inte tung tablet-status automatiskt vid uppstart/resume eller lugn autosync utan import/action/registerändring. Lätt live-status används som huvudpaket för spegling och den synliga Returplatser – all tid-rutan tas bort från vanlig sammanställning/spegling medan returplatstid fortsatt ingår i uppdragets tid.', changeRule:'Får bara begränsa tunga syncpaket, använda liten live-status där full status inte behövs och ta bort synlig returplatssummering. Får inte ändra aktiv jobb-sanning, kölogik, Returplats-fält på uppdrag, retur-ETA, viktlogik, GPS/Snap, Google Routes, historik/export, backup eller driftlogg_v4_full.'},
   {name:'Lätt live-status för spegling v321', status:'Sync/Internet/Spegling', purpose:'189 publicerar en separat liten live-statusfil för aktiv spegling med aktivt uppdrag, fas, tider, vikt, pausstatus och köantal. Datorns spegling kan läsa den lilla filen för löpande uppdatering medan tung tablet-status behålls för start, register, kö/sammanfattning och avslut.', changeRule:'Får bara dela upp syncpaket och minska löpande GitHub-trafik. Får inte ändra aktiv jobb-sanning, kölogik, datorns behörighet, Google Routes/Snap, GPS, geofence, viktlogik, historik, backup/export, internetdiagnos eller driftlogg_v4_full.'},
@@ -15033,6 +15038,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Returplats i historik/export v295/v322', fn('getSummaryRowReturnPlaceV295') && fn('getJobRouteSummaryHtmlV295') && fn('summarizeJobsByReturnPlaceV295') && src('renderHistoryRegularJobCard', 'getJobRouteSummaryHtmlV295') && src('buildExcelWorkbookXml', 'Returplatser') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i historik/export/sammanställning v295') && isActiveMonitorCoverageAtLeastV302('v295'), 'Returplats finns kvar i uppdrag/historik/export, men v322 tar bort separat synlig returplatssummering från vanlig sammanställning/spegling.');
   addFunctionCheck(results, 'Nivå 2', 'Begränsad masterstatus och returplatssummering borttagen v322', fn('shouldUploadFullTabletStatusV322') && fn('displayDeviceRoleV322') && src('queueSyncRunAutoV227', 'fullSkippedV322') && src('runQueueSyncAfterStartupV310', 'startup-v322') && !el('sumByReturnPlaceV295') && !src('buildSummaryMirrorPeriodHtmlV261', 'summary-mirror-returnplaces-v295') && APP_FEATURE_MANIFEST.some(item => item.name === 'Begränsad masterstatus och returplatssummering borttagen v322'), 'v322 stoppar tung masterstatus vid uppstart/resume/idle och tar bort Returplatser – all tid från vanlig sammanställning/spegling.');
   addFunctionCheck(results, 'Nivå 2', 'Datorläge renare 189-status v323', fn('applyComputerActiveJobCardVisibilityV323') && src('getTabletStatusUiHelpV288', 'Här visas senaste status från 189.') && !src('renderTabletQueueMirrorV238', 'Datorläge: Redigera/Ta bort skickas som Snabbsync-begäran till paddan') && !src('refreshTabletQueueMirrorV238', 'Uppdaterad från lätt live-status.') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge renare 189-status v323'), 'v323 döljer Aktivt jobb-kortet i datorläge och tar bort tekniska texter från 189 status.');
+  addFunctionCheck(results, 'Nivå 2', 'Masterstatusorsak i internetdiagnos v324', fn('getFullTabletStatusReasonV324') && fn('sanitizeSyncReasonForGithubMessageV324') && fn('extractGithubCommitMessageV324') && src('queueSyncUploadTabletStatusV219', 'masterStatusReasonV324') && src('classifyInternetRequestV317', 'extractGithubCommitMessageV324') && APP_FEATURE_MANIFEST.some(item => item.name === 'Masterstatusorsak i internetdiagnos v324'), 'tunga tablet-status-publiceringar märks med orsak och GitHub PUT-rader kan visa commit-/orsakstext i internetdiagnosen.');
   addFunctionCheck(results, 'Nivå 2', 'Returplats i GPS/inlärning v294', fn('getMaterialReturnLearningPartV294') && src('materialFlowEstimateKey', 'getMaterialReturnLearningPartV294') && src('buildStadslass20TransportWindows', 'returnPlaceLabelV294') && src('buildRouteRoleSnapSegmentsV211', 'Retur Till→Returplats') && src('buildSnapRoadsSegmentsForJobV211', 'Retur Till→Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i GPS/inlärning v294') && isActiveMonitorCoverageAtLeastV302('v294'), 'GPS-/tidsinlärning håller isär retursträckor via Returplats och Snap/transportfönster visar Returplats i returben.');
   addFunctionCheck(results, 'Nivå 2', 'Returplats i aktivt jobb och ETA v293', fn('buildMapPointFromJobReturnPlaceV293') && fn('resolveMapPointFromJobReturnPlaceV293') && fn('getReturnGeofenceForJobV293') && src('getActiveTransportEtaLegV215', 'returnPlace') && src('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && src('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && src('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && src('buildSmartMapRouteKey', 'retur:') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i aktivt jobb och ETA v293') && isActiveMonitorCoverageAtLeastV302('v294'), 'Aktiv ETA och kartberäkning använder Returplats som returbenets mål med Från-plats som fallback.');
   addFunctionCheck(results, 'Nivå 2', 'Uppstartsfix systemkontroll v292', APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292') && isActiveMonitorCoverageAtLeastV302('v292'), 'v292 markerar uppstartsfixen utan att ändra Returplats- eller synclogik.');
@@ -16351,6 +16357,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Returplats i historik/export v295/v322', typeof getSummaryRowReturnPlaceV295 === 'function' && typeof getJobRouteSummaryHtmlV295 === 'function' && typeof summarizeJobsByReturnPlaceV295 === 'function' && functionSourceIncludes('renderHistoryRegularJobCard', 'getJobRouteSummaryHtmlV295') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplatser') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i historik/export/sammanställning v295'), 'Returplats finns kvar i uppdrag/historik/export men separat sammanställningsruta är borttagen i v322'),
     systemCheck('Begränsad masterstatus och returplatssummering borttagen v322', typeof shouldUploadFullTabletStatusV322 === 'function' && typeof displayDeviceRoleV322 === 'function' && functionSourceIncludes('queueSyncRunAutoV227', 'fullSkippedV322') && functionSourceIncludes('runQueueSyncAfterStartupV310', 'startup-v322') && !document.getElementById('sumByReturnPlaceV295') && !functionSourceIncludes('buildSummaryMirrorPeriodHtmlV261', 'summary-mirror-returnplaces-v295') && APP_FEATURE_MANIFEST.some(item => item.name === 'Begränsad masterstatus och returplatssummering borttagen v322'), 'Tung tablet-status stoppas vid vanlig uppstart/resume/idle och synlig Returplatser-ruta är borttagen'),
     systemCheck('Datorläge renare 189-status v323', typeof applyComputerActiveJobCardVisibilityV323 === 'function' && functionSourceIncludes('getTabletStatusUiHelpV288', 'Här visas senaste status från 189.') && !functionSourceIncludes('renderTabletQueueMirrorV238', 'Datorläge: Redigera/Ta bort skickas som Snabbsync-begäran till paddan') && !functionSourceIncludes('refreshTabletQueueMirrorV238', 'Uppdaterad från lätt live-status.') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge renare 189-status v323'), 'Datorläge döljer Aktivt jobb-kortet och 189 status har renare text utan teknisk källrad'),
+    systemCheck('Masterstatusorsak i internetdiagnos v324', typeof getFullTabletStatusReasonV324 === 'function' && typeof sanitizeSyncReasonForGithubMessageV324 === 'function' && typeof extractGithubCommitMessageV324 === 'function' && functionSourceIncludes('queueSyncUploadTabletStatusV219', 'masterStatusReasonV324') && functionSourceIncludes('classifyInternetRequestV317', 'extractGithubCommitMessageV324') && APP_FEATURE_MANIFEST.some(item => item.name === 'Masterstatusorsak i internetdiagnos v324'), 'Tunga tablet-statuspaket får orsak/metadata och internetdiagnosen kan visa orsaken'),
 
     systemCheck('Returplats UI-städning v297', typeof getQueuePanelHelpTextV297 === 'function' && functionSourceIncludes('formatActiveOverviewHtml', 'active-overview-grid') && !functionSourceIncludes('formatActiveOverviewHtml', 'getJobRouteSummaryHtmlV288(job') && functionSourceIncludes('getJobReturnPlacePillHtmlV291', 'pill-return-place-v297') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'isComputerDeviceModeV274') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats UI-städning v297'), 'v297 städar bort dubbel vägvisning i aktivt jobb, visar Returplats som ljusblå bricka och döljer 189-syncbrickor i Padda-läge'),
     systemCheck('Köredigering modal skrollfix v298', typeof setEditQueueJobModalScrollLockV298 === 'function' && typeof showEditQueueJobModalV298 === 'function' && functionSourceIncludes('openEditQueueJob', 'showEditQueueJobModalV298') && functionSourceIncludes('openTabletMirrorQueueEditV275', 'showEditQueueJobModalV298') && functionSourceIncludes('closeEditQueueJob', 'setEditQueueJobModalScrollLockV298(false)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Köredigering modal skrollfix v298'), 'Redigera köuppdrag använder egen skrollbar modal och släpper bakgrundslås vid stängning'),
@@ -21301,6 +21308,55 @@ function getFullTabletStatusSkipReasonV322(options){
   return 'v322: stor tablet-status saknar tung ändringsorsak';
 }
 
+// v324: märk varje tung tablet-status med tydlig orsak så internetdiagnosen kan visa varför 200 kB-paket skickades.
+function sanitizeSyncReasonForGithubMessageV324(value){
+  return String(value || '')
+    .replace(/[^a-zA-Z0-9åäöÅÄÖ_:\-\. ]/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 90) || 'okand-orsak';
+}
+
+function getFullTabletStatusReasonV324(options){
+  options = options || {};
+  const rawReason = String(options.reason || options.source || '').trim();
+  if(options.manual) return 'manual-full-sync' + (rawReason ? ':' + rawReason : '');
+  if(options.completionV322 || /klart|stop|avslut|finished|complete/i.test(rawReason)) return 'job-finished' + (rawReason ? ':' + rawReason : '');
+  if(options.registerChangedV322 || /register|geofence|plats|jobbtyp|snabbval|maskin|inställ/i.test(rawReason)) return 'register-changed' + (rawReason ? ':' + rawReason : '');
+  if(options.queueChangedV322 || /queue-change|köändring|koandring|queue/i.test(rawReason)) return 'queue-changed' + (rawReason ? ':' + rawReason : '');
+  if(Number(options.importedCountV322 || 0) > 0) return 'imported-jobs:' + Number(options.importedCountV322 || 0) + (rawReason ? ':' + rawReason : '');
+  if(options.actionHadPendingV322) return 'queue-action-applied' + (rawReason ? ':' + rawReason : '');
+  if(options.forceFullV321 || options.forceFullV322 || options.forceFullV319 || options.forceStatusV319) return 'forced-full-status' + (rawReason ? ':' + rawReason : '');
+  if(options.startupV310) return 'startup-check' + (rawReason ? ':' + rawReason : '');
+  if(options.auto) return 'auto-full-status' + (rawReason ? ':' + rawReason : '');
+  return rawReason || 'unknown-full-status';
+}
+
+function decorateTabletStatusPayloadWithReasonV324(payload, options){
+  if(!payload || typeof payload !== 'object') return payload;
+  const reason = getFullTabletStatusReasonV324(options || {});
+  payload.masterStatusReasonV324 = reason;
+  payload.masterStatusReasonShortV324 = sanitizeSyncReasonForGithubMessageV324(reason);
+  payload.masterStatusMarkedAtV324 = new Date().toISOString();
+  payload.masterStatusPolicyV324 = 'Tung tablet-status ska bara användas för manuell fullsync, avslut, register/köändring, import/action eller annan tydlig orsak. Live-status används för löpande fas/tid/vikt.';
+  payload.masterStatusAllowedByV324 = {
+    manual:!!(options && options.manual),
+    auto:!!(options && options.auto),
+    startup:!!(options && options.startupV310),
+    importedCount:Number(options && options.importedCountV322 || 0),
+    actionHadPending:!!(options && options.actionHadPendingV322),
+    completion:!!(options && options.completionV322),
+    registerChanged:!!(options && options.registerChangedV322),
+    queueChanged:!!(options && options.queueChangedV322),
+    forced:!!(options && (options.forceFullV319 || options.forceFullV321 || options.forceFullV322 || options.forceStatusV319))
+  };
+  return payload;
+}
+
+function buildTabletStatusCommitMessageV324(options){
+  const reason = sanitizeSyncReasonForGithubMessageV324(getFullTabletStatusReasonV324(options || {}));
+  return 'stadslass v324 sync tablet-status reason=' + reason;
+}
+
 async function queueSyncUploadLiveStatusV321(options){
   options = options || {};
   const settings = getQueueSyncSettingsV219();
@@ -23762,14 +23818,14 @@ async function queueSyncUploadTabletStatusV219(options){
     if(!options.silent) setQueueSyncStatusV219(reasonV322, false);
     return {skipped:true, reason:reasonV322, masterStatusV322:true};
   }
-  const payload = options.prebuiltTabletStatusPayloadV319 || buildTabletStatusPayloadV219(options);
+  const payload = decorateTabletStatusPayloadWithReasonV324(options.prebuiltTabletStatusPayloadV319 || buildTabletStatusPayloadV219(options), options);
   const skipDecisionV319 = shouldSkipTabletStatusUploadV319(options, payload);
   if(skipDecisionV319 && skipDecisionV319.skip){
     if(!options.silent) setQueueSyncStatusV219('189-status oförändrad – ingen GitHub-skrivning behövs.', false);
     try{ renderQueueSyncDetailStatusV223({settings:getQueueSyncSettingsV219(), tabletStatus:payload, note:'v319: Paddstatus oförändrad, GitHub-PUT hoppades över för att spara mobildata.'}); }catch(e){}
     return {skipped:true, reason:skipDecisionV319.reason || 'unchanged-v319', queueCount:payload.queueCount || 0, dataSaverV319:true};
   }
-  const putResultV319 = await queueSyncPutJsonFileV219(QUEUE_SYNC_TABLET_STATUS_FILE_V219, payload, 'stadslass v319 sync tablet status');
+  const putResultV319 = await queueSyncPutJsonFileV219(QUEUE_SYNC_TABLET_STATUS_FILE_V219, payload, buildTabletStatusCommitMessageV324(options));
   rememberTabletStatusUploadV319(payload, putResultV319);
   saveState();
   renderQueueSyncDetailStatusV223({settings:getQueueSyncSettingsV219(), tabletStatus:payload});
@@ -35856,6 +35912,36 @@ function getInternetRequestBodyBytesV317(input, init){
   return 0;
 }
 
+// v324: läs bara den synliga GitHub-committexten ur PUT-body för diagnos; innehåll/base64 och token loggas inte.
+function getInternetRequestBodyTextV324(input, init){
+  try{
+    const body = init && init.body !== undefined ? init.body : null;
+    if(typeof body === 'string') return body.slice(0, 200000);
+  }catch(e){}
+  return '';
+}
+
+function extractGithubCommitMessageV324(bodyText){
+  const text = String(bodyText || '');
+  if(!text) return '';
+  try{
+    const parsed = JSON.parse(text);
+    return String(parsed && parsed.message ? parsed.message : '').slice(0, 160);
+  }catch(e){
+    const m = text.match(/\"message\"\s*:\s*\"([^\"]{1,160})\"/);
+    return m ? m[1] : '';
+  }
+}
+
+function sanitizeGithubCommitMessageForInternetV324(message){
+  return String(message || '')
+    .replace(/token|key|api/gi, '***')
+    .replace(/[^a-zA-Z0-9åäöÅÄÖ_:=.\- ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 140);
+}
+
 function sanitizeInternetUrlV317(rawUrl){
   const raw = String(rawUrl || '');
   try{
@@ -35866,7 +35952,7 @@ function sanitizeInternetUrlV317(rawUrl){
   }
 }
 
-function classifyInternetRequestV317(rawUrl, method, bodyBytes){
+function classifyInternetRequestV317(rawUrl, method, bodyBytes, bodyTextV324){
   const url = String(rawUrl || '');
   const lower = url.toLowerCase();
   let category = 'Övrigt/okänt nätanrop';
@@ -35874,7 +35960,14 @@ function classifyInternetRequestV317(rawUrl, method, bodyBytes){
   if(lower.includes('roads.googleapis.com') && lower.includes('snaptoroads')){ category = 'Google Roads / Snap to Roads'; trigger = 'Snap to Roads'; }
   else if(lower.includes('routes.googleapis.com') && lower.includes('computeroutes')){ category = 'Google Routes / ETA'; trigger = 'Rutt/ETA'; }
   else if(lower.includes('maps.googleapis.com/maps/api/geocode')){ category = 'Google Geocoding'; trigger = 'Geokodning'; }
-  else if(lower.includes('api.github.com/repos')){ category = method === 'PUT' ? 'GitHub-sync skrivning' : 'GitHub-sync läsning'; trigger = method === 'PUT' ? 'GitHub PUT' : 'GitHub GET'; }
+  else if(lower.includes('api.github.com/repos')){
+    category = method === 'PUT' ? 'GitHub-sync skrivning' : 'GitHub-sync läsning';
+    trigger = method === 'PUT' ? 'GitHub PUT' : 'GitHub GET';
+    if(method === 'PUT' && typeof extractGithubCommitMessageV324 === 'function'){
+      const msgV324 = sanitizeGithubCommitMessageForInternetV324(extractGithubCommitMessageV324(bodyTextV324));
+      if(msgV324) trigger += ' · ' + msgV324;
+    }
+  }
   else if(/github.*\.json/i.test(lower) || lower.includes('stadslass-mobile-inbox') || lower.includes('stadslass-tablet-status')){ category = 'GitHub kö/status/spegling'; trigger = 'GitHub fil'; }
   let gpsPoints = 0;
   let subRequests = 1;
@@ -35949,7 +36042,8 @@ function installInternetUsageFetchLoggerV317(){
     const rawUrl = getInternetRequestUrlV317(input);
     const method = getInternetRequestMethodV317(input, init);
     const bodyBytes = getInternetRequestBodyBytesV317(input, init);
-    const classify = classifyInternetRequestV317(rawUrl, method, bodyBytes);
+    const bodyTextV324 = typeof getInternetRequestBodyTextV324 === 'function' ? getInternetRequestBodyTextV324(input, init) : '';
+    const classify = classifyInternetRequestV317(rawUrl, method, bodyBytes, bodyTextV324);
     const urlBytes = byteLengthV317(rawUrl);
     const jobCtx = getInternetCurrentJobContextV317();
     let logged = null;
