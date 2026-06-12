@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v322
+- Nuvarande version: Stadslass 2.0 v323
+- v323: Datorläge döljer det lokala Aktivt jobb-kortet och 189 status får renare användartext utan tekniska synckällor eller Snabbsync-förklaring.
 - v322: Synliga Returplatser – all tid-rutor tas bort från vanlig sammanställning/spegling, returplatstid räknas fortsatt in i respektive uppdrag och 189 begränsar tunga tablet-statuspaket vid uppstart/resume/idle så liten live-status används som huvudpaket.
 - v321: Lätt live-statusfil stadslass-189-live-status.json används för aktiv spegling med tider, faser och vikter, medan tung tablet-status behålls för start/register/avslut och inte används som löpande livepaket.
 - v320: Enhetsväljaren visar 189 i stället för Padda för arbets-/paddläget, utan att ändra intern enhetsroll, sync, behörighet eller arbetslogik.
@@ -360,7 +361,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v322';
+  const version = 'Stadslass 2.0 v323';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3463,6 +3464,11 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
   .tryck-qr-image-v315{width:92vw;}
 }
 
+/* v323: datorläge ska inte visa lokalt Aktivt jobb-kort. Planering och 189-status finns kvar. */
+body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
+  display:none !important;
+}
+
 </style>
 </head>
 <body>
@@ -3890,7 +3896,7 @@ body[data-stadslass-device-mode-v272="computer"] #queueCalculateTimesButtonV286:
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v322</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v323</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -12178,8 +12184,9 @@ function getTabletStatusUiUpdateLabelV288(){
   return isComputerDeviceModeV274() ? 'Uppdatera status' : 'Uppdatera spegling';
 }
 function getTabletStatusUiHelpV288(){
+  // v323: datorläge visar kort användartext utan teknisk syncförklaring.
   return isComputerDeviceModeV274()
-    ? 'Läsande status från 189:s senast publicerade status och kö. Den här vyn kan inte starta, ändra, sortera eller ta bort aktivt uppdrag.'
+    ? 'Här visas senaste status från 189.'
     : 'Läsande spegling av lastbilens senast publicerade status och kö. Den här vyn kan inte starta, ändra, sortera eller ta bort uppdrag.';
 }
 function updateTabletStatusLabelsV288(){
@@ -12243,6 +12250,15 @@ function isComputerStartBlockedV276(){
   return isComputerDeviceModeV274();
 }
 
+// v323: Datorläge är planering/spegling och ska inte visa lokalt Aktivt jobb-kort.
+function applyComputerActiveJobCardVisibilityV323(){
+  const card = document.getElementById('activeJobCard');
+  if(!card) return;
+  const hide = isComputerDeviceModeV274();
+  card.classList.toggle('hidden', hide);
+  card.setAttribute('aria-hidden', hide ? 'true' : 'false');
+}
+
 function getComputerStartBlockedMessageV276(){
   return 'Datorläge kan inte starta uppdrag. Lägg uppdraget i kö i stället.';
 }
@@ -12294,6 +12310,7 @@ function renderDeviceModeButtonV272(){
   if(typeof updateComputerActionLabelsV286 === 'function') updateComputerActionLabelsV286();
   if(typeof updateTabletStatusLabelsV288 === 'function') updateTabletStatusLabelsV288();
   if(typeof applyComputerStartGuardsV276 === 'function') applyComputerStartGuardsV276();
+  if(typeof applyComputerActiveJobCardVisibilityV323 === 'function') applyComputerActiveJobCardVisibilityV323();
   if(typeof renderComputerSettingsPanelV284 === 'function') renderComputerSettingsPanelV284();
   if(typeof renderComputerAdvancedSettingsV285 === 'function') renderComputerAdvancedSettingsV285();
   if(typeof renderInternetUsageVisibilityV317 === 'function') renderInternetUsageVisibilityV317();
@@ -12459,7 +12476,7 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v322';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v323';
 const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v322';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v322 Begränsad masterstatus och returplatssummering borttagen',
@@ -14359,7 +14376,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v322';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v323';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -14384,6 +14401,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {name:'Datorläge renare 189-status v323', status:'Datorläge/UI/189 status', purpose:'Datorläge döljer det lokala Aktivt jobb-kortet och 189 status visar kort användartext utan tekniska källrader eller Snabbsync-förklaring. Planeringsknappar, kö och spegling finns kvar.', changeRule:'Får bara påverka synlig text och visning i datorläge. Får inte ändra 189-läge, aktivt uppdrag, kölogik, syncdata, vikt, GPS/Snap, Google, historik/export, backup eller driftlogg_v4_full.'},
   {name:'Begränsad masterstatus och returplatssummering borttagen v322', status:'Sync/Sammanställning/Internet', purpose:'189 skickar inte tung tablet-status automatiskt vid uppstart/resume eller lugn autosync utan import/action/registerändring. Lätt live-status används som huvudpaket för spegling och den synliga Returplatser – all tid-rutan tas bort från vanlig sammanställning/spegling medan returplatstid fortsatt ingår i uppdragets tid.', changeRule:'Får bara begränsa tunga syncpaket, använda liten live-status där full status inte behövs och ta bort synlig returplatssummering. Får inte ändra aktiv jobb-sanning, kölogik, Returplats-fält på uppdrag, retur-ETA, viktlogik, GPS/Snap, Google Routes, historik/export, backup eller driftlogg_v4_full.'},
   {name:'Lätt live-status för spegling v321', status:'Sync/Internet/Spegling', purpose:'189 publicerar en separat liten live-statusfil för aktiv spegling med aktivt uppdrag, fas, tider, vikt, pausstatus och köantal. Datorns spegling kan läsa den lilla filen för löpande uppdatering medan tung tablet-status behålls för start, register, kö/sammanfattning och avslut.', changeRule:'Får bara dela upp syncpaket och minska löpande GitHub-trafik. Får inte ändra aktiv jobb-sanning, kölogik, datorns behörighet, Google Routes/Snap, GPS, geofence, viktlogik, historik, backup/export, internetdiagnos eller driftlogg_v4_full.'},
   {name:'Enhetsväljare visar 189 v320', status:'UI/Enhetsläge', purpose:'Enhetsväljaren visar 189 som synligt namn för arbets-/paddläget i stället för Padda. Intern roll, localStorage-värde, syncroll, behörigheter och arbetslogik är oförändrade.', changeRule:'Får bara ändra synlig text i enhetsväljaren. Får inte ändra deviceMode=pad, sync, kö, aktivt jobb, internetdiagnos, GPS/Snap, geofence, historik, backup/export eller driftlogg_v4_full.'},
@@ -15014,6 +15032,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Badplatser spärrade från vanliga listor v187', fn('sanitizeJobTypePlaceValuesV187') && fn('listHasBeachPlaceV187') && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Sopsand', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Sopsand', '')) && !listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Metall', 'from', '')) && !listHasBeachPlaceV187(getFreeDestinationValuesWithStandardFirst('Komprimator', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'from', '')) && listHasBeachPlaceV187(getFilteredPlaceValuesForJobType('Havstång', 'to', '')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Badplatser spärrade från vanliga listor v187'), 'badplatser visas inte i vanliga jobbtyper men ligger kvar i Havstång');
   addFunctionCheck(results, 'Nivå 2', 'Returplats i historik/export v295/v322', fn('getSummaryRowReturnPlaceV295') && fn('getJobRouteSummaryHtmlV295') && fn('summarizeJobsByReturnPlaceV295') && src('renderHistoryRegularJobCard', 'getJobRouteSummaryHtmlV295') && src('buildExcelWorkbookXml', 'Returplatser') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i historik/export/sammanställning v295') && isActiveMonitorCoverageAtLeastV302('v295'), 'Returplats finns kvar i uppdrag/historik/export, men v322 tar bort separat synlig returplatssummering från vanlig sammanställning/spegling.');
   addFunctionCheck(results, 'Nivå 2', 'Begränsad masterstatus och returplatssummering borttagen v322', fn('shouldUploadFullTabletStatusV322') && fn('displayDeviceRoleV322') && src('queueSyncRunAutoV227', 'fullSkippedV322') && src('runQueueSyncAfterStartupV310', 'startup-v322') && !el('sumByReturnPlaceV295') && !src('buildSummaryMirrorPeriodHtmlV261', 'summary-mirror-returnplaces-v295') && APP_FEATURE_MANIFEST.some(item => item.name === 'Begränsad masterstatus och returplatssummering borttagen v322'), 'v322 stoppar tung masterstatus vid uppstart/resume/idle och tar bort Returplatser – all tid från vanlig sammanställning/spegling.');
+  addFunctionCheck(results, 'Nivå 2', 'Datorläge renare 189-status v323', fn('applyComputerActiveJobCardVisibilityV323') && src('getTabletStatusUiHelpV288', 'Här visas senaste status från 189.') && !src('renderTabletQueueMirrorV238', 'Datorläge: Redigera/Ta bort skickas som Snabbsync-begäran till paddan') && !src('refreshTabletQueueMirrorV238', 'Uppdaterad från lätt live-status.') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge renare 189-status v323'), 'v323 döljer Aktivt jobb-kortet i datorläge och tar bort tekniska texter från 189 status.');
   addFunctionCheck(results, 'Nivå 2', 'Returplats i GPS/inlärning v294', fn('getMaterialReturnLearningPartV294') && src('materialFlowEstimateKey', 'getMaterialReturnLearningPartV294') && src('buildStadslass20TransportWindows', 'returnPlaceLabelV294') && src('buildRouteRoleSnapSegmentsV211', 'Retur Till→Returplats') && src('buildSnapRoadsSegmentsForJobV211', 'Retur Till→Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i GPS/inlärning v294') && isActiveMonitorCoverageAtLeastV302('v294'), 'GPS-/tidsinlärning håller isär retursträckor via Returplats och Snap/transportfönster visar Returplats i returben.');
   addFunctionCheck(results, 'Nivå 2', 'Returplats i aktivt jobb och ETA v293', fn('buildMapPointFromJobReturnPlaceV293') && fn('resolveMapPointFromJobReturnPlaceV293') && fn('getReturnGeofenceForJobV293') && src('getActiveTransportEtaLegV215', 'returnPlace') && src('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && src('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && src('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && src('buildSmartMapRouteKey', 'retur:') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i aktivt jobb och ETA v293') && isActiveMonitorCoverageAtLeastV302('v294'), 'Aktiv ETA och kartberäkning använder Returplats som returbenets mål med Från-plats som fallback.');
   addFunctionCheck(results, 'Nivå 2', 'Uppstartsfix systemkontroll v292', APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292') && isActiveMonitorCoverageAtLeastV302('v292'), 'v292 markerar uppstartsfixen utan att ändra Returplats- eller synclogik.');
@@ -16331,6 +16350,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Uppstartsfix systemkontroll v292', APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartsfix systemkontroll v292'), 'v292 reparerar systemkontrollistan utan ändrad returplatslogik'),
     systemCheck('Returplats i historik/export v295/v322', typeof getSummaryRowReturnPlaceV295 === 'function' && typeof getJobRouteSummaryHtmlV295 === 'function' && typeof summarizeJobsByReturnPlaceV295 === 'function' && functionSourceIncludes('renderHistoryRegularJobCard', 'getJobRouteSummaryHtmlV295') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplatser') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i historik/export/sammanställning v295'), 'Returplats finns kvar i uppdrag/historik/export men separat sammanställningsruta är borttagen i v322'),
     systemCheck('Begränsad masterstatus och returplatssummering borttagen v322', typeof shouldUploadFullTabletStatusV322 === 'function' && typeof displayDeviceRoleV322 === 'function' && functionSourceIncludes('queueSyncRunAutoV227', 'fullSkippedV322') && functionSourceIncludes('runQueueSyncAfterStartupV310', 'startup-v322') && !document.getElementById('sumByReturnPlaceV295') && !functionSourceIncludes('buildSummaryMirrorPeriodHtmlV261', 'summary-mirror-returnplaces-v295') && APP_FEATURE_MANIFEST.some(item => item.name === 'Begränsad masterstatus och returplatssummering borttagen v322'), 'Tung tablet-status stoppas vid vanlig uppstart/resume/idle och synlig Returplatser-ruta är borttagen'),
+    systemCheck('Datorläge renare 189-status v323', typeof applyComputerActiveJobCardVisibilityV323 === 'function' && functionSourceIncludes('getTabletStatusUiHelpV288', 'Här visas senaste status från 189.') && !functionSourceIncludes('renderTabletQueueMirrorV238', 'Datorläge: Redigera/Ta bort skickas som Snabbsync-begäran till paddan') && !functionSourceIncludes('refreshTabletQueueMirrorV238', 'Uppdaterad från lätt live-status.') && APP_FEATURE_MANIFEST.some(item => item.name === 'Datorläge renare 189-status v323'), 'Datorläge döljer Aktivt jobb-kortet och 189 status har renare text utan teknisk källrad'),
 
     systemCheck('Returplats UI-städning v297', typeof getQueuePanelHelpTextV297 === 'function' && functionSourceIncludes('formatActiveOverviewHtml', 'active-overview-grid') && !functionSourceIncludes('formatActiveOverviewHtml', 'getJobRouteSummaryHtmlV288(job') && functionSourceIncludes('getJobReturnPlacePillHtmlV291', 'pill-return-place-v297') && functionSourceIncludes('getQueueSyncJobBadgeHtmlV229', 'isComputerDeviceModeV274') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats UI-städning v297'), 'v297 städar bort dubbel vägvisning i aktivt jobb, visar Returplats som ljusblå bricka och döljer 189-syncbrickor i Padda-läge'),
     systemCheck('Köredigering modal skrollfix v298', typeof setEditQueueJobModalScrollLockV298 === 'function' && typeof showEditQueueJobModalV298 === 'function' && functionSourceIncludes('openEditQueueJob', 'showEditQueueJobModalV298') && functionSourceIncludes('openTabletMirrorQueueEditV275', 'showEditQueueJobModalV298') && functionSourceIncludes('closeEditQueueJob', 'setEditQueueJobModalScrollLockV298(false)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Köredigering modal skrollfix v298'), 'Redigera köuppdrag använder egen skrollbar modal och släpper bakgrundslås vid stängning'),
@@ -23425,7 +23445,7 @@ function buildTabletCurrentStatusHtmlV251(payload, note, isError){
     buildTabletCurrentStatusTargetHtmlV262(display.targetBlock) +
     (display.commentText ? '<div class="job-comment-wide" style="margin-top:10px">' + escapeHtml(display.commentText).replace(/\n/g,'<br>') + '</div>' : '') +
     '<div class="muted" style="margin-top:8px">Läsande status. Inga arbetsknappar finns i denna vy.</div>' +
-    '<div class="tablet-current-status-contract-note-v262">Komplett statusblock från paddan v262.</div>';
+    '<div class="tablet-current-status-contract-note-v262">Komplett statusblock från 189.</div>';
 }
 
 function renderTabletCurrentStatusV251(payload, note, isError){
@@ -24518,7 +24538,7 @@ function renderTabletQueueMirrorV238(payload, note, isError){
     if(typeof renderTabletTodayMirrorV258 === 'function') renderTabletTodayMirrorV258(null, '' + getTabletStatusUiTitleV288() + ' visas bara på tillåten läsenhet.', false);
     if(typeof renderTabletSummaryMirrorV261 === 'function') renderTabletSummaryMirrorV261(null, '' + getTabletStatusUiTitleV288() + ' visas bara på tillåten läsenhet.', false);
     if(typeof renderTabletTimeBasisMirrorV268 === 'function') renderTabletTimeBasisMirrorV268(null, '' + getTabletStatusUiTitleV288() + ' visas bara på tillåten läsenhet.', false);
-    statusEl.innerHTML = '' + getTabletStatusUiTitleV288() + ' visas bara på tillåten läsenhet. Paddan använder den vanliga vyn Uppdrag i kö.';
+    statusEl.innerHTML = '' + getTabletStatusUiTitleV288() + ' visas bara på tillåten läsenhet. 189 använder den vanliga vyn Uppdrag i kö.';
     listEl.innerHTML = '';
     renderTabletQueueMirrorButtonV238();
     return;
@@ -24544,10 +24564,10 @@ function renderTabletQueueMirrorV238(payload, note, isError){
   const updated = formatQueueSyncDateTimeV221(payload.exportedAt || '');
   statusEl.classList.toggle('is-error', !!isError);
   statusEl.classList.toggle('is-ok', !isError);
+  const mirrorInfoNoteV323 = (!isComputerQueueControlModeV275() ? '<br><span class="muted">Ren läsning. Den här vyn skriver inte till 189:s kö och ändrar inte den egna kön.</span>' : '');
   statusEl.innerHTML = '<strong>' + escapeHtml(getTabletStatusUiTitleV288()) + '</strong><br>' +
     (count === null ? '?' : count) + ' uppdrag i 189:s kö · Senast publicerad: ' + escapeHtml(updated) +
-    (note ? '<br>' + escapeHtml(note) : '') +
-    '<br><span class="muted">' + (isComputerQueueControlModeV275() ? 'Datorläge: Redigera/Ta bort skickas som Snabbsync-begäran till paddan. Aktivt uppdrag får inte ändras.' : 'Ren läsning. Den här vyn skriver inte till 189:s kö och ändrar inte den egna kön.') + '</span>';
+    mirrorInfoNoteV323;
   if(rows.length){
     const orderedRowsV239 = rows.slice().sort((a,b) => {
       try{ return compareQueuedJobPlanning(a,b); }catch(e){ return 0; }
@@ -24587,7 +24607,8 @@ async function refreshTabletQueueMirrorV238(silent){
       ? await queueSyncFetchPreferredMirrorStatusV321({liveFirst:!!silent && !!cachedV321})
       : {payload:await queueSyncGetJsonFileV219(QUEUE_SYNC_TABLET_STATUS_FILE_V219), source:'full-tablet-status'};
     const payload = preferredV321 && preferredV321.payload ? preferredV321.payload : null;
-    const sourceTextV321 = preferredV321 && preferredV321.source === 'live-v321' ? 'Uppdaterad från lätt live-status.' : (preferredV321 && preferredV321.source === 'full+live-v321' ? 'Uppdaterad från statusfil och lätt live-status.' : 'Uppdaterad från 189:s statusfil.');
+    // v323: källtext som "Uppdaterad från lätt live-status" visas inte i normal 189-status.
+    const sourceTextV321 = '';
     if(payload) saveTabletQueueMirrorStatusV238(payload);
     renderTabletQueueMirrorV238(payload, payload ? sourceTextV321 : 'Ingen 189-status hittades.', !payload);
     return payload;
