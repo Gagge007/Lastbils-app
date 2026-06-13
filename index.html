@@ -119,7 +119,7 @@ Stadslass versionskontroll
 - v210: Akut skrollfix för Redigera Övrig verksamhet så lång dialog får egen scroll på padda/mobil.
 - v44: Viktfältet fångar Enter/Gå på mobilt tangentbord och kör samma logik som knappen Ange vikt.
 - v45: Till-geofence för första lossningsplatserna ändrar bara visuell status till Lossning med ljusgrön färg.
-- v46: Automatiska kartanrop begränsas till transport/retur var 5:e minut, spärras efter 14:00 och görs inte inne i geofence utom returberäkning direkt efter Ange vikt vid returkrav.
+- v46/v341: Automatiska kartanrop begränsas till rätt transport-/returfaser, cache, budget och anropsskydd. Den tidigare tidsstyrda spärren efter 14.00 är borttagen.
 - v59: Flaklager Skräppekärr fungerar även som Till-geofence. Aktivt jobb stoppar nya automatiska kartanrop när GPS är inom eller nära aktuell Från-/Till-zon.
 - v60: Dynamisk anropsspärr använder bara aktuell Från-/Till-plats geofence. Ingen spärr skapas av koordinater eller av andra kända zoner, men nya geofence i platsregistret används automatiskt.
 - v61: Uppskattad tid visas direkt vid aktiv start även som vänteläge; Returkrav styrs från Jobbtyper i Inställningar och maskintransport-varianter ärver Maskintransport.
@@ -216,7 +216,7 @@ Stadslass versionskontroll
 - v48: Hämta GitHub-kö öppnar Uppdrag i kö efter OK om minst ett nytt uppdrag lades till.
 - v49: Köberäkning från aktuell GPS-position använder trafikanpassad Google-rutt och egen köcache så startsträckan räknas fullt från platsen där knappen trycks.
 - v50: Köberäkning blandar färsk GPS-startsträcka med historik/känd data för materialflödet så okända startplatser utanför Göteborg kan få rimlig total tid.
-- v51: Häv spärr kör om samma köberäkning efter 14:00, visar felorsak och återanvänder befintlig enkel kötid som materialdel när GPS-starten är okänd.
+- v51/v341: Köberäkning har felåterställning och återanvänder befintlig enkel kötid som materialdel när GPS-starten är okänd. Den tidigare tidsstyrda spärr-/häv-flödet är borttaget.
 - v52: Kö-anrop skickar framtida departure timestamp och bevarar tidigare uppskattning om köberäkning misslyckas.
 - v53: Tillfällig mätruta visar hur Beräkna tider i kö mäter startsträcka, materialdel och total uppskattad tid.
 - v54: Tillfällig mätruta kontrollmäter Från -> Till och retur separat för jämförelse.
@@ -367,7 +367,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v340';
+  const version = 'Stadslass 2.0 v341';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3917,7 +3917,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v340</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v341</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -4987,7 +4987,7 @@ const MAP_GUARD_LIMITS = {
   cacheMaxAgeMs: 24 * 60 * 60 * 1000
 };
 const MAP_AUTO_RECALC_INTERVAL_MINUTES = 2.5;
-const MAP_AFTER_HOURS_BLOCK_HOUR = 14;
+const MAP_AFTER_HOURS_BLOCK_HOUR = null; // v341: tidsstyrd kartspärr efter 14.00 borttagen
 const SMART_ESTIMATE_DEFAULT_OVERHEAD_MINUTES = 15;
 const ACTIVE_ESTIMATE_PRE_MOVEMENT_HOLD_DISTANCE_KM = 0.05;
 const ACTIVE_ESTIMATE_PRE_MOVEMENT_HOLD_DRIVING_MS = 15000;
@@ -8239,13 +8239,8 @@ function getActiveEtaMapAttemptDiagnosis(job){
     result.reason = 'kartcache finns men har inte blivit uppskattad tid ännu';
     return result;
   }
-  result.afterHoursOverride = !!(typeof hasActiveMapAfterHoursOverride === 'function' && hasActiveMapAfterHoursOverride(job));
-  result.afterHoursBlocked = !!(typeof isAfterMapAutoBlockHour === 'function' && isAfterMapAutoBlockHour() && !result.afterHoursOverride);
-  if(result.afterHoursBlocked){
-    result.reason = 'automatisk kartberäkning spärrad efter kartanropstid';
-    result.normalMissing = true;
-    return result;
-  }
+  result.afterHoursOverride = false;
+  result.afterHoursBlocked = false;
   const modeInfo = typeof getStadslass137ActiveModeInfo === 'function' ? getStadslass137ActiveModeInfo(job, (typeof getActiveKnownPointForGeofence === 'function' ? getActiveKnownPointForGeofence(job) : null), {context:'eta_diagnosis'}) : null;
   result.geofenceBlocked = !!(modeInfo && modeInfo.googleBlocked) || !!(typeof hasActiveGeofenceVisualStop === 'function' && hasActiveGeofenceVisualStop(job));
   if(result.geofenceBlocked){
@@ -11275,7 +11270,7 @@ function getCombinedRequirementsForJob(job){
   };
   (getJobTypeRequirements(getJobTypeSettingsKeyForJob(job)) || []).forEach(req => add('', req));
   (getPlaceRequirements(job.place) || []).forEach(req => add('Från-plats', req));
-  (getPlaceRequirements(job.dest) || []).forEach(req => add('Till-plats', req));
+  (getPlaceRequirements(job.dest) || []).forEach(req => add('', req));
   return combined;
 }
 
@@ -12519,9 +12514,10 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v340';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v340';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v341';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v341';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v341 Borttagen tidsstyrd kartspärr och renare kravvisning',
   'v340 Funktionsbaseline och sista kontrollkalibrering',
   'v339 Kontrollmodernisering för gamla kontrollbehov och rapporttextrester',
   'v338 Rapporttextpolering så versionsrensning inte klipper meningar',
@@ -13087,10 +13083,10 @@ function getActiveMonitorChecks(snapshot){
     const statusText = s.remainingMinutes !== null ? (s.remainingMinutes + ' min kvar, Klar ca ' + clockTime(s.displayEndAt)) : 'saknar kvarvärde';
     ok('ETA-OV-001', 'Uppskattad tid har rimlig struktur', 'Minuter och sluttid ska finnas tillsammans.', statusText, 'v80 Klar ca', 'estimatedEndAt=' + s.estimatedEndAt + '; displayEndAt=' + s.displayEndAt);
     if(isAfterHoursSmartMapSkipReason(s.job && s.job.smartMapSkipReason) && !s.visibleSmartMapSkipReason){
-      ok('ETA-OV-007', 'Gammal kartanropsspärr döljs när ETA finns', 'Aktiv vy ska inte visa att kartanrop är spärrat om ETA redan finns eller spärren är hävd.', 'intern smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-') + '; visad skip-reason=' + activeMonitorSafe(s.visibleSmartMapSkipReason, '-'), 'v94 ETA-källa/kartanropsspärr', 'sourceDetail=' + activeMonitorSafe(s.etaSourceDetail, '-'));
+      ok('ETA-OV-007', 'Gammal tidsstyrd kartspärr döljs', 'Aktiv vy ska inte visa den gamla tidsstyrda kartspärren efter v341.', 'intern smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-') + '; visad skip-reason=' + activeMonitorSafe(s.visibleSmartMapSkipReason, '-'), 'v341 borttagen tidsstyrd kartspärr', 'sourceDetail=' + activeMonitorSafe(s.etaSourceDetail, '-'));
     }
     if(s.etaSourceDetail && s.etaSourceDetail !== '-'){
-      ok('ETA-OV-008', 'ETA-källa är beskriven', 'Övervakningen ska kunna visa var uppskattad tid kommer ifrån.', activeMonitorSafe(s.etaSourceDetail, '-'), 'v94 ETA-källa/kartanropsspärr', 'source=' + s.smartSource + '; new=' + s.mapNewCalls + '; cache=' + s.mapCacheHits);
+      ok('ETA-OV-008', 'ETA-källa är beskriven', 'Övervakningen ska kunna visa var uppskattad tid kommer ifrån.', activeMonitorSafe(s.etaSourceDetail, '-'), 'v341 borttagen tidsstyrd kartspärr', 'source=' + s.smartSource + '; new=' + s.mapNewCalls + '; cache=' + s.mapCacheHits);
     }
     if(s.etaHoldBeforeMovement){
       ok('ETA-OV-138', 'Startsträcka räknas inte ner före rörelse', 'När aktivt jobb står kvar i startsträcka utan registrerad körning ska uppskattad tid hållas och Klar ca flyttas framåt.', 'movement=' + activeMonitorNumber(s.etaHoldMovementKm, 3) + ' km; driving=' + activeMonitorNumber(s.etaHoldDrivingMs / 1000, 0) + ' s; kvar=' + activeMonitorSafe(s.remainingMinutes, '-') + ' min', 'v138 Startsträcka hålls före rörelse', 'reason=' + activeMonitorSafe(s.etaHoldReason, '-'));
@@ -14446,7 +14442,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v340';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v341';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -14482,6 +14478,7 @@ const APP_FEATURE_MANIFEST = [
   {id:'CONTROL-CENTER-REPORT-TEXT-POLISH-V338', name:'Kontrollcentral rapporttextpolering v338', status:'Kontrollcentral/Rapporttext/Visning', protectionStatus:'Aktiv', introduced:'v338', purpose:'v338 polerar rapporttext efter versionsrensningen så meningar inte lämnas avklippta, ensamma kolon tas bort och äldre versionsreferenser i normal rapportvy ersätts med begripliga ord.', changeRule:'Får bara påverka synlig rapporttext och visningsnamn i Kontrollcentralens rapporter. Får inte ändra kontrollernas saklogik, aktivt uppdrag, ködataformat, syncintervall, GPS/Snap, Google, vikt, historik/export, faser/bakgrund, backup eller driftlogg_v4_full.'},
   {id:'CONTROL-CENTER-CHECK-MODERNIZATION-V339', name:'Kontrollcentral kontrollmodernisering v339', status:'Kontrollcentral/Funktionskontroll/Systemkontroll/Rapporttext', protectionStatus:'Aktiv', introduced:'v339', purpose:'v339 uppdaterar kontrollklassningen för kontroller som redan bekräftas av aktuell appstruktur så gamla kontrollbehov inte fortsätter visas som om kontrollerna vore omoderna. Samtidigt lagas kvarvarande rapporttextrester kring användningsdata från mätstart.', changeRule:'Får bara påverka Kontrollcentralens kontrollklassning, funktions-/systemkontrollens rapportstatus och synlig rapporttext. Får inte ändra aktivt uppdrag, ködataformat, syncintervall, GPS/Snap, Google, vikt, historik/export, faser/bakgrund, backup eller driftlogg_v4_full.'},
   {id:'CONTROL-CENTER-BASELINE-CALIBRATION-V340', name:'Kontrollcentral baseline och sista kontrollkalibrering v340', status:'Kontrollcentral/Funktionslista/Funktionskontroll/Systemkontroll/Rapporttext', protectionStatus:'Aktiv', introduced:'v340', purpose:'v340 uppdaterar funktionsbaseline efter rapportvisningsfunktionerna, kalibrerar de sista uppenbart moderna kontrollbehoven och putsar kvarvarande rapporttext utan att ändra arbetslogik.', changeRule:'Får bara påverka Funktionslistans baseline, Kontrollcentralens kontrollklassning och synlig rapporttext. Får inte ändra aktivt uppdrag, ködataformat, syncintervall, GPS/Snap, Google, vikt, historik/export, faser/bakgrund, backup eller driftlogg_v4_full.'},
+  {id:'MAP-AFTER-HOURS-REMOVED-REQUIREMENT-TEXT-V341', name:'Borttagen tidsstyrd kartspärr och renare kravvisning v341', status:'Aktivt jobb/Karta/Kravvisning', protectionStatus:'Aktiv', introduced:'v341', purpose:'v341 tar bort den tidigare tidsstyrda spärren som stoppade nya kartanrop efter 14.00. Nya kartanrop skyddas fortsatt av cache, budget, anropsgränser och fas-/geofence-spärrar. Samtidigt visas Till-platsens krav utan prefixet Till-plats i aktivt jobb.', changeRule:'Får bara ta bort tidsstyrd kartspärr efter 14.00 och ändra synlig kravtext för Till-plats. Får inte ändra Google-budget, cache, max anrop per minut, dags-/månadsgränser, fas-/geofence-spärrar, aktivt uppdrag i övrigt, ködataformat, syncintervall, GPS/Snap, vikt, historik/export, backup eller driftlogg_v4_full.'},
   {id:'CONTROL-CENTER-PAD-VARIABLE-FIX-V335', name:'Kontrollcentral pad-variabelreparation v335', status:'Kontrollcentral/Funktionskontroll/Systemkontroll', protectionStatus:'Aktiv', introduced:'v335', purpose:'v335 reparerar en felaktig odefinierad pad-variabel i kontrollvillkor så Funktionskontroll och Systemkontroll inte kraschar med pad is not defined.', changeRule:'Får bara påverka kontrollvillkor/rapportkontroller där pad användes som odefinierad variabel. Får inte ändra aktivt uppdrag, ködataformat, syncintervall, GPS/Snap, Google, vikt, historik/export, bakgrund/fasfärger, backup eller driftlogg_v4_full.'},
   {id:'REPORT-FILENAMES-SHORT-V331', name:'Korta rapportfilnamn v331', status:'Kontrollcentral/Rapportfil', protectionStatus:'Aktiv', introduced:'v331', purpose:'Nedladdade kontrollrapporter döps med rapporttyp + version + datum/tid, utan stadslass-kontrollrapport-prefix, så flera filer snabbt kan skiljas åt.', changeRule:'Får bara ändra rapportfilnamn och mailtextens filnamnsreferens. Rapportinnehåll och arbetsdata får inte ändras.'},
   {id:'SOUND-SETTINGS-V331', name:'Ljudinställningar v331', status:'Inställningar/Ljud/189', protectionStatus:'Aktiv', introduced:'v331', purpose:'Inställningar får en tydlig knapp och panel för att slå av/på ljud vid mottagning av nytt uppdrag samt testa ljudet på enheten.', changeRule:'Får bara styra om ljudaviseringen ska spelas. Får inte ändra mottagning/import av uppdrag eller syncflöde.'},
@@ -14557,11 +14554,11 @@ const APP_FEATURE_MANIFEST = [
   {name:'Aktivt jobb radbrytning', status:'Aktiv', purpose:'Startpunkt/materialflöde/returkrav/starttillägg visas utan synlig HTML-kod som <br>.', changeRule:'Får ändras visuellt men får inte visa tekniska HTML-taggar för användaren.'},
   {name:'Karttest felruta mobilanpassad', status:'Aktiv', purpose:'Långa tekniska felmeddelanden och länkar i karttestet radbryts inom skärmbredden på mobil.', changeRule:'Får ändras i utseende men får inte orsaka horisontell överflytning.'},
   {name:'Kartskydd och kartcache', status:'Aktiv', purpose:'Lokala anropsgränser och cache minskar risken för onödiga Google Routes API-anrop.', changeRule:'Får justeras men ska finnas innan automatisk kartberäkning används.'},
-  {name:'Automatiska kartanrop v46', status:'Aktiv', purpose:'Automatisk kartomräkning får ske max var 5:e minut under Transport pågår och Retur pågår. Inga nya automatiska anrop görs inne i kända geofence, utom returberäkning direkt efter Ange vikt vid returkrav. Efter 14:00 krävs Häv spärr för nya automatiska anrop.', changeRule:'Får justeras efter test av faktisk anropsförbrukning men ska fortsatt respektera cache, 200-anropsgräns och geofence-regler.'},
-  {name:'Kö-anrop v47', status:'Aktiv', purpose:'Uppdrag i kö har manuell knapp som beräknar uppskattad tid individuellt för alla köuppdrag från aktuell GPS-position. Kölistan visar bara enkel uppskattad tid, inte källa/cache/anrop.', changeRule:'Nya kö-anrop ska inte köras automatiskt i bakgrunden; funktionen ska respektera cache, dagsgräns och spärr efter 14:00.'},
+  {name:'Automatiska kartanrop v46', status:'Aktiv', purpose:'Automatisk kartomräkning får ske under godkända transport- och returfaser när cache, budget, anropsgränser och fas-/geofence-spärrar tillåter det. v341 tog bort den tidigare tidsstyrda spärren efter 14.00.', changeRule:'Får justeras efter test av faktisk anropsförbrukning men ska fortsatt respektera cache, budget, max anrop per minut och geofence-/fasspärrar.'},
+  {name:'Kö-anrop v47', status:'Aktiv', purpose:'Uppdrag i kö har manuell knapp som beräknar uppskattad tid individuellt för alla köuppdrag från aktuell GPS-position. Kölistan visar bara enkel uppskattad tid, inte källa/cache/anrop.', changeRule:'Nya kö-anrop ska inte köras automatiskt i bakgrunden; funktionen ska respektera cache, budget och anropsgränser.'},
   {name:'Köberäkning GPS-start v49', status:'Aktiv', purpose:'Beräkna tider i kö använder aktuell GPS-position som full startpunkt för varje köuppdrag och använder trafikanpassad rutt för köberäkningen.', changeRule:'Startsträckan från GPS-position till Från får inte kapas, ersättas av sparad plats eller blandas ihop med tidigare platscache.'},
   {name:'Köberäkning hybrid v50', status:'Aktiv', purpose:'Beräkna tider i kö kan använda nytt kartanrop för aktuell GPS-position till Från och kombinera det med historik eller karttid för Från-Till-retur.', changeRule:'Okänd startplats får inte kräva historik. Startsträckan räknas med karttjänst och materialflödet får använda befintlig historik när sådan finns.'},
-  {name:'Köberäkning efter 14 v51', status:'Aktiv', purpose:'Häv spärr i köberäkningen kör om samma beräkning med sparad GPS-position. Om materialflödet redan har en enkel uppskattad tid används den som materialdel och ny GPS-startsträcka läggs ovanpå.', changeRule:'Köberäkning får inte visa klar vid 0 uppdaterade utan felorsak. Tidigare fungerande uppskattning ska inte raderas vid misslyckat anrop.'},
+  {name:'Köberäkning felåterställning v51', status:'Aktiv', purpose:'Köberäkningen återanvänder befintlig enkel kötid som materialdel när GPS-starten är okänd och återställer tidigare fungerande uppskattning vid misslyckat anrop. v341 tog bort det gamla tidsstyrda häv-spärr-flödet.', changeRule:'Köberäkning får inte visa klar vid 0 uppdaterade utan felorsak. Tidigare fungerande uppskattning ska inte raderas vid misslyckat anrop.'},
   {name:'Kö-anrop timestamp v52', status:'Aktiv', purpose:'Köberäkningens trafikanpassade kartanrop skickar avgångstid fem minuter framåt så Google inte stoppar anropet som passerad tid.', changeRule:'Om kö-anrop misslyckas ska tidigare fungerande uppskattning behållas och felet visas tydligt.'},
   {name:'Tillfällig mätruta köberäkning v53', status:'Borttagen med godkännande', purpose:'Felsökningsrutan användes tillfälligt för att verifiera köberäkningens delar. Användaren godkände borttagning inför v330.', changeRule:'Ska inte återställas och ska inte visas i vanlig appvy.'},
   {name:'Beräkningsstart', status:'Skyddad', purpose:'Sparas internt men ska inte hårt styra uppskattad tid eller visas som faktisk startpunkt.', changeRule:'Får förbättras med karttjänst men ska inte blandas in i materialflödets huvudunderlag.'},
@@ -15070,12 +15067,12 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V340', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && currentShort === 'v340', 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
-  add('MANIFEST-CURRENT-VERSION-V340', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
+  add('VERSION-CONSISTENCY-V341', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && currentShort === 'v341', 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('MANIFEST-CURRENT-VERSION-V341', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
-  add('SOURCE-BASELINE-MISSING-V340', 'Kända källkodsfunktioner finns kvar', missingSource.length === 0, missingSource.length ? missingSource.slice(0,50).join(', ') : 'baseline=' + baseline.length + '; aktuella=' + sourceFunctions.length, 'KRITISK');
-  add('SOURCE-BASELINE-NEW-V340', 'Nya källkodsfunktioner kräver uppdaterad funktionslista/baseline', newSource.length === 0, newSource.length ? newSource.slice(0,50).join(', ') : 'inga oregistrerade nya källkodsfunktioner', 'KRITISK');
+  add('SOURCE-BASELINE-MISSING-V341', 'Kända källkodsfunktioner finns kvar', missingSource.length === 0, missingSource.length ? missingSource.slice(0,50).join(', ') : 'baseline=' + baseline.length + '; aktuella=' + sourceFunctions.length, 'KRITISK');
+  add('SOURCE-BASELINE-NEW-V341', 'Nya källkodsfunktioner kräver uppdaterad funktionslista/baseline', newSource.length === 0, newSource.length ? newSource.slice(0,50).join(', ') : 'inga oregistrerade nya källkodsfunktioner', 'KRITISK');
   add('AUDIO-NEW-JOB-RECEIVED', 'Ljud vid mottagning av nytt uppdrag', audioManifest && audioCode, 'manifest=' + (audioManifest ? 'ja' : 'nej') + '; ljudkod=' + (audioCode ? 'hittad' : 'saknas'), 'KRITISK');
   add('CONTROL-CENTER-LIST-V331', 'Funktionslista finns i Kontrollcentralen', !!document.getElementById('controlCenterFunctionProtectionButtonV329') && typeof runControlCenterFunctionPreservationV329 === 'function', 'button=' + (!!document.getElementById('controlCenterFunctionProtectionButtonV329')) + '; runFn=' + (typeof runControlCenterFunctionPreservationV329 === 'function'), 'KRITISK');
   add('REPORT-FILENAMES-SHORT-V331', 'Korta rapportfilnamn', typeof controlCenterReportTypeSlugV331 === 'function' && functionSourceIncludes('downloadControlCenterReportFileV303', 'controlCenterReportTypeSlugV331') && !functionSourceIncludes('downloadControlCenterReportFileV303', 'stadslass-kontrollrapport-'), 'filnamn=rapporttyp-version-tid', 'KRITISK');
@@ -15092,6 +15089,7 @@ function buildFunctionProtectionRowsV329(){
   add('CONTROL-CENTER-REPORT-TEXT-POLISH-V338', 'Kontrollcentral rapporttextpolering v338', typeof cleanVisibleControlReportTextV337 === 'function' && functionSourceIncludes('cleanVisibleControlReportLineV337', 'uppdaterad för aktuell appversion') && functionSourceIncludes('cleanVisibleControlReportLineV337', 'äldre startkod') && APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-CENTER-REPORT-TEXT-POLISH-V338'), 'Rapporttexten poleras så versionsrensning inte lämnar avklippta meningar eller ensamma kolon', 'KRITISK');
   add('CONTROL-CENTER-CHECK-MODERNIZATION-V339', 'Kontrollcentral kontrollmodernisering v339', functionSourceIncludes('classifyControlCheckV166', 'modernVerifiedOkPatternsV339') && functionSourceIncludes('cleanVisibleControlReportLineV337', 'Aktiva manifestposter utan användningsdata från') && APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-CENTER-CHECK-MODERNIZATION-V339'), 'Gamla kontrollbehov med bekräftad aktuell appstruktur klassas som OK och kvarvarande från mätstart-texter städas', 'KRITISK');
   add('CONTROL-CENTER-BASELINE-CALIBRATION-V340', 'Kontrollcentral baseline och sista kontrollkalibrering v340', Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329) && APP_FUNCTION_SOURCE_BASELINE_V329.indexOf('cleanVisibleControlReportLineV337') >= 0 && APP_FUNCTION_SOURCE_BASELINE_V329.indexOf('cleanVisibleControlReportTextV337') >= 0 && functionSourceIncludes('classifyControlCheckV166', 'polygonvarning geofence') && functionSourceIncludes('cleanVisibleControlReportLineV337', 'återinfört utan äldre startkod') && APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-CENTER-BASELINE-CALIBRATION-V340'), 'Baseline är uppdaterad för rapportvisningsfunktionerna och sista kontroll-/textkalibreringen finns', 'KRITISK');
+  add('MAP-AFTER-HOURS-REMOVED-REQUIREMENT-TEXT-V341', 'Borttagen tidsstyrd kartspärr och renare kravvisning v341', typeof isAfterMapAutoBlockHour === 'function' && isAfterMapAutoBlockHour() === false && functionSourceIncludes('renderActiveAutoMapStatus', 'v341: tidsstyrd 14-spärr borttagen') && functionSourceIncludes('getCombinedRequirementsForJob', "(getPlaceRequirements(job.dest) || []).forEach(req => add('', req))") && !functionSourceIncludes('getCombinedRequirementsForJob', "add('Till-plats'") && APP_FEATURE_MANIFEST.some(item => item.id === 'MAP-AFTER-HOURS-REMOVED-REQUIREMENT-TEXT-V341'), 'Tidsstyrd kartspärr efter 14.00 är borttagen och Till-platsens krav visas utan Till-prefix', 'KRITISK');
   add('CONTROL-CENTER-PAD-VARIABLE-FIX-V335', 'Kontrollcentral pad-variabelreparation v335', !functionSourceIncludes('buildFunctionControlTextReportV165', "src('getDeviceModeV272', pad)") && APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-CENTER-PAD-VARIABLE-FIX-V335'), 'Kontrollvillkor använder säker textroll och inte odefinierad variabel pad', 'KRITISK');
   return {rows, sourceFunctions, baseline, missingSource, newSource, manifest};
 }
@@ -15565,7 +15563,9 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport finns men påverkar inte GPS/tid', !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && fn('normalizeImportedReceiptRow') && src('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'kvittoimport skapar historiska sammanställningsrader');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning från GPS-start finns', fn('calculateQueueTimesFromCurrentGps') && fn('getCurrentGpsPointForQueueTime') && fn('requestQueueRouteByPoints') && src('requestQueueRouteByPoints', 'TRAFFIC_AWARE'), 'manuell köberäkning från aktuell GPS-position');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning hybrid/smart delberäkning finns', fn('calculateQueueMapTotalsFromGps') && fn('getStoredQueueGpsEstimateForJob') && fn('buildQueueGpsEstimateStorageKey') && src('calculateQueueMapTotalsFromGps', 'getMaterialFlowEstimateForJob'), 'GPS-start kan kombineras med historik/materialdel');
-  addFunctionCheck(results, 'Nivå 2', 'Köberäkning efter 14 och felåterställning finns', fn('getBaselineQueueEstimateForMaterialWithoutGps') && fn('restoreQueueJobAfterFailedEstimate') && src('calculateQueueTimesFromCurrentGps', 'Köberäkning misslyckades'), 'spärrhävning/felorsak utan att kasta fungerande uppskattning');
+  addFunctionCheck(results, 'Nivå 2', 'Köberäkning felåterställning finns', fn('getBaselineQueueEstimateForMaterialWithoutGps') && fn('restoreQueueJobAfterFailedEstimate') && src('calculateQueueTimesFromCurrentGps', 'Köberäkning misslyckades'), 'felorsak och återställning utan att kasta fungerande uppskattning');
+  addFunctionCheck(results, 'Nivå 2', 'Tidsstyrd kartspärr borttagen v341', typeof isAfterMapAutoBlockHour === 'function' && isAfterMapAutoBlockHour() === false && !src('calculateQueueTimesFromCurrentGps', 'Kartanrop är spärrade efter 14:00') && !src('requestGoogleRouteByPointsForActiveAuto', 'Kartanrop är spärrade efter 14:00'), 'nya kartanrop stoppas inte längre enbart av klockslag efter 14.00');
+  addFunctionCheck(results, 'Nivå 2', 'Till-prefix borttaget i krav v341', src('getCombinedRequirementsForJob', "(getPlaceRequirements(job.dest) || []).forEach(req => add('', req))") && !src('getCombinedRequirementsForJob', "add('Till-plats'"), 'Till-platsens krav visas utan prefixet Till-plats i aktivt jobb');
   addFunctionCheck(results, 'Nivå 2', 'Gammal GitHub-kö borttagen ur synlig vy v224', !el('githubQueueFileName'), 'Gamla GitHub-köfilflödet ska inte längre synas i appen.');
   addFunctionCheck(results, 'Nivå 2', 'Inställningar struktur v56 finns', fn('getPlaceRequirements') && fn('getCombinedRequirementsForJob') && !!el('newManagedPlaceRequirements') && !!el('newManagedJobTypeRequirements') && fn('renderPlaceManager') && fn('renderJobTypeManager'), 'Platser har platskrav och jobbtyper har transportinstruktioner/jobbkrav');
   addFunctionCheck(results, 'Nivå 2', 'Platsknappar v57 finns', fn('saveSingleManagedPlace') && fn('removeManagedPlace') && fn('buildPlaceManagerRow') && src('buildPlaceManagerRow', 'saveSingleManagedPlace') && src('buildPlaceManagerRow', 'removeManagedPlace'), 'varje platsrad kan sparas eller tas bort');
@@ -16854,6 +16854,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Extern tjänstestatus v312', typeof getExternalServiceReportLineV312 === 'function' && getExternalServiceReportLineV312().text === 'Google extern tjänstestatus: OK' && !String(getExternalServiceReportLineV312().detail || '').toLowerCase().includes('kort'), 'Google extern tjänstestatus: OK'),
     systemCheck('Tryckimpregnerat QR-kod i lossningsfas v315', typeof isTryckimpregneratQrJobV315 === 'function' && typeof isTryckimpregneratQrLossningV315 === 'function' && typeof renderTryckimpregneratQrV315 === 'function' && !!document.getElementById('tryckQrPanelV315') && functionSourceIncludes('renderActive', 'renderTryckimpregneratQrV315') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tryckimpregnerat QR-kod i lossningsfas v315'), 'QR-koden visas endast för Tryckimpregnerat i lossningsfas och kan öppnas större för scanning'),
     systemCheck('Jobbtypskrav utan Jobbtyp-prefix v313', functionSourceIncludes('getCombinedRequirementsForJob', "forEach(req => add('', req))") && !functionSourceIncludes('getCombinedRequirementsForJob', "forEach(req => add('Jobbtyp', req))") && APP_FEATURE_MANIFEST.some(item => item.name === 'Jobbtypskrav utan Jobbtyp-prefix v313'), 'Jobbtypens transportinstruktioner visas utan prefixet Jobbtyp: i aktivt jobb'),
+    systemCheck('Borttagen tidsstyrd kartspärr och renare kravvisning v341', typeof isAfterMapAutoBlockHour === 'function' && isAfterMapAutoBlockHour() === false && !functionSourceIncludes('calculateQueueTimesFromCurrentGps', 'Kartanrop är spärrade efter 14:00') && !functionSourceIncludes('requestGoogleRouteByPointsForActiveAuto', 'Kartanrop är spärrade efter 14:00') && functionSourceIncludes('getCombinedRequirementsForJob', "(getPlaceRequirements(job.dest) || []).forEach(req => add('', req))") && !functionSourceIncludes('getCombinedRequirementsForJob', "add('Till-plats'") && APP_FEATURE_MANIFEST.some(item => item.id === 'MAP-AFTER-HOURS-REMOVED-REQUIREMENT-TEXT-V341'), 'tidsstyrd kartspärr efter 14.00 är borttagen och Till-platsens krav visas utan Till-prefix'),
     systemCheck('Pausade uppdrag Excel/dagdelning v314', typeof getSummaryUniqueJobKeyV314 === 'function' && typeof addUniqueSummaryJobCountV314 === 'function' && functionSourceIncludes('buildSummaryRowsForJob', 'Pausat uppdrag') && functionSourceIncludes('buildSummaryRowsForJob', 'Fortsättning uppdrag') && functionSourceIncludes('summarizeJobsByType', 'addUniqueSummaryJobCountV314') && functionSourceIncludes('getTodayDisplayJobs', 'buildSummaryRowsFromJobs(getFinishedJobsForUnderlag())') && APP_FEATURE_MANIFEST.some(item => item.name === 'Pausade uppdrag Excel/dagdelning v314'), 'delade/pausade uppdrag tidsdelas i app/Excel och räknas som ett jobb per jobbtyp'),
     systemCheck('Uppstartssync och registerauto v310', typeof scheduleQueueSyncAfterStartupV310 === 'function' && typeof runQueueSyncAfterStartupV310 === 'function' && typeof queueSyncAutoImportRegisterFromTabletPayloadV310 === 'function' && functionSourceIncludes('hideAppSplashScreen', 'scheduleQueueSyncAfterStartupV310') && functionSourceIncludes('runQueueSyncAfterStartupV310', 'startupV310:true') && functionSourceIncludes('queueSyncAutoImportRegisterFromTabletPayloadV310', 'applyQueueSyncRegisterSnapshotV235') && APP_FEATURE_MANIFEST.some(item => item.name === 'Uppstartssync och registerauto v310'), 'Efter färdig startskärm körs försiktig rollsync och planeringsenhet kan uppdatera sitt register från paddans masterpaket'),
     systemCheck('Aktiv knapp publicerar Lastbils status v309', typeof scheduleQueueSyncAfterActiveButtonV309 === 'function' && typeof runQueueSyncAfterActiveButtonV309 === 'function' && typeof isQueueSyncActiveButtonPublishAllowedV309 === 'function' && functionSourceIncludes('runQueueSyncAfterActiveButtonV309', "queueSyncRunActiveMirrorV253('active-button-v309:") && functionSourceIncludes('addLoadToCurrent', "scheduleQueueSyncAfterActiveButtonV309('ange-vikt')") && functionSourceIncludes('toggleActiveTransportPhase', "scheduleQueueSyncAfterActiveButtonV309('lastar')") && functionSourceIncludes('pauseActiveJob', "scheduleQueueSyncAfterActiveButtonV309('pausa')") && functionSourceIncludes('stopJob', "scheduleQueueSyncAfterActiveButtonV309('klart')") && APP_FEATURE_MANIFEST.some(item => item.name === 'Aktiv knapp publicerar Lastbils status v309'), 'Aktiva arbetsknappar på Padda schemalägger direkt Lastbils status-publicering efter lokal sparning'),
@@ -19249,18 +19250,19 @@ function formatMapCallCounterHtml(job){
 }
 
 function isAfterMapAutoBlockHour(){
-  return new Date().getHours() >= MAP_AFTER_HOURS_BLOCK_HOUR;
+  // v341: tidsstyrd 14-spärr borttagen. Kartanrop skyddas av budget, cache, max/minut, fas- och geofence-regler.
+  return false;
 }
 
 function hasActiveMapAfterHoursOverride(job){
-  return !!(job && job.mapAfterHoursOverride === true && job.mapAfterHoursOverrideDayKey === getLocalDateKey(new Date()));
+  // v341: kvar som kompatibilitetsfunktion för äldre sparade uppdrag, men ingen tidsstyrd spärr finns längre.
+  return false;
 }
 
 function setActiveMapAfterHoursBlocked(job, reason){
   if(!job) return;
-  job.mapAutoBlockedAfterHoursAt = Date.now();
-  job.mapAutoBlockedReason = reason || 'auto';
-  job.mapAutoBlockMessage = 'Kartanrop är spärrade efter 14:00.';
+  // v341: gammal tidsstyrd spärr får inte längre sätta stopp eller synlig spärrruta.
+  clearActiveMapAfterHoursBlocked(job);
 }
 
 function clearActiveMapAfterHoursBlocked(job){
@@ -19273,13 +19275,11 @@ function clearActiveMapAfterHoursBlocked(job){
 function enableActiveMapAfterHoursOverride(){
   if(!state.active) return;
   const pendingReason = state.active.mapAutoBlockedReason || '';
-  state.active.mapAfterHoursOverride = true;
-  state.active.mapAfterHoursOverrideDayKey = getLocalDateKey(new Date());
   clearActiveMapAfterHoursBlocked(state.active);
   saveState();
   renderActive();
   scheduleActiveAutoMapRecalculation(lastGpsPoint, {
-    reason: pendingReason || 'after_hours_override',
+    reason: pendingReason || 'v341_time_block_removed',
     force:true,
     allowInsideGeofence: pendingReason === 'return_weight'
   });
@@ -19287,7 +19287,6 @@ function enableActiveMapAfterHoursOverride(){
 
 function keepActiveMapAfterHoursBlock(){
   if(!state.active) return;
-  state.active.mapAfterHoursPromptDismissedDayKey = getLocalDateKey(new Date());
   clearActiveMapAfterHoursBlocked(state.active);
   saveState();
   renderActive();
@@ -19526,12 +19525,7 @@ async function requestGoogleRouteByPointsForActiveAuto(fromPoint, toPoint, job, 
   const cacheKey = buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
   const cached = getCachedMapRouteByKey(cacheKey);
   if(cached) return cached;
-  if(isAfterMapAutoBlockHour() && !hasActiveMapAfterHoursOverride(job)){
-    setActiveMapAfterHoursBlocked(job, reason);
-    saveState();
-    renderActiveAutoMapStatus();
-    throw new Error('Kartanrop är spärrade efter 14:00.');
-  }
+  // v341: ingen tidsstyrd spärr efter 14.00. Övriga kartskydd gäller i requestGoogleRouteByPoints.
   return requestGoogleRouteByPoints(fromPoint, toPoint);
 }
 
@@ -19612,21 +19606,8 @@ function renderActiveAutoMapStatus(){
     return;
   }
   const job = state.active;
-  const today = getLocalDateKey(new Date());
-  const blocked = Number(job.mapAutoBlockedAfterHoursAt || 0) > 0 && job.mapAfterHoursPromptDismissedDayKey !== today && !hasActiveMapAfterHoursOverride(job);
-  if(blocked){
-    el.innerHTML = '<strong>Kartanrop är spärrade efter 14:00.</strong>' +
-      '<div class="muted" style="margin-top:4px">Gäller nya automatiska kartanrop för aktuellt uppdrag. Cache, GPS och geofence fungerar fortfarande.</div>' +
-      '<div class="row" style="margin-top:10px">' +
-        '<button class="primary inline" onclick="enableActiveMapAfterHoursOverride()">Häv spärr</button>' +
-        '<button class="inline" onclick="keepActiveMapAfterHoursBlock()">Behåll spärr</button>' +
-      '</div>';
-    el.classList.remove('hidden', 'is-ok');
-    el.classList.add('is-error');
-    return;
-  }
+  // v341: tidsstyrd 14-spärr borttagen. Ingen spärrruta med Häv/Behåll ska visas.
   // v159: normal teknisk auto-/platsstatus visas inte längre i vanlig Aktivt jobb-vy.
-  // Efter-14-spärrens åtgärdsknappar ovan behålls eftersom de kräver ett aktivt val från användaren.
   el.innerHTML = '';
   el.classList.add('hidden');
   el.classList.remove('is-error', 'is-ok');
@@ -31334,7 +31315,7 @@ function getSmartMapSkipReasonForDisplay(job){
   if(!job) return '';
   const reason = String(job.smartMapSkipReason || '').trim();
   if(!reason) return '';
-  if(isAfterHoursSmartMapSkipReason(reason) && (hasActiveEtaEstimate(job) || (typeof hasActiveMapAfterHoursOverride === 'function' && hasActiveMapAfterHoursOverride(job)))) return '';
+  if(isAfterHoursSmartMapSkipReason(reason)) return '';
   if(isStadslass137PlaceModeSkipReason(reason) && hasActiveEtaEstimate(job)) return '';
   return reason;
 }
@@ -31343,10 +31324,10 @@ function reconcileEtaSourceAndSkipReason(job){
   if(!job) return false;
   const reason = String(job.smartMapSkipReason || '').trim();
   if(!reason) return false;
-  if(isAfterHoursSmartMapSkipReason(reason) && (hasActiveEtaEstimate(job) || (typeof hasActiveMapAfterHoursOverride === 'function' && hasActiveMapAfterHoursOverride(job)))){
+  if(isAfterHoursSmartMapSkipReason(reason)){
     delete job.smartMapSkipReason;
     delete job.smartMapSkipAt;
-    job.smartMapSkipClearedByV94At = Date.now();
+    job.smartMapSkipClearedByV341At = Date.now();
     return true;
   }
   return false;
@@ -31525,11 +31506,7 @@ function shouldScheduleSmartEstimate(job){
     return false;
   }
   const isActiveJob = !!(state.active && job && state.active.id === job.id);
-  if(isAfterMapAutoBlockHour() && !(isActiveJob && hasActiveMapAfterHoursOverride(job))){
-    if(isActiveJob) setActiveMapAfterHoursBlocked(job, 'smart_estimate');
-    setSmartMapSkipReasonForJob(job, 'automatisk kartberäkning spärrad efter kartanropstid');
-    return false;
-  }
+  // v341: ingen tidsstyrd spärr efter 14.00. Budget, cache, intervall, fas och geofence avgör.
   if(isActiveJob){
     const geofencePoint = getActiveKnownPointForGeofence(job);
     const modeInfo = getStadslass137ActiveModeInfo(job, geofencePoint, {context:'smart_estimate'});
@@ -31780,12 +31757,12 @@ function buildQueueDebugRoute(label, fromPoint, toPoint, result){
 
 function keepQueueTimeAfterHoursBlock(){
   queueTimeCalculationPendingGpsPoint = null;
-  setQueueTimeCalcStatus('Kartanropsspärr behålls. Inga nya kö-anrop gjordes.', true, false);
-
+  setQueueTimeCalcStatus('Köberäkning avbruten. Befintliga uppskattade tider behålls.', false, false);
 }
 
 function continueQueueTimeAfterHoursBlock(){
-  calculateQueueTimesFromCurrentGps({allowAfterHours:true, usePendingGps:true});
+  // v341: gammal kompatibilitetsfunktion. Tidsstyrd spärr finns inte längre.
+  calculateQueueTimesFromCurrentGps({usePendingGps:true});
 }
 
 function getCurrentGpsPointForQueueTime(usePending){
@@ -31907,9 +31884,7 @@ async function requestQueueRouteByPoints(fromPoint, toPoint, allowAfterHours){
   const cacheKey = buildQueueTrafficAwareRouteCacheKey(fromPoint, toPoint);
   const cached = getCachedMapRouteByKey(cacheKey);
   if(cached) return cached;
-  if(isAfterMapAutoBlockHour() && !allowAfterHours){
-    throw new Error('Kartanrop är spärrade efter 14:00.');
-  }
+  // v341: ingen tidsstyrd spärr efter 14.00. Övriga kartskydd gäller i requestGoogleRouteByPointsWithCacheKey.
   const queueDepartureTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
   return requestGoogleRouteByPointsWithCacheKey(fromPoint, toPoint, cacheKey, {
     routingPreference:'TRAFFIC_AWARE',
@@ -31924,9 +31899,7 @@ async function requestQueueNormalRouteByPoints(fromPoint, toPoint, allowAfterHou
   const cacheKey = buildMapRouteCacheKeyFromParts(fromPoint.cacheKey, toPoint.cacheKey);
   const cached = getCachedMapRouteByKey(cacheKey);
   if(cached) return cached;
-  if(isAfterMapAutoBlockHour() && !allowAfterHours){
-    throw new Error('Kartanrop är spärrade efter 14:00.');
-  }
+  // v341: ingen tidsstyrd spärr efter 14.00. Övriga kartskydd gäller i requestGoogleRouteByPointsWithCacheKey.
   return requestGoogleRouteByPointsWithCacheKey(fromPoint, toPoint, cacheKey, {routingPreference:'TRAFFIC_UNAWARE'});
 }
 
@@ -32154,20 +32127,7 @@ async function calculateQueueTimesFromCurrentGps(options){
     const point = await getCurrentGpsPointForQueueTime(!!opts.usePendingGps);
     const needsNewCalls = anyQueueJobNeedsNewMapCallFromGps(jobs, point);
 
-    if(isAfterMapAutoBlockHour() && needsNewCalls && !opts.allowAfterHours){
-      queueTimeCalculationPendingGpsPoint = point;
-      setQueueTimeCalcStatus(
-        '<strong>Kartanrop är spärrade efter 14:00.</strong>' +
-        '<div class="muted" style="margin-top:4px">Köberäkningen behöver nya kartanrop för minst ett uppdrag. Cache kan fortfarande användas, men nya anrop kräver att spärren hävs för denna köberäkning.</div>' +
-        '<div class="row" style="margin-top:10px">' +
-          '<button class="primary inline" onclick="continueQueueTimeAfterHoursBlock()">Häv spärr</button>' +
-          '<button class="inline" onclick="keepQueueTimeAfterHoursBlock()">Behåll spärr</button>' +
-        '</div>',
-        true,
-        false
-      );
-      return;
-    }
+    // v341: köberäkning stoppas inte längre av klockslag efter 14.00.
 
     queueTimeCalculationPendingGpsPoint = null;
     setQueueTimeCalcStatus('Beräknar tider för ' + jobs.length + ' köuppdrag…', false, false);
