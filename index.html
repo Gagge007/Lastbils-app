@@ -3,8 +3,7 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v361
-- v361: Plus Code/adress för tillfällig Annan plats kompletteras med reverse geocoding från koordinaten när Google först bara ger Plus Code. Aktivt arbete och fasuträkning ska använda hittad gata/väg/adress före Plus Code. Befintligt aktivt uppdrag kan uppdatera adressvisning automatiskt om koordinat redan finns.
+- Nuvarande version: Stadslass 2.0 v362
 - v360: Plus Code/adress-kontroll för tillfällig Annan plats visar hittad adress/gata och använder gatunamn i aktiv Från/Till-ruta när Google hittar väg/gata. Jobbkorten använder pausmedveten workSessions-tid vid paus/fortsätt, annars verklig sparad start/slut-tid. Lastnings-/lossningslås flyttas inte i denna version.
 - v357: Datavolym/historikavlastning. Lägger till läsande datakarta för driftlogg_v4_full, avslutade jobb, GPS-/Snap-tyngd och arkiveringskandidater utan att ändra arbetsdata.
 - v358: Radering av historisk GPS/Snap från avslutade jobb via tydlig knapp. Behåller tider, fasdata, vikt, material, mtrl kod, anläggning, från/till/returplats, trippmätare, aktiv GPS/geofence/ETA och arbetsflöde.
@@ -379,7 +378,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v361';
+  const version = 'Stadslass 2.0 v362';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3972,7 +3971,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v361</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v362</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -11473,6 +11472,9 @@ async function geocodeTemporaryOtherPlaceSpecV175(spec){
   spec.formattedAddress = result.formattedAddress || '';
   spec.streetAddress = sanitizeTemporaryPlaceTextV175(result.streetAddress || result.displayAddress || '');
   spec.displayAddress = spec.streetAddress || '';
+  if(typeof refreshTemporaryOtherPlaceReverseAddressV361 === 'function' && temporaryOtherPlaceNeedsReverseAddressV361(spec)){
+    await refreshTemporaryOtherPlaceReverseAddressV361(spec);
+  }
   spec.label = getTemporaryOtherPlaceVisibleLabelV360(spec, spec.role);
   spec.geocodedAt = Date.now();
   spec.source = 'temporary_other_place_v175';
@@ -13188,7 +13190,7 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v361';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v362';
 const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v351';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v351 Uppstartsreparation efter watchdog-timeout',
@@ -15137,7 +15139,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v361';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v362';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15170,6 +15172,7 @@ const APP_FEATURE_MANIFEST = [
   {id:'HISTORY-TIME-STORAGE-MOVE-V359', name:'Historiktid och lagringsverktyg flyttade v359', status:'Historik/Lagringskontroll/visningsfix', protectionStatus:'Aktiv', introduced:'v359', purpose:'v359 gör att vanliga avslutade jobbkort använder faktisk sparad start/slut-tid före gamla workSessions/fasmodeller och flyttar v355/v357/v358 lagringsverktyg från arbetsvyn till Lagringskontroll.', changeRule:'Får bara påverka visning/beräkning av Tid/Arbetstid totalt/Hantering-väntan i historik/Idag samt placering av lagringsverktygens rutor. Får inte ändra eller rensa driftlogg_v4_full, avslutade jobb, aktivt jobb, kö, GPS/geofence/ETA, spegling, sync-cache, register, vikter, material, mtrl kod, anläggning, från/till/returplats eller trippmätare.'},
   {id:'TEMP-PLACE-ADDRESS-PAUSE-TIME-V360', name:'Tillfällig plats adressvisning och pausmedveten tid v360', status:'Aktiv visning/tidsberäkning', protectionStatus:'Aktiv', introduced:'v360', purpose:'v360 visar Googles hittade gata/väg/adress för tillfällig Annan plats i kontrollstatus och använder den som Från/Till-visning i aktivt arbete när den finns. Jobbkorten använder riktig workSessions-summa när uppdrag pausats/fortsatts, annars verklig sparad start/slut-tid.', changeRule:'Får bara påverka tillfällig Annan plats-visningsnamn/status från geokodning samt dold beräkning av Tid/Arbetstid totalt/Hantering-väntan. Får inte ändra lastnings-/lossningslås, permanent platsregister, aktivt jobbflöde, GPS/geofence/ETA, spegling, sync-cache, lagringsrensning, vikter, material, mtrl kod/anläggning, från/till/returplats eller trippmätare.'},
   {id:'TEMP-PLACE-REVERSE-ADDRESS-V361', name:'Tillfällig plats reverse-adress v361', status:'Aktiv visning/geokodning', protectionStatus:'Aktiv', introduced:'v361', purpose:'v361 kompletterar tillfälliga Annan plats-Plus Codes med reverse geocoding från koordinaten när första Google-svaret bara ger Plus Code, så aktivt arbete och fasuträkning visar gata/väg/adress i stället för Plus Code när Google kan hitta det.', changeRule:'Får bara påverka geokodad visningsadress för tillfällig Från/Till Annan plats och etiketter i aktivt arbete/fasuträkning. Får inte ändra koordinatens arbetsroll, tillfälligt geofence, lastnings-/lossningslås, permanent platsregister, aktivt jobbflöde, GPS/geofence/ETA-beräkning, spegling, sync-cache, vikter, material, mtrl kod/anläggning, från/till/returplats-truth, trippmätare eller lagringsrensning.'},
+  {id:'FUTURE-GPS-HISTORY-LITE-V362', name:'Ny historik utan rå GPS/Snap v362', status:'Prestanda/historik/GPS', protectionStatus:'Aktiv', introduced:'v362', purpose:'v362 gör v358-principen permanent framåt: aktiv GPS används fortsatt för fas, geofence, ETA, transportfönster och avslutsrapport, men rå routeGps/Snap/rå sträckdata tas bort från avslutade jobb innan de sparas i historiken.', changeRule:'Får bara ta bort tung rå GPS/Snap/rå sträckdata från nyavslutade historikjobb efter att avslutsrapport och fas-/geofenceunderlag skapats. Ska bevara tid, fasdata, transportfönster, vikt, material, mtrl kod, anläggning, från/till/returplats, trippmätare, aktiv GPS under pågående arbete, geofence, ETA, spegling, sync-cache, register, platser, jobbtyper och driftlogg_v4_full-nyckeln.'},
   {id:'JOBTYPE-PLACE-SAFE-RENAME-V353', name:'Säkert namnbyte med plats- och Havstångsskydd v353', status:'Jobbtyper/Platser/Havstång/Kontrollcentral', protectionStatus:'Aktiv', introduced:'v353', purpose:'Behåller säkert jobbtypsnamnbyte via JT-ID, stoppar att Platser sparas som 0, låter Havstångs specialregler följa intern roll/ID i stället för synligt namn och reparerar dubbletter med samma JT-ID.', changeRule:'Får bara påverka jobbtypers visningsnamn, platskopplingars namn/ID-normalisering, Havstångs specialkoppling och läsande kontroller. Får inte ändra aktiv faslogik, vikt, GPS/Snap, sync, historikdata, backup/export eller localStorage-nyckel.'},
   {id:'STARTUP-WATCHDOG-COMPLETE-V351', name:'Uppstartsreparation watchdog v351', status:'Uppstart/Watchdog/Startskärm', protectionStatus:'Aktiv', introduced:'v351', purpose:'v351 kvitterar App redo direkt efter första rendering/startskärm döljs så watchdog inte hinner larma när UI redan är framme. Kontroll-/baselinefix från v350 behålls.', changeRule:'Får bara påverka uppstartsvaktens färdigmarkering och versions-/kontrollmarkering. Får inte ändra syncbegränsning, kölogik, aktivt jobb, vikt, GPS/Snap, historik/export, backup, localStorage-nyckel eller lägga till fri namnbytesfunktion.'},
   {id:'CONTROL-BASELINE-CALIBRATION-V350', name:'Kontroll-/baselinefix v350', status:'Kontrollcentral/Funktionslista/Funktionskontroll/Systemkontroll/Syncpaketdiagnos', protectionStatus:'Aktiv', introduced:'v350', purpose:'v350 uppdaterar källkodsbaseline och kalibrerar kontroller efter v342/v346/v348/v349 så väntade hjälpfunktioner inte flaggas som oregistrerade. Kontroller för autosync/snabb bekräftelse använder profilens faktiska intervallgränser och Syncpaketdiagnos mäter paket i PUT-flödet utan att begränsa sync.', changeRule:'Får bara påverka kontroll-/baselineklassning och lägga till mätkoppling för Syncpaketdiagnos före GitHub PUT. Får inte ändra syncbegränsning, kölogik, aktivt jobb, vikt, GPS/Snap, historik/export, backup, localStorage-nyckel eller lägga till fri namnbytesfunktion.'},
@@ -15574,8 +15577,18 @@ try{
   ['STORAGE_RESCUE_SAFE_KEYS_V355','storageRescueHashV355','storageRescueLightItemV355','storageRescueFormatBytesV355','storageRescueAllLocalSizeV355','buildStorageRescueReportV355','renderStorageRescueV355','downloadStorageRescueRemovedKeysBackupV355','runStorageRescueSafeCleanupV355','copyStorageRescueReportV355','initializeStorageRescueV355'].forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
 const HISTORY_VOLUME_FUNCTIONS_V357 = ['historyVolumeByteLengthV357','historyVolumeDataSizeV357','historyVolumeSafeStringV357','historyVolumeJobDateV357','historyVolumeJobLabelV357','historyVolumeCountGpsPointsV357','historyVolumeJobMetricV357','buildHistoryVolumeAnalysisV357','buildHistoryVolumeTextReportV357','renderHistoryVolumeReportV357','copyHistoryVolumeReportV357','downloadHistoryVolumeReportV357','initializeHistoryVolumeV357'];
 HISTORY_VOLUME_FUNCTIONS_V357.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
-const HISTORICAL_GPS_CLEANUP_FUNCTIONS_V358 = ['getFinishedGpsCleanupFieldKeysV358','buildFinishedGpsCleanupAnalysisV358','buildFinishedGpsCleanupTextReportV358','renderFinishedGpsCleanupPreviewV358','downloadFinishedGpsCleanupBackupV358','stripFinishedJobGpsSnapV358','runFinishedGpsSnapCleanupV358','copyFinishedGpsCleanupReportV358','initializeFinishedGpsCleanupV358'];
+const HISTORICAL_GPS_CLEANUP_FUNCTIONS_V358 = ['getFinishedGpsCleanupFieldKeysV358','buildFinishedGpsCleanupAnalysisV358','buildFinishedGpsCleanupTextReportV358','renderFinishedGpsCleanupPreviewV358','downloadFinishedGpsCleanupBackupV358','stripFinishedJobGpsSnapV358','runFinishedGpsSnapCleanupV358','copyFinishedGpsCleanupReportV358','initializeFinishedGpsCleanupV358','finishedGpsCleanupMetricLineV358'];
 HISTORICAL_GPS_CLEANUP_FUNCTIONS_V358.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
+const HISTORY_VOLUME_MORE_FUNCTIONS_V357 = ['historyVolumeMetricLineV357','historyVolumeLargeFieldRowsV357'];
+HISTORY_VOLUME_MORE_FUNCTIONS_V357.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
+const TEMP_PLACE_ADDRESS_FUNCTIONS_V360_V361 = ['cleanFormattedAddressFirstPartV360','extractGoogleStreetAddressV360','getActualJobWorkMsV360','getGoogleAddressCandidateScoreV361','getGoogleAddressComponentLongNameV360','getPauseAwareWorkSessionMsV360','getTemporaryOtherPlaceAddressStatusV360','getTemporaryOtherPlaceVisibleLabelV360','isLikelyPlusCodeTextV360','pickBestGoogleAddressResultV361','refreshTemporaryOtherPlaceReverseAddressV361','requestGoogleReverseGeocodeForLatLonV361','scheduleActiveTemporaryOtherPlaceReverseAddressV361','temporaryOtherPlaceNeedsReverseAddressV361'];
+TEMP_PLACE_ADDRESS_FUNCTIONS_V360_V361.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
+const FUTURE_GPS_HISTORY_LITE_FUNCTIONS_V362 = ['buildFinishedGpsSnapHistorySummaryV362','stripNewFinishedJobGpsSnapV362'];
+FUTURE_GPS_HISTORY_LITE_FUNCTIONS_V362.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
+['inboxClear233','snapSegment214','STORAGE_RESCUE_SAFE_KEYS_V355'].forEach(function(name){
+  const idx = APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name);
+  if(idx >= 0) APP_FUNCTION_SOURCE_BASELINE_V329.splice(idx, 1);
+});
 }catch(e){}
 
 function getShortVersionV329(value){
@@ -16011,7 +16024,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -16040,16 +16053,18 @@ function buildFunctionProtectionRowsV329(){
   add('COMPUTER-QUEUE-DELETE-PENDING-V346', 'Datorläge stabilt vänteläge för borttagning via Snabbsync v346', typeof isTabletQueueDeletePendingV346 === 'function' && typeof markTabletQueueDeletePendingV346 === 'function' && typeof getTabletQueueDeletePendingPillHtmlV346 === 'function' && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', 'Väntar på 189') && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', '189 ändrar bara om uppdraget fortfarande är ostarterat i kö') && functionSourceIncludes('requestTabletQueueDeleteV275', 'Skicka begäran till 189') && functionSourceIncludes('requestTabletQueueDeleteWithDelayV325', 'markTabletQueueDeletePendingV346') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPUTER-QUEUE-DELETE-PENDING-V346'), 'Datorläge visar stabilt vänteläge efter borttagningsbegäran och använder 189-språk utan att ändra kölogiken', 'KRITISK');
   add('MAIN-BUTTON-COUNT-BADGE-V347', 'Hård knappbadgefix för Uppdrag till 189 och 189 status v347', document.getElementById('queueCount') && document.getElementById('queueCount').classList.contains('main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', 'main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', '</span><span id=\"tabletQueueMirrorCountV238\"') && functionSourceIncludes('renderTabletQueueMirrorButtonV238', 'main-nav-count-badge-v347-positive') && APP_FEATURE_MANIFEST.some(item => item.id === 'MAIN-BUTTON-COUNT-BADGE-V347'), 'Uppdrag till 189 och 189 status använder separata antalsbadges utan parenteser och med röd positiv siffra', 'KRITISK');
   add('JOBTYPE-STABLE-ID-V348', 'Stabila Jobbtyp-ID:n finns', typeof getJobTypeMigrationStatusV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-STABLE-ID-V348'), 'Jobbtyp-ID-migration och manifest finns', 'KRITISK');
-  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
-  add('CONTROL-BASELINE-CALIBRATION-V350', 'Kontroll-/baselinefix v350', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V350') && ['v350','v351','v353','v354','v355','v356','v357','v358','v359','v360'].includes(currentShort), 'v350-manifest och aktuell versionsmarkering finns', 'KRITISK');
-  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
-  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
-  add('STORAGE-RESCUE-V355', 'Lagringsräddare och kodövervakning pausad v355', typeof initializeStorageRescueV355 === 'function' && typeof runStorageRescueSafeCleanupV355 === 'function' && typeof renderStorageRescueV355 === 'function' && !!document.getElementById('storageRescueTopV355') && APP_FEATURE_MANIFEST.some(item => item.id === 'STORAGE-RESCUE-V355') && (currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359'), 'v355+ kan rensa bara låg-risk temp/cache och startar inte v354 kodövervakning i drift', 'KRITISK');
+  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
+  add('CONTROL-BASELINE-CALIBRATION-V350', 'Kontroll-/baselinefix v350', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V350') && ['v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362'].includes(currentShort), 'v350-manifest och aktuell versionsmarkering finns', 'KRITISK');
+  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
+  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
+  add('STORAGE-RESCUE-V355', 'Lagringsräddare och kodövervakning pausad v355', typeof initializeStorageRescueV355 === 'function' && typeof runStorageRescueSafeCleanupV355 === 'function' && typeof renderStorageRescueV355 === 'function' && !!document.getElementById('storageRescueTopV355') && APP_FEATURE_MANIFEST.some(item => item.id === 'STORAGE-RESCUE-V355') && (currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362'), 'v355+ kan rensa bara låg-risk temp/cache och startar inte v354 kodövervakning i drift', 'KRITISK');
   add('DISTANCE-LITE-V356', 'Tid före sträcka v356', typeof STADSLASS_DISTANCE_LITE_MODE_V356 !== 'undefined' && STADSLASS_DISTANCE_LITE_MODE_V356 === true && APP_FEATURE_MANIFEST.some(item => item.id === 'DISTANCE-LITE-V356'), 'GPS arbetsstöd behålls, tung historisk sträcka avlastas', 'KRITISK');
   add('HISTORY-VOLUME-MAP-V357', 'Datavolym/historikavlastning v357', typeof buildHistoryVolumeAnalysisV357 === 'function' && typeof renderHistoryVolumeReportV357 === 'function' && !!document.getElementById('historyVolumeRescueV357') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-VOLUME-MAP-V357'), 'läsande datakarta utan rensning eller omskrivning', 'KRITISK');
   add('HISTORICAL-GPS-CLEANUP-V358', 'Radera historisk GPS/Snap v358', typeof buildFinishedGpsCleanupAnalysisV358 === 'function' && typeof runFinishedGpsSnapCleanupV358 === 'function' && typeof stripFinishedJobGpsSnapV358 === 'function' && !!document.getElementById('finishedGpsCleanupV358') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-CLEANUP-V358'), 'manuell rensning av avslutad historisk GPS/Snap med arbetsdata skyddad', 'KRITISK');
-  add('HISTORY-TIME-STORAGE-MOVE-V359', 'Historiktid och lagringsverktyg flyttade v359', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-TIME-STORAGE-MOVE-V359') && (currentShort === 'v359' || currentShort === 'v360') && (functionSourceIncludes('getSummaryRowTimeMs', 'v359') || functionSourceIncludes('getSummaryRowTimeMs', 'v360')) && (functionSourceIncludes('getRoadWorkTimeSplit', 'v359') || functionSourceIncludes('getRoadWorkTimeSplit', 'v360')) && !!document.getElementById('storageControlManagerWrap') && !!document.getElementById('storageRescueTopV355') && !!document.getElementById('historyVolumeRescueV357') && !!document.getElementById('finishedGpsCleanupV358') && !document.querySelector('.wrap > #storageRescueTopV355') && !document.querySelector('.wrap > #historyVolumeRescueV357') && !document.querySelector('.wrap > #finishedGpsCleanupV358'), 'Tid använder verklig/pausmedveten arbetsberäkning och lagringsverktyg ligger under Lagringskontroll', 'KRITISK');
-  add('TEMP-PLACE-ADDRESS-PAUSE-TIME-V360', 'Tillfällig plats adressvisning och pausmedveten tid v360', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-ADDRESS-PAUSE-TIME-V360') && currentShort === 'v360' && typeof getTemporaryOtherPlaceVisibleLabelV360 === 'function' && typeof getPauseAwareWorkSessionMsV360 === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'streetAddress') && functionSourceIncludes('getSummaryRowTimeMs', 'v360'), 'Plus Code kan ge gata/väg i Från/Till och paus/fortsätt räknas som arbetspass', 'KRITISK');
+  add('HISTORY-TIME-STORAGE-MOVE-V359', 'Historiktid och lagringsverktyg flyttade v359', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-TIME-STORAGE-MOVE-V359') && (currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362') && (functionSourceIncludes('getSummaryRowTimeMs', 'v359') || functionSourceIncludes('getSummaryRowTimeMs', 'v360')) && (functionSourceIncludes('getRoadWorkTimeSplit', 'v359') || functionSourceIncludes('getRoadWorkTimeSplit', 'v360')) && !!document.getElementById('storageControlManagerWrap') && !!document.getElementById('storageRescueTopV355') && !!document.getElementById('historyVolumeRescueV357') && !!document.getElementById('finishedGpsCleanupV358') && !document.querySelector('.wrap > #storageRescueTopV355') && !document.querySelector('.wrap > #historyVolumeRescueV357') && !document.querySelector('.wrap > #finishedGpsCleanupV358'), 'Tid använder verklig/pausmedveten arbetsberäkning och lagringsverktyg ligger under Lagringskontroll', 'KRITISK');
+  add('TEMP-PLACE-ADDRESS-PAUSE-TIME-V360', 'Tillfällig plats adressvisning och pausmedveten tid v360', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-ADDRESS-PAUSE-TIME-V360') && (currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362') && typeof getTemporaryOtherPlaceVisibleLabelV360 === 'function' && typeof getPauseAwareWorkSessionMsV360 === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'streetAddress') && functionSourceIncludes('getSummaryRowTimeMs', 'v360'), 'Plus Code kan ge gata/väg i Från/Till och paus/fortsätt räknas som arbetspass', 'KRITISK');
+  add('TEMP-PLACE-REVERSE-ADDRESS-V361', 'Tillfällig plats reverse-adress v361', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-REVERSE-ADDRESS-V361') && (currentShort === 'v361' || currentShort === 'v362') && typeof requestGoogleReverseGeocodeForLatLonV361 === 'function' && typeof refreshTemporaryOtherPlaceReverseAddressV361 === 'function' && typeof pickBestGoogleAddressResultV361 === 'function', 'reverse geocoding från koordinat kan ge gata/väg före Plus Code-fallback', 'KRITISK');
+  add('FUTURE-GPS-HISTORY-LITE-V362', 'Ny historik utan rå GPS/Snap v362', APP_FEATURE_MANIFEST.some(item => item.id === 'FUTURE-GPS-HISTORY-LITE-V362') && currentShort === 'v362' && typeof stripNewFinishedJobGpsSnapV362 === 'function' && typeof buildFinishedGpsSnapHistorySummaryV362 === 'function' && functionSourceIncludes('stopJob', 'stripNewFinishedJobGpsSnapV362') && functionSourceIncludes('completeQueuedJob', 'stripNewFinishedJobGpsSnapV362'), 'nya avslutade jobb sparas utan rå routeGps/Snap i historiken efter avslutsrapport', 'KRITISK');
   add('CONTROL-CENTER-PAD-VARIABLE-FIX-V335', 'Kontrollcentral pad-variabelreparation v335', !functionSourceIncludes('buildFunctionControlTextReportV165', "src('getDeviceModeV272', pad)") && APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-CENTER-PAD-VARIABLE-FIX-V335'), 'Kontrollvillkor använder säker textroll och inte odefinierad variabel pad', 'KRITISK');
   return {rows, sourceFunctions, baseline, missingSource, newSource, manifest};
 }
@@ -16522,7 +16537,7 @@ function runFunctionControlChecks(){
   const startupWatchdogStatus = getStartupWatchdogStatus();
   addFunctionCheck(results, 'Nivå 2', 'Permanent uppstartsövervakning v115', startupWatchdogStatus.ok && startupWatchdogStatus.current === APP_VERSION && startupWatchdogStatus.watchdogVersion === APP_VERSION && functionSourceIncludes('getStartupWatchdogStatus', 'watchdogVersion') && functionSourceIncludes('hideAppSplashScreen', 'STADSLASS_BOOT.complete'), 'watchdog-version=' + startupWatchdogStatus.watchdogVersion + ' · steg=' + startupWatchdogStatus.currentStep);
   addFunctionCheck(results, 'Nivå 2', 'Synlig uppstartskontroll v116', startupWatchdogStatus.visibleStatusEnabled && startupWatchdogStatus.visibleStatusVersion === APP_VERSION && !!el('startupWatchdogStatus') && functionSourceIncludes('getStartupWatchdogStatus', 'visibleStatusElementExists'), 'synlig status=' + (startupWatchdogStatus.visibleStatusElementExists ? 'finns' : 'saknas') + ' · version=' + startupWatchdogStatus.visibleStatusVersion);
-  addFunctionCheck(results, 'Nivå 2', 'Badplatser för Havstång v101 finns', !!el('newManagedBeachPlaceName') && !!el('beachPlaceManagerList') && fn('addManagedBeachPlace') && fn('renderBeachPlaceManager') && fn('getBeachPlaceEntries') && src('addManagedBeachPlace', "category:'badplats'") && src('addManagedBeachPlace', 'Havstång'), 'badplatser ligger i egen platsgrupp och kopplas till Havstång');
+  addFunctionCheck(results, 'Nivå 2', 'Badplatser för Havstång v101 finns', !!el('newManagedBeachPlaceName') && !!el('beachPlaceManagerList') && fn('addManagedBeachPlace') && fn('renderBeachPlaceManager') && fn('getBeachPlaceEntries') && src('addManagedBeachPlace', "category:'badplats'") && (src('addManagedBeachPlace', 'Havstång') || src('addManagedBeachPlace', 'getSeaweedJobTypeNameV353')), 'badplatser ligger i egen platsgrupp och kopplas till Havstång');
   addFunctionCheck(results, 'Nivå 2', 'Export av avslutade jobb använder papperskorgssäkert underlag', fn('buildFinishedTransferPayload') && src('buildFinishedTransferPayload', 'getFinishedJobsForUnderlag'), 'buildFinishedTransferPayload');
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport finns men påverkar inte GPS/tid', !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && fn('normalizeImportedReceiptRow') && src('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'kvittoimport skapar historiska sammanställningsrader');
@@ -17673,7 +17688,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Radera historisk GPS/Snap v358', typeof buildFinishedGpsCleanupAnalysisV358 === 'function' && typeof runFinishedGpsSnapCleanupV358 === 'function' && typeof stripFinishedJobGpsSnapV358 === 'function' && document.getElementById('finishedGpsCleanupV358') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-CLEANUP-V358'), 'manuell rensning av historisk GPS/Snap från avslutade jobb, aktiv GPS/geofence/ETA/trippmätare kvar'),
     systemCheck('Historiktid och lagringsverktyg flyttade v359', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-TIME-STORAGE-MOVE-V359') && (functionSourceIncludes('getSummaryRowTimeMs', 'v359') || functionSourceIncludes('getSummaryRowTimeMs', 'v360')) && (functionSourceIncludes('getRoadWorkTimeSplit', 'v359') || functionSourceIncludes('getRoadWorkTimeSplit', 'v360')) && document.getElementById('storageControlManagerWrap') && document.getElementById('storageRescueTopV355') && document.getElementById('historyVolumeRescueV357') && document.getElementById('finishedGpsCleanupV358') && !document.querySelector('.wrap > #storageRescueTopV355') && !document.querySelector('.wrap > #historyVolumeRescueV357') && !document.querySelector('.wrap > #finishedGpsCleanupV358'), 'jobbkorts tid använder verklig start/slut och v355/v357/v358 ligger i Lagringskontroll'),
     systemCheck('Tillfällig plats adressvisning och pausmedveten tid v360', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-ADDRESS-PAUSE-TIME-V360') && typeof getTemporaryOtherPlaceVisibleLabelV360 === 'function' && typeof getPauseAwareWorkSessionMsV360 === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'streetAddress') && functionSourceIncludes('getSummaryRowTimeMs', 'v360'), 'Plus Code/adress kan ge gata/väg i Från/Till och pausade jobb räknas med workSessions utan synliga extra rader'),
-    systemCheck('Tillfällig plats reverse-adress v361', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-REVERSE-ADDRESS-V361') && typeof requestGoogleReverseGeocodeForLatLonV361 === 'function' && typeof scheduleActiveTemporaryOtherPlaceReverseAddressV361 === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'geocode_reverse_v361') && functionSourceIncludes('renderActive', 'scheduleActiveTemporaryOtherPlaceReverseAddressV361'), 'Plus Code som först bara ger koordinat kan kompletteras med reverse-geokodad gata/väg i aktivt arbete och fasuträkning'),
+    systemCheck('Tillfällig plats reverse-adress v361', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-REVERSE-ADDRESS-V361') && typeof requestGoogleReverseGeocodeForLatLonV361 === 'function' && typeof refreshTemporaryOtherPlaceReverseAddressV361 === 'function' && typeof pickBestGoogleAddressResultV361 === 'function', 'tillfällig Plus Code kan reverse-geokodas från koordinat så gata/väg visas före Plus Code'),
+    systemCheck('Ny historik utan rå GPS/Snap v362', APP_FEATURE_MANIFEST.some(item => item.id === 'FUTURE-GPS-HISTORY-LITE-V362') && typeof stripNewFinishedJobGpsSnapV362 === 'function' && functionSourceIncludes('stopJob', 'stripNewFinishedJobGpsSnapV362') && functionSourceIncludes('completeQueuedJob', 'stripNewFinishedJobGpsSnapV362'), 'avslutsrapport kan läsa GPS före historikjobbet sparas utan rå GPS/Snap'),
     systemCheck('GPS/Snap/ETA precisionsregler v211', typeof buildSnapRoadsSegmentsForJobV211 === 'function' && typeof getJobBestDistanceChoiceV211 === 'function' && typeof evaluateSnapDistanceReasonabilityV211 === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 2.5 && APP_FEATURE_MANIFEST.some(item => item.name === 'GPS/Snap/ETA precisionsregler v211'), 'Fasdelad Snap + rimlighetsval + 2,5 min ETA'),
     systemCheck('Sträckval synligt i jobbkort v212', typeof getJobDistanceChoiceHtmlV212 === 'function' && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceDisplayTextV211(x)') && functionSourceIncludes('renderTodayRegularJobCard', 'getJobDistanceChoiceHtmlV212(x)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212'), 'Jobbkort och Dagens sammanfattning visar samma rimlighetsvalda Sträcka'),
     systemCheck('Bred returknapp v213', functionSourceIncludes('renderActiveTransportPhaseControl', "visualLabel === 'Retur pågår'") && functionSourceIncludes('renderActiveTransportPhaseControl', 'returnWide') && functionSourceIncludes('renderActiveTransportPhaseControl', "btn.classList.add('return-wide')") && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213'), 'Retur pågår-knappen blir fullbredd/centrerad som ren visuell ändring'),
@@ -20239,6 +20255,66 @@ function copyFinishedGpsCleanupReportV358(){
 function initializeFinishedGpsCleanupV358(){
   const summary = document.getElementById('finishedGpsCleanupSummaryV358');
   if(summary) summary.innerHTML = '<strong>Radera historisk GPS/Snap v358</strong><div class="map-test-section">Redo. Förhandsgranska först. Radering sker bara via separat knapp och bekräftelse.</div>';
+}
+
+
+// v362: gör v358-principen permanent för nya avslutade jobb.
+// Aktiv GPS används under uppdraget och i avslutsrapporten, men rå GPS/Snap ska inte ligga kvar i historikens jobbobjekt.
+function buildFinishedGpsSnapHistorySummaryV362(job, completedFrom){
+  const rec = (job && job.routeGps && typeof job.routeGps === 'object') ? job.routeGps : null;
+  const snap = (job && job.snapRoadsAnalysisV172 && typeof job.snapRoadsAnalysisV172 === 'object') ? job.snapRoadsAnalysisV172 : null;
+  const points = rec && Array.isArray(rec.points) ? rec.points : [];
+  let quality = '';
+  try{ quality = rec ? getRouteGpsQuality({routeGps:rec, routeGpsStatus:job && job.routeGpsStatus}) : ''; }catch(e){ quality = ''; }
+  return {
+    version:'Stadslass 2.0 v362',
+    removedAt:new Date().toISOString(),
+    completedFrom:String(completedFrom || ''),
+    routeGpsStatus:String((job && job.routeGpsStatus) || (rec && rec.status) || ''),
+    gpsPointCount:points.length,
+    gpsDistanceKm:Number(rec && rec.distanceKm || 0),
+    gpsQuality:quality || '',
+    startedAt:rec && rec.startedAt ? rec.startedAt : null,
+    endedAt:rec && rec.endedAt ? rec.endedAt : null,
+    sessionCount:Array.isArray(rec && rec.sessions) ? rec.sessions.length : 0,
+    bestAccuracy:rec && Number.isFinite(Number(rec.bestAccuracy)) ? Number(rec.bestAccuracy) : null,
+    worstAccuracy:rec && Number.isFinite(Number(rec.worstAccuracy)) ? Number(rec.worstAccuracy) : null,
+    snapStatus:snap && snap.status ? String(snap.status) : '',
+    snapReason:snap && snap.reason ? String(snap.reason) : '',
+    snapMessage:snap && snap.message ? String(snap.message) : '',
+    note:'Rå GPS/Snap/rå sträckdata borttagen från historik. Aktiv GPS, fasdata, geofence, transportfönster, tid, vikt, material, mtrl kod, anläggning och platser behålls.'
+  };
+}
+function stripNewFinishedJobGpsSnapV362(job, completedFrom){
+  if(!job || typeof job !== 'object') return job;
+  let keys;
+  try{ keys = typeof getFinishedGpsCleanupFieldKeysV358 === 'function' ? getFinishedGpsCleanupFieldKeysV358() : null; }catch(e){ keys = null; }
+  if(!keys) keys = {heavy:['routeGps','gps','snapRoadsAnalysisV172','snapRoadsAnalysis','snapRoadsSegmentsV211','snapRoadsRequestPlanV211','temporarySnapHistoryV173'], distance:['gpsDistanceKm','routeDistanceKm','routeDeviationActualDistanceKm','routeDeviationNormalDistanceKm','smartMapMaterialDistanceMeters','queueGpsMaterialDistanceMeters','smartMapTotalDistanceMeters','queueGpsEstimatedDistanceMeters']};
+  const allKeys = [].concat(keys.heavy || [], keys.distance || []);
+  const removedKeys = [];
+  let removedBytes = 0;
+  const summary = buildFinishedGpsSnapHistorySummaryV362(job, completedFrom);
+  allKeys.forEach(key => {
+    if(Object.prototype.hasOwnProperty.call(job, key) && job[key] !== undefined){
+      try{ removedBytes += typeof historyVolumeDataSizeV357 === 'function' ? historyVolumeDataSizeV357(job[key]) : 0; }catch(e){}
+      removedKeys.push(key);
+      delete job[key];
+    }
+  });
+  if(removedKeys.length){
+    job.routeGpsStatus = 'archived_v362';
+    job.historicalGpsSnapRemovedV362 = {
+      removed:true,
+      removedAt:summary.removedAt,
+      version:'Stadslass 2.0 v362',
+      pointCount:summary.gpsPointCount,
+      removedBytes:removedBytes,
+      removedKeys:removedKeys.slice(),
+      note:'Nyavslutat jobb sparas utan rå GPS/Snap i historiken. Aktiv GPS och fas-/geofenceunderlag användes före rensning.'
+    };
+    job.routeGpsSummaryV362 = summary;
+  }
+  return job;
 }
 
 function placeDiagnosticListTextV185(values, limit){
@@ -30656,9 +30732,10 @@ async function completeQueuedJob(qid){
     ensureSeaweedWeightMetadata(finished);
     updateRouteDeviationForJob(finished);
     await runAutomaticSnapRoadsAnalysisV172(finished, 'completeQueuedJob:pausad');
+    storeActiveMonitorEndReport(finished, 'completeQueuedJob:pausad');
+    stripNewFinishedJobGpsSnapV362(finished, 'completeQueuedJob:pausad');
     state.jobs.unshift(finished);
     updateLastWorkPointFromJob(finished);
-    storeActiveMonitorEndReport(finished, 'completeQueuedJob:pausad');
     state.queue = state.queue.filter(x => x.id !== qid);
 
     if(!isOtherWorkJob(finished)){
@@ -31992,10 +32069,11 @@ async function stopJob(){
   ensureSeaweedWeightMetadata(finished);
   updateRouteDeviationForJob(finished);
   await runAutomaticSnapRoadsAnalysisV172(finished, 'stopJob');
+  storeActiveMonitorEndReport(finished, 'stopJob');
+  stripNewFinishedJobGpsSnapV362(finished, 'stopJob');
   state.jobs.unshift(finished);
   updateLastWorkPointFromJob(finished);
   state.active = null;
-  storeActiveMonitorEndReport(finished, 'stopJob');
   stopDistanceTracking();
   stopActiveTimer();
 
@@ -32018,10 +32096,10 @@ function renderActive(){
   const box = document.getElementById('activeBox');
   if(!state.active){ none.classList.remove('hidden'); box.classList.add('hidden'); const activeMapCallCounterEl = document.getElementById('activeMapCallCounter'); if(activeMapCallCounterEl) activeMapCallCounterEl.innerHTML = ''; if(typeof renderActiveReturnControlV253 === 'function') renderActiveReturnControlV253(); renderActiveEstimateCountdown(); renderActiveLearningSupport(); renderActiveTransportPhaseControl(); renderActiveWeightButtonVisual(); renderTryckimpregneratQrV315(); renderActiveAutoMapStatus(); renderDayForecasts(); return; }
   none.classList.add('hidden'); box.classList.remove('hidden');
+  try{ if(typeof scheduleActiveTemporaryOtherPlaceReverseAddressV361 === 'function') scheduleActiveTemporaryOtherPlaceReverseAddressV361(state.active); }catch(e){}
 
   const isOtherWork = state.active.type === 'Övrig verksamhet';
 
-  if(typeof scheduleActiveTemporaryOtherPlaceReverseAddressV361 === 'function') scheduleActiveTemporaryOtherPlaceReverseAddressV361();
   document.getElementById('activePills').innerHTML = formatActiveOverviewHtml(state.active);
   if(typeof renderActiveReturnControlV253 === 'function') renderActiveReturnControlV253();
 
@@ -37084,6 +37162,127 @@ function extractGoogleStreetAddressV360(result){
   return cleanFormattedAddressFirstPartV360(result && result.formatted_address ? result.formatted_address : '');
 }
 
+
+function getGoogleAddressCandidateScoreV361(result){
+  if(!result || typeof result !== 'object') return -999;
+  let score = 0;
+  const formatted = String(result.formatted_address || '');
+  const route = getGoogleAddressComponentLongNameV360(result, 'route');
+  const streetNumber = getGoogleAddressComponentLongNameV360(result, 'street_number');
+  const premise = getGoogleAddressComponentLongNameV360(result, 'premise');
+  const locality = getGoogleAddressComponentLongNameV360(result, 'locality') || getGoogleAddressComponentLongNameV360(result, 'postal_town');
+  if(route) score += 80;
+  if(streetNumber) score += 30;
+  if(premise) score += 15;
+  if(locality) score += 5;
+  if(isLikelyPlusCodeTextV360(formatted)) score -= 90;
+  if(Array.isArray(result.types)){
+    if(result.types.indexOf('street_address') >= 0) score += 40;
+    if(result.types.indexOf('route') >= 0) score += 20;
+    if(result.types.indexOf('plus_code') >= 0) score -= 80;
+  }
+  return score;
+}
+function pickBestGoogleAddressResultV361(results){
+  const arr = Array.isArray(results) ? results.filter(Boolean) : [];
+  if(!arr.length) return null;
+  return arr.slice().sort((a,b) => getGoogleAddressCandidateScoreV361(b) - getGoogleAddressCandidateScoreV361(a))[0] || arr[0];
+}
+async function requestGoogleReverseGeocodeForLatLonV361(lat, lon, label){
+  const latNum = Number(lat);
+  const lonNum = Number(lon);
+  if(!Number.isFinite(latNum) || !Number.isFinite(lonNum)) throw new Error('Reverse geocoding saknar giltig koordinat.');
+  const key = getLocalMapApiKey();
+  if(!key) throw new Error('Kartnyckel saknas på denna enhet.');
+  const guardCheck = canMakeMapRequest();
+  if(!guardCheck.ok) throw new Error(guardCheck.reason || 'Kartanrop är spärrat just nu.');
+  registerMapRequest();
+  const params = new URLSearchParams({ latlng:latNum + ',' + lonNum, key, language:'sv', region:'se' });
+  const response = await fetch('https://maps.googleapis.com/maps/api/geocode/json?' + params.toString());
+  let data = null;
+  try{ data = await response.json(); }catch(e){ data = null; }
+  if(!response.ok){
+    const apiMessage = data && data.error_message ? data.error_message : '';
+    throw new Error('Reverse geocoding svarade med fel ' + response.status + (apiMessage ? ': ' + apiMessage : '.'));
+  }
+  if(!data || data.status !== 'OK'){
+    const status = data && data.status ? data.status : 'okänt svar';
+    const apiMessage = data && data.error_message ? ': ' + data.error_message : '';
+    throw new Error('Kunde inte hitta adress för koordinat ' + (label || '') + ' (' + status + apiMessage + ').');
+  }
+  const result = pickBestGoogleAddressResultV361(data.results);
+  const formattedAddress = result && result.formatted_address ? result.formatted_address : '';
+  const streetAddress = extractGoogleStreetAddressV360(result);
+  return { lat:latNum, lon:lonNum, formattedAddress, streetAddress, displayAddress:streetAddress, source:'reverse_geocode_v361' };
+}
+function temporaryOtherPlaceNeedsReverseAddressV361(spec){
+  if(!spec || typeof spec !== 'object') return false;
+  const lat = Number(spec.lat);
+  const lon = Number(spec.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  const street = sanitizeTemporaryPlaceTextV175(spec.streetAddress || spec.displayAddress || '');
+  if(street && !isLikelyPlusCodeTextV360(street)) return false;
+  const visible = getTemporaryOtherPlaceVisibleLabelV360(spec, spec.role);
+  if(visible && !isLikelyPlusCodeTextV360(visible) && visible !== spec.reference) return false;
+  const failedAt = Number(spec.reverseGeocodeFailedAtV361 || 0);
+  if(failedAt && Date.now() - failedAt < 10 * 60 * 1000) return false;
+  return true;
+}
+async function refreshTemporaryOtherPlaceReverseAddressV361(spec){
+  if(!temporaryOtherPlaceNeedsReverseAddressV361(spec)) return false;
+  try{
+    const result = await requestGoogleReverseGeocodeForLatLonV361(spec.lat, spec.lon, spec.label || spec.reference || 'tillfällig plats');
+    const street = sanitizeTemporaryPlaceTextV175(result.streetAddress || result.displayAddress || '');
+    const formatted = sanitizeTemporaryPlaceTextV175(result.formattedAddress || '');
+    if(street && !isLikelyPlusCodeTextV360(street)){
+      spec.streetAddress = street;
+      spec.displayAddress = street;
+      spec.formattedAddress = formatted || spec.formattedAddress || '';
+      spec.reverseGeocodedAtV361 = Date.now();
+      delete spec.reverseGeocodeFailedAtV361;
+      spec.label = getTemporaryOtherPlaceVisibleLabelV360(spec, spec.role);
+      return true;
+    }
+    spec.reverseGeocodeFailedAtV361 = Date.now();
+    return false;
+  }catch(e){
+    spec.reverseGeocodeFailedAtV361 = Date.now();
+    spec.reverseGeocodeErrorV361 = (e && e.message) || String(e);
+    return false;
+  }
+}
+let temporaryOtherPlaceReverseRefreshTimerV361 = null;
+let temporaryOtherPlaceReverseRefreshInProgressV361 = false;
+function scheduleActiveTemporaryOtherPlaceReverseAddressV361(job){
+  if(!job || temporaryOtherPlaceReverseRefreshInProgressV361 || temporaryOtherPlaceReverseRefreshTimerV361) return;
+  const specs = [];
+  try{
+    ['from','to'].forEach(role => {
+      const spec = getTemporaryPlaceInfoForJobRoleV175(job, role);
+      if(temporaryOtherPlaceNeedsReverseAddressV361(spec)) specs.push(spec);
+    });
+  }catch(e){}
+  if(!specs.length) return;
+  const activeId = job.id || '';
+  temporaryOtherPlaceReverseRefreshTimerV361 = setTimeout(async function(){
+    temporaryOtherPlaceReverseRefreshTimerV361 = null;
+    if(!state.active || (activeId && state.active.id !== activeId)) return;
+    temporaryOtherPlaceReverseRefreshInProgressV361 = true;
+    let changed = false;
+    try{
+      for(const spec of specs){
+        if(await refreshTemporaryOtherPlaceReverseAddressV361(spec)) changed = true;
+      }
+      if(changed && state.active && (!activeId || state.active.id === activeId)){
+        applyTemporaryOtherPlacesToJobV175(state.active, state.active.temporaryPlaces);
+        saveState();
+        renderActive();
+      }
+    }catch(e){}
+    finally{ temporaryOtherPlaceReverseRefreshInProgressV361 = false; }
+  }, 600);
+}
+
 function getTemporaryOtherPlaceVisibleLabelV360(spec, role){
   if(!spec) return '';
   const street = sanitizeTemporaryPlaceTextV175(spec.streetAddress || spec.displayAddress || '');
@@ -37101,135 +37300,6 @@ function getTemporaryOtherPlaceAddressStatusV360(spec){
   const label = getTemporaryOtherPlaceVisibleLabelV360(spec, spec && spec.role);
   const hasGoogleStreet = !!sanitizeTemporaryPlaceTextV175(spec && (spec.streetAddress || spec.displayAddress || '')) || !!cleanFormattedAddressFirstPartV360(spec && spec.formattedAddress || '');
   return hasGoogleStreet && label ? 'adress/gata ' + label : 'adress/gata kunde inte bestämmas';
-}
-
-
-function getGoogleAddressCandidateScoreV361(result){
-  if(!result || typeof result !== 'object') return -1;
-  const types = Array.isArray(result.types) ? result.types : [];
-  const route = getGoogleAddressComponentLongNameV360(result, 'route');
-  const streetNumber = getGoogleAddressComponentLongNameV360(result, 'street_number');
-  const street = extractGoogleStreetAddressV360(result);
-  let score = 0;
-  if(street && !isLikelyPlusCodeTextV360(street)) score += 50;
-  if(route) score += 30;
-  if(streetNumber) score += 20;
-  if(types.includes('street_address')) score += 30;
-  if(types.includes('route')) score += 20;
-  if(types.includes('premise') || types.includes('establishment')) score += 10;
-  if(types.includes('plus_code')) score -= 80;
-  const formatted = cleanFormattedAddressFirstPartV360(result.formatted_address || '');
-  if(formatted) score += 5;
-  return score;
-}
-
-function pickBestGoogleAddressResultV361(results){
-  if(!Array.isArray(results) || !results.length) return null;
-  let best = null;
-  let bestScore = -999;
-  results.forEach(result => {
-    const score = getGoogleAddressCandidateScoreV361(result);
-    if(score > bestScore){
-      best = result;
-      bestScore = score;
-    }
-  });
-  return bestScore > 0 ? best : null;
-}
-
-async function requestGoogleReverseGeocodeForLatLonV361(lat, lon, label){
-  const latNum = Number(lat);
-  const lonNum = Number(lon);
-  if(!Number.isFinite(latNum) || !Number.isFinite(lonNum)) throw new Error('Reverse-geokodning saknar giltig koordinat.');
-  const key = getLocalMapApiKey();
-  if(!key) throw new Error('Kartnyckel saknas på denna enhet.');
-  const guardCheck = canMakeMapRequest();
-  if(!guardCheck.ok) throw new Error(guardCheck.reason || 'Kartanrop är spärrat just nu.');
-  registerMapRequest();
-  const params = new URLSearchParams({ latlng:latNum.toFixed(6) + ',' + lonNum.toFixed(6), key, language:'sv', region:'se' });
-  const response = await fetch('https://maps.googleapis.com/maps/api/geocode/json?' + params.toString());
-  let data = null;
-  try{ data = await response.json(); }catch(e){ data = null; }
-  if(!response.ok){
-    const apiMessage = data && data.error_message ? data.error_message : '';
-    throw new Error('Reverse-geokodning svarade med fel ' + response.status + (apiMessage ? ': ' + apiMessage : '.'));
-  }
-  if(!data || data.status !== 'OK'){
-    const status = data && data.status ? data.status : 'okänt svar';
-    const apiMessage = data && data.error_message ? ': ' + data.error_message : '';
-    throw new Error('Kunde inte hitta gata/väg för ' + (label || 'koordinaten') + ' (' + status + apiMessage + ').');
-  }
-  const result = pickBestGoogleAddressResultV361(data.results || []);
-  if(!result) throw new Error('Google hittade ingen användbar gata/väg vid koordinaten.');
-  const formattedAddress = result && result.formatted_address ? result.formatted_address : '';
-  const streetAddress = extractGoogleStreetAddressV360(result);
-  if(!streetAddress || isLikelyPlusCodeTextV360(streetAddress)) throw new Error('Google hittade bara Plus Code, ingen gata/väg.');
-  return {lat:latNum, lon:lonNum, formattedAddress, streetAddress, displayAddress:streetAddress, source:'reverse_geocode_v361'};
-}
-
-function temporaryOtherPlaceNeedsReverseAddressV361(spec){
-  if(!spec || typeof spec !== 'object') return false;
-  if(!spec.temporaryOtherPlaceV175) return false;
-  const lat = Number(spec.lat);
-  const lon = Number(spec.lon);
-  if(!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
-  const lastTried = Number(spec.reverseGeocodeTriedAtV361 || 0);
-  if(lastTried && Date.now() - lastTried < 15 * 60 * 1000) return false;
-  const street = sanitizeTemporaryPlaceTextV175(spec.streetAddress || spec.displayAddress || '');
-  if(street && !isLikelyPlusCodeTextV360(street)) return false;
-  const visible = sanitizeTemporaryPlaceTextV175(getTemporaryOtherPlaceVisibleLabelV360(spec, spec.role) || spec.label || spec.reference || '');
-  return !visible || isLikelyPlusCodeTextV360(visible) || visible === sanitizeTemporaryPlaceTextV175(spec.reference || '');
-}
-
-async function refreshTemporaryOtherPlaceReverseAddressV361(job, role){
-  if(!job || !job.temporaryPlaces) return false;
-  const normalizedRole = role === 'to' ? 'to' : 'from';
-  const spec = getTemporaryPlaceInfoForJobRoleV175(job, normalizedRole);
-  if(!temporaryOtherPlaceNeedsReverseAddressV361(spec)) return false;
-  const reverse = await requestGoogleReverseGeocodeForLatLonV361(spec.lat, spec.lon, spec.label || spec.reference || 'Tillfällig plats');
-  if(!reverse || !reverse.streetAddress) return false;
-  spec.streetAddress = sanitizeTemporaryPlaceTextV175(reverse.streetAddress);
-  spec.displayAddress = spec.streetAddress;
-  spec.formattedAddress = sanitizeTemporaryPlaceTextV175(reverse.formattedAddress || spec.formattedAddress || '');
-  spec.label = getTemporaryOtherPlaceVisibleLabelV360(spec, normalizedRole);
-  spec.reverseGeocodedAtV361 = Date.now();
-  job.temporaryPlaces[normalizedRole] = cloneTemporaryOtherPlaceV175(spec);
-  applyTemporaryOtherPlacesToJobV175(job, job.temporaryPlaces);
-  return true;
-}
-
-function scheduleActiveTemporaryOtherPlaceReverseAddressV361(){
-  const job = state && state.active ? state.active : null;
-  if(!job || !job.temporaryPlaces) return;
-  const needs = ['from','to'].filter(role => temporaryOtherPlaceNeedsReverseAddressV361(getTemporaryPlaceInfoForJobRoleV175(job, role)));
-  if(!needs.length) return;
-  const key = String(job.id || 'active') + ':' + needs.join(',');
-  if(window.__stadslassTempReverseAddressV361 === key) return;
-  window.__stadslassTempReverseAddressV361 = key;
-  setTimeout(async function(){
-    let changed = false;
-    try{
-      if(!state.active || String(state.active.id || 'active') !== String(job.id || 'active')) return;
-      for(const role of needs){
-        if(!state.active || String(state.active.id || 'active') !== String(job.id || 'active')) return;
-        try{
-          changed = await refreshTemporaryOtherPlaceReverseAddressV361(state.active, role) || changed;
-        }catch(e){
-          const spec = getTemporaryPlaceInfoForJobRoleV175(state.active, role);
-          if(spec){
-            spec.reverseGeocodeErrorV361 = (e && e.message) || String(e || 'reverse-geokodning misslyckades');
-            spec.reverseGeocodeTriedAtV361 = Date.now();
-          }
-        }
-      }
-      if(changed && state.active && String(state.active.id || 'active') === String(job.id || 'active')){
-        saveState();
-        renderActive();
-      }
-    }finally{
-      if(window.__stadslassTempReverseAddressV361 === key) window.__stadslassTempReverseAddressV361 = '';
-    }
-  }, 80);
 }
 
 async function requestGoogleGeocodeForPlaceReference(reference, label){
@@ -37253,29 +37323,14 @@ async function requestGoogleGeocodeForPlaceReference(reference, label){
     const apiMessage = data && data.error_message ? ': ' + data.error_message : '';
     throw new Error('Kunde inte hitta koordinat för ' + (label || 'vald plats') + ' (' + status + apiMessage + ').');
   }
-  const result = Array.isArray(data.results) && data.results.length ? data.results[0] : null;
+  const result = typeof pickBestGoogleAddressResultV361 === 'function' ? pickBestGoogleAddressResultV361(data.results) : (Array.isArray(data.results) && data.results.length ? data.results[0] : null);
   const loc = result && result.geometry && result.geometry.location ? result.geometry.location : null;
   const lat = loc ? Number(loc.lat) : NaN;
   const lon = loc ? Number(loc.lng) : NaN;
   if(!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('Geokodningen gav ingen giltig latitud/longitud.');
-  let formattedAddress = result && result.formatted_address ? result.formatted_address : '';
-  let streetAddress = extractGoogleStreetAddressV360(result);
-  let source = 'geocode';
-  // v361: Forward-geocode på Plus Code kan ge rätt koordinat men bara visa Plus Code.
-  // Då görs en kontrollerad reverse-geocode på koordinaten för att hitta närmaste gata/väg/adress.
-  if(!streetAddress || isLikelyPlusCodeTextV360(streetAddress)){
-    try{
-      const reverse = await requestGoogleReverseGeocodeForLatLonV361(lat, lon, label || ref || 'Tillfällig plats');
-      if(reverse && reverse.streetAddress && !isLikelyPlusCodeTextV360(reverse.streetAddress)){
-        streetAddress = reverse.streetAddress;
-        formattedAddress = reverse.formattedAddress || formattedAddress;
-        source = 'geocode_reverse_v361';
-      }
-    }catch(e){
-      // Forward-geocode har redan gett giltig koordinat. Reverse-adress är förbättring, inte stoppfel.
-    }
-  }
-  return { lat, lon, formattedAddress, streetAddress, displayAddress:streetAddress, source:source };
+  const formattedAddress = result && result.formatted_address ? result.formatted_address : '';
+  const streetAddress = extractGoogleStreetAddressV360(result);
+  return { lat, lon, formattedAddress, streetAddress, displayAddress:streetAddress, source:'geocode' };
 }
 
 async function fillGeofenceCoordinatesFromSelectedPlace(){
