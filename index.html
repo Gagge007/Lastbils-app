@@ -3,7 +3,8 @@
 Stadslass versionskontroll
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v367
+- Nuvarande version: Stadslass 2.0 v368
+- v368: ÄTA-debitering vid avslut. När ett ÄTA-jobb avslutas visas en ruta: Debitera totaltid eller ange manuell tid. Valet sparas som separat debiterbar tid utan att ändra total arbetstid, vikt, material, mtrl kod/anläggning, GPS/geofence/ETA, sync/spegling eller trippmätare.
 - v367: Debiterbar tid på avslutat jobb. Redigera avslutat jobb får separat fält för debiterbar tid i minuter som sparas på jobbet utan att ändra total arbetstid, start/slut, vikt, material, mtrl kod/anläggning, GPS/geofence/ETA, sync/spegling eller trippmätare.
 - v366: Omtag av ÄTA-logik. ÄTA styrs från Jobbtyper via kryssruta och följer JT-ID historiskt; den långa ÄTA/Övriga jobb/flytt av material-jobbtypen har fortsatt manuell ÄTA-uppdrag?-ruta per uppdrag. Gammal namngissning med (ÄTA) används inte längre som sanning.
 - v365: ÄTA-kalenderfix. ÄTA-flagga från köuppdrag förs över till aktivt jobb/historik så ÄTA-uppdrag? ger röd kalenderprick efter avslut. Ingen fasjustering byggs i denna version.
@@ -383,7 +384,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v367';
+  const version = 'Stadslass 2.0 v368';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -3893,6 +3894,21 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 </div>
 
 
+<div id="ataBillableModalV368" class="modal-backdrop">
+  <div class="modal-card">
+    <h3>Debitera totaltid eller ange manuell tid</h3>
+    <div id="ataBillableTotalInfoV368" class="muted" style="margin-top:4px"></div>
+    <label style="margin-top:10px">Manuell tid i minuter</label>
+    <input id="ataBillableManualMinutesV368" type="number" min="0" step="1" inputmode="numeric" placeholder="Ange minuter">
+    <div class="row" style="margin-top:12px">
+      <button class="primary inline" onclick="confirmAtaBillableTotalV368()">Debitera totaltid</button>
+      <button class="inline" onclick="confirmAtaBillableManualV368()">Spara manuell tid</button>
+      <button class="inline" onclick="cancelAtaBillableModalV368()">Avbryt</button>
+    </div>
+  </div>
+</div>
+
+
 <div id="otherWorkEditModal" class="modal-backdrop">
   <div class="modal-card">
     <h3>Redigera Övrig verksamhet</h3>
@@ -3982,7 +3998,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v367</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v368</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -13238,9 +13254,10 @@ function renderActiveMonitorIfOpen(){
   if(wrap && !wrap.classList.contains('hidden')) renderActiveMonitor();
 }
 
-const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v367';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v367';
+const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v368';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v368';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v368 ÄTA-debitering vid avslut',
   'v367 Debiterbar tid i avslutat jobb',
   'v363 Maskintransport, snabbnycklar och ÄTA-kalender',
   'v351 Uppstartsreparation efter watchdog-timeout',
@@ -15189,7 +15206,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v367';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v368';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15227,6 +15244,7 @@ const APP_FEATURE_MANIFEST = [
   {id:'ADDRESS-EXCEL-LABELS-V364', name:'Adress/Excel för Min nuvarande plats och Annan plats v364', status:'Adress/rapport/Excel/Nytt uppdrag', protectionStatus:'Aktiv', introduced:'v364', purpose:'v364 låter hittad gata/väg/adress för Min nuvarande plats och tillfällig Från/Till Annan plats följa med som synlig etikett i aktivt jobb, historik, rapport, sammanställning och Excel. Samtidigt flyttas ÄTA-uppdrag?-krysset till samma valgrupp som Returkrav/Flerlass.', changeRule:'Får bara påverka visningsetikett/adressfält för Min nuvarande plats och tillfällig Annan plats, Excel-/rapportetikett samt placering av ÄTA-kryssrutan. Adress/Plus Code får aldrig vara krav för att skapa eller köra uppdrag. Får inte ändra vikt, material, mtrl kod/anläggning, från/till/returplats-sanning, aktiv faslogik, GPS/geofence/ETA-logik, sync/spegling, trippmätare eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-QUEUE-HISTORY-FLAG-V365', name:'ÄTA-flagga från kö till historik v365', status:'Nytt uppdrag/Kö/Aktivt jobb/Historik kalender', protectionStatus:'Aktiv', introduced:'v365', purpose:'v365 gör att ÄTA-uppdrag?-flaggan som sparas på köuppdrag förs vidare när uppdraget startas från kön, så avslutat jobb får ÄTA-flagga och historisk kalender visar röd prick på rätt dag.', changeRule:'Får bara påverka överföring av ÄTA-flagga från kö till aktivt jobb/historik samt kontrollrader för detta. Får inte ändra fasjustering, vikt, material, mtrl kod/anläggning, från/till/returplats, GPS/geofence/ETA, sync/spegling, trippmätare, adress/Excel-regler eller driftlogg_v4_full-nyckeln.'},
   {id:'BILLABLE-TIME-FINISHED-EDIT-V367', name:'Debiterbar tid i avslutat jobb v367', status:'Historik/Redigera avslutat jobb', protectionStatus:'Aktiv', introduced:'v367', purpose:'v367 lägger till ett separat fält för debiterbar tid i minuter i Redigera avslutat jobb. Fältet sparas på avslutat jobb men ändrar inte total arbetstid, start/slut, vikt eller arbetsdata.', changeRule:'Får bara påverka Redigera avslutat jobb och sparat billableMinutesV367-fält. Får inte ändra total arbetstid, start/slut, vikt, material, mtrl kod/anläggning, från/till/returplats, GPS/geofence/ETA, sync/spegling, trippmätare, sammanställning, Excel eller driftlogg_v4_full-nyckeln.'},
+  {id:'ATA-BILLABLE-ON-COMPLETION-V368', name:'ÄTA-debitering vid avslut v368', status:'Aktivt jobb/Klart/Debiterbar tid', protectionStatus:'Aktiv', introduced:'v368', purpose:'v368 visar en ruta vid avslut av ÄTA-jobb där användaren kan debitera totaltid eller ange manuell tid. Valet sparas i debiterbar tid utan att ändra total arbetstid.', changeRule:'Får bara påverka avslutsflödet för ÄTA-jobb och sparat debiterbar tid-fält. Vanliga jobb ska avslutas som tidigare. Får inte ändra total arbetstid, start/slut, vikt, material, mtrl kod/anläggning, från/till/returplats, GPS/geofence/ETA, sync/spegling, trippmätare, sammanställning, Excel eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-JOBTYPE-ID-REBUILD-V366', name:'ÄTA via Jobbtyper och JT-ID v366', status:'Jobbtyper/Nytt uppdrag/Historik kalender', protectionStatus:'Aktiv', introduced:'v366', purpose:'v366 bygger om ÄTA från grunden: ÄTA-status styrs av kryssruta i Jobbtyper och följer jobbtypens stabila JT-ID historiskt. Den långa ÄTA/Övriga jobb/flytt av material-jobbtypen är undantag och använder ÄTA-uppdrag? per uppdrag.', changeRule:'Får bara påverka ÄTA-markering i Jobbtyper, manuell ÄTA-ruta för den särskilda flytt av material-jobbtypen och röd prick i historisk kalender. Får inte ändra vikt, material, mtrl kod/anläggning, från/till/returplats, aktiv faslogik, GPS/geofence/ETA, sync/spegling, trippmätare, adress/Excel-regler eller driftlogg_v4_full-nyckeln.'},
   {id:'JOBTYPE-PLACE-SAFE-RENAME-V353', name:'Säkert namnbyte med plats- och Havstångsskydd v353', status:'Jobbtyper/Platser/Havstång/Kontrollcentral', protectionStatus:'Aktiv', introduced:'v353', purpose:'Behåller säkert jobbtypsnamnbyte via JT-ID, stoppar att Platser sparas som 0, låter Havstångs specialregler följa intern roll/ID i stället för synligt namn och reparerar dubbletter med samma JT-ID.', changeRule:'Får bara påverka jobbtypers visningsnamn, platskopplingars namn/ID-normalisering, Havstångs specialkoppling och läsande kontroller. Får inte ändra aktiv faslogik, vikt, GPS/Snap, sync, historikdata, backup/export eller localStorage-nyckel.'},
   {id:'STARTUP-WATCHDOG-COMPLETE-V351', name:'Uppstartsreparation watchdog v351', status:'Uppstart/Watchdog/Startskärm', protectionStatus:'Aktiv', introduced:'v351', purpose:'v351 kvitterar App redo direkt efter första rendering/startskärm döljs så watchdog inte hinner larma när UI redan är framme. Kontroll-/baselinefix från v350 behålls.', changeRule:'Får bara påverka uppstartsvaktens färdigmarkering och versions-/kontrollmarkering. Får inte ändra syncbegränsning, kölogik, aktivt jobb, vikt, GPS/Snap, historik/export, backup, localStorage-nyckel eller lägga till fri namnbytesfunktion.'},
@@ -16079,7 +16097,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -16108,10 +16126,10 @@ function buildFunctionProtectionRowsV329(){
   add('COMPUTER-QUEUE-DELETE-PENDING-V346', 'Datorläge stabilt vänteläge för borttagning via Snabbsync v346', typeof isTabletQueueDeletePendingV346 === 'function' && typeof markTabletQueueDeletePendingV346 === 'function' && typeof getTabletQueueDeletePendingPillHtmlV346 === 'function' && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', 'Väntar på 189') && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', '189 ändrar bara om uppdraget fortfarande är ostarterat i kö') && functionSourceIncludes('requestTabletQueueDeleteV275', 'Skicka begäran till 189') && functionSourceIncludes('requestTabletQueueDeleteWithDelayV325', 'markTabletQueueDeletePendingV346') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPUTER-QUEUE-DELETE-PENDING-V346'), 'Datorläge visar stabilt vänteläge efter borttagningsbegäran och använder 189-språk utan att ändra kölogiken', 'KRITISK');
   add('MAIN-BUTTON-COUNT-BADGE-V347', 'Hård knappbadgefix för Uppdrag till 189 och 189 status v347', document.getElementById('queueCount') && document.getElementById('queueCount').classList.contains('main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', 'main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', '</span><span id=\"tabletQueueMirrorCountV238\"') && functionSourceIncludes('renderTabletQueueMirrorButtonV238', 'main-nav-count-badge-v347-positive') && APP_FEATURE_MANIFEST.some(item => item.id === 'MAIN-BUTTON-COUNT-BADGE-V347'), 'Uppdrag till 189 och 189 status använder separata antalsbadges utan parenteser och med röd positiv siffra', 'KRITISK');
   add('JOBTYPE-STABLE-ID-V348', 'Stabila Jobbtyp-ID:n finns', typeof getJobTypeMigrationStatusV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-STABLE-ID-V348'), 'Jobbtyp-ID-migration och manifest finns', 'KRITISK');
-  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
+  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367','v368'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
   add('CONTROL-BASELINE-CALIBRATION-V350', 'Kontroll-/baselinefix v350', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V350') && ['v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362'].includes(currentShort), 'v350-manifest och aktuell versionsmarkering finns', 'KRITISK');
-  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
-  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
+  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
+  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
   add('STORAGE-RESCUE-V355', 'Lagringsräddare och kodövervakning pausad v355', typeof initializeStorageRescueV355 === 'function' && typeof runStorageRescueSafeCleanupV355 === 'function' && typeof renderStorageRescueV355 === 'function' && !!document.getElementById('storageRescueTopV355') && APP_FEATURE_MANIFEST.some(item => item.id === 'STORAGE-RESCUE-V355') && (currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362'), 'v355+ kan rensa bara låg-risk temp/cache och startar inte v354 kodövervakning i drift', 'KRITISK');
   add('DISTANCE-LITE-V356', 'Tid före sträcka v356', typeof STADSLASS_DISTANCE_LITE_MODE_V356 !== 'undefined' && STADSLASS_DISTANCE_LITE_MODE_V356 === true && APP_FEATURE_MANIFEST.some(item => item.id === 'DISTANCE-LITE-V356'), 'GPS arbetsstöd behålls, tung historisk sträcka avlastas', 'KRITISK');
   add('HISTORY-VOLUME-MAP-V357', 'Datavolym/historikavlastning v357', typeof buildHistoryVolumeAnalysisV357 === 'function' && typeof renderHistoryVolumeReportV357 === 'function' && !!document.getElementById('historyVolumeRescueV357') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-VOLUME-MAP-V357'), 'läsande datakarta utan rensning eller omskrivning', 'KRITISK');
@@ -17019,6 +17037,7 @@ function getControlCenterExtendedChecksV303(){
   add('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active') && functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'ÄTA-flagga följer från kö/start till avslutat jobb så historisk kalender kan sätta röd prick', 'läsande/källkodskontroll');
   add('v366 ÄTA via Jobbtyper och JT-ID', typeof isJobAtaV366 === 'function' && typeof applyAtaJobFieldsV366 === 'function' && functionSourceIncludes('renderJobTypeManager', 'data-jobtype-ata-v366') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-JOBTYPE-ID-REBUILD-V366'), 'v366 styr ÄTA via Jobbtyper/JT-ID och manuell specialruta', 'riktad ombyggnad/kontroll');
   add('v367 Debiterbar tid i avslutat jobb', typeof getBillableMinutesForJobV367 === 'function' && typeof setEditedJobBillableMinutesV367 === 'function' && !!document.getElementById('editBillableMinutesV367') && functionSourceIncludes('openEditJob', 'getBillableMinutesForJobV367') && functionSourceIncludes('saveEditedJob', 'setEditedJobBillableMinutesV367') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-FINISHED-EDIT-V367'), 'Redigera avslutat jobb har separat fält för debiterbar tid utan att ändra total arbetstid', 'riktad UI-/sparakontroll');
+  add('v368 ÄTA-debitering vid avslut', typeof requestAtaBillableBeforeCompletionV368 === 'function' && typeof applyAtaBillableCompletionChoiceV368 === 'function' && !!document.getElementById('ataBillableModalV368') && functionSourceIncludes('stopJob', 'requestAtaBillableBeforeCompletionV368') && functionSourceIncludes('stopJob', 'applyAtaBillableCompletionChoiceV368') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-ON-COMPLETION-V368'), 'ÄTA-jobb får fråga om totaltid eller manuell debiterbar tid vid Klart utan att total arbetstid ändras', 'riktad avslutskontroll');
 
   const syncPayloadOk = fn('sanitizeQueueItemForSyncV219')
     && fn('sanitizeQueueItemForTransfer')
@@ -17924,6 +17943,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active') && functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'v365 bevarar ÄTA-flagga från kö till aktivt jobb/historik'),
     systemCheck('v366 ÄTA via Jobbtyper och JT-ID', typeof isJobAtaV366 === 'function' && typeof applyAtaJobFieldsV366 === 'function' && functionSourceIncludes('renderJobTypeManager', 'data-jobtype-ata-v366') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-JOBTYPE-ID-REBUILD-V366'), 'v366 använder jobbtypers ÄTA-kryss/JT-ID för historisk kalender och manuell specialruta för flytt av material'),
     systemCheck('v367 Debiterbar tid i avslutat jobb', typeof getBillableMinutesForJobV367 === 'function' && typeof setEditedJobBillableMinutesV367 === 'function' && !!document.getElementById('editBillableMinutesV367') && functionSourceIncludes('openEditJob', 'getBillableMinutesForJobV367') && functionSourceIncludes('saveEditedJob', 'setEditedJobBillableMinutesV367') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-FINISHED-EDIT-V367'), 'Redigera avslutat jobb har separat debiterbar tid som inte ändrar total arbetstid'),
+    systemCheck('v368 ÄTA-debitering vid avslut', typeof requestAtaBillableBeforeCompletionV368 === 'function' && typeof applyAtaBillableCompletionChoiceV368 === 'function' && !!document.getElementById('ataBillableModalV368') && functionSourceIncludes('stopJob', 'requestAtaBillableBeforeCompletionV368') && functionSourceIncludes('stopJob', 'applyAtaBillableCompletionChoiceV368') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-ON-COMPLETION-V368'), 'ÄTA-jobb kan få debiterbar tid vid Klart utan att total arbetstid ändras'),
     systemCheck('Returplats enkel lista i Nytt uppdrag v296', !!document.getElementById('newReturnPlaceV290') && !!document.getElementById('newReturnPlaceWrapV290') && !document.getElementById('newReturnRoutePreviewV290') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats enkel lista i Nytt uppdrag v296'), 'Nytt uppdrag visar bara Returplats-listan utan extra ruta'),
     systemCheck('Returplats i GPS/inlärning v294', typeof getMaterialReturnLearningPartV294 === 'function' && functionSourceIncludes('materialFlowEstimateKey', 'getMaterialReturnLearningPartV294') && functionSourceIncludes('buildStadslass20TransportWindows', 'returnPlaceLabelV294') && functionSourceIncludes('buildRouteRoleSnapSegmentsV211', 'Retur Till→Returplats') && APP_FEATURE_MANIFEST.some(item => item.name === 'Returplats i GPS/inlärning v294'), 'GPS-/tidsinlärning och Snap/transportfönster skiljer retursträckor på Returplats'),
     systemCheck('Returplats i aktivt jobb och ETA v293', typeof buildMapPointFromJobReturnPlaceV293 === 'function' && typeof resolveMapPointFromJobReturnPlaceV293 === 'function' && typeof getReturnGeofenceForJobV293 === 'function' && functionSourceIncludes('getActiveTransportEtaLegV215', 'returnPlace') && functionSourceIncludes('getActiveTransportEtaRoutePointsV215', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildActiveAutoMapRoutePoints', 'buildMapPointFromJobReturnPlaceV293') && functionSourceIncludes('calculateSmartMapTotalsForJob', 'resolveMapPointFromJobReturnPlaceV293') && functionSourceIncludes('buildSmartMapRouteKey', 'retur:'), 'Aktivt jobb och ETA använder Returplats som returbenets mål'),
@@ -20333,7 +20353,7 @@ function buildFinishedGpsSnapHistorySummaryV362(job, completedFrom){
   let quality = '';
   try{ quality = rec ? getRouteGpsQuality({routeGps:rec, routeGpsStatus:job && job.routeGpsStatus}) : ''; }catch(e){ quality = ''; }
   return {
-    version:'Stadslass 2.0 v367',
+    version:'Stadslass 2.0 v368',
     removedAt:new Date().toISOString(),
     completedFrom:String(completedFrom || ''),
     routeGpsStatus:String((job && job.routeGpsStatus) || (rec && rec.status) || ''),
@@ -20372,7 +20392,7 @@ function stripNewFinishedJobGpsSnapV362(job, completedFrom){
     job.historicalGpsSnapRemovedV362 = {
       removed:true,
       removedAt:summary.removedAt,
-      version:'Stadslass 2.0 v367',
+      version:'Stadslass 2.0 v368',
       pointCount:summary.gpsPointCount,
       removedBytes:removedBytes,
       removedKeys:removedKeys.slice(),
@@ -32311,14 +32331,20 @@ async function stopJob(){
 
   if(!prepareJobForCompletionWithPhaseGuard(state.active)) return;
 
-  finalizeActiveMotion();
   const finishedAt = Date.now();
+  const activeJobIdV368 = state.active && state.active.id ? state.active.id : '';
+  const ataBillableChoiceV368 = await requestAtaBillableBeforeCompletionV368(state.active, finishedAt);
+  if(ataBillableChoiceV368 === false) return;
+  if(!state.active || (activeJobIdV368 && state.active.id !== activeJobIdV368)) return;
+
+  finalizeActiveMotion();
   if(isOtherWorkJob(state.active)) captureActiveOtherWorkCommentInputV218(state.active);
   closeOpenWorkSession(state.active, finishedAt);
   finalizeActiveRouteGpsRecording();
   stopDistanceTracking();
   const finished = {...state.active, end:finishedAt};
   applyAtaJobFieldsV366(finished, finished.ataSourceV366 || finished.ataJobV366 || '');
+  applyAtaBillableCompletionChoiceV368(finished, ataBillableChoiceV368);
   finished.returnRequired = getJobReturnRequiredValue(finished);
   finished.returnRequiredAtStart = getJobReturnRequiredValue(finished);
   finished.routeEndPlace = getJobCompletionPlace(finished);
@@ -35367,6 +35393,86 @@ function setEditedJobBillableMinutesV367(job, rawValue){
   job.billableMinutesV367 = Math.round(minutes);
   job.billableTimeEditedAtV367 = Date.now();
   return true;
+}
+
+
+// v368: ÄTA-jobb får debiterbar tid direkt vid avslut. Påverkar inte total arbetstid.
+let ataBillableResolveV368 = null;
+let ataBillableContextV368 = null;
+function getCompletionTotalMinutesV368(job, endAt){
+  if(!job) return 0;
+  const end = Number(endAt || job.end || Date.now());
+  const ms = typeof getActualJobWorkMsV360 === 'function'
+    ? Number(getActualJobWorkMsV360(job, end) || 0)
+    : Math.max(0, Number(end || 0) - Number(job.start || end || 0));
+  if(!Number.isFinite(ms) || ms < 0) return 0;
+  return Math.max(0, Math.round(ms / 60000));
+}
+function shouldAskAtaBillableOnCompletionV368(job){
+  if(!job || typeof job !== 'object') return false;
+  const preview = {...job};
+  try{ if(typeof applyAtaJobFieldsV366 === 'function') applyAtaJobFieldsV366(preview, preview.ataSourceV366 || preview.ataJobV366 || ''); }catch(e){}
+  try{ return typeof isJobAtaV366 === 'function' && isJobAtaV366(preview); }catch(e){ return false; }
+}
+function closeAtaBillableModalV368(){
+  const modal = document.getElementById('ataBillableModalV368');
+  if(modal) modal.classList.remove('show');
+}
+function resolveAtaBillableModalV368(value){
+  const resolve = ataBillableResolveV368;
+  ataBillableResolveV368 = null;
+  ataBillableContextV368 = null;
+  closeAtaBillableModalV368();
+  if(typeof resolve === 'function') resolve(value);
+}
+function confirmAtaBillableTotalV368(){
+  const ctx = ataBillableContextV368 || {};
+  resolveAtaBillableModalV368({minutes:Math.max(0, Math.round(Number(ctx.totalMinutes || 0))), source:'total_time', mode:'total'});
+}
+function confirmAtaBillableManualV368(){
+  const input = document.getElementById('ataBillableManualMinutesV368');
+  const raw = String(input ? input.value : '').trim();
+  const minutes = raw === '' ? NaN : Number(raw);
+  if(!Number.isFinite(minutes) || minutes < 0){
+    alert('Skriv en giltig debiterbar tid i minuter.');
+    if(input) input.focus();
+    return;
+  }
+  resolveAtaBillableModalV368({minutes:Math.round(minutes), source:'manual_on_completion', mode:'manual'});
+}
+function cancelAtaBillableModalV368(){
+  resolveAtaBillableModalV368(false);
+}
+function requestAtaBillableBeforeCompletionV368(job, endAt){
+  if(!shouldAskAtaBillableOnCompletionV368(job)) return Promise.resolve(null);
+  const totalMinutes = getCompletionTotalMinutesV368(job, endAt);
+  const modal = document.getElementById('ataBillableModalV368');
+  const info = document.getElementById('ataBillableTotalInfoV368');
+  const input = document.getElementById('ataBillableManualMinutesV368');
+  if(!modal){
+    const raw = prompt('Debitera totaltid eller ange manuell tid\n\nSkriv minuter. Lämna tomt för totaltid (' + totalMinutes + ' min).', String(totalMinutes));
+    if(raw === null) return Promise.resolve(false);
+    const minutes = String(raw).trim() === '' ? totalMinutes : Number(raw);
+    if(!Number.isFinite(minutes) || minutes < 0){ alert('Skriv en giltig debiterbar tid i minuter.'); return Promise.resolve(false); }
+    return Promise.resolve({minutes:Math.round(minutes), source:String(raw).trim() === '' ? 'total_time' : 'manual_on_completion', mode:String(raw).trim() === '' ? 'total' : 'manual'});
+  }
+  ataBillableContextV368 = {jobId:job.id || '', totalMinutes};
+  if(info) info.textContent = 'Totaltid: ' + totalMinutes + ' min';
+  if(input) input.value = '';
+  modal.classList.add('show');
+  setTimeout(function(){ try{ if(input) input.focus(); }catch(e){} }, 50);
+  return new Promise(function(resolve){ ataBillableResolveV368 = resolve; });
+}
+function applyAtaBillableCompletionChoiceV368(job, choice){
+  if(!job || !choice || choice === false) return job;
+  const minutes = Number(choice.minutes);
+  if(!Number.isFinite(minutes) || minutes < 0) return job;
+  job.billableMinutesV367 = Math.round(minutes);
+  job.billableMinutesSourceV368 = choice.source || 'completion';
+  job.billableMinutesModeV368 = choice.mode || 'completion';
+  job.billableTimeEditedAtV367 = Date.now();
+  job.billableTimeSetAtCompletionV368 = true;
+  return job;
 }
 
 function openEditJob(jobId){
