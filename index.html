@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v377
+- Nuvarande version: Stadslass 2.0 v378
+- v378: Kontroll-/ÄTA-/ETA-baselinefix: kvarvarande kontrollfel efter v365-v377 kalibreras; ÄTA-kontroller följer faktisk v366+/v372-kedja; Klar ca-diagnos skiljer nästa mål från helslut; kartanropsdiagnos skiljer startberäkning från aktiv omräkning; v368-v375-hjälpfunktioner registreras i baseline.
 - v377: Geofence visar Lastningslås före Lossningslås och den synliga tillfälliga UI-funktionen Koppla gamla jobbtyper tas bort. Själva legacy-kopplingstabellen och summeringslogiken behålls så gjorda kopplingar fortsätter gälla i sammanställning, spegling, Excel och ÄTA-bedömning.
 - v376: Geofence får Lastningslås som egen kryssruta. Från-zon med Lastningslås håller kvar visuell Lastning/rangering tills Lastar/ny lastning registreras manuellt, utan att ändra fasdata, vikt, historik, GPS/geofence/ETA eller driftlogg_v4_full.
 - v375: Speglad sammanställning/189-status byggs om färskt vid behov och visar synliga jobbtypnamn samt debiterbar tid i toppsummering och Per jobbtyp.
@@ -392,7 +393,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v377';
+  const version = 'Stadslass 2.0 v378';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4007,7 +4008,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v377</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v378</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -13395,9 +13396,10 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v377';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v378';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
   'v377 Geofence låsordning och borttagen legacy-kopplingsruta',
+  'v378 Kontroll-/ÄTA-/ETA-baselinefix',
   'v376 Geofence Lastningslås för Från-zon',
   'v375 189-status sammanställning med namn och debiterbar tid',
   'v374 Legacy-koppling slår ihop Per jobbtyp',
@@ -13756,11 +13758,14 @@ function getActiveMapCallContextV198(snapshot){
   const lastAutoRoute = job ? activeMonitorSafe(job.autoMapLastRouteText, '-') : '-';
   const lastAutoSource = job ? activeMonitorSafe(job.autoMapLastSource, '-') : '-';
   const lastAutoMode = job ? activeMonitorSafe(job.autoMapLastMode, '-') : '-';
-  const dynamicGpsLikely = counts.newCalls > 3 && gpsKm >= 0.2 && observed && mode && mode.googleActive;
+  const startNewCalls = job ? Math.max(0, Number(job.estimatedMapNewCallCountAtStart || 0)) : 0;
+  const activeRecalcNewCalls = Math.max(0, counts.newCalls - startNewCalls);
+  const reviewNewCalls = activeRecalcNewCalls;
+  const dynamicGpsLikely = reviewNewCalls > 3 && gpsKm >= 0.2 && observed && ((mode && mode.googleActive) || lastAutoMode === 'outbound' || lastAutoMode === 'return');
   const routeDeviationText = activeMonitorSafe(s.routeDeviation, 'saknas');
   const interpretation = dynamicGpsLikely
-    ? 'Flera aktiva anrop kan vara normal omräkning från ny GPS-position, till exempel om bilen kör annan väg eller startpunkten ändras under transport.'
-    : (counts.newCalls > 3 ? 'Flera aktiva anrop behöver granskas om de gäller samma ruttläge och inte beror på GPS-/ruttomräkning.' : 'Aktiva kartanrop ligger inom normal nivå.');
+    ? 'Flera efterstart-anrop kan vara normal omräkning från ny GPS-position, till exempel om bilen kör annan väg eller startpunkten ändras under transport.'
+    : (reviewNewCalls > 3 ? 'Flera efterstart-anrop behöver granskas om de gäller samma ruttläge och inte beror på GPS-/ruttomräkning.' : 'Aktiva kartanrop ligger inom normal nivå när startberäkning och efterstart-omräkning hålls isär.');
   return {
     counts,
     activeRoute: routeText,
@@ -13774,7 +13779,10 @@ function getActiveMapCallContextV198(snapshot){
     routeDeviationText,
     dynamicGpsLikely,
     interpretation,
-    systemControlSeparated:true
+    systemControlSeparated:true,
+    startNewCalls,
+    activeRecalcNewCalls,
+    reviewNewCalls
   };
 }
 
@@ -13782,6 +13790,8 @@ function formatActiveMapCallContextLineV198(ctx){
   const c = ctx && ctx.counts ? ctx.counts : {newCalls:0, cacheHits:0, skipped:0};
   return 'Aktivt jobb: ' + activeMonitorSafe(ctx && ctx.activeRoute, '-') +
     ' · anrop=' + c.newCalls +
+    ' · start=' + activeMonitorNumber(ctx && ctx.startNewCalls, 0) +
+    ' · efter start=' + activeMonitorNumber(ctx && ctx.activeRecalcNewCalls, 0) +
     ' · cache=' + c.cacheHits +
     ' · samma plats=' + c.skipped +
     ' · GPS-sträcka=' + activeMonitorNumber(ctx && ctx.gpsKm, 3) + ' km' +
@@ -13791,14 +13801,19 @@ function formatActiveMapCallContextLineV198(ctx){
 function getReturnEtaDiagnosticLineV198(snapshot){
   const s = snapshot || getActiveMonitorSnapshot();
   if(!s || !s.hasActive || !s.returnRequired) return 'Returkrav: Nej eller inget aktivt uppdrag.';
-  const diffMs = Math.abs(Number(s.estimatedEndAt || 0) - Number(s.displayEndAt || 0));
+  const overall = Number(s.overallEndAt || s.estimatedEndAt || 0);
+  const nextTarget = Number(s.displayEndAt || 0);
+  const diffMs = Math.abs(Number(s.estimatedEndAt || 0) - overall);
   const diffMin = diffMs > 0 ? Math.round(diffMs / 60000) : 0;
-  const note = diffMin > 1
-    ? 'Tid till kan visa nästa mål medan Klar ca ska granskas mot helslut/estimatedEndAt.'
-    : 'displayEndAt och estimatedEndAt ligger nära varandra.';
+  const nextDiffMs = Math.abs(overall - nextTarget);
+  const nextDiffMin = nextDiffMs > 0 ? Math.round(nextDiffMs / 60000) : 0;
+  const note = nextDiffMin > 1
+    ? 'Nästa mål och Klar ca är separata: Tid till kan vara 0 vid Till-plats medan Klar ca följer helslut/retur.'
+    : 'Nästa mål och helslut ligger nära varandra.';
   return 'Returkrav: Ja · estimatedEndAt/helslut=' + activeMonitorDateTime(s.estimatedEndAt) +
-    ' · displayEndAt/Klar ca-underlag=' + activeMonitorDateTime(s.displayEndAt) +
-    ' · skillnad≈' + diffMin + ' min · ' + note;
+    ' · Klar ca/helslut-underlag=' + activeMonitorDateTime(overall) +
+    ' · nästa mål-underlag=' + activeMonitorDateTime(nextTarget) +
+    ' · helslutdiff≈' + diffMin + ' min · nästa-mål-diff≈' + nextDiffMin + ' min · ' + note;
 }
 
 function formatSnapRoadsDistanceKmV182(value){
@@ -13824,6 +13839,7 @@ function getActiveMonitorSnapshot(){
   const pointCount = rec ? Number(rec.pointCount || (Array.isArray(rec.points) ? rec.points.length : 0) || 0) : 0;
   const holdInfo = job && Number(job.estimatedEndAt || 0) > 0 ? getActiveEstimatePreMovementHoldInfo(job) : {held:false};
   const displayEndAt = job && Number(job.estimatedEndAt || 0) > 0 ? getActiveEstimateDisplayEndAtForNow(job, Number(job.estimatedEndAt || 0)) : 0;
+  const overallEndAt = job && Number(job.estimatedEndAt || 0) > 0 ? getActiveEstimateOverallEndAt(job, Number(job.estimatedEndAt || 0)) : 0;
   const remainingMs = displayEndAt ? displayEndAt - now : null;
   const remainingMinutes = remainingMs !== null && Number.isFinite(Number(remainingMs)) ? Math.ceil(Math.max(0, Number(remainingMs)) / 60000) : null;
   const lastGpsPoint = getActiveMonitorLastGpsPoint(job);
@@ -13866,6 +13882,7 @@ function getActiveMonitorSnapshot(){
     estimatedMinutesAtStart: job ? Number(job.estimatedMinutesAtStart || 0) : 0,
     estimatedEndAt: job ? Number(job.estimatedEndAt || 0) : 0,
     displayEndAt,
+    overallEndAt,
     remainingMinutes,
     etaHoldBeforeMovement: !!(holdInfo && holdInfo.held),
     etaHoldMovementKm: holdInfo && Number.isFinite(Number(holdInfo.movementKm)) ? Number(holdInfo.movementKm) : 0,
@@ -14053,7 +14070,7 @@ function getActiveMonitorChecks(snapshot){
   }
 
   const mapCtxV198 = getActiveMapCallContextV198(s);
-  if(s.mapNewCalls > 3){
+  if(mapCtxV198.reviewNewCalls > 3){
     if(mapCtxV198.dynamicGpsLikely){
       info('MAP-OV-001', 'Flera kartanrop på aktivt jobb – troligen ruttomräkning', 'Google/Stadslass-modellen får räkna om i transportläge när GPS-startpunkt eller vägval ändras, men Kontrollcentralens/Systemkontrollens karttest ska hållas separat i rapporten.', formatActiveMapCallContextLineV198(mapCtxV198), mapCtxV198.interpretation, 'v198 ETA/kartanropsdiagnos / v137 Google/Stadslass', 'source=' + s.smartSource + '; smartMapSkipReason=' + activeMonitorSafe(s.job.smartMapSkipReason, '-') + '; lastAutoRoute=' + mapCtxV198.lastAutoRoute + '; lastAutoSource=' + mapCtxV198.lastAutoSource + '; systemControlSeparated=' + activeMonitorBool(mapCtxV198.systemControlSeparated));
     } else {
@@ -14794,7 +14811,8 @@ function buildActiveMonitorReport(){
   report.push('TID / ETA');
   report.push('Uppskattad tid vid start: ' + (s.estimatedMinutesAtStart > 0 ? s.estimatedMinutesAtStart + ' min' : 'saknas'));
   report.push('estimatedEndAt: ' + activeMonitorDateTime(s.estimatedEndAt));
-  report.push('displayEndAt/Klar ca-underlag: ' + activeMonitorDateTime(s.displayEndAt));
+  report.push('Nästa mål-underlag: ' + activeMonitorDateTime(s.displayEndAt));
+  report.push('Klar ca/helslut-underlag: ' + activeMonitorDateTime(s.overallEndAt || s.estimatedEndAt));
   report.push('Uppskattad tid kvar: ' + (s.remainingMinutes === null ? 'saknas' : s.remainingMinutes + ' min'));
   report.push('Observerad transportstart: ' + (s.observedTransportStartAt > 0 ? activeMonitorDateTime(s.observedTransportStartAt) : 'saknas'));
   report.push('Observerad transportkälla: ' + activeMonitorSafe(s.observedTransportStartSource, '-'));
@@ -15381,7 +15399,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v377';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v378';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15407,6 +15425,7 @@ function getStartupWatchdogStatus(){
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
   {id:'GEOFENCE-LOCK-ORDER-LEGACY-UI-V377', name:'Geofence låsordning och borttagen legacy-kopplingsruta v377', status:'Geofence/Inställningar/Sammanställning', protectionStatus:'Aktiv', introduced:'v377', purpose:'v377 visar Lastningslås före Lossningslås i Geofence och tar bort den synliga tillfälliga UI-funktionen Koppla gamla jobbtyper. Själva legacy-kopplingstabellen och summeringslogiken behålls så redan gjorda kopplingar fortsätter användas i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning.', changeRule:'Får bara påverka visuell ordning för geofence-lås och ta bort den tillfälliga inställningsrutan/knappen för manuell legacy-koppling. Får inte radera state.legacyJobTypeMapV371, ändra historikjobb, ändra jobbtyp-ID, ändra ÄTA-/debiterbar tid-logik, vikt, GPS/geofence/ETA-beräkning, syncsanning, trippmätare eller driftlogg_v4_full.'},
+  {id:'CONTROL-ATA-ETA-BASELINE-V378', name:'Kontroll-/ÄTA-/ETA-baselinefix v378', status:'Kontrollcentral/ÄTA/Klar ca/Kartanrop/Funktionslista', protectionStatus:'Aktiv', introduced:'v378', purpose:'v378 kalibrerar kvarvarande kontrollfel efter v365-v377: ÄTA-flagga-kontroll följer modern v366-kedja, ÄTA-rutan kontrolleras via faktisk modaltext, Klar ca-diagnos skiljer nästa mål från helslut och Funktionslistans baseline registrerar v368-v375-hjälpfunktioner utan att ändra arbetsdata.', changeRule:'Får bara påverka kontroll-/diagnos-/baselinekod och rapporttexter samt tolkning av kartanropsräknare. Får inte ändra aktivt arbetsflöde, manuell Lastar/Ange vikt/Klart-sanning, sparad historik, ködata, vikt, material, mtrl kod/anläggning, GPS/geofence/ETA-beräkning som arbetsstöd, syncsanning, trippmätare eller driftlogg_v4_full-nyckeln.'},
   {id:'GEOFENCE-LOADING-LOCK-V376', name:'Geofence lastningslås v376', status:'Geofence/visuell Från-zon', protectionStatus:'Aktiv', introduced:'v376', purpose:'v376 lägger till Lastningslås som egen geofence-kryssruta. När platsen används som Från-zon håller låset kvar visuell Lastning/rangering tills föraren manuellt trycker Lastar eller Registrera ny lastning.', changeRule:'Får bara påverka geofence-formulär, geofence-lista, aktiv visuell Från-status och kontroller. Får inte trycka Lastar automatiskt, ändra loadedAt/currentLoadStartedAt/fasdata som sanning, ändra vikt, historik, GPS/geofence/ETA-beräkning, syncsanning, trippmätare eller driftlogg_v4_full.'},
   {id:'CODE-USAGE-MONITORING-V354', name:'Kodövervakning och baselinefix v354', status:'Kontrollcentral/Funktionslista/Kodövervakning/Sanering', protectionStatus:'Aktiv', introduced:'v354', purpose:'v354 uppdaterar källkodsbaseline efter v353 och lägger till separat kodövervakning som mäter vilka globala funktioner som faktiskt körs under verklig användning. Rapporten används som beslutsunderlag för framtida död-kod-sanering.', changeRule:'Får bara påverka kontroll-/baselineklassning och separat kodanvändningslogg. Får inte ta bort kod, ändra arbetsflöden, syncbegränsning, aktivt jobb, kölogik, vikt, GPS/Snap, historik/export, backup eller driftlogg_v4_full.'},
   {id:'STORAGE-RESCUE-V355', name:'Lagringsräddare och prestandaläge v355', status:'Akut drift/prestanda/localStorage', protectionStatus:'Aktiv', introduced:'v355', purpose:'v355 lägger till en kontrollerad lagringsräddare som bara får rensa låg-risk temporärdata/diagnos/cache och pausar v354 kodövervakning i vanlig drift för att minska sidlåsning på Android. Funktionen ska visa före/efter och kontrollera att driftlogg_v4_full inte ändras.', changeRule:'Får bara rensa uttryckligen tillåtna låg-risk localStorage-nycklar utanför driftlogg_v4_full. Får inte ta bort eller skriva om avslutade jobb, aktivt jobb, kö/pausade jobb, vikter, GPS-data, platser, jobbtyper, snabbval, maskiner, geofence, Google-nyckel, backup/export eller lagringsnyckeln driftlogg_v4_full.'},
@@ -15845,7 +15864,13 @@ ATA_BILLABLE_PHASE_FUNCTIONS_V372.forEach(function(name){ if(APP_FUNCTION_SOURCE
 const PAUSE_AWARE_HISTORY_EDIT_FUNCTIONS_V373 = ['getFinishedJobWorkMsForDisplayV373','getFinishedJobWorkMinutesForEditV373','getBillableTimeInlineHtmlV373','getBillableTimeRowHtmlV373','hasPausedWorkSessionsV373','getVisibleEditPlaceValueV373','prepareEditPlaceInputV373','findPlaceKeyByVisibleLabelV373','resolveEditedPlaceValueV373','updateEditedPlaceStoredLabelV373','shiftJobWorkSessionsDateV373','applyManualWorkMinutesV373'];
 PAUSE_AWARE_HISTORY_EDIT_FUNCTIONS_V373.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
 
-['inboxClear233','snapSegment214','STORAGE_RESCUE_SAFE_KEYS_V355'].forEach(function(name){
+const CONTROL_BASELINE_REPAIR_FUNCTIONS_V378 = [
+  'applyAtaBillableCompletionChoiceV368','buildLegacyJobTypeTargetOptionsV371','cancelAtaBillableModalV368','closeAtaBillableModalV368','collectLegacyJobTypeGroupsV371','confirmAtaBillableManualV368','confirmAtaBillableTotalV368','ensureLegacyJobTypeMapV371','getBillableMinutesNumberV369','getCompletionTotalMinutesV368','getLegacyJobTypeMapEntryForJobV371','getLegacyJobTypeMapEntryForNameV371','getLegacyJobTypeMappingStatusV371','getLegacyJobTypeRawNameForJobV371','getMappedJobTypeIdForLegacyJobV371','getSummaryJobTypeDisplayNameForJobV371','getSummaryJobTypeIdForJobV371','getSummaryRowBillableMinutesV369','getSummaryRowBillableMsV369','isJobAtaWithLegacyMapV371','isSummaryAtaJobV369','legacyJobTypeMapKeyV371','normalizeLegacyJobTypeTextV371','removeLegacyJobTypeMappingV371','renderBillableInfoV369','renderLegacyJobTypeMappingV371','requestAtaBillableBeforeCompletionV368','resolveAtaBillableModalV368','resolveSummaryMirrorRowLabelV375','saveLegacyJobTypeMappingV371','selectionMayIncludeBeforeBillableStartV369','set','shouldAskAtaBillableOnCompletionV368','summaryMirrorPackageNeedsRefreshV375','toggleLegacyJobTypeMappingV371','val'
+];
+CONTROL_BASELINE_REPAIR_FUNCTIONS_V378.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
+
+
+['inboxClear233','snapSegment214','STORAGE_RESCUE_SAFE_KEYS_V355','wrapped'].forEach(function(name){
   const idx = APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name);
   if(idx >= 0) APP_FUNCTION_SOURCE_BASELINE_V329.splice(idx, 1);
 });
@@ -16284,7 +16309,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -16313,18 +16338,18 @@ function buildFunctionProtectionRowsV329(){
   add('COMPUTER-QUEUE-DELETE-PENDING-V346', 'Datorläge stabilt vänteläge för borttagning via Snabbsync v346', typeof isTabletQueueDeletePendingV346 === 'function' && typeof markTabletQueueDeletePendingV346 === 'function' && typeof getTabletQueueDeletePendingPillHtmlV346 === 'function' && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', 'Väntar på 189') && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', '189 ändrar bara om uppdraget fortfarande är ostarterat i kö') && functionSourceIncludes('requestTabletQueueDeleteV275', 'Skicka begäran till 189') && functionSourceIncludes('requestTabletQueueDeleteWithDelayV325', 'markTabletQueueDeletePendingV346') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPUTER-QUEUE-DELETE-PENDING-V346'), 'Datorläge visar stabilt vänteläge efter borttagningsbegäran och använder 189-språk utan att ändra kölogiken', 'KRITISK');
   add('MAIN-BUTTON-COUNT-BADGE-V347', 'Hård knappbadgefix för Uppdrag till 189 och 189 status v347', document.getElementById('queueCount') && document.getElementById('queueCount').classList.contains('main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', 'main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', '</span><span id=\"tabletQueueMirrorCountV238\"') && functionSourceIncludes('renderTabletQueueMirrorButtonV238', 'main-nav-count-badge-v347-positive') && APP_FEATURE_MANIFEST.some(item => item.id === 'MAIN-BUTTON-COUNT-BADGE-V347'), 'Uppdrag till 189 och 189 status använder separata antalsbadges utan parenteser och med röd positiv siffra', 'KRITISK');
   add('JOBTYPE-STABLE-ID-V348', 'Stabila Jobbtyp-ID:n finns', typeof getJobTypeMigrationStatusV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-STABLE-ID-V348'), 'Jobbtyp-ID-migration och manifest finns', 'KRITISK');
-  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367','v368','v369','v371','v374','v375','v376','v377'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
-  add('CONTROL-BASELINE-CALIBRATION-V350', 'Kontroll-/baselinefix v350', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V350') && ['v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362'].includes(currentShort), 'v350-manifest och aktuell versionsmarkering finns', 'KRITISK');
-  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
-  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
-  add('STORAGE-RESCUE-V355', 'Lagringsräddare och kodövervakning pausad v355', typeof initializeStorageRescueV355 === 'function' && typeof runStorageRescueSafeCleanupV355 === 'function' && typeof renderStorageRescueV355 === 'function' && !!document.getElementById('storageRescueTopV355') && APP_FEATURE_MANIFEST.some(item => item.id === 'STORAGE-RESCUE-V355') && (currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362'), 'v355+ kan rensa bara låg-risk temp/cache och startar inte v354 kodövervakning i drift', 'KRITISK');
+  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367','v368','v369','v371','v374','v375','v376','v377','v378'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
+  add('CONTROL-BASELINE-CALIBRATION-V350', 'Kontroll-/baselinefix v350', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V350') && controlVersionNumberV302(currentShort) >= 350, 'v350-manifest och aktuell versionsmarkering finns', 'KRITISK');
+  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
+  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
+  add('STORAGE-RESCUE-V355', 'Lagringsräddare och kodövervakning pausad v355', typeof initializeStorageRescueV355 === 'function' && typeof runStorageRescueSafeCleanupV355 === 'function' && typeof renderStorageRescueV355 === 'function' && !!document.getElementById('storageRescueTopV355') && APP_FEATURE_MANIFEST.some(item => item.id === 'STORAGE-RESCUE-V355') && controlVersionNumberV302(currentShort) >= 355, 'v355+ kan rensa bara låg-risk temp/cache och startar inte v354 kodövervakning i drift', 'KRITISK');
   add('DISTANCE-LITE-V356', 'Tid före sträcka v356', typeof STADSLASS_DISTANCE_LITE_MODE_V356 !== 'undefined' && STADSLASS_DISTANCE_LITE_MODE_V356 === true && APP_FEATURE_MANIFEST.some(item => item.id === 'DISTANCE-LITE-V356'), 'GPS arbetsstöd behålls, tung historisk sträcka avlastas', 'KRITISK');
   add('HISTORY-VOLUME-MAP-V357', 'Datavolym/historikavlastning v357', typeof buildHistoryVolumeAnalysisV357 === 'function' && typeof renderHistoryVolumeReportV357 === 'function' && !!document.getElementById('historyVolumeRescueV357') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-VOLUME-MAP-V357'), 'läsande datakarta utan rensning eller omskrivning', 'KRITISK');
   add('HISTORICAL-GPS-CLEANUP-V358', 'Radera historisk GPS/Snap v358', typeof buildFinishedGpsCleanupAnalysisV358 === 'function' && typeof runFinishedGpsSnapCleanupV358 === 'function' && typeof stripFinishedJobGpsSnapV358 === 'function' && !!document.getElementById('finishedGpsCleanupV358') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-CLEANUP-V358'), 'manuell rensning av avslutad historisk GPS/Snap med arbetsdata skyddad', 'KRITISK');
-  add('HISTORY-TIME-STORAGE-MOVE-V359', 'Historiktid och lagringsverktyg flyttade v359', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-TIME-STORAGE-MOVE-V359') && (currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362') && (functionSourceIncludes('getSummaryRowTimeMs', 'v359') || functionSourceIncludes('getSummaryRowTimeMs', 'v360')) && (functionSourceIncludes('getRoadWorkTimeSplit', 'v359') || functionSourceIncludes('getRoadWorkTimeSplit', 'v360')) && !!document.getElementById('storageControlManagerWrap') && !!document.getElementById('storageRescueTopV355') && !!document.getElementById('historyVolumeRescueV357') && !!document.getElementById('finishedGpsCleanupV358') && !document.querySelector('.wrap > #storageRescueTopV355') && !document.querySelector('.wrap > #historyVolumeRescueV357') && !document.querySelector('.wrap > #finishedGpsCleanupV358'), 'Tid använder verklig/pausmedveten arbetsberäkning och lagringsverktyg ligger under Lagringskontroll', 'KRITISK');
-  add('TEMP-PLACE-ADDRESS-PAUSE-TIME-V360', 'Tillfällig plats adressvisning och pausmedveten tid v360', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-ADDRESS-PAUSE-TIME-V360') && (currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362') && typeof getTemporaryOtherPlaceVisibleLabelV360 === 'function' && typeof getPauseAwareWorkSessionMsV360 === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'streetAddress') && functionSourceIncludes('getSummaryRowTimeMs', 'v360'), 'Plus Code kan ge gata/väg i Från/Till och paus/fortsätt räknas som arbetspass', 'KRITISK');
-  add('TEMP-PLACE-REVERSE-ADDRESS-V361', 'Tillfällig plats reverse-adress v361', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-REVERSE-ADDRESS-V361') && (currentShort === 'v361' || currentShort === 'v362') && typeof requestGoogleReverseGeocodeForLatLonV361 === 'function' && typeof refreshTemporaryOtherPlaceReverseAddressV361 === 'function' && typeof pickBestGoogleAddressResultV361 === 'function', 'reverse geocoding från koordinat kan ge gata/väg före Plus Code-fallback', 'KRITISK');
-  add('FUTURE-GPS-HISTORY-LITE-V362', 'Ny historik utan rå GPS/Snap v362', APP_FEATURE_MANIFEST.some(item => item.id === 'FUTURE-GPS-HISTORY-LITE-V362') && currentShort === 'v362' && typeof stripNewFinishedJobGpsSnapV362 === 'function' && typeof buildFinishedGpsSnapHistorySummaryV362 === 'function' && functionSourceIncludes('stopJob', 'stripNewFinishedJobGpsSnapV362') && functionSourceIncludes('completeQueuedJob', 'stripNewFinishedJobGpsSnapV362'), 'nya avslutade jobb sparas utan rå routeGps/Snap i historiken efter avslutsrapport', 'KRITISK');
+  add('HISTORY-TIME-STORAGE-MOVE-V359', 'Historiktid och lagringsverktyg flyttade v359', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-TIME-STORAGE-MOVE-V359') && controlVersionNumberV302(currentShort) >= 359 && (functionSourceIncludes('getSummaryRowTimeMs', 'v359') || functionSourceIncludes('getSummaryRowTimeMs', 'v360')) && (functionSourceIncludes('getRoadWorkTimeSplit', 'v359') || functionSourceIncludes('getRoadWorkTimeSplit', 'v360')) && !!document.getElementById('storageControlManagerWrap') && !!document.getElementById('storageRescueTopV355') && !!document.getElementById('historyVolumeRescueV357') && !!document.getElementById('finishedGpsCleanupV358') && !document.querySelector('.wrap > #storageRescueTopV355') && !document.querySelector('.wrap > #historyVolumeRescueV357') && !document.querySelector('.wrap > #finishedGpsCleanupV358'), 'Tid använder verklig/pausmedveten arbetsberäkning och lagringsverktyg ligger under Lagringskontroll', 'KRITISK');
+  add('TEMP-PLACE-ADDRESS-PAUSE-TIME-V360', 'Tillfällig plats adressvisning och pausmedveten tid v360', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-ADDRESS-PAUSE-TIME-V360') && controlVersionNumberV302(currentShort) >= 360 && typeof getTemporaryOtherPlaceVisibleLabelV360 === 'function' && typeof getPauseAwareWorkSessionMsV360 === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'streetAddress') && functionSourceIncludes('getSummaryRowTimeMs', 'v360'), 'Plus Code kan ge gata/väg i Från/Till och paus/fortsätt räknas som arbetspass', 'KRITISK');
+  add('TEMP-PLACE-REVERSE-ADDRESS-V361', 'Tillfällig plats reverse-adress v361', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-REVERSE-ADDRESS-V361') && controlVersionNumberV302(currentShort) >= 361 && typeof requestGoogleReverseGeocodeForLatLonV361 === 'function' && typeof refreshTemporaryOtherPlaceReverseAddressV361 === 'function' && typeof pickBestGoogleAddressResultV361 === 'function', 'reverse geocoding från koordinat kan ge gata/väg före Plus Code-fallback', 'KRITISK');
+  add('FUTURE-GPS-HISTORY-LITE-V362', 'Ny historik utan rå GPS/Snap v362', APP_FEATURE_MANIFEST.some(item => item.id === 'FUTURE-GPS-HISTORY-LITE-V362') && controlVersionNumberV302(currentShort) >= 362 && typeof stripNewFinishedJobGpsSnapV362 === 'function' && typeof buildFinishedGpsSnapHistorySummaryV362 === 'function' && functionSourceIncludes('stopJob', 'stripNewFinishedJobGpsSnapV362') && functionSourceIncludes('completeQueuedJob', 'stripNewFinishedJobGpsSnapV362'), 'nya avslutade jobb sparas utan rå routeGps/Snap i historiken efter avslutsrapport', 'KRITISK');
   add('CONTROL-CENTER-PAD-VARIABLE-FIX-V335', 'Kontrollcentral pad-variabelreparation v335', !functionSourceIncludes('buildFunctionControlTextReportV165', "src('getDeviceModeV272', pad)") && APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-CENTER-PAD-VARIABLE-FIX-V335'), 'Kontrollvillkor använder säker textroll och inte odefinierad variabel pad', 'KRITISK');
   return {rows, sourceFunctions, baseline, missingSource, newSource, manifest};
 }
@@ -16411,7 +16436,7 @@ function buildFunctionProtectionReportV329(){
   lines.push('');
   lines.push('RAW');
   lines.push('storageKey=' + KEY);
-  lines.push('baselineVersion=v354');
+  lines.push('baselineVersion=v378');
   return lines.join('\n');
 }
 
@@ -17223,12 +17248,12 @@ function getControlCenterExtendedChecksV303(){
   add('Maskinverkstad i Nytt uppdrag v308', typeof getMachineWorkshopForSelectionV308 === 'function' && typeof appendMachineWorkshopPlaceV308 === 'function' && functionSourceIncludes('updateNewJobPlaceSelects', 'appendMachineWorkshopPlaceV308') && functionSourceIncludes('updateNewMachineDestination', 'ensureMachineWorkshopSelectOptionV308'), 'vald maskins Verkstad/plats kan läggas till i Från/Till-listorna för Maskintransport', 'läsande/kontrollfix');
   add('v363 Maskintransport snabbnycklar och ÄTA', typeof updateNewAtaJobUIV363 === 'function' && !!document.getElementById('newAtaJobWrapV363') && !!document.getElementById('quickKeySetupWrapV363') && typeof saveQuickKeySetupV363 === 'function' && typeof isJobAtaV363 === 'function' && !!document.querySelector('.history-calendar-day.has-ata-v366, #historyCalendarGrid') && APP_FEATURE_MANIFEST.some(item => item.id === 'LOW-RISK-UI-ATA-V363'), 'maskinruta/Nytt uppdrag behålls, snabbnyckelruta finns och ÄTA-dagar kan markeras med röd prick', 'läsande/UI-kontroll');
   add('v364 Adress/Excel och ÄTA-placering', typeof applyResolvedAddressLabelsForExcelV364 === 'function' && typeof applyCurrentLocationAddressToJobV364 === 'function' && typeof sanitizeResolvedPlaceLabelV364 === 'function' && functionSourceIncludes('buildExcelWorkbookXml', 'applyResolvedAddressLabelsForExcelV364') && functionSourceIncludes('requestActiveStartPointAddress', 'applyCurrentLocationAddressToJobV364') && document.getElementById('newJobModeFlags') && document.getElementById('newAtaJobWrapV363') && APP_FEATURE_MANIFEST.some(item => item.id === 'ADDRESS-EXCEL-LABELS-V364'), 'hittad adress kan följa med till Excel och ÄTA-kryss ligger i Returkrav/Flerlass-gruppen', 'läsande/UI-kontroll');
-  add('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active') && functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'ÄTA-flagga följer från kö/start till avslutat jobb så historisk kalender kan sätta röd prick', 'läsande/källkodskontroll');
+  add('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && (functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV366(state.active') || functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active')) && (functionSourceIncludes('stopJob', 'applyAtaJobFieldsV366(finished') || functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished')) && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'ÄTA-flagga följer från kö/start till avslutat jobb så historisk kalender kan sätta röd prick', 'läsande/källkodskontroll');
   add('v366 ÄTA via Jobbtyper och JT-ID', typeof isJobAtaV366 === 'function' && typeof applyAtaJobFieldsV366 === 'function' && functionSourceIncludes('renderJobTypeManager', 'data-jobtype-ata-v366') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-JOBTYPE-ID-REBUILD-V366'), 'v366 styr ÄTA via Jobbtyper/JT-ID och manuell specialruta', 'riktad ombyggnad/kontroll');
   add('v367 Debiterbar tid i avslutat jobb', typeof getBillableMinutesForJobV367 === 'function' && typeof setEditedJobBillableMinutesV367 === 'function' && !!document.getElementById('editBillableMinutesV367') && functionSourceIncludes('openEditJob', 'getBillableMinutesForJobV367') && functionSourceIncludes('saveEditedJob', 'setEditedJobBillableMinutesV367') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-FINISHED-EDIT-V367'), 'Redigera avslutat jobb har separat fält för debiterbar tid utan att ändra total arbetstid', 'riktad UI-/sparakontroll');
   add('v368 ÄTA-debitering vid avslut', typeof requestAtaBillableBeforeCompletionV368 === 'function' && typeof applyAtaBillableCompletionChoiceV368 === 'function' && !!document.getElementById('ataBillableModalV368') && functionSourceIncludes('stopJob', 'requestAtaBillableBeforeCompletionV368') && functionSourceIncludes('stopJob', 'applyAtaBillableCompletionChoiceV368') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-ON-COMPLETION-V368'), 'ÄTA-jobb får fråga om totaltid eller manuell debiterbar tid vid Klart utan att total arbetstid ändras', 'riktad avslutskontroll');
   add('v369 Debiterbar tid i sammanställning och Excel', typeof getSummaryRowBillableMsV369 === 'function' && typeof renderBillableInfoV369 === 'function' && !!document.getElementById('sumBillableTimeV369') && functionSourceIncludes('renderSummary', 'getSummaryRowBillableMsV369') && functionSourceIncludes('buildExcelWorkbookXml', 'Debiterbar tid timmar') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-SUMMARY-EXCEL-V369'), 'Sammanställning och Excel redovisar sparad debiterbar tid för ÄTA-jobb', 'riktad sammanställningskontroll');
-  add('v372 ÄTA lastning + transport + lossning', typeof getAtaBillablePhaseMinutesV372 === 'function' && typeof confirmAtaBillableWorkPhasesV372 === 'function' && functionSourceIncludes('ataBillableModalV368', 'Debitera lastningstid + transport + lossning') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-PHASE-CHOICE-V372'), 'ÄTA-rutan har val för lastningstid + transport + lossning utan att ändra total arbetstid', 'riktad avslutskontroll');
+  add('v372 ÄTA lastning + transport + lossning', typeof getAtaBillablePhaseMinutesV372 === 'function' && typeof confirmAtaBillableWorkPhasesV372 === 'function' && (!!document.getElementById('ataBillableModalV368') && String(document.getElementById('ataBillableModalV368').textContent || document.getElementById('ataBillableModalV368').innerHTML || '').includes('Debitera lastningstid + transport + lossning')) && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-PHASE-CHOICE-V372'), 'ÄTA-rutan har val för lastningstid + transport + lossning utan att ändra total arbetstid', 'riktad avslutskontroll');
   add('v373 Pausmedveten historikredigering', typeof getFinishedJobWorkMsForDisplayV373 === 'function' && typeof resolveEditedPlaceValueV373 === 'function' && typeof shiftJobWorkSessionsDateV373 === 'function' && functionSourceIncludes('openEditJob', 'prepareEditPlaceInputV373') && functionSourceIncludes('saveEditedJob', 'pausedSessionsV373') && functionSourceIncludes('renderHistoryRegularJobCard', 'getBillableTimeInlineHtmlV373') && APP_FEATURE_MANIFEST.some(item => item.id === 'PAUSE-AWARE-HISTORY-EDIT-V373'), 'Historikkort visar debiterbar tid och redigering bevarar pausade workSessions samt synliga platsnamn', 'riktad historik-/redigeringskontroll');
   add('v374 Legacy-koppling slår ihop Per jobbtyp', typeof getSummaryJobTypeIdForJobV374 === 'function' && typeof getSummaryJobTypeDisplayNameForJobV374 === 'function' && typeof getSummaryJobTypeGroupKeyForJobV374 === 'function' && functionSourceIncludes('summarizeJobsByType', 'getSummaryJobTypeIdForJobV374') && functionSourceIncludes('buildSummaryMirrorPeriodHtmlV261', 'rowLabel') && APP_FEATURE_MANIFEST.some(item => item.id === 'LEGACY-JOBTYPE-SUMMARY-MERGE-V374'), 'Manuell legacy-koppling används före summering så gamla textgrupper slås ihop med rätt JT-ID', 'riktad sammanställningskontroll');
   add('v375 189-status sammanställning med debiterbar tid', typeof resolveSummaryMirrorRowLabelV375 === 'function' && typeof summaryMirrorPackageNeedsRefreshV375 === 'function' && functionSourceIncludes('buildSummaryMirrorPeriodHtmlV261', 'totalBillableMsV375') && functionSourceIncludes('getTabletSummaryMirrorForPayloadV261', 'summaryMirrorPackageNeedsRefreshV375') && APP_FEATURE_MANIFEST.some(item => item.id === 'SUMMARY-MIRROR-LABEL-BILLABLE-V375'), 'Speglad sammanställning byggs om färskt vid behov och visar synliga jobbtypnamn samt debiterbar tid', 'riktad sammanställningskontroll');
@@ -18137,12 +18162,12 @@ function buildSystemControlInternalChecks(){
     systemCheck('Maskinverkstad i Nytt uppdrag v308', typeof getMachineWorkshopForSelectionV308 === 'function' && typeof appendMachineWorkshopPlaceV308 === 'function' && functionSourceIncludes('updateNewJobPlaceSelects', 'appendMachineWorkshopPlaceV308') && functionSourceIncludes('updateNewMachineDestination', 'ensureMachineWorkshopSelectOptionV308') && APP_FEATURE_MANIFEST.some(item => item.name === 'Maskinverkstad i Nytt uppdrag v308'), 'Vald maskins Verkstad/plats läggs till som valbar Från/Till-plats för Maskintransport'),
     systemCheck('v363 Maskintransport snabbnycklar och ÄTA-kalender', typeof updateNewAtaJobUIV363 === 'function' && typeof saveQuickKeySetupV363 === 'function' && typeof applyAtaJobFieldsV363 === 'function' && document.getElementById('newAtaJobWrapV363') && document.getElementById('quickKeySetupWrapV363') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && functionSourceIncludes('startManualJob', 'ataSourceV363') && APP_FEATURE_MANIFEST.some(item => item.id === 'LOW-RISK-UI-ATA-V363'), 'v363 låg-risk/UI-fixar finns utan adress/Excel eller fasjustering'),
     systemCheck('v364 Adress/Excel och ÄTA-placering', typeof applyResolvedAddressLabelsForExcelV364 === 'function' && typeof applyCurrentLocationAddressToJobV364 === 'function' && typeof sanitizeResolvedPlaceLabelV364 === 'function' && functionSourceIncludes('buildExcelWorkbookXml', 'applyResolvedAddressLabelsForExcelV364') && functionSourceIncludes('requestActiveStartPointAddress', 'applyCurrentLocationAddressToJobV364') && functionSourceIncludes('collectTemporaryOtherPlacesV175', 'noAddressRequiredV364') && document.getElementById('newJobModeFlags') && document.getElementById('newAtaJobWrapV363') && APP_FEATURE_MANIFEST.some(item => item.id === 'ADDRESS-EXCEL-LABELS-V364'), 'v364 adress/Excel-regler finns och adress/Plus Code är inte krav'),
-    systemCheck('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active') && functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'v365 bevarar ÄTA-flagga från kö till aktivt jobb/historik'),
+    systemCheck('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && (functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV366(state.active') || functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active')) && (functionSourceIncludes('stopJob', 'applyAtaJobFieldsV366(finished') || functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished')) && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'v365 bevarar ÄTA-flagga från kö till aktivt jobb/historik'),
     systemCheck('v366 ÄTA via Jobbtyper och JT-ID', typeof isJobAtaV366 === 'function' && typeof applyAtaJobFieldsV366 === 'function' && functionSourceIncludes('renderJobTypeManager', 'data-jobtype-ata-v366') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-JOBTYPE-ID-REBUILD-V366'), 'v366 använder jobbtypers ÄTA-kryss/JT-ID för historisk kalender och manuell specialruta för flytt av material'),
     systemCheck('v367 Debiterbar tid i avslutat jobb', typeof getBillableMinutesForJobV367 === 'function' && typeof setEditedJobBillableMinutesV367 === 'function' && !!document.getElementById('editBillableMinutesV367') && functionSourceIncludes('openEditJob', 'getBillableMinutesForJobV367') && functionSourceIncludes('saveEditedJob', 'setEditedJobBillableMinutesV367') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-FINISHED-EDIT-V367'), 'Redigera avslutat jobb har separat debiterbar tid som inte ändrar total arbetstid'),
     systemCheck('v368 ÄTA-debitering vid avslut', typeof requestAtaBillableBeforeCompletionV368 === 'function' && typeof applyAtaBillableCompletionChoiceV368 === 'function' && !!document.getElementById('ataBillableModalV368') && functionSourceIncludes('stopJob', 'requestAtaBillableBeforeCompletionV368') && functionSourceIncludes('stopJob', 'applyAtaBillableCompletionChoiceV368') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-ON-COMPLETION-V368'), 'ÄTA-jobb kan få debiterbar tid vid Klart utan att total arbetstid ändras'),
     systemCheck('v369 Debiterbar tid i sammanställning och Excel', typeof getSummaryRowBillableMsV369 === 'function' && typeof renderBillableInfoV369 === 'function' && !!document.getElementById('sumBillableTimeV369') && functionSourceIncludes('renderSummary', 'getSummaryRowBillableMsV369') && functionSourceIncludes('buildExcelWorkbookXml', 'Debiterbar tid timmar') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-SUMMARY-EXCEL-V369'), 'Debiterbar tid redovisas i Sammanställning och Excel'),
-    systemCheck('v372 ÄTA lastning + transport + lossning', typeof getAtaBillablePhaseMinutesV372 === 'function' && typeof confirmAtaBillableWorkPhasesV372 === 'function' && functionSourceIncludes('ataBillableModalV368', 'Debitera lastningstid + transport + lossning') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-PHASE-CHOICE-V372'), 'ÄTA-rutan har val för lastningstid + transport + lossning'),
+    systemCheck('v372 ÄTA lastning + transport + lossning', typeof getAtaBillablePhaseMinutesV372 === 'function' && typeof confirmAtaBillableWorkPhasesV372 === 'function' && (!!document.getElementById('ataBillableModalV368') && String(document.getElementById('ataBillableModalV368').textContent || document.getElementById('ataBillableModalV368').innerHTML || '').includes('Debitera lastningstid + transport + lossning')) && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-PHASE-CHOICE-V372'), 'ÄTA-rutan har val för lastningstid + transport + lossning'),
     systemCheck('v373 Pausmedveten historikredigering', typeof getFinishedJobWorkMsForDisplayV373 === 'function' && typeof resolveEditedPlaceValueV373 === 'function' && typeof shiftJobWorkSessionsDateV373 === 'function' && functionSourceIncludes('openEditJob', 'prepareEditPlaceInputV373') && functionSourceIncludes('saveEditedJob', 'pausedSessionsV373') && functionSourceIncludes('renderHistoryRegularJobCard', 'getBillableTimeInlineHtmlV373') && APP_FEATURE_MANIFEST.some(item => item.id === 'PAUSE-AWARE-HISTORY-EDIT-V373'), 'Historikkort/redigering använder pausmedveten tid, synliga platsnamn och debiterbar tid'),
     systemCheck('v374 Legacy-koppling slår ihop Per jobbtyp', typeof getSummaryJobTypeIdForJobV374 === 'function' && typeof getSummaryJobTypeDisplayNameForJobV374 === 'function' && typeof getSummaryJobTypeGroupKeyForJobV374 === 'function' && functionSourceIncludes('summarizeJobsByType', 'getSummaryJobTypeIdForJobV374') && functionSourceIncludes('buildSummaryMirrorPeriodHtmlV261', 'rowLabel') && APP_FEATURE_MANIFEST.some(item => item.id === 'LEGACY-JOBTYPE-SUMMARY-MERGE-V374'), 'Legacy-koppling används före Per jobbtyp-summering och speglad sammanställning visar synliga namn'),
     systemCheck('v375 189-status sammanställning med debiterbar tid', typeof resolveSummaryMirrorRowLabelV375 === 'function' && typeof summaryMirrorPackageNeedsRefreshV375 === 'function' && functionSourceIncludes('buildSummaryMirrorPeriodHtmlV261', 'totalBillableMsV375') && functionSourceIncludes('getTabletSummaryMirrorForPayloadV261', 'summaryMirrorPackageNeedsRefreshV375') && APP_FEATURE_MANIFEST.some(item => item.id === 'SUMMARY-MIRROR-LABEL-BILLABLE-V375'), 'Speglad sammanställning/189-status byggs om vid gammalt paket och visar synliga namn samt debiterbar tid'),
@@ -20560,7 +20585,7 @@ function buildFinishedGpsSnapHistorySummaryV362(job, completedFrom){
   let quality = '';
   try{ quality = rec ? getRouteGpsQuality({routeGps:rec, routeGpsStatus:job && job.routeGpsStatus}) : ''; }catch(e){ quality = ''; }
   return {
-    version:'Stadslass 2.0 v377',
+    version:'Stadslass 2.0 v378',
     removedAt:new Date().toISOString(),
     completedFrom:String(completedFrom || ''),
     routeGpsStatus:String((job && job.routeGpsStatus) || (rec && rec.status) || ''),
@@ -20599,7 +20624,7 @@ function stripNewFinishedJobGpsSnapV362(job, completedFrom){
     job.historicalGpsSnapRemovedV362 = {
       removed:true,
       removedAt:summary.removedAt,
-      version:'Stadslass 2.0 v377',
+      version:'Stadslass 2.0 v378',
       pointCount:summary.gpsPointCount,
       removedBytes:removedBytes,
       removedKeys:removedKeys.slice(),
