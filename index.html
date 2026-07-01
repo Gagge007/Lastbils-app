@@ -4,8 +4,9 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v386
+- Nuvarande version: Stadslass 2.0 v387
 - v386: Redigera köuppdrag använder samma befintliga Returplats-lista som Nytt uppdrag när Returkrav är valt. Returplats kan ändras på köuppdrag/pausat köuppdrag och följer befintlig returplatskedja.
+- v387: Lastbils status/live-status och aktiv timer glesas. Överlappande GitHub PUT stoppas, oförändrade/täta live-statusuppdateringar hoppas över och aktiv vy ritas inte varje sekund i onödan.
 - v385: Excel-exporten skapar inte längre en egen Returplatser-flik/sida. Returplats finns kvar som uppdragskolumn i Detaljer och i appens uppdrag/historik/exportkedja; kontrollerna kalibreras för detta.
 - v384: Befintlig Flerlass-markering följer Redigera köuppdrag/pausade köuppdrag och visas som liten grön etikett i Aktivt jobb; ÄTA-etiketten i Aktivt jobb görs också grön utan ny ÄTA-/Flerlass-logik eller ändring av driftlogg_v4_full.
 - v383: Befintlig ÄTA-markering följer till Redigera köuppdrag och pausade köuppdrag, kan ändras där, och visas som liten etikett i Aktivt jobb/uppdragskort utan ny ÄTA-logik eller ändring av debitering, historik, syncsanning eller driftlogg_v4_full.
@@ -401,7 +402,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v386';
+  const version = 'Stadslass 2.0 v387';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4033,7 +4034,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v386</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v387</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -7795,7 +7796,7 @@ function startActiveTimer(){
   stopActiveTimer();
   if(!state.active) return;
   activeTimerId = setInterval(() => {
-    renderActive();
+    if(typeof shouldRenderActiveOnTimerV387 !== 'function' || shouldRenderActiveOnTimerV387()) renderActive();
     renderActiveMonitorIndicator();
   }, 1000);
 }
@@ -13507,8 +13508,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v386';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v387';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v387 Lastbils status/live-status throttle',
   'v386 Returplatslista i köredigering',
   'v385 Returplats inte som egen Excel-flik',
   'v384 Flerlass-markering i köredigering och aktivt jobb',
@@ -15517,7 +15519,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v386';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v387';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15542,6 +15544,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387', name:'Lastbils status/live-status throttle v387', status:'Prestanda/Lastbils status/Live-status/Aktivt jobb', protectionStatus:'Aktiv', introduced:'v387', purpose:'v387 minskar kvarvarande frysningar efter v386 genom att stoppa överlappande live-status/GitHub PUT, hoppa över täta oförändrade eller för täta live-statuspubliceringar, glesa aktiv Lastbils status och rita aktiv vy mer sällan från timern.', changeRule:'Får bara påverka throttling, debouncing, överlappsspärr, aktiv renderfrekvens och kontroller för Lastbils status/live-status/prestanda. Får inte ändra Lastar/Ange vikt/Klart-sanning, aktivt jobb-data, kö/historik, Returplats, Excel, vikt, ÄTA, Flerlass, GPS/geofence/ETA-sanning, syncens datasanning, material, mtrl kod/anläggning, backup/exportdata eller driftlogg_v4_full.'},
   {id:'RETURNPLACE-EDIT-QUEUE-LIST-V386', name:'Returplatslista i köredigering v386', status:'Returplats/Köredigering/Pausat uppdrag', protectionStatus:'Aktiv', introduced:'v386', purpose:'v386 kopplar befintlig Returplats-lista från Nytt uppdrag till Redigera köuppdrag så Returplats kan visas och ändras när Returkrav är valt på köuppdrag eller pausat köuppdrag.', changeRule:'Får bara visa och spara befintlig Returplats-markering i Redigera köuppdrag via samma listunderlag som Nytt uppdrag. Får inte skapa ny Returplats-logik, ändra Returplats-sanning i aktivt jobb/ETA/GPS/inlärning/historik/sync/status, ändra Lastar/Ange vikt/Klart, ÄTA, Flerlass, material, mtrl kod/anläggning, backup/exportdata eller driftlogg_v4_full.'},
   {id:'RETURNPLACE-EXCEL-NO-OWN-SHEET-V385', name:'Returplats inte som egen Excel-flik v385', status:'Excel/Returplats/Export/Kontrollcentral', protectionStatus:'Aktiv', introduced:'v385', purpose:'v385 tar bort den separata Excel-fliken Returplatser så Returplats behandlas som uppdragsinformation på detaljraden, inte som egen sida. Returplats-kolumnen i Detaljer och appens uppdrag/historik/exportkedja behålls.', changeRule:'Får bara påverka Excel-flikstrukturen och kontroller/rapporttexter för Returplats i Excel. Får inte ändra Returplats-sanning i uppdrag, kö, aktivt jobb, ETA/GPS/inlärning, historik, sync/status, vikt, material, mtrl kod/anläggning, backup/exportdata eller driftlogg_v4_full.'},
   {id:'PERFORMANCE-RENDER-ORDER-FIX-V380', name:'Render- och turordningsfix v380', status:'Prestanda/Aktivt jobb/Uppdrag i kö/Dagsprognos', protectionStatus:'Aktiv', introduced:'v380', purpose:'v380 minskar huvudtrådslåsning efter 189-arbetsknappar genom att undvika onödig helrendering, cachea dagsprognos och kövy, skjuta sekundära panelrenderingar och låta arbetsknappar spara/visa först.', changeRule:'Får bara påverka render-turordning, rendercache, debouncing/deferred rendering och prestandakontroller. Får inte ändra Lastar/Ange vikt/Klart-sanning, kö-/historikdata, aktivt jobb, vikt, GPS/geofence/ETA-sanning, syncsanning, material, mtrl kod/anläggning, backup/export eller driftlogg_v4_full.'},
@@ -16003,6 +16006,8 @@ const ATA_QUEUE_ACTIVE_VISIBILITY_FUNCTIONS_V383 = ['applyEditQueueAtaFieldsV383
 ATA_QUEUE_ACTIVE_VISIBILITY_FUNCTIONS_V383.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
 const RETURNPLACE_EDIT_QUEUE_LIST_FUNCTIONS_V386 = ['resetEditQueueReturnPlaceManualV386','isEditQueueReturnPlaceManuallySelectedV386','handleEditQueueReturnPlaceManualChangeV386','getEditQueueReturnPlaceChoiceV386','updateEditQueueReturnPlaceUIV386'];
 RETURNPLACE_EDIT_QUEUE_LIST_FUNCTIONS_V386.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
+const LIVE_STATUS_THROTTLE_RENDERACTIVE_FUNCTIONS_V387 = ['getLiveStatusMinGapMsV387','isImportantLiveStatusReasonV387','markLiveStatusUploadEndV387','markLiveStatusUploadStartV387','queueSyncUploadLiveStatusBaseV387','shouldRenderActiveOnTimerV387','shouldThrottleLiveStatusUploadV387'];
+LIVE_STATUS_THROTTLE_RENDERACTIVE_FUNCTIONS_V387.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
 
 
 ['inboxClear233','snapSegment214','STORAGE_RESCUE_SAFE_KEYS_V355','wrapped'].forEach(function(name){
@@ -16444,7 +16449,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -16473,10 +16478,10 @@ function buildFunctionProtectionRowsV329(){
   add('COMPUTER-QUEUE-DELETE-PENDING-V346', 'Datorläge stabilt vänteläge för borttagning via Snabbsync v346', typeof isTabletQueueDeletePendingV346 === 'function' && typeof markTabletQueueDeletePendingV346 === 'function' && typeof getTabletQueueDeletePendingPillHtmlV346 === 'function' && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', 'Väntar på 189') && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', '189 ändrar bara om uppdraget fortfarande är ostarterat i kö') && functionSourceIncludes('requestTabletQueueDeleteV275', 'Skicka begäran till 189') && functionSourceIncludes('requestTabletQueueDeleteWithDelayV325', 'markTabletQueueDeletePendingV346') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPUTER-QUEUE-DELETE-PENDING-V346'), 'Datorläge visar stabilt vänteläge efter borttagningsbegäran och använder 189-språk utan att ändra kölogiken', 'KRITISK');
   add('MAIN-BUTTON-COUNT-BADGE-V347', 'Hård knappbadgefix för Uppdrag till 189 och 189 status v347', document.getElementById('queueCount') && document.getElementById('queueCount').classList.contains('main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', 'main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', '</span><span id=\"tabletQueueMirrorCountV238\"') && functionSourceIncludes('renderTabletQueueMirrorButtonV238', 'main-nav-count-badge-v347-positive') && APP_FEATURE_MANIFEST.some(item => item.id === 'MAIN-BUTTON-COUNT-BADGE-V347'), 'Uppdrag till 189 och 189 status använder separata antalsbadges utan parenteser och med röd positiv siffra', 'KRITISK');
   add('JOBTYPE-STABLE-ID-V348', 'Stabila Jobbtyp-ID:n finns', typeof getJobTypeMigrationStatusV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-STABLE-ID-V348'), 'Jobbtyp-ID-migration och manifest finns', 'KRITISK');
-  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367','v368','v369','v371','v374','v375','v376','v377','v378','v379','v380','v381','v382','v383','v384','v385','v386'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
+  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367','v368','v369','v371','v374','v375','v376','v377','v378','v379','v380','v381','v382','v383','v384','v385','v386','v387'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
   add('CONTROL-BASELINE-CALIBRATION-V350', 'Kontroll-/baselinefix v350', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V350') && controlVersionNumberV302(currentShort) >= 350, 'v350-manifest och aktuell versionsmarkering finns', 'KRITISK');
-  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
-  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
+  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
+  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
   add('STORAGE-RESCUE-V355', 'Lagringsräddare och kodövervakning pausad v355', typeof initializeStorageRescueV355 === 'function' && typeof runStorageRescueSafeCleanupV355 === 'function' && typeof renderStorageRescueV355 === 'function' && !!document.getElementById('storageRescueTopV355') && APP_FEATURE_MANIFEST.some(item => item.id === 'STORAGE-RESCUE-V355') && controlVersionNumberV302(currentShort) >= 355, 'v355+ kan rensa bara låg-risk temp/cache och startar inte v354 kodövervakning i drift', 'KRITISK');
   add('DISTANCE-LITE-V356', 'Tid före sträcka v356', typeof STADSLASS_DISTANCE_LITE_MODE_V356 !== 'undefined' && STADSLASS_DISTANCE_LITE_MODE_V356 === true && APP_FEATURE_MANIFEST.some(item => item.id === 'DISTANCE-LITE-V356'), 'GPS arbetsstöd behålls, tung historisk sträcka avlastas', 'KRITISK');
   add('HISTORY-VOLUME-MAP-V357', 'Datavolym/historikavlastning v357', typeof buildHistoryVolumeAnalysisV357 === 'function' && typeof renderHistoryVolumeReportV357 === 'function' && !!document.getElementById('historyVolumeRescueV357') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-VOLUME-MAP-V357'), 'läsande datakarta utan rensning eller omskrivning', 'KRITISK');
@@ -16571,7 +16576,7 @@ function buildFunctionProtectionReportV329(){
   lines.push('');
   lines.push('RAW');
   lines.push('storageKey=' + KEY);
-  lines.push('baselineVersion=v386');
+  lines.push('baselineVersion=v387');
   return lines.join('\n');
 }
 
@@ -17034,6 +17039,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Geofence lossningslås v96 finns', !!el('geofenceUnloadingLock') && fn('isGeofenceUnloadingLockEnabled') && fn('activateUnloadingLockForToZone') && fn('releaseUnloadingLockAfterWeight') && src('updateActiveGeofenceVisualStatus', 'activateUnloadingLockForToZone') && src('addLoadToCurrent', 'releaseUnloadingLockAfterWeight') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96'), 'geofence har Lossningslås som bara håller visuell Till-zon/lossning tills vikt registreras');
   addFunctionCheck(results, 'Nivå 2', 'Geofence lastningslås v376 finns', !!el('geofenceLoadingLock') && fn('isGeofenceLoadingLockEnabled') && fn('activateLoadingLockForFromZone') && fn('releaseLoadingLockAfterManualLoading') && fn('retainLoadingLockStartVisual') && src('updateActiveGeofenceVisualStatus', 'activateLoadingLockForFromZone') && src('updateActiveGeofenceVisualStatus', 'retainLoadingLockStartVisual') && src('toggleActiveTransportPhase', 'releaseLoadingLockAfterManualLoading') && src('buildGeofenceFromForm', 'loadingLockUntilManualLoading') && APP_FEATURE_MANIFEST.some(item => item.id === 'GEOFENCE-LOADING-LOCK-V376'), 'geofence har Lastningslås som bara håller visuell Från-zon/lastning tills Lastar registreras');
   addFunctionCheck(results, 'Nivå 2', 'Render- och turordningsfix v380', typeof getQueueRenderCacheKeyV380 === 'function' && typeof scheduleDeferredRenderV380 === 'function' && typeof buildDayForecastUncachedV380 === 'function' && typeof isQueueTabVisibleV380 === 'function' && functionSourceIncludes('renderActive', 'renderDayForecasts()') === false && functionSourceIncludes('renderQueue', 'queueRenderKeyV380') && functionSourceIncludes('render', 'scheduleDeferredRenderV380') && APP_FEATURE_MANIFEST.some(item => item.id === 'PERFORMANCE-RENDER-ORDER-FIX-V380'), 'Kövyn/dagsprognos cacheas eller skjuts upp och renderActive drar inte längre med dagsprognosen vid varje aktivt arbetssteg.');
+  addFunctionCheck(results, 'Nivå 2', 'Lastbils status/live-status throttle v387', fn('shouldThrottleLiveStatusUploadV387') && fn('markLiveStatusUploadStartV387') && fn('markLiveStatusUploadEndV387') && fn('shouldRenderActiveOnTimerV387') && fn('queueSyncUploadLiveStatusV321') && src('queueSyncUploadLiveStatusV321', 'queueSyncUploadLiveStatusBaseV387') && src('scheduleQueueSyncActiveMirrorV381', '60000') && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'Lastbils status/live-status har överlappsspärr, tät GitHub PUT-throttle och aktiv timer renderar inte aktiv vy varje sekund i onödan.');
   addFunctionCheck(results, 'Nivå 2', 'Sync-/spegling-/efterrenderfix v381', typeof scheduleQueueSyncActiveMirrorV381 === 'function' && typeof queueSyncRunActiveMirrorCoreV381 === 'function' && typeof scheduleQueueSyncFullTabletStatusV381 === 'function' && typeof markHeavyRenderDeferredV381 === 'function' && functionSourceIncludes('queueSyncRunActiveMirrorV253', 'scheduleQueueSyncActiveMirrorV381') && functionSourceIncludes('queueSyncRunActiveMirrorCoreV381', 'scheduleQueueSyncFullTabletStatusV381') && functionSourceIncludes('buildTabletStatusPayloadV219', 'payloadModeV381') && APP_FEATURE_MANIFEST.some(item => item.id === 'SYNC-MIRROR-DEFER-FIX-V381'), 'Lastbils status/sync och tung kö-rendering köas/debouncas efter arbetsknappar utan att ändra arbetsdata eller syncsanning.');
   addFunctionCheck(results, 'Nivå 2', 'Klart-/saveState-/köprognosfix v382', typeof forceSaveStateV382 === 'function' && typeof isPostWorkHeavyRenderHoldV382 === 'function' && typeof scheduleDayForecastRenderV382 === 'function' && typeof clearHeavyRenderDeferredV382 === 'function' && functionSourceIncludes('saveState', 'getSaveStateNormalizeSignatureV382') && functionSourceIncludes('stopJob', 'klart-v382') && functionSourceIncludes('render', 'render är visning') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPLETE-SAVE-QUEUE-THROTTLE-V382'), 'Klart/vikt sparar arbetsdata först, render skapar inte extra sparningar och kö/prognos hålls tillbaka efter arbetsknappar.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA-markering i köredigering och aktivt jobb v383', !!el('editQueueAtaJobV383') && !!el('editQueueAtaJobWrapV383') && fn('updateEditQueueAtaJobUIV383') && fn('applyEditQueueAtaFieldsV383') && fn('getActiveAtaBadgeHtmlV383') && fn('getAtaQueuePillHtmlV383') && src('saveEditedQueueJob', 'applyEditQueueAtaFieldsV383') && src('formatActiveOverviewHtml', 'getActiveAtaBadgeHtmlV383') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-ACTIVE-VISIBILITY-V383'), 'Befintlig ÄTA-markering kan redigeras i kö/pausad kö och visas som liten etikett i aktivt jobb/kökort utan ny ÄTA-logik.');
@@ -17406,6 +17412,7 @@ function getControlCenterExtendedChecksV303(){
   add('v382 Klart-/saveState-/köprognosfix', typeof forceSaveStateV382 === 'function' && typeof isPostWorkHeavyRenderHoldV382 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPLETE-SAVE-QUEUE-THROTTLE-V382'), 'minskar extra sparningar och håller tung kö/prognos efter vikt/Klart tills arbetskedjan är lugnare', 'prestandafix');
   add('v383 ÄTA-markering i köredigering och aktivt jobb', typeof updateEditQueueAtaJobUIV383 === 'function' && typeof applyEditQueueAtaFieldsV383 === 'function' && document.getElementById('editQueueAtaJobV383') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-ACTIVE-VISIBILITY-V383'), 'befintlig ÄTA-markering följer redigering av kö/pausad kö och visas som etikett i aktivt jobb/kökort', 'ÄTA-kedjefix');
   add('v385 Returplats inte som egen Excel-flik', functionSourceIncludes('buildExcelWorkbookXml', '<Worksheet ss:Name="Detaljer"') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplats') && !functionSourceIncludes('buildExcelWorkbookXml', 'Worksheet ss:Name="Returplatser"') && APP_FEATURE_MANIFEST.some(item => item.id === 'RETURNPLACE-EXCEL-NO-OWN-SHEET-V385'), 'Returplats finns kvar i Detaljer men skapar inte separat Excel-flik/sida', 'Excel-/returplatsfix');
+  add('v387 Lastbils status/live-status throttle', typeof shouldThrottleLiveStatusUploadV387 === 'function' && typeof shouldRenderActiveOnTimerV387 === 'function' && typeof queueSyncUploadLiveStatusV321 === 'function' && functionSourceIncludes('queueSyncUploadLiveStatusV321', 'queueSyncUploadLiveStatusBaseV387') && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'stoppar överlappande live-status/GitHub PUT, glesar Lastbils status och minskar timerstyrd aktiv render utan att ändra arbetsdata', 'prestandafix');
   add('v386 Returplatslista i köredigering', typeof updateEditQueueReturnPlaceUIV386 === 'function' && typeof getEditQueueReturnPlaceChoiceV386 === 'function' && document.getElementById('editQueueReturnPlaceV386') && functionSourceIncludes('saveEditedQueueJob', 'applyReturnPlaceFieldsToJobV290(job') && functionSourceIncludes('fillEditQueueModalFromJobV275', 'updateEditQueueReturnPlaceUIV386') && APP_FEATURE_MANIFEST.some(item => item.id === 'RETURNPLACE-EDIT-QUEUE-LIST-V386'), 'befintlig Returplats-lista från Nytt uppdrag används i Redigera köuppdrag/pausad kö när Returkrav är valt', 'Returplats-kedjefix');
   add('v384 Flerlass-markering i köredigering och aktivt jobb', typeof getActiveMultiLoadBadgeHtmlV384 === 'function' && typeof getMultiLoadQueuePillHtmlV384 === 'function' && document.getElementById('editQueueMultiLoad') && APP_FEATURE_MANIFEST.some(item => item.id === 'MULTILOAD-QUEUE-ACTIVE-VISIBILITY-V384'), 'befintlig Flerlass-markering följer redigering av kö/pausad kö och visas som grön etikett i aktivt jobb/kökort', 'Flerlass-kedjefix');
   add('v379 Prestandadiagnos och frysrapport', typeof installPerformanceDiagnosticsV379 === 'function' && typeof buildPerformanceDiagnosticsReportV379 === 'function' && typeof renderPerformanceDiagnosticsV379 === 'function' && !!document.getElementById('performanceDiagnosticsWrapV379') && !!document.getElementById('controlCenterPerformanceButtonV379') && APP_FEATURE_MANIFEST.some(item => item.id === 'PERFORMANCE-DIAGNOSTICS-FREEZE-REPORT-V379'), 'mäter knappkedjor, render, sparning, sync/live-status och huvudtrådsfrys i separat lokal logg', 'läsande/prestandakontroll');
@@ -18379,6 +18386,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Klart-/saveState-/köprognosfix v382', typeof forceSaveStateV382 === 'function' && typeof scheduleDayForecastRenderV382 === 'function' && typeof isPostWorkHeavyRenderHoldV382 === 'function' && functionSourceIncludes('showTab', 'showTab-deferred-v382') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPLETE-SAVE-QUEUE-THROTTLE-V382'), 'Klart/Ange vikt undviker direkt tung kö/prognos och render sparar inte extra state'),
     systemCheck('ÄTA-markering i köredigering och aktivt jobb v383', typeof getAtaQueuePillHtmlV383 === 'function' && typeof getActiveAtaBadgeHtmlV383 === 'function' && functionSourceIncludes('renderQueue', 'getAtaQueuePillHtmlV383') && functionSourceIncludes('formatActiveOverviewHtml', 'ÄTA-uppdrag') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-ACTIVE-VISIBILITY-V383'), 'ÄTA visas som liten etikett och kökortsbadge utan att ändra debiteringslogik'),
     systemCheck('Returplats inte som egen Excel-flik v385', functionSourceIncludes('buildExcelWorkbookXml', '<Worksheet ss:Name="Detaljer"') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplats') && !functionSourceIncludes('buildExcelWorkbookXml', 'Worksheet ss:Name="Returplatser"') && APP_FEATURE_MANIFEST.some(item => item.id === 'RETURNPLACE-EXCEL-NO-OWN-SHEET-V385'), 'Excel behåller Returplats i detaljraden men saknar egen Returplatser-flik'),
+    systemCheck('Lastbils status/live-status throttle v387', typeof shouldThrottleLiveStatusUploadV387 === 'function' && typeof markLiveStatusUploadStartV387 === 'function' && typeof markLiveStatusUploadEndV387 === 'function' && typeof shouldRenderActiveOnTimerV387 === 'function' && functionSourceIncludes('queueSyncUploadLiveStatusV321', 'queueSyncUploadLiveStatusBaseV387') && functionSourceIncludes('startActiveTimer', 'shouldRenderActiveOnTimerV387') && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'Live-status/GitHub PUT har överlappsspärr och aktiv vy timer-renderas glesare'),
     systemCheck('Returplatslista i köredigering v386', typeof updateEditQueueReturnPlaceUIV386 === 'function' && typeof getEditQueueReturnPlaceChoiceV386 === 'function' && !!document.getElementById('editQueueReturnPlaceV386') && !!document.getElementById('editQueueReturnPlaceWrapV386') && functionSourceIncludes('saveEditedQueueJob', 'returnPlaceChoiceV386') && functionSourceIncludes('fillEditQueueModalFromJobV275', 'updateEditQueueReturnPlaceUIV386') && APP_FEATURE_MANIFEST.some(item => item.id === 'RETURNPLACE-EDIT-QUEUE-LIST-V386'), 'Redigera köuppdrag visar och sparar Returplats från befintlig Returplats-lista när Returkrav är valt'),
     systemCheck('Flerlass-markering i köredigering och aktivt jobb v384', typeof getMultiLoadQueuePillHtmlV384 === 'function' && typeof getActiveMultiLoadBadgeHtmlV384 === 'function' && functionSourceIncludes('renderQueue', 'getMultiLoadQueuePillHtmlV384') && functionSourceIncludes('formatActiveOverviewHtml', 'Flerlass') && APP_FEATURE_MANIFEST.some(item => item.id === 'MULTILOAD-QUEUE-ACTIVE-VISIBILITY-V384'), 'Flerlass visas som liten grön etikett och kökortsbadge utan att ändra Flerlass-logik'),
     systemCheck('Prestandadiagnos och frysrapport v379', typeof installPerformanceDiagnosticsV379 === 'function' && typeof startPerformanceLagMonitorV379 === 'function' && typeof buildPerformanceDiagnosticsReportV379 === 'function' && !!document.getElementById('performanceDiagModeV379') && functionSourceIncludes('buildPerformanceDiagnosticsReportV379', 'STADSLASS PRESTANDADIAGNOS') && APP_FEATURE_MANIFEST.some(item => item.id === 'PERFORMANCE-DIAGNOSTICS-FREEZE-REPORT-V379'), 'mätning/frysrapport finns med Av/Normal/Detaljerad vid frys och separat localStorage-nyckel'),
@@ -21184,7 +21192,7 @@ function buildFinishedGpsSnapHistorySummaryV362(job, completedFrom){
   let quality = '';
   try{ quality = rec ? getRouteGpsQuality({routeGps:rec, routeGpsStatus:job && job.routeGpsStatus}) : ''; }catch(e){ quality = ''; }
   return {
-    version:String(APP_VERSION || 'Stadslass 2.0 v386'),
+    version:String(APP_VERSION || 'Stadslass 2.0 v387'),
     removedAt:new Date().toISOString(),
     completedFrom:String(completedFrom || ''),
     routeGpsStatus:String((job && job.routeGpsStatus) || (rec && rec.status) || ''),
@@ -21223,7 +21231,7 @@ function stripNewFinishedJobGpsSnapV362(job, completedFrom){
     job.historicalGpsSnapRemovedV362 = {
       removed:true,
       removedAt:summary.removedAt,
-      version:String(APP_VERSION || 'Stadslass 2.0 v386'),
+      version:String(APP_VERSION || 'Stadslass 2.0 v387'),
       pointCount:summary.gpsPointCount,
       removedBytes:removedBytes,
       removedKeys:removedKeys.slice(),
@@ -24985,7 +24993,7 @@ function buildSyncPackageDiagnosticsReportSectionV345(entries){
   return lines.join('\n');
 }
 
-async function queueSyncUploadLiveStatusV321(options){
+async function queueSyncUploadLiveStatusBaseV387(options){
   options = options || {};
   const settings = getQueueSyncSettingsV219();
   if(settings.deviceRole !== 'pad') return {skipped:true, reason:'not-pad'};
@@ -25003,6 +25011,24 @@ async function queueSyncUploadLiveStatusV321(options){
   }
   if(!options.silent) setQueueSyncStatusV219('Lätt live-status publicerad för spegling.', false);
   return {uploaded:true, liveStatusV321:true, queueCount:payload.queueCount || 0};
+}
+
+
+async function queueSyncUploadLiveStatusV321(options){
+  options = options || {};
+  let payloadV387 = null;
+  try{ payloadV387 = options.prebuiltLiveStatusV321 || buildQueueSyncLiveStatusPayloadV321(options); }catch(e){ payloadV387 = null; }
+  const throttleV387 = shouldThrottleLiveStatusUploadV387(options, payloadV387);
+  if(throttleV387 && throttleV387.skip){
+    return {skipped:true, liveStatusV321:true, v387Throttle:true, reason:throttleV387.reason || 'throttled-v387', queued:!!throttleV387.queued};
+  }
+  markLiveStatusUploadStartV387();
+  try{
+    const nextOptionsV387 = payloadV387 ? Object.assign({}, options, {prebuiltLiveStatusV321:payloadV387}) : options;
+    return await queueSyncUploadLiveStatusBaseV387(nextOptionsV387);
+  }finally{
+    markLiveStatusUploadEndV387();
+  }
 }
 
 function getStoredQueueSyncLiveStatusV321(){
@@ -28886,6 +28912,66 @@ function queueSyncQueueChangedV219(reason){
 }
 
 
+
+
+// v387: Lastbils status/live-status och aktiv timer ska inte kunna skapa tät frysning.
+let queueSyncLiveStatusUploadRunningV387 = false;
+let queueSyncLiveStatusUploadLastStartedAtV387 = 0;
+let queueSyncLiveStatusUploadLastFinishedAtV387 = 0;
+let queueSyncLiveStatusThrottleSkippedV387 = 0;
+let activeTimerLastRenderAtV387 = 0;
+
+function isImportantLiveStatusReasonV387(reason){
+  return /klart|stop|avslut|complete|finished|lastar|transport|vikt|weight|tömning|tomning|paus|forts|retur/i.test(String(reason || ''));
+}
+
+function getLiveStatusMinGapMsV387(options, payload){
+  options = options || {};
+  const reason = String(options.reason || options.source || (payload && payload.latestChangeReasonV321) || '');
+  if(options.manual) return 0;
+  if(isQueueSyncCompletionReasonV381(reason)) return 15000;
+  if(isImportantLiveStatusReasonV387(reason)) return 20000;
+  return state && state.active ? 30000 : 60000;
+}
+
+function shouldThrottleLiveStatusUploadV387(options, payload){
+  options = options || {};
+  if(options.manual) return {skip:false, reason:'manual-v387'};
+  const now = Date.now();
+  if(queueSyncLiveStatusUploadRunningV387){
+    queueSyncLiveStatusThrottleSkippedV387++;
+    return {skip:true, reason:'live-status-put-redan-igång-v387', queued:true};
+  }
+  const minGap = getLiveStatusMinGapMsV387(options, payload);
+  const last = Number(queueSyncLiveStatusUploadLastStartedAtV387 || 0);
+  if(minGap > 0 && last && (now - last) < minGap){
+    queueSyncLiveStatusThrottleSkippedV387++;
+    return {skip:true, reason:'live-status-för-tät-v387-' + Math.max(0, minGap - (now - last)) + 'ms'};
+  }
+  return {skip:false, reason:'ok-v387'};
+}
+
+function markLiveStatusUploadStartV387(){
+  queueSyncLiveStatusUploadRunningV387 = true;
+  queueSyncLiveStatusUploadLastStartedAtV387 = Date.now();
+}
+
+function markLiveStatusUploadEndV387(){
+  queueSyncLiveStatusUploadRunningV387 = false;
+  queueSyncLiveStatusUploadLastFinishedAtV387 = Date.now();
+}
+
+function shouldRenderActiveOnTimerV387(){
+  const now = Date.now();
+  if(!state || !state.active){
+    activeTimerLastRenderAtV387 = 0;
+    return true;
+  }
+  if(now - Number(activeTimerLastRenderAtV387 || 0) < 5000) return false;
+  activeTimerLastRenderAtV387 = now;
+  return true;
+}
+
 // v381: sync-/spegling-/efterrenderfix. Lastbils status får inte blockera arbetsknappar.
 let queueSyncActiveMirrorTimerV381 = null;
 let queueSyncActiveMirrorPendingReasonV381 = '';
@@ -28944,8 +29030,8 @@ function scheduleQueueSyncActiveMirrorV381(reason){
     const text = String(reason || '');
     queueSyncActiveMirrorPendingReasonV381 = text || queueSyncActiveMirrorPendingReasonV381 || 'deferred-v381';
     const now = Date.now();
-    // v382: glesa aktiv spegling ytterligare så 189-status inte körs om gång på gång under arbetskedjan.
-    const minGap = state && state.active ? 9000 : 18000;
+    // v387: glesa aktiv spegling ytterligare så Lastbils status/GitHub PUT inte körs om gång på gång under arbetskedjan.
+    const minGap = isQueueSyncCompletionReasonV381(text) ? 20000 : (state && state.active ? 30000 : 60000);
     const gapDelay = Math.max(0, minGap - (now - Number(queueSyncActiveMirrorLastRunAtV381 || 0)));
     const delay = Math.max(getQueueSyncActiveMirrorDelayV381(text), gapDelay);
     if(queueSyncActiveMirrorTimerV381) return {queued:true, deferredV381:true, reason:'already-pending'};
@@ -28981,7 +29067,10 @@ async function queueSyncRunActiveMirrorCoreV381(reason){
     const settings = getQueueSyncSettingsV219();
     if(!settings.enabled || settings.deviceRole !== 'pad') return {skipped:true, reason:'not-pad-or-disabled'};
     if(!isQueueSyncConfiguredV219(settings)) return {skipped:true, reason:'not-configured'};
-    if(queueSyncBusyV219) return {skipped:true, reason:'sync-busy'};
+    if(queueSyncBusyV219){
+      try{ if(String(reason || '').indexOf('busy-retry-v387') < 0) scheduleQueueSyncActiveMirrorV381('busy-retry-v387:' + String(reason || '')); }catch(e){}
+      return {skipped:true, reason:'sync-busy-v387'};
+    }
     queueSyncBusyV219 = true;
     queueSyncLastActiveMirrorAtV253 = Date.now();
     let actionResultV275 = {skipped:true, reason:'v319 queue-actions ej förfallen', hadPending:false};
