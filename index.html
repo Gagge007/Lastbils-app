@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v391
+- Nuvarande version: Stadslass 2.0 v392
+- v392: Kopplar ÄTA-mottagare till planerade ÄTA-uppdrag och ÄTA-snabbval utan Gmail-/avslutskoppling. Lägger redigerbar arbetsledare som standard-CC i ÄTA-aviseringar, låter Nytt uppdrag/köredigering välja eller skriva mottagare, låter mottagaruppgifter följa kö/sync/start till aktivt jobb och uppdaterar framtida snabbval samt ostartade köuppdrag när lokal kontakt rättas.
 - v391: Lägger till isolerad lokal ÄTA-adressbok och ÄTA-mailmall i Inställningar. Adressboken och mallen sparas i egna lokala nycklar, rör inte driftlogg_v4_full och kopplas inte ännu till Gmail, avslut, Idag, historik, syncimport, snabbval eller aktivt jobb.
 - v390: Tog bort knappen och den manuella GPS-baserade köberäkningskedjan Beräkna tider i kö. Gamla queueGps-fält lämnas i lagrad data men används inte längre som aktiv kötid/startpunkt. Aktiv ETA, Klar ca, tidsinlärning, dagsprognos och kartcache behålls.
 - v386: Redigera köuppdrag använder samma befintliga Returplats-lista som Nytt uppdrag när Returkrav är valt. Returplats kan ändras på köuppdrag/pausat köuppdrag och följer befintlig returplatskedja.
@@ -404,7 +405,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v391';
+  const version = 'Stadslass 2.0 v392';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -920,6 +921,45 @@ button{
 }
 .ata-mail-status-v391.ok{border-color:#bbf7d0;background:#f0fdf4;color:#14532d;}
 .ata-mail-status-v391.error{border-color:#fecaca;background:#fef2f2;color:#7f1d1d;}
+
+/* v392: ÄTA-mottagare på planerade uppdrag och snabbval */
+.ata-recipient-panel-v392{
+  border:1px solid #bbf7d0;
+  border-radius:16px;
+  background:#f0fdf4;
+  padding:12px;
+  margin-top:10px;
+}
+.ata-recipient-panel-v392.hidden{display:none !important;}
+.ata-recipient-title-v392{
+  font-weight:900;
+  color:#14532d;
+  margin-bottom:4px;
+}
+.ata-recipient-grid-v392{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin-top:8px;
+}
+@media(min-width:700px){
+  .ata-recipient-grid-v392{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+.ata-recipient-note-v392{
+  margin-top:6px;
+  color:#166534;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.3;
+}
+.ata-recipient-card-v392{
+  border:1px solid #dbeafe;
+  border-radius:14px;
+  background:#eff6ff;
+  padding:10px;
+  margin-top:10px;
+}
+.ata-recipient-card-v392 .ata-recipient-title-v392{color:#0f2f5f;}
 
 /* v188: tydliga kryssrutor för jobbtyper i Platser */
 .jobtype-select-hidden-v188{
@@ -3830,7 +3870,20 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
     <div id="newJobModeFlags" class="row" style="margin-top:10px; gap:16px; align-items:center; flex-wrap:wrap">
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="newReturnRequired" type="checkbox" style="width:auto" onchange="handleNewJobFlagToggle('return')"> Returkrav</label>
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="newMultiLoad" type="checkbox" style="width:auto" onchange="handleNewJobFlagToggle('multi')"> Flerlass</label>
-      <label id="newAtaJobWrapV363" class="hidden" style="display:flex;align-items:center;gap:8px;margin:0;font-weight:900"><input id="newAtaJobV363" type="checkbox" style="width:auto"> ÄTA-uppdrag?</label>
+      <label id="newAtaJobWrapV363" class="hidden" style="display:flex;align-items:center;gap:8px;margin:0;font-weight:900"><input id="newAtaJobV363" type="checkbox" style="width:auto" onchange="updateNewAtaRecipientUIV392()"> ÄTA-uppdrag?</label>
+    </div>
+
+    <div id="newAtaRecipientWrapV392" class="ata-recipient-panel-v392 hidden">
+      <div class="ata-recipient-title-v392">ÄTA-mottagare</div>
+      <div class="multi-help">Välj lokal mottagare eller skriv ny beställare. Uppgifterna sparas på uppdraget och används senare i ÄTA-mail.</div>
+      <label style="margin-top:8px">Välj från lokal adressbok</label>
+      <select id="newAtaRecipientSelectV392" onchange="selectAtaContactForNewJobV392(this.value)"></select>
+      <div class="ata-recipient-grid-v392">
+        <div><label>Namn</label><input id="newAtaRecipientNameV392" autocomplete="off" placeholder="Beställande arbetsledare"></div>
+        <div><label>Mailadress</label><input id="newAtaRecipientEmailV392" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="namn@goteborg.se"></div>
+        <div><label>Avdelning/enhet</label><input id="newAtaRecipientDepartmentV392" autocomplete="off" placeholder="Valfritt"></div>
+      </div>
+      <div id="newAtaRecipientStatusV392" class="ata-recipient-note-v392">Mottagare är valfritt i v392 men sparas om namn/mail anges.</div>
     </div>
     <div id="newReturnPlaceWrapV290" class="hidden">
       <label style="margin-top:10px">Returplats</label>
@@ -4089,12 +4142,25 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
     <div id="editQueueJobModeFlags" class="row" style="margin-top:10px; gap:16px; align-items:center; flex-wrap:wrap">
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="editQueueReturnRequired" type="checkbox" style="width:auto" onchange="handleEditQueueFlagToggle('return')"> Returkrav</label>
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="editQueueMultiLoad" type="checkbox" style="width:auto" onchange="handleEditQueueFlagToggle('multi')"> Flerlass</label>
-      <label id="editQueueAtaJobWrapV383" class="hidden" style="display:flex; align-items:center; gap:8px; margin:0; font-weight:900"><input id="editQueueAtaJobV383" type="checkbox" style="width:auto"> ÄTA-uppdrag</label>
+      <label id="editQueueAtaJobWrapV383" class="hidden" style="display:flex; align-items:center; gap:8px; margin:0; font-weight:900"><input id="editQueueAtaJobV383" type="checkbox" style="width:auto" onchange="updateEditQueueAtaRecipientUIV392()"> ÄTA-uppdrag</label>
     </div>
     <div id="editQueueReturnPlaceWrapV386" class="hidden">
       <label style="margin-top:10px">Returplats</label>
       <select id="editQueueReturnPlaceV386" onchange="handleEditQueueReturnPlaceManualChangeV386()"></select>
       <div class="muted" style="margin-top:4px">Samma Returplats-lista som i Nytt uppdrag. Visas när Returkrav är valt.</div>
+    </div>
+
+    <div id="editQueueAtaRecipientWrapV392" class="ata-recipient-panel-v392 hidden">
+      <div class="ata-recipient-title-v392">ÄTA-mottagare</div>
+      <div class="multi-help">Gäller bara detta köuppdrag. Ändringen påverkar inte aktivt eller historiskt jobb.</div>
+      <label style="margin-top:8px">Välj från lokal adressbok</label>
+      <select id="editQueueAtaRecipientSelectV392" onchange="selectAtaContactForEditQueueV392(this.value)"></select>
+      <div class="ata-recipient-grid-v392">
+        <div><label>Namn</label><input id="editQueueAtaRecipientNameV392" autocomplete="off" placeholder="Beställande arbetsledare"></div>
+        <div><label>Mailadress</label><input id="editQueueAtaRecipientEmailV392" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="namn@goteborg.se"></div>
+        <div><label>Avdelning/enhet</label><input id="editQueueAtaRecipientDepartmentV392" autocomplete="off" placeholder="Valfritt"></div>
+      </div>
+      <div id="editQueueAtaRecipientStatusV392" class="ata-recipient-note-v392">Mottagare sparas på ostartat köuppdrag.</div>
     </div>
     <label style="margin-top:10px">Visas som (valfritt)</label>
     <input id="editQueueDisplayType" placeholder="Ex. Komprimator 41099">
@@ -4114,7 +4180,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v391</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v392</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -4243,6 +4309,20 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
       <h3>ÄTA aviseringar</h3>
       <div class="muted">v391 grundlager. Lokal adressbok och mailmall sparas bara på den här enheten. Ingen Gmail-, avsluts-, sync- eller historikkoppling är aktiverad i denna version.</div>
       <div class="ata-mail-settings-v391">
+
+        <div class="place-row">
+          <div class="place-key">Kopia till arbetsledare</div>
+          <div class="multi-help">Sparas lokalt och används senare som CC/kopia i ÄTA-mail. Kan redigeras om namn eller mail är fel.</div>
+          <div class="quick-edit-grid" style="margin-top:10px">
+            <div><label>Namn</label><input id="ataSupervisorNameV392" autocomplete="off" placeholder="Min arbetsledare"></div>
+            <div><label>Mailadress</label><input id="ataSupervisorEmailV392" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="arbetsledare@goteborg.se"></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="primary inline" type="button" onclick="saveAtaSupervisorV392()">Spara arbetsledare</button>
+            <button class="inline" type="button" onclick="clearAtaSupervisorFormV392()">Rensa</button>
+          </div>
+          <div id="ataSupervisorStatusV392" class="ata-mail-status-v391">Arbetsledare/CC inte laddad ännu.</div>
+        </div>
         <div class="place-row">
           <div class="place-key">Lokal ÄTA-adressbok</div>
           <div class="multi-help">Mottagare sparas lokalt som hjälplista. Mailadress kan rättas vid felstavning. Ändringar påverkar inte aktivt jobb eller historik i v391.</div>
@@ -13624,8 +13704,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v391';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v392';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v392 ÄTA-mottagare på planerade uppdrag och snabbval',
   'v391 Lokal ÄTA-adressbok och ÄTA-mailmall',
   'v390 Beräkna tider i kö borttagen',
   'v389 Kontrollcentral/Funktionslista kalibrering',
@@ -14290,6 +14371,7 @@ function getActiveMonitorChecks(snapshot){
     if(typeof shouldSkipTabletStatusUploadV319 === 'function' && typeof buildTabletStatusFingerprintV319 === 'function' && typeof shouldCheckQueueActionsV319 === 'function') ok('SYNC-DATA-OV-319', 'Datasnål paddstatus på mobilnät finns', 'v319 ska hoppa över oförändrad paddstatus, återanvända tablet-status-SHA och glesa queue-actions-kontroll på mobilnät.', 'skipFn=true; shaCache=true; actionThrottle=true', 'v319 Datasnål paddstatus', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Datasnål paddstatus på mobilnät v319')));
     if(typeof buildFunctionProtectionReportV329 === 'function' && typeof runControlCenterFunctionPreservationV329 === 'function' && Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329)) ok('PROTECT-OV-330', 'Funktionslista och bevarandekontroll uppdaterad', 'v330 reparerar funktionslistans legacyklassning och återställer ljud vid mottagning av nytt uppdrag utan att ändra arbetsflöden.', 'baseline=' + APP_FUNCTION_SOURCE_BASELINE_V329.length + '; manifest=' + APP_FEATURE_MANIFEST.length, 'v330 Funktionsbevarande', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionslista reparation, ljud och legacybeslut v330')));
     if(typeof toggleAtaMailSettingsManagerV391 === 'function' && typeof loadAtaContactsV391 === 'function' && typeof loadAtaMailTemplateV391 === 'function') ok('ATA-MAIL-OV-391', 'Lokal ÄTA-adressbok och mailmall finns', 'v391 lägger ett isolerat grundlager i Inställningar utan Gmail-, avsluts-, sync- eller historikkoppling.', 'contacts=' + (typeof loadAtaContactsV391 === 'function' ? loadAtaContactsV391().length : 0) + '; templateFields=' + (typeof ATA_MAIL_TEMPLATE_FIELDS_V391 !== 'undefined' ? ATA_MAIL_TEMPLATE_FIELDS_V391.length : 0), 'v391 ÄTA aviseringar', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391')));
+    if(typeof loadAtaSupervisorV392 === 'function' && typeof updateNewAtaRecipientUIV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function') ok('ATA-MAIL-OV-392', 'ÄTA-mottagare på planerade uppdrag finns', 'v392 lägger mottagarfält på ÄTA-planering och snabbval samt lokal arbetsledare/CC utan Gmail-/avslutskoppling.', 'supervisor=' + activeMonitorBool(!!loadAtaSupervisorV392().emailKey) + '; newPanel=' + activeMonitorBool(!!document.getElementById('newAtaRecipientWrapV392')) + '; quickFn=' + activeMonitorBool(typeof renderQuickAtaRecipientFieldsV392 === 'function'), 'v392 ÄTA mottagare', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392')));
     if(typeof recordFeatureUsageV331 === 'function' && typeof getFunctionCleanupCandidatesV331 === 'function' && typeof controlCenterReportTypeSlugV331 === 'function' && typeof toggleSoundSettingsManagerV331 === 'function') ok('CONTROL-OV-331', 'Kontroll- och ordningsfixar uppdaterade', 'v331 har korta rapportfilnamn, ljudinställningar, användningsövervakning, saneringskandidater och moderniserad appregelrad.', 'manifest=' + APP_FEATURE_MANIFEST.length + '; cleanup=' + getFunctionCleanupCandidatesV331(APP_FEATURE_MANIFEST).length, 'v331 Kontroll/ordning', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Kontroll- och ordningsfixar v331')));
     if(typeof activateNewJobReceivedSoundV342 === 'function' && typeof showNewJobReceivedNoticeV342 === 'function' && typeof playNewJobReceivedToneSequenceV342 === 'function') ok('AUDIO-OV-342', 'Ljudavisering och mottagningsnotis uppdaterad', 'v342 ger ljud och liten synlig notis först när nytt uppdrag faktiskt importeras till 189:s kö. Datorläge ska inte spela ljud.', 'webAudio=true; notice=true; pattern=' + activeMonitorSafe((state && state.soundSettingsV331 && state.soundSettingsV331.newJobReceivedPatternV342) || 'double', 'double'), 'v342 Ljud/notis 189', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'AUDIO-NOTICE-NEW-JOB-V342')));
     if(functionSourceIncludes('showNewJobReceivedNoticeV342', 'pendingNewJobReceivedNoticeCountV343') && functionSourceIncludes('renderActiveMonitorIndicator', 'Datorläge finns inget aktivt arbetsuppdrag')) ok('UI-OV-343', 'Fast notis, köantal och Datorläge-övervakning uppdaterad', 'v343 låter notisen ligga kvar tills aktivt val, räknar ihop flera mottagna uppdrag i samma ruta och döljer den gröna väntande övervakningsrutan i Datorläge.', 'pendingNotice=' + activeMonitorSafe(state && state.pendingNewJobReceivedNoticeCountV343, '0'), 'v343 UI/notis', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'NEW-JOB-NOTICE-QUEUE-BADGE-MONITOR-V343')));
@@ -15640,7 +15722,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v391';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v392';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15665,6 +15747,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'ATA-MAIL-RECIPIENT-PLANNING-V392', name:'ÄTA-mottagare på planerade uppdrag och snabbval v392', status:'Inställningar/ÄTA/Nytt uppdrag/Kö/Snabbval/Sync', protectionStatus:'Aktiv', introduced:'v392', purpose:'v392 kopplar lokal ÄTA-mottagare till planerade ÄTA-uppdrag och ÄTA-snabbval samt lägger redigerbar arbetsledare som lokal CC. Mottagare kan väljas från lokal adressbok eller skrivas direkt, följer kö/sync/start till aktivt jobb och rättad kontakt uppdaterar framtida snabbval samt ostartade köuppdrag på samma enhet.', changeRule:'Får bara påverka ÄTA-mottagarfält, lokal arbetsledare/CC, snabbvals mottagarsnapshot och ostartade ÄTA-köuppdrags mottagarsnapshot. Får inte koppla Gmail ännu, får inte ändra ÄTA-debitering, total arbetstid, Lastar/Ange vikt/Klart, aktivt jobb utöver mottagarsnapshot vid start, avslut/historik, GPS/geofence/ETA, material, mtrl kod/anläggning, spegling eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391', name:'Lokal ÄTA-adressbok och ÄTA-mailmall v391', status:'Inställningar/ÄTA/Adressbok/Mailmall', protectionStatus:'Aktiv', introduced:'v391', purpose:'v391 lägger första isolerade grundlagret för ÄTA-aviseringar: lokal adressbok för beställande arbetsledare och lokal ÄTA-mailmall med fast avslutstext. Funktionen sparas i egna lokala nycklar och kopplas inte ännu till Gmail, avslut, Idag, historik, syncimport, snabbval eller aktivt jobb.', changeRule:'Får bara påverka den nya panelen ÄTA aviseringar i Inställningar samt de separata lokala nycklarna stadslass_ata_contacts_v391 och stadslass_ata_mail_template_v391. Får inte ändra ÄTA-sanning, debiterbar tid, Lastar/Ange vikt/Klart, kö, aktivt jobb, historik, sync/spegling, GPS/geofence/ETA, material, mtrl kod/anläggning, backup/export eller driftlogg_v4_full.'},
   {id:'QUEUE-TIME-CALC-REMOVED-V390', name:'Beräkna tider i kö borttagen v390', status:'Kö/uppskattad tid/sanering', protectionStatus:'Borttagen med godkännande', introduced:'v390', purpose:'v390 tar bort knappen Beräkna tider i kö och den manuella GPS-baserade massberäkningen av köuppdrag. Gamla queueGps-fält i driftlogg_v4_full lämnas orörda som passiv historisk data men får inte längre styra kötid, aktiv ETA eller startpunkt.', changeRule:'Får bara ta bort/avaktivera den manuella köberäkningskedjan och dess kontroller. Aktiv ETA, Klar ca, tidsinlärning, dagsprognos, kartcache, Returplats, aktivt jobb, kö/historik, syncsanning, material, mtrl kod/anläggning, backup/export och driftlogg_v4_full får inte ändras.'},
   {id:'CONTROL-BASELINE-CALIBRATION-V389', name:'Kontrollcentral/Funktionslista kalibrering v389', status:'Kontrollcentral/Funktionslista/Baseline', protectionStatus:'Aktiv', introduced:'v389', purpose:'v389 kalibrerar kontrollsystemet efter v383-v388 så befintliga kedjefixar och prestandafixar kontrolleras mot faktisk kodstruktur. Lokala små hjälpfunktioner i kontrollkod räknas inte som nya appfunktioner.', changeRule:'Får bara ändra kontrolltexter, kontrollvillkor, funktionsbaseline och rapportklassning. Får inte ändra arbetsflöde, Returplats-data, Excel-exportens data, Lastar/Ange vikt/Klart, aktivt jobb, kö/historik, GPS/geofence/ETA-sanning, syncens datasanning, material, mtrl kod/anläggning, backup/export eller driftlogg_v4_full.'},
@@ -16524,6 +16607,7 @@ function saveAtaContactFromFormV391(){
   }
   const now = new Date().toISOString();
   const existingIndex = contacts.findIndex(function(item){ return item.id === editId; });
+  const previousContactV392 = existingIndex >= 0 ? Object.assign({}, contacts[existingIndex]) : null;
   if(existingIndex >= 0){
     contacts[existingIndex] = Object.assign({}, contacts[existingIndex], {name:name, email:email, emailKey:emailKey, department:department, note:note, active:active, updatedAt:now});
   } else {
@@ -16533,9 +16617,14 @@ function saveAtaContactFromFormV391(){
     setAtaStatusV391('ataContactsStatusV391', 'Kunde inte spara lokal ÄTA-adressbok. Kontrollera lagring på enheten.', 'error');
     return false;
   }
+  let updateInfoV392 = null;
+  if(existingIndex >= 0 && typeof applyAtaContactUpdateToFutureItemsV392 === 'function'){
+    updateInfoV392 = applyAtaContactUpdateToFutureItemsV392(previousContactV392, contacts[existingIndex]);
+  }
   clearAtaContactFormV391();
   renderAtaContactsV391();
-  setAtaStatusV391('ataContactsStatusV391', existingIndex >= 0 ? 'Mottagaren är uppdaterad lokalt.' : 'Mottagaren är sparad lokalt.', 'ok');
+  const extraV392 = updateInfoV392 && (updateInfoV392.quick || updateInfoV392.queue) ? (' Uppdaterade ' + updateInfoV392.quick + ' snabbval och ' + updateInfoV392.queue + ' ostartade köuppdrag på denna enhet.') : '';
+  setAtaStatusV391('ataContactsStatusV391', (existingIndex >= 0 ? 'Mottagaren är uppdaterad lokalt.' : 'Mottagaren är sparad lokalt.') + extraV392, 'ok');
   return true;
 }
 
@@ -16584,6 +16673,7 @@ function renderAtaMailTemplateV391(message){
 }
 
 function renderAtaMailSettingsV391(){
+  if(typeof renderAtaSupervisorV392 === 'function') renderAtaSupervisorV392();
   renderAtaContactsV391();
   renderAtaMailTemplateV391();
 }
@@ -16593,6 +16683,423 @@ function toggleAtaMailSettingsManagerV391(){
   toggleSettingsPanel('ataMailSettingsWrapV391', renderAtaMailSettingsV391);
 }
 // ÄTA MAIL V391 END
+
+// ÄTA MAIL V392 START: mottagare på planerade ÄTA-uppdrag/snabbval och arbetsledare som lokal CC. Ingen Gmail- eller avslutskoppling i v392.
+const ATA_MAIL_SUPERVISOR_STORAGE_KEY_V392 = 'stadslass_ata_mail_supervisor_v392';
+
+function loadAtaSupervisorV392(){
+  let parsed = null;
+  try{ parsed = JSON.parse(localStorage.getItem(ATA_MAIL_SUPERVISOR_STORAGE_KEY_V392) || 'null'); }catch(e){ parsed = null; }
+  if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) parsed = {};
+  return {
+    name:String(parsed.name || '').trim(),
+    email:String(parsed.email || '').trim(),
+    emailKey:normalizeAtaEmailV391(parsed.emailKey || parsed.email || ''),
+    updatedAt:parsed.updatedAt || null
+  };
+}
+
+function saveAtaSupervisorObjectV392(supervisor){
+  const next = supervisor && typeof supervisor === 'object' ? supervisor : {};
+  next.name = String(next.name || '').trim();
+  next.email = String(next.email || '').trim();
+  next.emailKey = normalizeAtaEmailV391(next.email || next.emailKey || '');
+  next.updatedAt = new Date().toISOString();
+  try{ localStorage.setItem(ATA_MAIL_SUPERVISOR_STORAGE_KEY_V392, JSON.stringify(next)); return true; }catch(e){ return false; }
+}
+
+function renderAtaSupervisorV392(){
+  const supervisor = loadAtaSupervisorV392();
+  const name = document.getElementById('ataSupervisorNameV392');
+  const email = document.getElementById('ataSupervisorEmailV392');
+  if(name && document.activeElement !== name) name.value = supervisor.name || '';
+  if(email && document.activeElement !== email) email.value = supervisor.email || '';
+  if(supervisor.emailKey) setAtaStatusV391('ataSupervisorStatusV392', 'Kopia/CC sparad lokalt: ' + (supervisor.name || supervisor.email) + '.', 'ok');
+  else setAtaStatusV391('ataSupervisorStatusV392', 'Ingen arbetsledare/CC sparad ännu.', '');
+}
+
+function saveAtaSupervisorV392(){
+  const nameEl = document.getElementById('ataSupervisorNameV392');
+  const emailEl = document.getElementById('ataSupervisorEmailV392');
+  const name = nameEl ? String(nameEl.value || '').trim() : '';
+  const email = emailEl ? String(emailEl.value || '').trim() : '';
+  const emailKey = normalizeAtaEmailV391(email);
+  if(email && emailKey.indexOf('@') < 1){
+    setAtaStatusV391('ataSupervisorStatusV392', 'Skriv en giltig mailadress för arbetsledaren.', 'error');
+    return false;
+  }
+  if(!emailKey && !name){
+    try{ localStorage.removeItem(ATA_MAIL_SUPERVISOR_STORAGE_KEY_V392); }catch(e){}
+    renderAtaSupervisorV392();
+    return true;
+  }
+  if(!saveAtaSupervisorObjectV392({name:name, email:email, emailKey:emailKey})){
+    setAtaStatusV391('ataSupervisorStatusV392', 'Kunde inte spara arbetsledare/CC lokalt.', 'error');
+    return false;
+  }
+  renderAtaSupervisorV392();
+  return true;
+}
+
+function clearAtaSupervisorFormV392(){
+  try{ localStorage.removeItem(ATA_MAIL_SUPERVISOR_STORAGE_KEY_V392); }catch(e){}
+  const name = document.getElementById('ataSupervisorNameV392');
+  const email = document.getElementById('ataSupervisorEmailV392');
+  if(name) name.value = '';
+  if(email) email.value = '';
+  setAtaStatusV391('ataSupervisorStatusV392', 'Arbetsledare/CC är rensad lokalt.', 'ok');
+}
+
+function getActiveAtaContactsV392(){
+  return loadAtaContactsV391().filter(function(contact){ return contact && contact.active !== false && contact.emailKey; });
+}
+
+function getAtaContactByEmailKeyV392(emailKey){
+  const key = normalizeAtaEmailV391(emailKey);
+  if(!key) return null;
+  return loadAtaContactsV391().find(function(contact){ return contact.emailKey === key; }) || null;
+}
+
+function getAtaContactOptionsHtmlV392(selectedEmailKey, blankText){
+  const selected = normalizeAtaEmailV391(selectedEmailKey);
+  const contacts = getActiveAtaContactsV392().sort(function(a,b){ return String(a.name || a.email).localeCompare(String(b.name || b.email), 'sv-SE', {sensitivity:'base'}); });
+  let html = '<option value="">' + escapeHtml(blankText || 'Välj mottagare') + '</option>';
+  contacts.forEach(function(contact){
+    const label = (contact.name || contact.email) + (contact.department ? ' · ' + contact.department : '');
+    html += '<option value="' + escapeHtml(contact.emailKey) + '" ' + (contact.emailKey === selected ? 'selected' : '') + '>' + escapeHtml(label) + '</option>';
+  });
+  return html;
+}
+
+function setAtaRecipientFieldsByPrefixV392(prefix, recipient){
+  const data = recipient && typeof recipient === 'object' ? recipient : {};
+  const map = {
+    new:['newAtaRecipientNameV392','newAtaRecipientEmailV392','newAtaRecipientDepartmentV392','newAtaRecipientSelectV392'],
+    editQueue:['editQueueAtaRecipientNameV392','editQueueAtaRecipientEmailV392','editQueueAtaRecipientDepartmentV392','editQueueAtaRecipientSelectV392']
+  };
+  const ids = map[prefix];
+  if(!ids) return;
+  const name = document.getElementById(ids[0]);
+  const email = document.getElementById(ids[1]);
+  const department = document.getElementById(ids[2]);
+  const select = document.getElementById(ids[3]);
+  if(name) name.value = data.name || data.ataRecipientName || '';
+  if(email) email.value = data.email || data.ataRecipientEmail || '';
+  if(department) department.value = data.department || data.ataRecipientDepartment || '';
+  if(select) select.value = normalizeAtaEmailV391(data.emailKey || data.ataRecipientEmailKey || data.email || data.ataRecipientEmail || '');
+}
+
+function selectAtaContactForNewJobV392(emailKey){
+  const contact = getAtaContactByEmailKeyV392(emailKey);
+  if(contact) setAtaRecipientFieldsByPrefixV392('new', contact);
+}
+
+function selectAtaContactForEditQueueV392(emailKey){
+  const contact = getAtaContactByEmailKeyV392(emailKey);
+  if(contact) setAtaRecipientFieldsByPrefixV392('editQueue', contact);
+}
+
+function normalizeAtaRecipientV392(source){
+  const src = source && typeof source === 'object' ? source : {};
+  const name = String(src.name || src.ataRecipientName || src.contactName || '').trim();
+  const email = String(src.email || src.ataRecipientEmail || src.contactEmail || '').trim();
+  const emailKey = normalizeAtaEmailV391(src.emailKey || src.ataRecipientEmailKey || email);
+  const department = String(src.department || src.ataRecipientDepartment || src.contactDepartment || '').trim();
+  const contactId = String(src.id || src.ataRecipientContactId || '').trim();
+  if(!name && !emailKey && !department) return null;
+  return {name:name, email:email, emailKey:emailKey, department:department, contactId:contactId};
+}
+
+function readAtaRecipientFromPrefixV392(prefix){
+  const map = {
+    new:['newAtaRecipientNameV392','newAtaRecipientEmailV392','newAtaRecipientDepartmentV392'],
+    editQueue:['editQueueAtaRecipientNameV392','editQueueAtaRecipientEmailV392','editQueueAtaRecipientDepartmentV392']
+  };
+  const ids = map[prefix];
+  if(!ids) return null;
+  const get = function(id){ const el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+  return normalizeAtaRecipientV392({name:get(ids[0]), email:get(ids[1]), department:get(ids[2])});
+}
+
+function validateAtaRecipientV392(recipient, statusId){
+  if(!recipient) return true;
+  if(recipient.emailKey && recipient.emailKey.indexOf('@') >= 1) return true;
+  const msg = 'Skriv en giltig mailadress eller lämna mottagarfälten tomma.';
+  if(statusId) setAtaStatusV391(statusId, msg, 'error');
+  else alert(msg);
+  return false;
+}
+
+function ensureAtaContactFromRecipientV392(recipient){
+  const data = normalizeAtaRecipientV392(recipient);
+  if(!data || !data.emailKey || data.emailKey.indexOf('@') < 1) return null;
+  const contacts = loadAtaContactsV391();
+  const existing = contacts.find(function(item){ return item.emailKey === data.emailKey; });
+  if(existing) return existing;
+  const now = new Date().toISOString();
+  const contact = {id:createAtaContactIdV391(), name:data.name, email:data.email || data.emailKey, emailKey:data.emailKey, department:data.department, note:'Sparad från ÄTA-uppdrag v392', active:true, createdAt:now, updatedAt:now};
+  contacts.push(contact);
+  saveAtaContactsV391(contacts);
+  return contact;
+}
+
+function applyAtaRecipientFieldsV392(job, recipient, source){
+  if(!job || typeof job !== 'object') return job;
+  const data = normalizeAtaRecipientV392(recipient);
+  if(!data){
+    delete job.ataRecipientNameV392;
+    delete job.ataRecipientEmailV392;
+    delete job.ataRecipientEmailKeyV392;
+    delete job.ataRecipientDepartmentV392;
+    delete job.ataRecipientContactIdV392;
+    delete job.ataRecipientSourceV392;
+    return job;
+  }
+  job.ataRecipientNameV392 = data.name;
+  job.ataRecipientEmailV392 = data.email || data.emailKey;
+  job.ataRecipientEmailKeyV392 = data.emailKey;
+  job.ataRecipientDepartmentV392 = data.department;
+  if(data.contactId) job.ataRecipientContactIdV392 = data.contactId;
+  else delete job.ataRecipientContactIdV392;
+  job.ataRecipientSourceV392 = source || job.ataRecipientSourceV392 || 'manual';
+  return job;
+}
+
+function clearAtaRecipientFieldsV392(job){
+  return applyAtaRecipientFieldsV392(job, null, 'clear');
+}
+
+function getAtaRecipientFromJobV392(job){
+  if(!job || typeof job !== 'object') return null;
+  return normalizeAtaRecipientV392({
+    name:job.ataRecipientNameV392 || job.ataRecipientName,
+    email:job.ataRecipientEmailV392 || job.ataRecipientEmail,
+    emailKey:job.ataRecipientEmailKeyV392 || job.ataRecipientEmailKey,
+    department:job.ataRecipientDepartmentV392 || job.ataRecipientDepartment,
+    id:job.ataRecipientContactIdV392 || ''
+  });
+}
+
+function applyAtaRecipientToJobIfAtaV392(job, recipient, source){
+  if(!job || typeof job !== 'object') return job;
+  if(typeof isJobAtaV366 === 'function' && !isJobAtaV366(job)){
+    clearAtaRecipientFieldsV392(job);
+    return job;
+  }
+  const data = normalizeAtaRecipientV392(recipient);
+  if(data && data.emailKey && data.emailKey.indexOf('@') >= 1) ensureAtaContactFromRecipientV392(data);
+  return applyAtaRecipientFieldsV392(job, data, source || 'ata-job');
+}
+
+function copyAtaRecipientFieldsV392(fromJob, toJob, source){
+  return applyAtaRecipientToJobIfAtaV392(toJob, getAtaRecipientFromJobV392(fromJob), source || 'copied');
+}
+
+function shouldShowAtaRecipientForNewJobV392(){
+  const typeEl = document.getElementById('newType');
+  const type = typeEl ? typeEl.value || '' : '';
+  if(!type || type === 'Övrig verksamhet') return false;
+  if(typeof isAtaManualChoiceTypeV366 === 'function' && isAtaManualChoiceTypeV366(type)) return typeof isNewAtaJobCheckedV366 === 'function' && isNewAtaJobCheckedV366();
+  try{ return !!isJobTypeAtaBySettingV366({type:type, displayType:type}); }catch(e){ return false; }
+}
+
+function updateNewAtaRecipientUIV392(){
+  const wrap = document.getElementById('newAtaRecipientWrapV392');
+  if(!wrap) return;
+  const show = shouldShowAtaRecipientForNewJobV392();
+  wrap.classList.toggle('hidden', !show);
+  const select = document.getElementById('newAtaRecipientSelectV392');
+  if(select){
+    const selected = normalizeAtaEmailV391((document.getElementById('newAtaRecipientEmailV392') || {}).value || select.value || '');
+    select.innerHTML = getAtaContactOptionsHtmlV392(selected, 'Ingen fast mottagare');
+    select.value = selected;
+  }
+}
+
+function collectNewAtaRecipientV392(type){
+  if(!shouldShowAtaRecipientForNewJobV392()) return null;
+  const recipient = readAtaRecipientFromPrefixV392('new');
+  if(!validateAtaRecipientV392(recipient, 'newAtaRecipientStatusV392')) return false;
+  if(recipient && recipient.emailKey) ensureAtaContactFromRecipientV392(recipient);
+  return recipient;
+}
+
+function resetNewAtaRecipientV392(){
+  setAtaRecipientFieldsByPrefixV392('new', null);
+  updateNewAtaRecipientUIV392();
+}
+
+function shouldShowAtaRecipientForQueueJobV392(job){
+  try{ return !!(job && typeof isJobAtaV366 === 'function' && isJobAtaV366(job)); }catch(e){ return false; }
+}
+
+function updateEditQueueAtaRecipientUIV392(job){
+  const wrap = document.getElementById('editQueueAtaRecipientWrapV392');
+  if(!wrap) return;
+  const probe = job || {type:(document.getElementById('editQueueType') || {}).value || '', displayType:(document.getElementById('editQueueDisplayType') || {}).value || ''};
+  if(typeof applyEditQueueAtaFieldsV383 === 'function' && !job){
+    try{ applyEditQueueAtaFieldsV383(probe); }catch(e){}
+  } else if(!job && typeof applyAtaJobFieldsV366 === 'function'){
+    try{ applyAtaJobFieldsV366(probe, ''); }catch(e){}
+  }
+  const show = shouldShowAtaRecipientForQueueJobV392(probe);
+  wrap.classList.toggle('hidden', !show);
+  const current = job ? getAtaRecipientFromJobV392(job) : readAtaRecipientFromPrefixV392('editQueue');
+  const selected = normalizeAtaEmailV391(current && (current.emailKey || current.email) || '');
+  const select = document.getElementById('editQueueAtaRecipientSelectV392');
+  if(select){
+    select.innerHTML = getAtaContactOptionsHtmlV392(selected, 'Ingen fast mottagare');
+    select.value = selected;
+  }
+  if(job) setAtaRecipientFieldsByPrefixV392('editQueue', current);
+}
+
+function collectEditQueueAtaRecipientV392(job){
+  if(!shouldShowAtaRecipientForQueueJobV392(job)) return null;
+  const recipient = readAtaRecipientFromPrefixV392('editQueue');
+  if(!validateAtaRecipientV392(recipient, 'editQueueAtaRecipientStatusV392')) return false;
+  if(recipient && recipient.emailKey) ensureAtaContactFromRecipientV392(recipient);
+  return recipient;
+}
+
+function shouldShowAtaRecipientForQuickItemV392(item){
+  if(!item || item.action === 'machineTransport') return false;
+  try{
+    if(typeof isAtaManualChoiceTypeV366 === 'function' && isAtaManualChoiceTypeV366(item)) return true;
+    return !!isJobTypeAtaBySettingV366(item);
+  }catch(e){ return false; }
+}
+
+function getQuickAtaSourceV392(item){
+  try{
+    if(item && typeof isAtaManualChoiceTypeV366 === 'function' && isAtaManualChoiceTypeV366(item)) return 'manual_checkbox';
+  }catch(e){}
+  return '';
+}
+
+function getAtaRecipientFromQuickItemV392(item){
+  if(!item || typeof item !== 'object') return null;
+  return normalizeAtaRecipientV392({
+    name:item.ataRecipientNameV392 || item.ataRecipientName || '',
+    email:item.ataRecipientEmailV392 || item.ataRecipientEmail || '',
+    emailKey:item.ataRecipientEmailKeyV392 || item.ataRecipientEmailKey || item.ataRecipientEmailV392 || item.ataRecipientEmail || '',
+    department:item.ataRecipientDepartmentV392 || item.ataRecipientDepartment || ''
+  });
+}
+
+function getQuickAtaRecipientFieldSelectorV392(quickId, field){
+  return '#quickManagerList [data-quick-id="' + String(quickId || '').replace(/"/g, '\\"') + '"][data-quick-field="' + field + '"]';
+}
+
+function fillQuickAtaRecipientFromContactV392(quickId, emailKey){
+  const contact = getAtaContactByEmailKeyV392(emailKey);
+  if(!contact) return;
+  const set = function(field, value){ const el = document.querySelector(getQuickAtaRecipientFieldSelectorV392(quickId, field)); if(el) el.value = value || ''; };
+  set('ataRecipientNameV392', contact.name || '');
+  set('ataRecipientEmailV392', contact.email || '');
+  set('ataRecipientDepartmentV392', contact.department || '');
+  set('ataRecipientEmailKeyV392', contact.emailKey || '');
+}
+
+function renderQuickAtaRecipientFieldsV392(item){
+  if(!shouldShowAtaRecipientForQuickItemV392(item)) return '';
+  const recipient = getAtaRecipientFromQuickItemV392(item);
+  const selected = normalizeAtaEmailV391(recipient && (recipient.emailKey || recipient.email) || '');
+  return '<div class="ata-recipient-card-v392">' +
+    '<div class="ata-recipient-title-v392">ÄTA-mottagare för snabbval</div>' +
+    '<div class="multi-help">Valfri fast mottagare. Sparas på snabbvalet och följer med när uppdrag skapas.</div>' +
+    '<label style="margin-top:8px">Välj från lokal adressbok</label>' +
+    '<select data-quick-id="' + escapeHtml(item.id) + '" data-quick-field="ataRecipientEmailKeyV392" onchange="fillQuickAtaRecipientFromContactV392(\'' + escapeJsSingle(item.id) + '\', this.value)">' + getAtaContactOptionsHtmlV392(selected, 'Ingen fast mottagare') + '</select>' +
+    '<div class="ata-recipient-grid-v392">' +
+      '<div><label>Namn</label><input data-quick-id="' + escapeHtml(item.id) + '" data-quick-field="ataRecipientNameV392" value="' + escapeHtml(recipient && recipient.name || '') + '"></div>' +
+      '<div><label>Mailadress</label><input data-quick-id="' + escapeHtml(item.id) + '" data-quick-field="ataRecipientEmailV392" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + escapeHtml(recipient && (recipient.email || recipient.emailKey) || '') + '"></div>' +
+      '<div><label>Avdelning/enhet</label><input data-quick-id="' + escapeHtml(item.id) + '" data-quick-field="ataRecipientDepartmentV392" value="' + escapeHtml(recipient && recipient.department || '') + '"></div>' +
+    '</div>' +
+  '</div>';
+}
+
+function normalizeQuickAtaRecipientAfterSaveV392(item){
+  if(!item || typeof item !== 'object') return item;
+  if(!shouldShowAtaRecipientForQuickItemV392(item)){
+    delete item.ataRecipientNameV392;
+    delete item.ataRecipientEmailV392;
+    delete item.ataRecipientEmailKeyV392;
+    delete item.ataRecipientDepartmentV392;
+    return item;
+  }
+  const recipient = getAtaRecipientFromQuickItemV392(item);
+  if(recipient && recipient.emailKey && recipient.emailKey.indexOf('@') < 1){
+    alert('Snabbvalet har ogiltig ÄTA-mailadress. Rätta eller lämna mottagaren tom.');
+    return false;
+  }
+  if(recipient && recipient.emailKey) ensureAtaContactFromRecipientV392(recipient);
+  if(recipient) {
+    item.ataRecipientNameV392 = recipient.name;
+    item.ataRecipientEmailV392 = recipient.email || recipient.emailKey;
+    item.ataRecipientEmailKeyV392 = recipient.emailKey;
+    item.ataRecipientDepartmentV392 = recipient.department;
+  }
+  return item;
+}
+
+function applyAtaContactUpdateToFutureItemsV392(oldContact, newContact){
+  const oldKey = normalizeAtaEmailV391(oldContact && (oldContact.emailKey || oldContact.email) || '');
+  const newData = normalizeAtaRecipientV392(newContact);
+  if(!oldKey || !newData) return {quick:0, queue:0};
+  let quickCount = 0;
+  let queueCount = 0;
+  if(state && Array.isArray(state.quickItems)){
+    state.quickItems.forEach(function(item){
+      const rec = getAtaRecipientFromQuickItemV392(item);
+      if(rec && normalizeAtaEmailV391(rec.emailKey || rec.email) === oldKey){
+        item.ataRecipientNameV392 = newData.name;
+        item.ataRecipientEmailV392 = newData.email || newData.emailKey;
+        item.ataRecipientEmailKeyV392 = newData.emailKey;
+        item.ataRecipientDepartmentV392 = newData.department;
+        quickCount++;
+      }
+    });
+  }
+  if(state && Array.isArray(state.queue)){
+    state.queue.forEach(function(job){
+      if(!job || job.status === 'pausad' || job.status === 'slutförd') return;
+      const rec = getAtaRecipientFromJobV392(job);
+      if(rec && normalizeAtaEmailV391(rec.emailKey || rec.email) === oldKey){
+        applyAtaRecipientFieldsV392(job, newData, 'contact-edit-v392');
+        queueCount++;
+      }
+    });
+  }
+  if((quickCount || queueCount) && typeof saveState === 'function') saveState();
+  return {quick:quickCount, queue:queueCount};
+}
+
+function getAtaRecipientQueuePillHtmlV392(job){
+  try{
+    const rec = getAtaRecipientFromJobV392(job);
+    if(rec && (rec.name || rec.emailKey)) return '<span class="pill pill-positive-v384">ÄTA-mottagare: ' + escapeHtml(rec.name || rec.email || rec.emailKey) + '</span>';
+  }catch(e){}
+  return '';
+}
+
+function copyAtaRecipientToTransferV392(source, clean){
+  const rec = getAtaRecipientFromJobV392(source);
+  if(rec) applyAtaRecipientToJobIfAtaV392(clean, rec, source && source.ataRecipientSourceV392 || 'transfer-v392');
+  return clean;
+}
+
+function normalizeImportedAtaRecipientV392(source, target){
+  const rec = getAtaRecipientFromJobV392(source);
+  if(rec){
+    applyAtaRecipientToJobIfAtaV392(target, rec, 'import-v392');
+    if(rec.emailKey && rec.emailKey.indexOf('@') >= 1) ensureAtaContactFromRecipientV392(rec);
+  }
+  return target;
+}
+
+const ATA_MAIL_RECIPIENT_FUNCTIONS_V392 = ['loadAtaSupervisorV392','saveAtaSupervisorV392','getQuickAtaSourceV392','renderAtaSupervisorV392','updateNewAtaRecipientUIV392','collectNewAtaRecipientV392','applyAtaRecipientFieldsV392','applyAtaRecipientToJobIfAtaV392','copyAtaRecipientFieldsV392','renderQuickAtaRecipientFieldsV392','normalizeQuickAtaRecipientAfterSaveV392','applyAtaContactUpdateToFutureItemsV392','copyAtaRecipientToTransferV392','normalizeImportedAtaRecipientV392','getAtaRecipientQueuePillHtmlV392'];
+try{ ATA_MAIL_RECIPIENT_FUNCTIONS_V392.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); }); }catch(e){}
+// ÄTA MAIL V392 END
 
 
 const CODE_USAGE_STORAGE_KEY_V354 = 'stadslass_code_usage_v354';
@@ -16803,7 +17310,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -16813,6 +17320,7 @@ function buildFunctionProtectionRowsV329(){
   add('CONTROL-CENTER-LIST-V331', 'Funktionslista finns i Kontrollcentralen', !!document.getElementById('controlCenterFunctionProtectionButtonV329') && typeof runControlCenterFunctionPreservationV329 === 'function', 'button=' + (!!document.getElementById('controlCenterFunctionProtectionButtonV329')) + '; runFn=' + (typeof runControlCenterFunctionPreservationV329 === 'function'), 'KRITISK');
   add('REPORT-FILENAMES-SHORT-V331', 'Korta rapportfilnamn', typeof controlCenterReportTypeSlugV331 === 'function' && functionSourceIncludes('downloadControlCenterReportFileV303', 'controlCenterReportTypeSlugV331') && !functionSourceIncludes('downloadControlCenterReportFileV303', 'stadslass-kontrollrapport-'), 'filnamn=rapporttyp-version-tid', 'KRITISK');
   add('ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391', 'Lokal ÄTA-adressbok och ÄTA-mailmall v391', !!document.getElementById('ataMailSettingsWrapV391') && !!document.getElementById('ataMailTemplateFieldsV391') && typeof toggleAtaMailSettingsManagerV391 === 'function' && typeof loadAtaContactsV391 === 'function' && typeof loadAtaMailTemplateV391 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391'), 'panel=' + (!!document.getElementById('ataMailSettingsWrapV391')) + '; template=' + (!!document.getElementById('ataMailTemplateFieldsV391')) + '; localStorage=separata nycklar', 'KRITISK');
+  add('ATA-MAIL-RECIPIENT-PLANNING-V392', 'ÄTA-mottagare på planerade uppdrag och snabbval v392', !!document.getElementById('ataSupervisorNameV392') && !!document.getElementById('newAtaRecipientWrapV392') && !!document.getElementById('editQueueAtaRecipientWrapV392') && typeof loadAtaSupervisorV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function' && typeof renderQuickAtaRecipientFieldsV392 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392'), 'supervisorPanel=' + (!!document.getElementById('ataSupervisorNameV392')) + '; newRecipientPanel=' + (!!document.getElementById('newAtaRecipientWrapV392')) + '; editQueueRecipientPanel=' + (!!document.getElementById('editQueueAtaRecipientWrapV392')), 'KRITISK');
   add('SOUND-SETTINGS-V331', 'Synliga ljudinställningar', !!document.getElementById('soundSettingsWrapV331') && !!document.getElementById('newJobReceivedSoundEnabledV331') && !!document.getElementById('activateNewJobReceivedSoundV342') && !!document.getElementById('newJobReceivedSoundPatternV342') && typeof toggleSoundSettingsManagerV331 === 'function' && typeof setNewJobReceivedSoundEnabledV331 === 'function' && typeof activateNewJobReceivedSoundV342 === 'function', 'panel=' + (!!document.getElementById('soundSettingsWrapV331')) + '; aktivera=' + (!!document.getElementById('activateNewJobReceivedSoundV342')) + '; val=' + (!!document.getElementById('newJobReceivedSoundPatternV342')), 'KRITISK');
   add('FEATURE-USAGE-MONITORING-V331', 'Användningsövervakning finns', typeof recordFeatureUsageV331 === 'function' && typeof buildFunctionUsageSummaryV331 === 'function' && typeof getFeatureUsageRowsV331 === 'function', 'lätt användningslogg från v331', 'KRITISK');
   add('FUNCTION-CLEANUP-CANDIDATES-V331', 'Saneringskandidater/legacylista finns', typeof getFunctionCleanupCandidatesV331 === 'function', 'kandidater=' + getFunctionCleanupCandidatesV331(manifest).length, 'KRITISK');
@@ -16833,10 +17341,10 @@ function buildFunctionProtectionRowsV329(){
   add('COMPUTER-QUEUE-DELETE-PENDING-V346', 'Datorläge stabilt vänteläge för borttagning via Snabbsync v346', typeof isTabletQueueDeletePendingV346 === 'function' && typeof markTabletQueueDeletePendingV346 === 'function' && typeof getTabletQueueDeletePendingPillHtmlV346 === 'function' && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', 'Väntar på 189') && functionSourceIncludes('getTabletQueueMirrorActionsHtmlV275', '189 ändrar bara om uppdraget fortfarande är ostarterat i kö') && functionSourceIncludes('requestTabletQueueDeleteV275', 'Skicka begäran till 189') && functionSourceIncludes('requestTabletQueueDeleteWithDelayV325', 'markTabletQueueDeletePendingV346') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPUTER-QUEUE-DELETE-PENDING-V346'), 'Datorläge visar stabilt vänteläge efter borttagningsbegäran och använder 189-språk utan att ändra kölogiken', 'KRITISK');
   add('MAIN-BUTTON-COUNT-BADGE-V347', 'Hård knappbadgefix för Uppdrag till 189 och 189 status v347', document.getElementById('queueCount') && document.getElementById('queueCount').classList.contains('main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', 'main-nav-count-badge-v347') && functionSourceIncludes('createTabletQueueMirrorButtonV243', '</span><span id=\"tabletQueueMirrorCountV238\"') && functionSourceIncludes('renderTabletQueueMirrorButtonV238', 'main-nav-count-badge-v347-positive') && APP_FEATURE_MANIFEST.some(item => item.id === 'MAIN-BUTTON-COUNT-BADGE-V347'), 'Uppdrag till 189 och 189 status använder separata antalsbadges utan parenteser och med röd positiv siffra', 'KRITISK');
   add('JOBTYPE-STABLE-ID-V348', 'Stabila Jobbtyp-ID:n finns', typeof getJobTypeMigrationStatusV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-STABLE-ID-V348'), 'Jobbtyp-ID-migration och manifest finns', 'KRITISK');
-  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367','v368','v369','v371','v374','v375','v376','v377','v378','v379','v380','v381','v382','v383','v384','v385','v386','v387','v388','v389','v390','v391'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
+  add('JOBTYPE-ID-STARTUP-FIX-V349', 'Uppstartsfix för Jobbtyp-ID v349', typeof emptyJobTypeRegistryV348 === 'function' && typeof ensureJobTypeIdsInStateV348 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'JOBTYPE-ID-STARTUP-FIX-V349') && ['v349','v350','v351','v353','v354','v355','v356','v357','v358','v359','v360','v361','v362','v363','v364','v365','v366','v367','v368','v369','v371','v374','v375','v376','v377','v378','v379','v380','v381','v382','v383','v384','v385','v386','v387','v388','v389','v390','v391','v392'].includes(ACTIVE_MONITOR_UPDATED_FOR_SHORT), 'Jobbtyp-ID-blocket initieras före state-load och v349-manifest finns', 'KRITISK');
   add('CONTROL-BASELINE-CALIBRATION-V350', 'Kontroll-/baselinefix v350', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V350') && controlVersionNumberV302(currentShort) >= 350, 'v350-manifest och aktuell versionsmarkering finns', 'KRITISK');
-  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
-  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
+  add('STARTUP-WATCHDOG-COMPLETE-V351', 'Uppstartsreparation watchdog v351', APP_FEATURE_MANIFEST.some(item => item.id === 'STARTUP-WATCHDOG-COMPLETE-V351') && typeof hideAppSplashScreen === 'function' && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392'), 'App redo kvitteras direkt när startskärmen börjar döljas', 'KRITISK');
+  add('CODE-USAGE-MONITORING-V354', 'Kodövervakning och baselinefix v354', typeof startCodeUsageMonitoringV354 === 'function' && typeof buildCodeUsageMonitoringSummaryV354 === 'function' && typeof buildCodeUsageMonitoringReportV354 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'CODE-USAGE-MONITORING-V354') && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392'), 'separat kodanvändningslogg och baseline uppdaterad för v354', 'KRITISK');
   add('STORAGE-RESCUE-V355', 'Lagringsräddare och kodövervakning pausad v355', typeof initializeStorageRescueV355 === 'function' && typeof runStorageRescueSafeCleanupV355 === 'function' && typeof renderStorageRescueV355 === 'function' && !!document.getElementById('storageRescueTopV355') && APP_FEATURE_MANIFEST.some(item => item.id === 'STORAGE-RESCUE-V355') && controlVersionNumberV302(currentShort) >= 355, 'v355+ kan rensa bara låg-risk temp/cache och startar inte v354 kodövervakning i drift', 'KRITISK');
   add('DISTANCE-LITE-V356', 'Tid före sträcka v356', typeof STADSLASS_DISTANCE_LITE_MODE_V356 !== 'undefined' && STADSLASS_DISTANCE_LITE_MODE_V356 === true && APP_FEATURE_MANIFEST.some(item => item.id === 'DISTANCE-LITE-V356'), 'GPS arbetsstöd behålls, tung historisk sträcka avlastas', 'KRITISK');
   add('HISTORY-VOLUME-MAP-V357', 'Datavolym/historikavlastning v357', typeof buildHistoryVolumeAnalysisV357 === 'function' && typeof renderHistoryVolumeReportV357 === 'function' && !!document.getElementById('historyVolumeRescueV357') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORY-VOLUME-MAP-V357'), 'läsande datakarta utan rensning eller omskrivning', 'KRITISK');
@@ -17322,6 +17830,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'GPS-data följer uppdraget till papperskorgen', src('moveToTrash', 'JSON.stringify') && src('deleteFinishedJob', "moveToTrash('finished'"), 'moveToTrash + deleteFinishedJob');
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport finns men påverkar inte GPS/tid', !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && fn('normalizeImportedReceiptRow') && src('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'kvittoimport skapar historiska sammanställningsrader');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA aviseringar grundlager v391', !!el('ataMailSettingsWrapV391') && !!el('ataContactsListV391') && !!el('ataMailTemplateFieldsV391') && fn('toggleAtaMailSettingsManagerV391') && fn('loadAtaContactsV391') && fn('saveAtaContactFromFormV391') && fn('renderAtaMailTemplateV391') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v391 Lokal ÄTA-adressbok')), 'v391 har lokal adressbok och mailmall i Inställningar utan Gmail-, avsluts-, sync- eller historikkoppling.');
+  addFunctionCheck(results, 'Nivå 2', 'ÄTA-mottagare planering v392', !!el('ataSupervisorNameV392') && !!el('newAtaRecipientWrapV392') && !!el('editQueueAtaRecipientWrapV392') && fn('loadAtaSupervisorV392') && fn('updateNewAtaRecipientUIV392') && fn('applyAtaRecipientToJobIfAtaV392') && fn('renderQuickAtaRecipientFieldsV392') && src('startJob', 'ataRecipientV392') && src('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && src('normalizeImportedQueueItem', 'normalizeImportedAtaRecipientV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v392 ÄTA-mottagare')), 'v392 kopplar mottagare/arbetsledare till ÄTA-planering utan Gmail- eller avslutskoppling.');
   addFunctionCheck(results, 'Nivå 2', 'Beräkna tider i kö borttagen v390', !fn('calculateQueueTimesFromCurrentGps') && !el('queueCalculateTimesButtonV286') && fn('isManualQueueTimeCalculationRemovedV390') && APP_FEATURE_MANIFEST.some(item => item.id === 'QUEUE-TIME-CALC-REMOVED-V390'), 'knappen och den manuella GPS-baserade köberäkningen är borttagna med godkännande');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning hybrid/smart delberäkning borttagen v390', !fn('calculateQueueMapTotalsFromGps') && !fn('getStoredQueueGpsEstimateForJob') && !fn('buildQueueGpsEstimateStorageKey'), 'den borttagna manuella kökedjan har ingen kvarvarande aktiv beräkningsfunktion');
   addFunctionCheck(results, 'Nivå 2', 'Gamla queueGps-fält passiva v390', fn('getPassiveQueueGpsFieldNamesV390') && src('getTimeEstimateForQueuedJob', 'queueGps-fält får inte längre styra kötid'), 'gamla queueGps-fält lämnas i data men används inte som aktiv kötid/startpunkt');
@@ -18750,6 +19259,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Returplats inte som egen Excel-flik v385', functionSourceIncludes('buildExcelWorkbookXml', '<Worksheet ss:Name="Detaljer"') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplats') && !functionSourceIncludes('buildExcelWorkbookXml', 'Worksheet ss:Name="Returplatser"') && APP_FEATURE_MANIFEST.some(item => item.id === 'RETURNPLACE-EXCEL-NO-OWN-SHEET-V385'), 'Excel behåller Returplats i detaljraden men saknar egen Returplatser-flik'),
     systemCheck('Lastbils status/live-status throttle v387', typeof shouldThrottleLiveStatusUploadV387 === 'function' && typeof markLiveStatusUploadStartV387 === 'function' && typeof markLiveStatusUploadEndV387 === 'function' && typeof shouldRenderActiveOnTimerV387 === 'function' && typeof queueSyncUploadLiveStatusBaseV387 === 'function' && typeof queueSyncUploadLiveStatusV321 === 'function' && functionSourceIncludes('startActiveTimer', 'shouldRenderActiveOnTimerV388') && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'Live-status/GitHub PUT har överlappsspärr och aktiv vy timer-renderas glesare'),
     systemCheck('ÄTA aviseringar grundlager v391', typeof toggleAtaMailSettingsManagerV391 === 'function' && typeof loadAtaContactsV391 === 'function' && typeof loadAtaMailTemplateV391 === 'function' && !!document.getElementById('ataMailSettingsWrapV391') && !!document.getElementById('ataMailTemplateFieldsV391') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391'), 'lokal ÄTA-adressbok och mailmall finns i Inställningar och sparas i separata lokala nycklar'),
+    systemCheck('ÄTA-mottagare planering v392', typeof loadAtaSupervisorV392 === 'function' && typeof updateNewAtaRecipientUIV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function' && typeof renderQuickAtaRecipientFieldsV392 === 'function' && !!document.getElementById('ataSupervisorNameV392') && !!document.getElementById('newAtaRecipientWrapV392') && !!document.getElementById('editQueueAtaRecipientWrapV392') && functionSourceIncludes('startJob', 'ataRecipientV392') && functionSourceIncludes('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392'), 'ÄTA-mottagare och lokal arbetsledare/CC finns för planering utan Gmail-/avslutskoppling'),
     systemCheck('Beräkna tider i kö borttagen v390', APP_FEATURE_MANIFEST.some(item => item.id === 'QUEUE-TIME-CALC-REMOVED-V390') && !document.getElementById('queueCalculateTimesButtonV286') && typeof calculateQueueTimesFromCurrentGps !== 'function' && typeof isManualQueueTimeCalculationRemovedV390 === 'function', 'manuell GPS-baserad köberäkning är borttagen med godkännande'),
     systemCheck('Kontrollcentral/Funktionslista kalibrering v389', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V389') && Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329) && typeof CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389 !== 'undefined' && CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389.every(function(name){ return APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) >= 0; }), 'v389 baseline och kontrollvillkor finns utan arbetsdataändring'),
     systemCheck('Aktiv spegling parkerad under arbete v388', typeof shouldParkActiveMirrorDuringActiveV388 === 'function' && typeof shouldParkLiveStatusDuringActiveV388 === 'function' && typeof shouldRenderActiveOnTimerV388 === 'function' && typeof shouldSkipRenderActiveV388 === 'function' && typeof shouldSkipQueueSyncSettingsRenderV388 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-MIRROR-PARKED-WORK-V388'), 'Löpande Lastbils status/live-status parkeras under aktivt arbete och aktiv render snabbskyddas'),
@@ -21558,7 +22068,7 @@ function buildFinishedGpsSnapHistorySummaryV362(job, completedFrom){
   let quality = '';
   try{ quality = rec ? getRouteGpsQuality({routeGps:rec, routeGpsStatus:job && job.routeGpsStatus}) : ''; }catch(e){ quality = ''; }
   return {
-    version:String(APP_VERSION || 'Stadslass 2.0 v391'),
+    version:String(APP_VERSION || 'Stadslass 2.0 v392'),
     removedAt:new Date().toISOString(),
     completedFrom:String(completedFrom || ''),
     routeGpsStatus:String((job && job.routeGpsStatus) || (rec && rec.status) || ''),
@@ -21597,7 +22107,7 @@ function stripNewFinishedJobGpsSnapV362(job, completedFrom){
     job.historicalGpsSnapRemovedV362 = {
       removed:true,
       removedAt:summary.removedAt,
-      version:String(APP_VERSION || 'Stadslass 2.0 v391'),
+      version:String(APP_VERSION || 'Stadslass 2.0 v392'),
       pointCount:summary.gpsPointCount,
       removedBytes:removedBytes,
       removedKeys:removedKeys.slice(),
@@ -28728,6 +29238,7 @@ function fillEditQueueModalFromJobV275(job, targetKey){
   destEl.value = job.dest || '';
   updateEditQueuePlaceSelects(true);
   if(typeof updateEditQueueAtaJobUIV383 === 'function') updateEditQueueAtaJobUIV383(false, job);
+  if(typeof updateEditQueueAtaRecipientUIV392 === 'function') updateEditQueueAtaRecipientUIV392(job);
   const returnEl = document.getElementById('editQueueReturnRequired');
   const multiEl = document.getElementById('editQueueMultiLoad');
   const returnRequired = getJobReturnRequiredValue(job);
@@ -29928,6 +30439,7 @@ function sanitizeQueueItemForTransfer(item){
     routeEndPlace: ret ? (source.place || '') : (source.dest || '')
   };
   applyAtaJobFieldsV366(clean, (isAtaManualChoiceTypeV366(source) && isManualAtaCheckedOnJobV366(source)) ? 'manual_checkbox' : '');
+  if(typeof copyAtaRecipientToTransferV392 === 'function') copyAtaRecipientToTransferV392(source, clean);
   applyMachineToJobV307(clean, getMachineNameFromJobV307(source));
   const temporaryPlacesV301 = typeof cloneTemporaryOtherPlacesV175 === 'function' ? cloneTemporaryOtherPlacesV175(source.temporaryPlaces) : null;
   if(temporaryPlacesV301){
@@ -30063,6 +30575,7 @@ function normalizeImportedQueueItem(item){
     normalized.routeReturnLabel = normalized.returnPlaceLabel;
   }
   applyAtaJobFieldsV366(normalized, (isAtaManualChoiceTypeV366(item) && isManualAtaCheckedOnJobV366(item)) ? 'manual_checkbox' : '');
+  if(typeof normalizeImportedAtaRecipientV392 === 'function') normalizeImportedAtaRecipientV392(item, normalized);
   applyMachineToJobV307(normalized, item.machineName || item.machine || item.selectedMachine || '');
   if(typeof applyStandardReturnPlaceToQueuedJobV291 === 'function') applyStandardReturnPlaceToQueuedJobV291(normalized);
   if(item.temporaryPlaces && typeof applyTemporaryOtherPlacesToJobV175 === 'function'){
@@ -32033,6 +32546,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     workSessions:[{startedAt:Date.now(), endedAt:null}]
   };
   applyAtaJobFieldsV366(state.active, jobOptions.ataSourceV366 || jobOptions.ataSourceV363 || jobOptions.ataJobV366 || false);
+  if(typeof applyAtaRecipientToJobIfAtaV392 === 'function') applyAtaRecipientToJobIfAtaV392(state.active, jobOptions.ataRecipientV392 || jobOptions.ataRecipient || null, 'start-v392');
   if(isMachineTransportTypeV179(type)){
     applyMachineToJobV307(state.active, jobOptions.machineName || jobOptions.machine || '');
   }
@@ -32066,8 +32580,10 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   return true;
 }
 
-function quickJob(vehicle, type, place, dest, comment, displayType, privateComment){
-  const started = startJob(vehicle, type, place, dest, comment, displayType, privateComment || '', {ataSourceV366:'', ataSourceV363:''});
+function quickJob(vehicle, type, place, dest, comment, displayType, privateComment, options){
+  const quickOptionsV392 = options || {};
+  const quickAtaSourceV392 = quickOptionsV392.ataSourceV392 || quickOptionsV392.ataSourceV366 || '';
+  const started = startJob(vehicle, type, place, dest, comment, displayType, privateComment || '', {ataSourceV366:quickAtaSourceV392, ataSourceV363:quickAtaSourceV392, ataRecipientV392:quickOptionsV392.ataRecipientV392 || quickOptionsV392.ataRecipient || null});
   if(started && state.active){
     showTab('ko');
     setTimeout(scrollToActiveJobTop, 50);
@@ -32415,6 +32931,7 @@ function resetNewJobForm(){
   updateFixedRouteRules();
   updateNewPrivateCommentVisibility();
   updateNewAtaJobUIV363(false);
+  if(typeof resetNewAtaRecipientV392 === 'function') resetNewAtaRecipientV392();
 }
 
 function validateNewJobSelection(type, place, dest){
@@ -32451,6 +32968,8 @@ async function startManualJob(){
   const multiLoadChoice = getNewJobMultiLoadChoice();
 
   if(!validateNewJobSelection(type, place, dest)) return;
+  const ataRecipientV392 = typeof collectNewAtaRecipientV392 === 'function' ? collectNewAtaRecipientV392(type) : null;
+  if(ataRecipientV392 === false) return;
   const temporaryPlaces = await collectTemporaryOtherPlacesV175('new', place, dest);
   if(temporaryPlaces === false) return;
 
@@ -32468,7 +32987,7 @@ async function startManualJob(){
 
   comment = applyUrgentJobComment(comment, urgentJob);
 
-  startJob(vehicle, type, place, dest, comment, '', privateComment, {returnRequired:returnRequiredChoice, returnPlace:returnPlaceChoiceV290, returnPlaceLabel:returnPlaceLabelChoiceV290, multiLoad:multiLoadChoice, urgentJob:urgentJob, temporaryPlaces:temporaryPlaces, machineName:(isMachineTransportTypeV179(type) ? machine : ''), ataSourceV366:getNewAtaSourceV366(type, ''), ataSourceV363:getNewAtaSourceV366(type, '')});
+  startJob(vehicle, type, place, dest, comment, '', privateComment, {returnRequired:returnRequiredChoice, returnPlace:returnPlaceChoiceV290, returnPlaceLabel:returnPlaceLabelChoiceV290, multiLoad:multiLoadChoice, urgentJob:urgentJob, temporaryPlaces:temporaryPlaces, machineName:(isMachineTransportTypeV179(type) ? machine : ''), ataSourceV366:getNewAtaSourceV366(type, ''), ataSourceV363:getNewAtaSourceV366(type, ''), ataRecipientV392:ataRecipientV392});
   if(state.active){
     resetNewJobForm();
     showTab('ko');
@@ -32494,6 +33013,8 @@ async function addManualJobToQueue(){
   const multiLoadChoice = getNewJobMultiLoadChoice();
 
   if(!validateNewJobSelection(type, place, dest)) return;
+  const ataRecipientV392 = typeof collectNewAtaRecipientV392 === 'function' ? collectNewAtaRecipientV392(type) : null;
+  if(ataRecipientV392 === false) return;
   const temporaryPlaces = await collectTemporaryOtherPlacesV175('new', place, dest);
   if(temporaryPlaces === false) return;
 
@@ -32542,6 +33063,7 @@ async function addManualJobToQueue(){
     canBeMultiLoad:!returnRequiredChoice && multiLoadChoice
   };
   applyAtaJobFieldsV366(queuedJob, ataSourceV366);
+  if(typeof applyAtaRecipientToJobIfAtaV392 === 'function') applyAtaRecipientToJobIfAtaV392(queuedJob, ataRecipientV392, 'new-job-v392');
   if(isMachineTransportTypeV179(type)) applyMachineToJobV307(queuedJob, machine);
   if(typeof applyStandardReturnPlaceToQueuedJobV291 === 'function') applyStandardReturnPlaceToQueuedJobV291(queuedJob);
   applyTemporaryOtherPlacesToJobV175(queuedJob, temporaryPlaces);
@@ -32634,7 +33156,7 @@ function startQueuedJob(qid){
   const queuedReturnPlaceV290 = queuedReturnRequired ? (q.returnPlace || q.returplats || q.routeReturnPlace || q.place || '') : '';
   const queuedReturnPlaceLabelV290 = queuedReturnRequired ? (q.returnPlaceLabel || q.returplatsLabel || q.routeReturnLabel || getReturnPlaceLabelForValueV290(queuedReturnPlaceV290)) : '';
   const queuedAtaSourceV365 = q.ataSourceV366 || q.ataJobV366 || (isAtaManualChoiceTypeV366(q) && (q.ataJobV363 === true || q.isAtaJobV363 === true || q.ataJob === true) ? 'manual_checkbox' : '');
-  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, getAllowedPrivateComment(q.type, q.privateComment || ''), {returnRequired:queuedReturnRequired, returnPlace:queuedReturnPlaceV290, returnPlaceLabel:queuedReturnPlaceLabelV290, multiLoad:queuedMultiLoad, urgentJob:queuedUrgentJob, temporaryPlaces:q.temporaryPlaces || null, machineName:getMachineNameFromJobV307(q), ataSourceV366:queuedAtaSourceV365, ataSourceV363:queuedAtaSourceV365});
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, getAllowedPrivateComment(q.type, q.privateComment || ''), {returnRequired:queuedReturnRequired, returnPlace:queuedReturnPlaceV290, returnPlaceLabel:queuedReturnPlaceLabelV290, multiLoad:queuedMultiLoad, urgentJob:queuedUrgentJob, temporaryPlaces:q.temporaryPlaces || null, machineName:getMachineNameFromJobV307(q), ataSourceV366:queuedAtaSourceV365, ataSourceV363:queuedAtaSourceV365, ataRecipientV392:(typeof getAtaRecipientFromJobV392 === 'function' ? getAtaRecipientFromJobV392(q) : null)});
   if(!started) return;
 
   if(state.active && q.plannedDate){
@@ -32654,6 +33176,7 @@ function startQueuedJob(qid){
       state.active.comment = applyUrgentJobComment(state.active.comment, true);
     }
     applyAtaJobFieldsV366(state.active, queuedAtaSourceV365);
+    if(typeof copyAtaRecipientFieldsV392 === 'function') copyAtaRecipientFieldsV392(q, state.active, 'queue-start-v392');
     copySmartEstimateFields(q, state.active);
     applyEstimatedCountdownAtStartPreservingExisting(state.active);
     scheduleSmartEstimateForActive();
@@ -36453,7 +36976,7 @@ function renderQueue(options){
   }
   const buildQueueJobCardV239 = x =>
     '<div class="job">'+
-      '<div><span class="pill pill-type">'+escapeHtml((typeof getJobTypeDisplayNameForJobV348 === 'function' ? getJobTypeDisplayNameForJobV348(x) : (x.displayType || x.type)))+'</span>'+(typeof getAtaQueuePillHtmlV383 === 'function' ? getAtaQueuePillHtmlV383(x) : '')+(typeof getMultiLoadQueuePillHtmlV384 === 'function' ? getMultiLoadQueuePillHtmlV384(x) : '')+'<span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(typeof getJobReturnPlacePillHtmlV291 === 'function' ? getJobReturnPlacePillHtmlV291(x) : (getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : ''))+getPlannedTimePillHtml(x)+'<span class="pill">'+escapeHtml(x.status)+'</span>'+getQueueSyncJobBadgeHtmlV229(x)+'</div>'+
+      '<div><span class="pill pill-type">'+escapeHtml((typeof getJobTypeDisplayNameForJobV348 === 'function' ? getJobTypeDisplayNameForJobV348(x) : (x.displayType || x.type)))+'</span>'+(typeof getAtaQueuePillHtmlV383 === 'function' ? getAtaQueuePillHtmlV383(x) : '')+(typeof getAtaRecipientQueuePillHtmlV392 === 'function' ? getAtaRecipientQueuePillHtmlV392(x) : '')+(typeof getMultiLoadQueuePillHtmlV384 === 'function' ? getMultiLoadQueuePillHtmlV384(x) : '')+'<span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(typeof getJobReturnPlacePillHtmlV291 === 'function' ? getJobReturnPlacePillHtmlV291(x) : (getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : ''))+getPlannedTimePillHtml(x)+'<span class="pill">'+escapeHtml(x.status)+'</span>'+getQueueSyncJobBadgeHtmlV229(x)+'</div>'+
       unknownPlaceWarning(x)+
       (x.comment ? '<div class="job-comment-wide">'+escapeHtml(x.comment).replace(/\n/g,'<br>')+'</div>' : '')+
       (x.githubSource ? '<div style="margin-top:6px; color:#15803d; font-weight:700; font-size:14px">Hämtad från GitHub</div>' : '')+
@@ -36647,6 +37170,7 @@ function openEditQueueJob(jobId){
   destEl.value = job.dest || '';
   updateEditQueuePlaceSelects(true);
   if(typeof updateEditQueueAtaJobUIV383 === 'function') updateEditQueueAtaJobUIV383(false, job);
+  if(typeof updateEditQueueAtaRecipientUIV392 === 'function') updateEditQueueAtaRecipientUIV392(job);
   const returnEl = document.getElementById('editQueueReturnRequired');
   const multiEl = document.getElementById('editQueueMultiLoad');
   const returnRequired = getJobReturnRequiredValue(job);
@@ -36717,6 +37241,9 @@ async function saveEditedQueueJob(){
   job.privateComment = getAllowedPrivateComment(type, privateCommentInput ? privateCommentInput.value : '');
   if(typeof applyEditQueueAtaFieldsV383 === 'function') applyEditQueueAtaFieldsV383(job);
   else applyAtaJobFieldsV366(job, job.ataSourceV366 || job.ataJobV366 || '');
+  const editAtaRecipientV392 = typeof collectEditQueueAtaRecipientV392 === 'function' ? collectEditQueueAtaRecipientV392(job) : null;
+  if(editAtaRecipientV392 === false) return;
+  if(typeof applyAtaRecipientToJobIfAtaV392 === 'function') applyAtaRecipientToJobIfAtaV392(job, editAtaRecipientV392, 'queue-edit-v392');
   job.plannedDate = plannedDate;
   job.plannedTime = plannedTime;
   job.date = job.date || todayStr();
@@ -37512,7 +38039,7 @@ function renderTodayOtherWorkCard(job){
 
 function renderTodayRegularJobCard(x){
   return '<div class="job">'+
-      '<div><span class="pill pill-type">'+escapeHtml((typeof getJobTypeDisplayNameForJobV348 === 'function' ? getJobTypeDisplayNameForJobV348(x) : (x.displayType || x.type)))+'</span>'+(typeof getAtaQueuePillHtmlV383 === 'function' ? getAtaQueuePillHtmlV383(x) : '')+(typeof getMultiLoadQueuePillHtmlV384 === 'function' ? getMultiLoadQueuePillHtmlV384(x) : '')+'<span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'</div>'+
+      '<div><span class="pill pill-type">'+escapeHtml((typeof getJobTypeDisplayNameForJobV348 === 'function' ? getJobTypeDisplayNameForJobV348(x) : (x.displayType || x.type)))+'</span>'+(typeof getAtaQueuePillHtmlV383 === 'function' ? getAtaQueuePillHtmlV383(x) : '')+(typeof getAtaRecipientQueuePillHtmlV392 === 'function' ? getAtaRecipientQueuePillHtmlV392(x) : '')+(typeof getMultiLoadQueuePillHtmlV384 === 'function' ? getMultiLoadQueuePillHtmlV384(x) : '')+'<span class="pill pill-place">Från '+getItemPlaceLabel(x, 'place')+'</span>'+(x.dest ? '<span class="pill pill-dest">Till '+getItemPlaceLabel(x, 'dest')+'</span>' : '')+(getJobReturnRequiredValue(x) ? '<span class="pill pill-alert">Returkrav</span>' : '')+'</div>'+
       '<div style="margin-top:6px">Start: '+clockTime(x.start)+' · Slut: '+clockTime(x.end)+'</div>'+
       '<div style="margin-top:6px"><strong>Arbetstid totalt:</strong> '+mins(getFinishedJobWorkMsForDisplayV373(x))+getBillableTimeInlineHtmlV373(x)+' · Antal last: '+getSummaryRowLoadCount(x)+' · Total vikt i ton: '+getSummaryRowWeight(x).toFixed(1)+' ton · Sträcka: '+getJobDistanceDisplayTextV211(x)+'</div>'+
       (x.summaryIsSplitPart ? '<div class="private-comment-note" style="margin-top:6px">'+escapeHtml(x.summarySplitNote || 'Uppdraget delat')+'</div>' : '')+
@@ -38533,7 +39060,8 @@ function startQuickItem(quickId){
       plannedDate:getQuickPlannedDate(),
       plannedTime:getQuickPlannedTime()
     };
-    applyAtaJobFieldsV366(quickQueuedJobV363, '');
+    applyAtaJobFieldsV366(quickQueuedJobV363, typeof getQuickAtaSourceV392 === 'function' ? getQuickAtaSourceV392(item) : '');
+    if(typeof applyAtaRecipientToJobIfAtaV392 === 'function') applyAtaRecipientToJobIfAtaV392(quickQueuedJobV363, typeof getAtaRecipientFromQuickItemV392 === 'function' ? getAtaRecipientFromQuickItemV392(item) : null, 'quick-v392');
     state.queue.push(quickQueuedJobV363);
     sortQueueByPlannedDate();
     saveState();
@@ -38541,7 +39069,7 @@ function startQuickItem(quickId){
     return;
   }
 
-  quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '');
+  quickJob(getQuickVehicle(item), item.type, item.place || '', item.dest || '', item.comment || '', item.displayType || '', item.privateComment || '', {ataSourceV392:(typeof getQuickAtaSourceV392 === 'function' ? getQuickAtaSourceV392(item) : ''), ataRecipientV392:(typeof getAtaRecipientFromQuickItemV392 === 'function' ? getAtaRecipientFromQuickItemV392(item) : null)});
 }
 
 function queueQuickItem(quickId){
@@ -38571,7 +39099,8 @@ function queueQuickItem(quickId){
     plannedDate:getQuickPlannedDate ? getQuickPlannedDate() : todayStr(),
     plannedTime:getQuickPlannedTime ? getQuickPlannedTime() : ''
   };
-  applyAtaJobFieldsV366(queueQuickJobV363, '');
+  applyAtaJobFieldsV366(queueQuickJobV363, typeof getQuickAtaSourceV392 === 'function' ? getQuickAtaSourceV392(item) : '');
+  if(typeof applyAtaRecipientToJobIfAtaV392 === 'function') applyAtaRecipientToJobIfAtaV392(queueQuickJobV363, typeof getAtaRecipientFromQuickItemV392 === 'function' ? getAtaRecipientFromQuickItemV392(item) : null, 'quick-v392');
   state.queue.push(queueQuickJobV363);
   sortQueueByPlannedDate();
   saveState();
@@ -38789,6 +39318,10 @@ function saveSingleQuickItem(quickId){
   if(updatedItem.action !== 'machineTransport'){
     updatedItem.vehicle = updatedItem.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
   }
+  if(typeof normalizeQuickAtaRecipientAfterSaveV392 === 'function'){
+    const normalizedQuickAtaV392 = normalizeQuickAtaRecipientAfterSaveV392(updatedItem);
+    if(normalizedQuickAtaV392 === false) return;
+  }
 
   if(!updatedItem.label){
     alert('Snabbvalet måste ha knappnamn.');
@@ -38821,7 +39354,13 @@ function saveQuickItems(){
   updated.forEach(item => {
     if(item.action === 'machineTransport') return;
     item.vehicle = item.type === 'Övrig verksamhet' ? 'övrigt arbete' : 'lastbil';
+    if(typeof normalizeQuickAtaRecipientAfterSaveV392 === 'function'){
+      const normalizedQuickAtaV392 = normalizeQuickAtaRecipientAfterSaveV392(item);
+      if(normalizedQuickAtaV392 === false) item.__ataRecipientInvalidV392 = true;
+    }
   });
+
+  if(updated.some(item => item.__ataRecipientInvalidV392)) return;
 
   if(updated.some(item => !item.label)){
     alert('Alla snabbval måste ha knappnamn.');
@@ -40829,6 +41368,7 @@ document.getElementById('newType').addEventListener('change', function(){
   updateFixedRouteRules();
   setNewJobFlagDefaultsFromType();
   updateNewAtaJobUIV363(true);
+  if(typeof updateNewAtaRecipientUIV392 === 'function') updateNewAtaRecipientUIV392();
   applySopsandDefaultDestination();
   updateNewPrivateCommentVisibility();
   if(typeof updateNewReturnPlaceUIV290 === 'function') updateNewReturnPlaceUIV290(true);
@@ -40881,6 +41421,7 @@ if(editQueueTypeEl){
     updateTemporaryOtherPlaceUIV175('editQueue');
     updateEditQueuePrivateCommentVisibility();
     if(typeof updateEditQueueAtaJobUIV383 === 'function') updateEditQueueAtaJobUIV383(false);
+    if(typeof updateEditQueueAtaRecipientUIV392 === 'function') updateEditQueueAtaRecipientUIV392();
     if(typeof updateEditQueueReturnPlaceUIV386 === 'function') updateEditQueueReturnPlaceUIV386(true);
   });
 }
