@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v392
+- Nuvarande version: Stadslass 2.0 v393
+- v393: Reparerar och förlänger v392:s ÄTA-mottagarkedja. ÄTA-jobbtyper får standard ÄTA-mottagare, ÄTA-snabbval visar mottagarfält och kan ärva jobbtypens mottagare, och Nytt uppdrag/snabbval använder jobbtypens standardmottagare när uppdraget saknar egen mottagare. Ingen Gmail-, avsluts- eller debiteringskoppling byggs i v393.
 - v392: Kopplar ÄTA-mottagare till planerade ÄTA-uppdrag och ÄTA-snabbval utan Gmail-/avslutskoppling. Lägger redigerbar arbetsledare som standard-CC i ÄTA-aviseringar, låter Nytt uppdrag/köredigering välja eller skriva mottagare, låter mottagaruppgifter följa kö/sync/start till aktivt jobb och uppdaterar framtida snabbval samt ostartade köuppdrag när lokal kontakt rättas.
 - v391: Lägger till isolerad lokal ÄTA-adressbok och ÄTA-mailmall i Inställningar. Adressboken och mallen sparas i egna lokala nycklar, rör inte driftlogg_v4_full och kopplas inte ännu till Gmail, avslut, Idag, historik, syncimport, snabbval eller aktivt jobb.
 - v390: Tog bort knappen och den manuella GPS-baserade köberäkningskedjan Beräkna tider i kö. Gamla queueGps-fält lämnas i lagrad data men används inte längre som aktiv kötid/startpunkt. Aktiv ETA, Klar ca, tidsinlärning, dagsprognos och kartcache behålls.
@@ -405,7 +406,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v392';
+  const version = 'Stadslass 2.0 v393';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4180,7 +4181,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v392</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v393</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -8124,8 +8125,20 @@ function normalizeJobTypeMeta(meta){
     const rawMultiLoad = raw.multiLoad === true || raw.flerlass === true || raw.multiLoad === 'true' || raw.flerlass === 'ja' || raw.flerlass === 'JA' || raw.multiLoad === 1 || raw.flerlass === 1 || raw.multiLoadAllowed === true || raw.multiLoadAllowed === 'true' || raw.multiLoadAllowed === 1;
     const multiLoad = returnRequired ? false : rawMultiLoad;
     const ataJob = raw.ataJob === true || raw.ataJobV366 === true || raw.isAtaJob === true || raw.ataJob === 'true' || raw.ataJobV366 === 'true' || raw.ataJob === 1 || raw.ataJobV366 === 1;
-    if(materialCode || requirements.length || returnRequired || multiLoad || ataJob){
-      next[cleanType] = { materialCode, requirements, returnRequired, multiLoad, ataJob };
+    const ataRecipientNameV393 = String(raw.ataRecipientNameV393 || raw.ataRecipientName || '').trim();
+    const ataRecipientEmailV393 = String(raw.ataRecipientEmailV393 || raw.ataRecipientEmail || '').trim();
+    const ataRecipientEmailKeyV393 = typeof normalizeAtaEmailV391 === 'function' ? normalizeAtaEmailV391(raw.ataRecipientEmailKeyV393 || raw.ataRecipientEmailKey || ataRecipientEmailV393) : String(raw.ataRecipientEmailKeyV393 || raw.ataRecipientEmailKey || ataRecipientEmailV393 || '').trim().toLowerCase();
+    const ataRecipientDepartmentV393 = String(raw.ataRecipientDepartmentV393 || raw.ataRecipientDepartment || '').trim();
+    const hasAtaRecipientV393 = !!(ataRecipientNameV393 || ataRecipientEmailKeyV393 || ataRecipientDepartmentV393);
+    if(materialCode || requirements.length || returnRequired || multiLoad || ataJob || hasAtaRecipientV393){
+      const metaValue = { materialCode, requirements, returnRequired, multiLoad, ataJob };
+      if(hasAtaRecipientV393){
+        metaValue.ataRecipientNameV393 = ataRecipientNameV393;
+        metaValue.ataRecipientEmailV393 = ataRecipientEmailV393 || ataRecipientEmailKeyV393;
+        metaValue.ataRecipientEmailKeyV393 = ataRecipientEmailKeyV393;
+        metaValue.ataRecipientDepartmentV393 = ataRecipientDepartmentV393;
+      }
+      next[cleanType] = metaValue;
     }
   });
   return next;
@@ -8674,11 +8687,15 @@ function getJobTypeMeta(type){
     requirements: normalizeRequirements(meta.requirements || []),
     returnRequired,
     multiLoad: returnRequired ? false : meta.multiLoad === true,
-    ataJob: meta.ataJob === true
+    ataJob: meta.ataJob === true,
+    ataRecipientNameV393:String(meta.ataRecipientNameV393 || meta.ataRecipientName || '').trim(),
+    ataRecipientEmailV393:String(meta.ataRecipientEmailV393 || meta.ataRecipientEmail || '').trim(),
+    ataRecipientEmailKeyV393:(typeof normalizeAtaEmailV391 === 'function' ? normalizeAtaEmailV391(meta.ataRecipientEmailKeyV393 || meta.ataRecipientEmailKey || meta.ataRecipientEmailV393 || meta.ataRecipientEmail || '') : String(meta.ataRecipientEmailKeyV393 || meta.ataRecipientEmailKey || meta.ataRecipientEmailV393 || meta.ataRecipientEmail || '').trim().toLowerCase()),
+    ataRecipientDepartmentV393:String(meta.ataRecipientDepartmentV393 || meta.ataRecipientDepartment || '').trim()
   };
 }
 
-function setJobTypeMeta(type, materialCode, requirements, returnRequired, multiLoad, ataJob){
+function setJobTypeMeta(type, materialCode, requirements, returnRequired, multiLoad, ataJob, ataRecipientV393){
   if(!state.jobTypeMeta || typeof state.jobTypeMeta !== 'object' || Array.isArray(state.jobTypeMeta)){
     state.jobTypeMeta = {};
   }
@@ -8690,8 +8707,16 @@ function setJobTypeMeta(type, materialCode, requirements, returnRequired, multiL
   const ret = returnRequired === true;
   const multi = ret ? false : multiLoad === true;
   const ata = ataJob === true;
+  const recipientV393 = typeof normalizeAtaRecipientV392 === 'function' ? normalizeAtaRecipientV392(ataRecipientV393) : null;
+  const hasAtaRecipientV393 = !!(recipientV393 && (recipientV393.name || recipientV393.emailKey || recipientV393.department));
   const metaValue = { materialCode: code, requirements: reqs, returnRequired: ret, multiLoad: multi, ataJob: ata };
-  const hasValue = !!(code || reqs.length || ret || multi || ata);
+  if(hasAtaRecipientV393){
+    metaValue.ataRecipientNameV393 = recipientV393.name;
+    metaValue.ataRecipientEmailV393 = recipientV393.email || recipientV393.emailKey;
+    metaValue.ataRecipientEmailKeyV393 = recipientV393.emailKey;
+    metaValue.ataRecipientDepartmentV393 = recipientV393.department;
+  }
+  const hasValue = !!(code || reqs.length || ret || multi || ata || hasAtaRecipientV393);
   const metaKey = getJobTypeSettingsKey(type);
   const metaIdV348 = typeof getJobTypeIdForNameV348 === 'function' ? getJobTypeIdForNameV348(metaKey || type) : '';
   if(hasValue){
@@ -13706,6 +13731,7 @@ function renderActiveMonitorIfOpen(){
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
 const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v392';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v393 ÄTA standardmottagare på jobbtyp',
   'v392 ÄTA-mottagare på planerade uppdrag och snabbval',
   'v391 Lokal ÄTA-adressbok och ÄTA-mailmall',
   'v390 Beräkna tider i kö borttagen',
@@ -14372,6 +14398,7 @@ function getActiveMonitorChecks(snapshot){
     if(typeof buildFunctionProtectionReportV329 === 'function' && typeof runControlCenterFunctionPreservationV329 === 'function' && Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329)) ok('PROTECT-OV-330', 'Funktionslista och bevarandekontroll uppdaterad', 'v330 reparerar funktionslistans legacyklassning och återställer ljud vid mottagning av nytt uppdrag utan att ändra arbetsflöden.', 'baseline=' + APP_FUNCTION_SOURCE_BASELINE_V329.length + '; manifest=' + APP_FEATURE_MANIFEST.length, 'v330 Funktionsbevarande', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Funktionslista reparation, ljud och legacybeslut v330')));
     if(typeof toggleAtaMailSettingsManagerV391 === 'function' && typeof loadAtaContactsV391 === 'function' && typeof loadAtaMailTemplateV391 === 'function') ok('ATA-MAIL-OV-391', 'Lokal ÄTA-adressbok och mailmall finns', 'v391 lägger ett isolerat grundlager i Inställningar utan Gmail-, avsluts-, sync- eller historikkoppling.', 'contacts=' + (typeof loadAtaContactsV391 === 'function' ? loadAtaContactsV391().length : 0) + '; templateFields=' + (typeof ATA_MAIL_TEMPLATE_FIELDS_V391 !== 'undefined' ? ATA_MAIL_TEMPLATE_FIELDS_V391.length : 0), 'v391 ÄTA aviseringar', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391')));
     if(typeof loadAtaSupervisorV392 === 'function' && typeof updateNewAtaRecipientUIV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function') ok('ATA-MAIL-OV-392', 'ÄTA-mottagare på planerade uppdrag finns', 'v392 lägger mottagarfält på ÄTA-planering och snabbval samt lokal arbetsledare/CC utan Gmail-/avslutskoppling.', 'supervisor=' + activeMonitorBool(!!loadAtaSupervisorV392().emailKey) + '; newPanel=' + activeMonitorBool(!!document.getElementById('newAtaRecipientWrapV392')) + '; quickFn=' + activeMonitorBool(typeof renderQuickAtaRecipientFieldsV392 === 'function'), 'v392 ÄTA mottagare', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392')));
+    if(typeof getAtaRecipientFromJobTypeV393 === 'function' && typeof buildJobTypeAtaRecipientEditorV393 === 'function') ok('ATA-MAIL-OV-393', 'ÄTA-standardmottagare på jobbtyp finns', 'v393 låter ÄTA-jobbtyper bära standardmottagare och låter ÄTA-snabbval/Nytt uppdrag ärva den utan Gmail-/avslutskoppling.', 'jobTypeFn=' + activeMonitorBool(typeof getAtaRecipientFromJobTypeV393 === 'function') + '; quickFallback=' + activeMonitorBool(functionSourceIncludes('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393')), 'v393 ÄTA jobbtyp mottagare', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393')));
     if(typeof recordFeatureUsageV331 === 'function' && typeof getFunctionCleanupCandidatesV331 === 'function' && typeof controlCenterReportTypeSlugV331 === 'function' && typeof toggleSoundSettingsManagerV331 === 'function') ok('CONTROL-OV-331', 'Kontroll- och ordningsfixar uppdaterade', 'v331 har korta rapportfilnamn, ljudinställningar, användningsövervakning, saneringskandidater och moderniserad appregelrad.', 'manifest=' + APP_FEATURE_MANIFEST.length + '; cleanup=' + getFunctionCleanupCandidatesV331(APP_FEATURE_MANIFEST).length, 'v331 Kontroll/ordning', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Kontroll- och ordningsfixar v331')));
     if(typeof activateNewJobReceivedSoundV342 === 'function' && typeof showNewJobReceivedNoticeV342 === 'function' && typeof playNewJobReceivedToneSequenceV342 === 'function') ok('AUDIO-OV-342', 'Ljudavisering och mottagningsnotis uppdaterad', 'v342 ger ljud och liten synlig notis först när nytt uppdrag faktiskt importeras till 189:s kö. Datorläge ska inte spela ljud.', 'webAudio=true; notice=true; pattern=' + activeMonitorSafe((state && state.soundSettingsV331 && state.soundSettingsV331.newJobReceivedPatternV342) || 'double', 'double'), 'v342 Ljud/notis 189', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'AUDIO-NOTICE-NEW-JOB-V342')));
     if(functionSourceIncludes('showNewJobReceivedNoticeV342', 'pendingNewJobReceivedNoticeCountV343') && functionSourceIncludes('renderActiveMonitorIndicator', 'Datorläge finns inget aktivt arbetsuppdrag')) ok('UI-OV-343', 'Fast notis, köantal och Datorläge-övervakning uppdaterad', 'v343 låter notisen ligga kvar tills aktivt val, räknar ihop flera mottagna uppdrag i samma ruta och döljer den gröna väntande övervakningsrutan i Datorläge.', 'pendingNotice=' + activeMonitorSafe(state && state.pendingNewJobReceivedNoticeCountV343, '0'), 'v343 UI/notis', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'NEW-JOB-NOTICE-QUEUE-BADGE-MONITOR-V343')));
@@ -15722,7 +15749,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v392';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v393';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15747,6 +15774,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393', name:'ÄTA standardmottagare på jobbtyp v393', status:'Inställningar/Jobbtyper/Snabbval/Nytt uppdrag', protectionStatus:'Aktiv', introduced:'v393', purpose:'v393 reparerar v392:s mottagarkedja genom att låta ÄTA-jobbtyper bära standard ÄTA-mottagare. ÄTA-snabbval visar mottagarfält och ärver jobbtypens mottagare när snabbvalet saknar egen mottagare. Nya ÄTA-uppdrag får jobbtypens standardmottagare förifylld när uppdraget saknar egen mottagare.', changeRule:'Får bara påverka ÄTA-mottagarfält på jobbtyper, snabbval, Nytt uppdrag och ostartade köuppdrag. Får inte koppla Gmail ännu, får inte ändra ÄTA-debitering, total arbetstid, Lastar/Ange vikt/Klart, aktivt jobb utöver mottagarsnapshot vid start, avslut/historik, GPS/geofence/ETA, material, mtrl kod/anläggning, spegling eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-MAIL-RECIPIENT-PLANNING-V392', name:'ÄTA-mottagare på planerade uppdrag och snabbval v392', status:'Inställningar/ÄTA/Nytt uppdrag/Kö/Snabbval/Sync', protectionStatus:'Aktiv', introduced:'v392', purpose:'v392 kopplar lokal ÄTA-mottagare till planerade ÄTA-uppdrag och ÄTA-snabbval samt lägger redigerbar arbetsledare som lokal CC. Mottagare kan väljas från lokal adressbok eller skrivas direkt, följer kö/sync/start till aktivt jobb och rättad kontakt uppdaterar framtida snabbval samt ostartade köuppdrag på samma enhet.', changeRule:'Får bara påverka ÄTA-mottagarfält, lokal arbetsledare/CC, snabbvals mottagarsnapshot och ostartade ÄTA-köuppdrags mottagarsnapshot. Får inte koppla Gmail ännu, får inte ändra ÄTA-debitering, total arbetstid, Lastar/Ange vikt/Klart, aktivt jobb utöver mottagarsnapshot vid start, avslut/historik, GPS/geofence/ETA, material, mtrl kod/anläggning, spegling eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391', name:'Lokal ÄTA-adressbok och ÄTA-mailmall v391', status:'Inställningar/ÄTA/Adressbok/Mailmall', protectionStatus:'Aktiv', introduced:'v391', purpose:'v391 lägger första isolerade grundlagret för ÄTA-aviseringar: lokal adressbok för beställande arbetsledare och lokal ÄTA-mailmall med fast avslutstext. Funktionen sparas i egna lokala nycklar och kopplas inte ännu till Gmail, avslut, Idag, historik, syncimport, snabbval eller aktivt jobb.', changeRule:'Får bara påverka den nya panelen ÄTA aviseringar i Inställningar samt de separata lokala nycklarna stadslass_ata_contacts_v391 och stadslass_ata_mail_template_v391. Får inte ändra ÄTA-sanning, debiterbar tid, Lastar/Ange vikt/Klart, kö, aktivt jobb, historik, sync/spegling, GPS/geofence/ETA, material, mtrl kod/anläggning, backup/export eller driftlogg_v4_full.'},
   {id:'QUEUE-TIME-CALC-REMOVED-V390', name:'Beräkna tider i kö borttagen v390', status:'Kö/uppskattad tid/sanering', protectionStatus:'Borttagen med godkännande', introduced:'v390', purpose:'v390 tar bort knappen Beräkna tider i kö och den manuella GPS-baserade massberäkningen av köuppdrag. Gamla queueGps-fält i driftlogg_v4_full lämnas orörda som passiv historisk data men får inte längre styra kötid, aktiv ETA eller startpunkt.', changeRule:'Får bara ta bort/avaktivera den manuella köberäkningskedjan och dess kontroller. Aktiv ETA, Klar ca, tidsinlärning, dagsprognos, kartcache, Returplats, aktivt jobb, kö/historik, syncsanning, material, mtrl kod/anläggning, backup/export och driftlogg_v4_full får inte ändras.'},
@@ -16906,8 +16934,14 @@ function shouldShowAtaRecipientForNewJobV392(){
 function updateNewAtaRecipientUIV392(){
   const wrap = document.getElementById('newAtaRecipientWrapV392');
   if(!wrap) return;
+  const typeEl = document.getElementById('newType');
+  const type = typeEl ? String(typeEl.value || '') : '';
+  const previousTypeV393 = wrap.getAttribute('data-ata-last-type-v393') || '';
   const show = shouldShowAtaRecipientForNewJobV392();
   wrap.classList.toggle('hidden', !show);
+  if(show && typeof applyDefaultAtaRecipientToNewJobV393 === 'function') applyDefaultAtaRecipientToNewJobV393(type, previousTypeV393 !== type);
+  if(!show) setAtaRecipientFieldsByPrefixV392('new', null);
+  wrap.setAttribute('data-ata-last-type-v393', show ? type : '');
   const select = document.getElementById('newAtaRecipientSelectV392');
   if(select){
     const selected = normalizeAtaEmailV391((document.getElementById('newAtaRecipientEmailV392') || {}).value || select.value || '');
@@ -16918,7 +16952,7 @@ function updateNewAtaRecipientUIV392(){
 
 function collectNewAtaRecipientV392(type){
   if(!shouldShowAtaRecipientForNewJobV392()) return null;
-  const recipient = readAtaRecipientFromPrefixV392('new');
+  const recipient = (typeof getAtaRecipientForNewJobWithDefaultV393 === 'function') ? getAtaRecipientForNewJobWithDefaultV393(type) : readAtaRecipientFromPrefixV392('new');
   if(!validateAtaRecipientV392(recipient, 'newAtaRecipientStatusV392')) return false;
   if(recipient && recipient.emailKey) ensureAtaContactFromRecipientV392(recipient);
   return recipient;
@@ -16979,6 +17013,7 @@ function getQuickAtaSourceV392(item){
 
 function getAtaRecipientFromQuickItemV392(item){
   if(!item || typeof item !== 'object') return null;
+  if(typeof getEffectiveAtaRecipientForQuickItemV393 === 'function') return getEffectiveAtaRecipientForQuickItemV393(item);
   return normalizeAtaRecipientV392({
     name:item.ataRecipientNameV392 || item.ataRecipientName || '',
     email:item.ataRecipientEmailV392 || item.ataRecipientEmail || '',
@@ -17003,11 +17038,13 @@ function fillQuickAtaRecipientFromContactV392(quickId, emailKey){
 
 function renderQuickAtaRecipientFieldsV392(item){
   if(!shouldShowAtaRecipientForQuickItemV392(item)) return '';
-  const recipient = getAtaRecipientFromQuickItemV392(item);
+  const explicitV393 = typeof getExplicitAtaRecipientFromQuickItemV393 === 'function' ? getExplicitAtaRecipientFromQuickItemV393(item) : null;
+  const inheritedV393 = !explicitV393 && typeof getAtaRecipientFromJobTypeV393 === 'function' ? getAtaRecipientFromJobTypeV393(item && item.type || '') : null;
+  const recipient = explicitV393 || inheritedV393 || getAtaRecipientFromQuickItemV392(item);
   const selected = normalizeAtaEmailV391(recipient && (recipient.emailKey || recipient.email) || '');
   return '<div class="ata-recipient-card-v392">' +
     '<div class="ata-recipient-title-v392">ÄTA-mottagare för snabbval</div>' +
-    '<div class="multi-help">Valfri fast mottagare. Sparas på snabbvalet och följer med när uppdrag skapas.</div>' +
+    '<div class="multi-help">Valfri fast mottagare. Tomt snabbval ärver jobbtypens standardmottagare när sådan finns.</div>' +
     '<label style="margin-top:8px">Välj från lokal adressbok</label>' +
     '<select data-quick-id="' + escapeHtml(item.id) + '" data-quick-field="ataRecipientEmailKeyV392" onchange="fillQuickAtaRecipientFromContactV392(\'' + escapeJsSingle(item.id) + '\', this.value)">' + getAtaContactOptionsHtmlV392(selected, 'Ingen fast mottagare') + '</select>' +
     '<div class="ata-recipient-grid-v392">' +
@@ -17015,6 +17052,7 @@ function renderQuickAtaRecipientFieldsV392(item){
       '<div><label>Mailadress</label><input data-quick-id="' + escapeHtml(item.id) + '" data-quick-field="ataRecipientEmailV392" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + escapeHtml(recipient && (recipient.email || recipient.emailKey) || '') + '"></div>' +
       '<div><label>Avdelning/enhet</label><input data-quick-id="' + escapeHtml(item.id) + '" data-quick-field="ataRecipientDepartmentV392" value="' + escapeHtml(recipient && recipient.department || '') + '"></div>' +
     '</div>' +
+    (inheritedV393 ? '<div class="multi-help" style="margin-top:6px">Ärver mottagare från jobbtypen tills du sparar annan mottagare på snabbvalet.</div>' : '') +
   '</div>';
 }
 
@@ -17099,6 +17137,97 @@ function normalizeImportedAtaRecipientV392(source, target){
 
 const ATA_MAIL_RECIPIENT_FUNCTIONS_V392 = ['loadAtaSupervisorV392','saveAtaSupervisorV392','getQuickAtaSourceV392','renderAtaSupervisorV392','updateNewAtaRecipientUIV392','collectNewAtaRecipientV392','applyAtaRecipientFieldsV392','applyAtaRecipientToJobIfAtaV392','copyAtaRecipientFieldsV392','renderQuickAtaRecipientFieldsV392','normalizeQuickAtaRecipientAfterSaveV392','applyAtaContactUpdateToFutureItemsV392','copyAtaRecipientToTransferV392','normalizeImportedAtaRecipientV392','getAtaRecipientQueuePillHtmlV392'];
 try{ ATA_MAIL_RECIPIENT_FUNCTIONS_V392.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); }); }catch(e){}
+
+
+// ÄTA MAIL V393 START
+function getAtaRecipientFromJobTypeMetaV393(meta){
+  if(!meta || typeof meta !== 'object') return null;
+  return normalizeAtaRecipientV392({
+    name:meta.ataRecipientNameV393 || meta.ataRecipientName || '',
+    email:meta.ataRecipientEmailV393 || meta.ataRecipientEmail || '',
+    emailKey:meta.ataRecipientEmailKeyV393 || meta.ataRecipientEmailKey || meta.ataRecipientEmailV393 || meta.ataRecipientEmail || '',
+    department:meta.ataRecipientDepartmentV393 || meta.ataRecipientDepartment || ''
+  });
+}
+function getAtaRecipientFromJobTypeV393(type){
+  if(!type) return null;
+  try{ return getAtaRecipientFromJobTypeMetaV393(getJobTypeMeta(type)); }catch(e){ return null; }
+}
+function getExplicitAtaRecipientFromQuickItemV393(item){
+  if(!item || typeof item !== 'object') return null;
+  return normalizeAtaRecipientV392({
+    name:item.ataRecipientNameV392 || item.ataRecipientName || '',
+    email:item.ataRecipientEmailV392 || item.ataRecipientEmail || '',
+    emailKey:item.ataRecipientEmailKeyV392 || item.ataRecipientEmailKey || item.ataRecipientEmailV392 || item.ataRecipientEmail || '',
+    department:item.ataRecipientDepartmentV392 || item.ataRecipientDepartment || ''
+  });
+}
+function getEffectiveAtaRecipientForQuickItemV393(item){
+  const explicit = getExplicitAtaRecipientFromQuickItemV393(item);
+  if(explicit) return explicit;
+  return getAtaRecipientFromJobTypeV393(item && (item.type || item.jobTypeKey || item.displayType) || '');
+}
+function getJobTypeAtaRecipientSelectorV393(type, field){
+  return '#jobTypeManagerList [data-jobtype-ata-recipient-' + field + '-v393="' + cssEscape(type) + '"]';
+}
+function fillJobTypeAtaRecipientFromContactV393(type, emailKey){
+  const contact = getAtaContactByEmailKeyV392(emailKey);
+  const set = function(field, value){ const el = document.querySelector(getJobTypeAtaRecipientSelectorV393(type, field)); if(el) el.value = value || ''; };
+  if(!contact){ set('name',''); set('email',''); set('department',''); return; }
+  set('name', contact.name || '');
+  set('email', contact.email || contact.emailKey || '');
+  set('department', contact.department || '');
+}
+function collectJobTypeAtaRecipientV393(type){
+  const get = function(field){ const el = document.querySelector(getJobTypeAtaRecipientSelectorV393(type, field)); return el ? String(el.value || '').trim() : ''; };
+  const recipient = normalizeAtaRecipientV392({name:get('name'), email:get('email'), department:get('department')});
+  if(!recipient) return null;
+  if(recipient.emailKey && recipient.emailKey.indexOf('@') < 1){
+    alert('Jobbtypens ÄTA-mottagare har ogiltig mailadress. Rätta eller lämna mottagaren tom.');
+    return false;
+  }
+  if(recipient.emailKey) ensureAtaContactFromRecipientV392(recipient);
+  return recipient;
+}
+function toggleJobTypeAtaRecipientEditorV393(type){
+  const row = document.querySelector('#jobTypeManagerList [data-jobtype-ata-recipient-wrap-v393="' + cssEscape(type) + '"]');
+  const ata = document.querySelector('#jobTypeManagerList input[data-jobtype-ata-v366="' + cssEscape(type) + '"]');
+  const manual = typeof isAtaManualChoiceTypeV366 === 'function' && isAtaManualChoiceTypeV366(type);
+  if(row) row.classList.toggle('hidden', !(manual || (ata && ata.checked)));
+}
+function buildJobTypeAtaRecipientEditorV393(type, meta){
+  const manual = typeof isAtaManualChoiceTypeV366 === 'function' && isAtaManualChoiceTypeV366(type);
+  const show = !!(manual || (meta && meta.ataJob));
+  const recipient = getAtaRecipientFromJobTypeMetaV393(meta) || null;
+  const selected = normalizeAtaEmailV391(recipient && (recipient.emailKey || recipient.email) || '');
+  return '<div data-jobtype-ata-recipient-wrap-v393="' + escapeHtml(type) + '" class="ata-recipient-card-v392' + (show ? '' : ' hidden') + '">' +
+    '<div class="ata-recipient-title-v392">Standard ÄTA-mottagare för jobbtyp</div>' +
+    '<div class="multi-help">Används som förvald mottagare för ÄTA-snabbval och nya ÄTA-uppdrag om uppdraget saknar egen mottagare.</div>' +
+    '<label style="margin-top:8px">Välj från lokal adressbok</label>' +
+    '<select data-jobtype-ata-recipient-select-v393="' + escapeHtml(type) + '" onchange="fillJobTypeAtaRecipientFromContactV393(\'' + escapeJsSingle(type) + '\', this.value)">' + getAtaContactOptionsHtmlV392(selected, 'Ingen standardmottagare') + '</select>' +
+    '<div class="ata-recipient-grid-v392">' +
+      '<div><label>Namn</label><input data-jobtype-ata-recipient-name-v393="' + escapeHtml(type) + '" value="' + escapeHtml(recipient && recipient.name || '') + '"></div>' +
+      '<div><label>Mailadress</label><input data-jobtype-ata-recipient-email-v393="' + escapeHtml(type) + '" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + escapeHtml(recipient && (recipient.email || recipient.emailKey) || '') + '"></div>' +
+      '<div><label>Avdelning/enhet</label><input data-jobtype-ata-recipient-department-v393="' + escapeHtml(type) + '" value="' + escapeHtml(recipient && recipient.department || '') + '"></div>' +
+    '</div>' +
+  '</div>';
+}
+function applyDefaultAtaRecipientToNewJobV393(type, force){
+  if(!type) return;
+  const wrap = document.getElementById('newAtaRecipientWrapV392');
+  if(!wrap) return;
+  const existing = readAtaRecipientFromPrefixV392('new');
+  const def = getAtaRecipientFromJobTypeV393(type);
+  if(force || !existing){ setAtaRecipientFieldsByPrefixV392('new', def); }
+}
+function getAtaRecipientForNewJobWithDefaultV393(type){
+  const direct = readAtaRecipientFromPrefixV392('new');
+  return direct || getAtaRecipientFromJobTypeV393(type);
+}
+const ATA_MAIL_JOBTYPE_DEFAULT_FUNCTIONS_V393 = ['getAtaRecipientFromJobTypeV393','buildJobTypeAtaRecipientEditorV393','collectJobTypeAtaRecipientV393','toggleJobTypeAtaRecipientEditorV393','getEffectiveAtaRecipientForQuickItemV393','applyDefaultAtaRecipientToNewJobV393'];
+try{ ATA_MAIL_JOBTYPE_DEFAULT_FUNCTIONS_V393.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); }); }catch(e){}
+// ÄTA MAIL V393 END
+
 // ÄTA MAIL V392 END
 
 
@@ -17310,7 +17439,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392' || currentShort === 'v393'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -17321,6 +17450,7 @@ function buildFunctionProtectionRowsV329(){
   add('REPORT-FILENAMES-SHORT-V331', 'Korta rapportfilnamn', typeof controlCenterReportTypeSlugV331 === 'function' && functionSourceIncludes('downloadControlCenterReportFileV303', 'controlCenterReportTypeSlugV331') && !functionSourceIncludes('downloadControlCenterReportFileV303', 'stadslass-kontrollrapport-'), 'filnamn=rapporttyp-version-tid', 'KRITISK');
   add('ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391', 'Lokal ÄTA-adressbok och ÄTA-mailmall v391', !!document.getElementById('ataMailSettingsWrapV391') && !!document.getElementById('ataMailTemplateFieldsV391') && typeof toggleAtaMailSettingsManagerV391 === 'function' && typeof loadAtaContactsV391 === 'function' && typeof loadAtaMailTemplateV391 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391'), 'panel=' + (!!document.getElementById('ataMailSettingsWrapV391')) + '; template=' + (!!document.getElementById('ataMailTemplateFieldsV391')) + '; localStorage=separata nycklar', 'KRITISK');
   add('ATA-MAIL-RECIPIENT-PLANNING-V392', 'ÄTA-mottagare på planerade uppdrag och snabbval v392', !!document.getElementById('ataSupervisorNameV392') && !!document.getElementById('newAtaRecipientWrapV392') && !!document.getElementById('editQueueAtaRecipientWrapV392') && typeof loadAtaSupervisorV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function' && typeof renderQuickAtaRecipientFieldsV392 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392'), 'supervisorPanel=' + (!!document.getElementById('ataSupervisorNameV392')) + '; newRecipientPanel=' + (!!document.getElementById('newAtaRecipientWrapV392')) + '; editQueueRecipientPanel=' + (!!document.getElementById('editQueueAtaRecipientWrapV392')), 'KRITISK');
+  add('ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393', 'ÄTA standardmottagare på jobbtyp v393', typeof getAtaRecipientFromJobTypeV393 === 'function' && typeof buildJobTypeAtaRecipientEditorV393 === 'function' && typeof collectJobTypeAtaRecipientV393 === 'function' && functionSourceIncludes('renderJobTypeManager', 'buildJobTypeAtaRecipientEditorV393') && functionSourceIncludes('renderQuickManager', 'renderQuickAtaRecipientFieldsV392') && functionSourceIncludes('updateNewAtaRecipientUIV392', 'applyDefaultAtaRecipientToNewJobV393') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393'), 'jobbtypEditor=' + (typeof buildJobTypeAtaRecipientEditorV393 === 'function') + '; quickFallback=' + functionSourceIncludes('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393'), 'KRITISK');
   add('SOUND-SETTINGS-V331', 'Synliga ljudinställningar', !!document.getElementById('soundSettingsWrapV331') && !!document.getElementById('newJobReceivedSoundEnabledV331') && !!document.getElementById('activateNewJobReceivedSoundV342') && !!document.getElementById('newJobReceivedSoundPatternV342') && typeof toggleSoundSettingsManagerV331 === 'function' && typeof setNewJobReceivedSoundEnabledV331 === 'function' && typeof activateNewJobReceivedSoundV342 === 'function', 'panel=' + (!!document.getElementById('soundSettingsWrapV331')) + '; aktivera=' + (!!document.getElementById('activateNewJobReceivedSoundV342')) + '; val=' + (!!document.getElementById('newJobReceivedSoundPatternV342')), 'KRITISK');
   add('FEATURE-USAGE-MONITORING-V331', 'Användningsövervakning finns', typeof recordFeatureUsageV331 === 'function' && typeof buildFunctionUsageSummaryV331 === 'function' && typeof getFeatureUsageRowsV331 === 'function', 'lätt användningslogg från v331', 'KRITISK');
   add('FUNCTION-CLEANUP-CANDIDATES-V331', 'Saneringskandidater/legacylista finns', typeof getFunctionCleanupCandidatesV331 === 'function', 'kandidater=' + getFunctionCleanupCandidatesV331(manifest).length, 'KRITISK');
@@ -17831,6 +17961,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Tillfällig kvittoimport finns men påverkar inte GPS/tid', !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && fn('normalizeImportedReceiptRow') && src('getFilteredSummaryJobs', 'getReceiptSummaryJobs'), 'kvittoimport skapar historiska sammanställningsrader');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA aviseringar grundlager v391', !!el('ataMailSettingsWrapV391') && !!el('ataContactsListV391') && !!el('ataMailTemplateFieldsV391') && fn('toggleAtaMailSettingsManagerV391') && fn('loadAtaContactsV391') && fn('saveAtaContactFromFormV391') && fn('renderAtaMailTemplateV391') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v391 Lokal ÄTA-adressbok')), 'v391 har lokal adressbok och mailmall i Inställningar utan Gmail-, avsluts-, sync- eller historikkoppling.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA-mottagare planering v392', !!el('ataSupervisorNameV392') && !!el('newAtaRecipientWrapV392') && !!el('editQueueAtaRecipientWrapV392') && fn('loadAtaSupervisorV392') && fn('updateNewAtaRecipientUIV392') && fn('applyAtaRecipientToJobIfAtaV392') && fn('renderQuickAtaRecipientFieldsV392') && src('startJob', 'ataRecipientV392') && src('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && src('normalizeImportedQueueItem', 'normalizeImportedAtaRecipientV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v392 ÄTA-mottagare')), 'v392 kopplar mottagare/arbetsledare till ÄTA-planering utan Gmail- eller avslutskoppling.');
+  addFunctionCheck(results, 'Nivå 2', 'ÄTA standardmottagare jobbtyp v393', fn('getAtaRecipientFromJobTypeV393') && fn('buildJobTypeAtaRecipientEditorV393') && fn('collectJobTypeAtaRecipientV393') && src('renderJobTypeManager', 'buildJobTypeAtaRecipientEditorV393') && src('saveManagedJobType', 'collectJobTypeAtaRecipientV393') && src('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393') && src('renderQuickManager', 'renderQuickAtaRecipientFieldsV392') && src('updateNewAtaRecipientUIV392', 'applyDefaultAtaRecipientToNewJobV393') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v393 ÄTA standardmottagare')), 'v393 låter ÄTA-jobbtyper ha standardmottagare och låter snabbval/Nytt uppdrag ärva den utan Gmail- eller avslutskoppling.');
   addFunctionCheck(results, 'Nivå 2', 'Beräkna tider i kö borttagen v390', !fn('calculateQueueTimesFromCurrentGps') && !el('queueCalculateTimesButtonV286') && fn('isManualQueueTimeCalculationRemovedV390') && APP_FEATURE_MANIFEST.some(item => item.id === 'QUEUE-TIME-CALC-REMOVED-V390'), 'knappen och den manuella GPS-baserade köberäkningen är borttagna med godkännande');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning hybrid/smart delberäkning borttagen v390', !fn('calculateQueueMapTotalsFromGps') && !fn('getStoredQueueGpsEstimateForJob') && !fn('buildQueueGpsEstimateStorageKey'), 'den borttagna manuella kökedjan har ingen kvarvarande aktiv beräkningsfunktion');
   addFunctionCheck(results, 'Nivå 2', 'Gamla queueGps-fält passiva v390', fn('getPassiveQueueGpsFieldNamesV390') && src('getTimeEstimateForQueuedJob', 'queueGps-fält får inte längre styra kötid'), 'gamla queueGps-fält lämnas i data men används inte som aktiv kötid/startpunkt');
@@ -19260,6 +19391,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Lastbils status/live-status throttle v387', typeof shouldThrottleLiveStatusUploadV387 === 'function' && typeof markLiveStatusUploadStartV387 === 'function' && typeof markLiveStatusUploadEndV387 === 'function' && typeof shouldRenderActiveOnTimerV387 === 'function' && typeof queueSyncUploadLiveStatusBaseV387 === 'function' && typeof queueSyncUploadLiveStatusV321 === 'function' && functionSourceIncludes('startActiveTimer', 'shouldRenderActiveOnTimerV388') && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'Live-status/GitHub PUT har överlappsspärr och aktiv vy timer-renderas glesare'),
     systemCheck('ÄTA aviseringar grundlager v391', typeof toggleAtaMailSettingsManagerV391 === 'function' && typeof loadAtaContactsV391 === 'function' && typeof loadAtaMailTemplateV391 === 'function' && !!document.getElementById('ataMailSettingsWrapV391') && !!document.getElementById('ataMailTemplateFieldsV391') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391'), 'lokal ÄTA-adressbok och mailmall finns i Inställningar och sparas i separata lokala nycklar'),
     systemCheck('ÄTA-mottagare planering v392', typeof loadAtaSupervisorV392 === 'function' && typeof updateNewAtaRecipientUIV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function' && typeof renderQuickAtaRecipientFieldsV392 === 'function' && !!document.getElementById('ataSupervisorNameV392') && !!document.getElementById('newAtaRecipientWrapV392') && !!document.getElementById('editQueueAtaRecipientWrapV392') && functionSourceIncludes('startJob', 'ataRecipientV392') && functionSourceIncludes('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392'), 'ÄTA-mottagare och lokal arbetsledare/CC finns för planering utan Gmail-/avslutskoppling'),
+    systemCheck('ÄTA standardmottagare jobbtyp v393', typeof getAtaRecipientFromJobTypeV393 === 'function' && typeof buildJobTypeAtaRecipientEditorV393 === 'function' && typeof collectJobTypeAtaRecipientV393 === 'function' && functionSourceIncludes('renderJobTypeManager', 'buildJobTypeAtaRecipientEditorV393') && functionSourceIncludes('saveManagedJobType', 'collectJobTypeAtaRecipientV393') && functionSourceIncludes('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393') && functionSourceIncludes('renderQuickManager', 'renderQuickAtaRecipientFieldsV392') && functionSourceIncludes('updateNewAtaRecipientUIV392', 'applyDefaultAtaRecipientToNewJobV393') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393'), 'ÄTA-jobbtyper kan bära standardmottagare som snabbval/Nytt uppdrag kan ärva utan Gmail-/avslutskoppling'),
     systemCheck('Beräkna tider i kö borttagen v390', APP_FEATURE_MANIFEST.some(item => item.id === 'QUEUE-TIME-CALC-REMOVED-V390') && !document.getElementById('queueCalculateTimesButtonV286') && typeof calculateQueueTimesFromCurrentGps !== 'function' && typeof isManualQueueTimeCalculationRemovedV390 === 'function', 'manuell GPS-baserad köberäkning är borttagen med godkännande'),
     systemCheck('Kontrollcentral/Funktionslista kalibrering v389', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V389') && Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329) && typeof CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389 !== 'undefined' && CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389.every(function(name){ return APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) >= 0; }), 'v389 baseline och kontrollvillkor finns utan arbetsdataändring'),
     systemCheck('Aktiv spegling parkerad under arbete v388', typeof shouldParkActiveMirrorDuringActiveV388 === 'function' && typeof shouldParkLiveStatusDuringActiveV388 === 'function' && typeof shouldRenderActiveOnTimerV388 === 'function' && typeof shouldSkipRenderActiveV388 === 'function' && typeof shouldSkipQueueSyncSettingsRenderV388 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-MIRROR-PARKED-WORK-V388'), 'Löpande Lastbils status/live-status parkeras under aktivt arbete och aktiv render snabbskyddas'),
@@ -22068,7 +22200,7 @@ function buildFinishedGpsSnapHistorySummaryV362(job, completedFrom){
   let quality = '';
   try{ quality = rec ? getRouteGpsQuality({routeGps:rec, routeGpsStatus:job && job.routeGpsStatus}) : ''; }catch(e){ quality = ''; }
   return {
-    version:String(APP_VERSION || 'Stadslass 2.0 v392'),
+    version:String(APP_VERSION || 'Stadslass 2.0 v393'),
     removedAt:new Date().toISOString(),
     completedFrom:String(completedFrom || ''),
     routeGpsStatus:String((job && job.routeGpsStatus) || (rec && rec.status) || ''),
@@ -22107,7 +22239,7 @@ function stripNewFinishedJobGpsSnapV362(job, completedFrom){
     job.historicalGpsSnapRemovedV362 = {
       removed:true,
       removedAt:summary.removedAt,
-      version:String(APP_VERSION || 'Stadslass 2.0 v392'),
+      version:String(APP_VERSION || 'Stadslass 2.0 v393'),
       pointCount:summary.gpsPointCount,
       removedBytes:removedBytes,
       removedKeys:removedKeys.slice(),
@@ -31489,7 +31621,11 @@ function saveManagedJobType(oldName){
   }
 
   ensureJobTypeRegistryV348();
-  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '', !!(returnRequiredInput && returnRequiredInput.checked), !!(multiLoadInput && multiLoadInput.checked), !!(ataInput && ataInput.checked));
+  const ataJobCheckedV393 = !!(ataInput && ataInput.checked);
+  const manualAtaTypeV393 = typeof isAtaManualChoiceTypeV366 === 'function' && isAtaManualChoiceTypeV366(nextName);
+  const jobTypeAtaRecipientV393 = (ataJobCheckedV393 || manualAtaTypeV393) && typeof collectJobTypeAtaRecipientV393 === 'function' ? collectJobTypeAtaRecipientV393(oldName) : null;
+  if(jobTypeAtaRecipientV393 === false) return;
+  setJobTypeMeta(nextName, codeInput ? codeInput.value : '', requirementsInput ? requirementsInput.value : '', !!(returnRequiredInput && returnRequiredInput.checked), !!(multiLoadInput && multiLoadInput.checked), ataJobCheckedV393, jobTypeAtaRecipientV393);
   saveState();
   refreshJobTypeSelects();
   renderJobTypeManager();
@@ -31540,8 +31676,9 @@ function renderJobTypeManager(){
       '<div style="display:flex;align-items:center;gap:16px;margin-top:8px;flex-wrap:wrap">'+
         '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-return="'+escapeHtml(type)+'" type="checkbox" style="width:auto" onchange="handleManagedJobTypeModeToggle(\''+escapeJsSingle(type)+'\', \'return\')" '+(meta.returnRequired ? 'checked' : '')+'> Returkrav</label>'+ 
         '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-multiload="'+escapeHtml(type)+'" type="checkbox" style="width:auto" onchange="handleManagedJobTypeModeToggle(\''+escapeJsSingle(type)+'\', \'multi\')" '+(meta.multiLoad ? 'checked' : '')+'> Flerlass</label>'+ 
-        (isAtaManualChoiceTypeV366(type) ? '' : '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-ata-v366="'+escapeHtml(type)+'" type="checkbox" style="width:auto" '+(meta.ataJob ? 'checked' : '')+'> ÄTA-jobb</label>')+
+        (isAtaManualChoiceTypeV366(type) ? '<span class="muted" style="font-weight:800">ÄTA kan väljas per uppdrag</span>' : '<label style="display:flex;align-items:center;gap:8px;margin:0"><input data-jobtype-ata-v366="'+escapeHtml(type)+'" type="checkbox" style="width:auto" onchange="toggleJobTypeAtaRecipientEditorV393(\''+escapeJsSingle(type)+'\')" '+(meta.ataJob ? 'checked' : '')+'> ÄTA-jobb</label>')+
       '</div>'+
+      (typeof buildJobTypeAtaRecipientEditorV393 === 'function' ? buildJobTypeAtaRecipientEditorV393(type, meta) : '')+
       '<label>Transportinstruktioner / jobbkrav</label>'+
       '<textarea data-jobtype-requirements="'+escapeHtml(type)+'" placeholder="Transportinstruktioner / jobbkrav, ett per rad">'+escapeHtml((meta.requirements || []).join('\n'))+'</textarea>'+
       '<div class="row">'+
@@ -39289,6 +39426,7 @@ function renderQuickManager(){
         '<div><label>Visas som</label><input data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="displayType" value="'+escapeHtml(item.displayType || '')+'"></div>'+ 
       '</div>'+ 
       '<label>Kommentar</label><input data-quick-id="'+escapeHtml(item.id)+'" data-quick-field="comment" value="'+escapeHtml(item.comment || '')+'">'+
+      (typeof renderQuickAtaRecipientFieldsV392 === 'function' ? renderQuickAtaRecipientFieldsV392(item) : '')+
       '<div class="row"><button class="primary inline" onclick="saveSingleQuickItem(\''+escapeJsSingle(item.id)+'\')">Spara</button><button class="danger inline" onclick="removeQuickItem(\''+escapeJsSingle(item.id)+'\')">Ta bort</button></div>'+ 
     '</div>';
   };
