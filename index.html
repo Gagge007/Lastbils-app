@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v395
+- Nuvarande version: Stadslass 2.0 v396
+- v396: Gmail-specifik ÄTA-mailöppning med reservrad för Kopia. ÄTA-mail försöker öppnas via Gmail compose-URL med to/cc/ämne/brödtext och brödtexten får en tydlig Kopia till-rad när CC finns, så arbetsledarkopia inte tappas även om Android/Gmail ignorerar cc-fältet.
 - v395: Riktad Gmail/CC-fix för ÄTA-mail. Mailto-länken byggs med Till och Kopia som separata query-parametrar så Gmail/Android kan fylla både Till och Kopia utan att ändra ÄTA-mottagare, arbetsledare/CC-inställning, debiterbar tid, Klart, Idag eller arbetsdata.
 - v394: Kopplar ÄTA-mail till avslut och Idag. Efter ÄTA-debitering kan föraren öppna Gmail/mailutkast, välja Skicka ej mail nu eller kopiera underlag; dagens avslutade ÄTA-jobb får mailstatus och kan öppna samma utkast från Idag. Historisk kalender kopplas inte i v394.
 - v393: Reparerar och förlänger v392:s ÄTA-mottagarkedja. ÄTA-jobbtyper får standard ÄTA-mottagare, ÄTA-snabbval visar mottagarfält och kan ärva jobbtypens mottagare, och Nytt uppdrag/snabbval använder jobbtypens standardmottagare när uppdraget saknar egen mottagare. Ingen Gmail-, avsluts- eller debiteringskoppling byggs i v393.
@@ -408,7 +409,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v395';
+  const version = 'Stadslass 2.0 v396';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4226,7 +4227,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v395</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v396</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -13774,8 +13775,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v395';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v396';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v396 Gmail-specifik CC-reserv för ÄTA-mail',
   'v395 Gmail CC-fix för ÄTA-mail',
   'v394 ÄTA-mail avslut och Idag',
   'v393 ÄTA standardmottagare på jobbtyp',
@@ -14447,6 +14449,7 @@ function getActiveMonitorChecks(snapshot){
     if(typeof loadAtaSupervisorV392 === 'function' && typeof updateNewAtaRecipientUIV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function') ok('ATA-MAIL-OV-392', 'ÄTA-mottagare på planerade uppdrag finns', 'v392 lägger mottagarfält på ÄTA-planering och snabbval samt lokal arbetsledare/CC utan Gmail-/avslutskoppling.', 'supervisor=' + activeMonitorBool(!!loadAtaSupervisorV392().emailKey) + '; newPanel=' + activeMonitorBool(!!document.getElementById('newAtaRecipientWrapV392')) + '; quickFn=' + activeMonitorBool(typeof renderQuickAtaRecipientFieldsV392 === 'function'), 'v392 ÄTA mottagare', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392')));
     if(typeof requestAtaMailAfterCompletionV394 === 'function' && typeof buildAtaMailBodyV394 === 'function') ok('ATA-MAIL-OV-394', 'ÄTA-mail vid avslut och Idag finns', 'v394 öppnar Gmail/mailutkast från avslut/Idag och sparar mailstatus utan att skicka automatiskt.', 'modal=' + activeMonitorBool(!!document.getElementById('ataMailModalV394')) + '; todayFn=' + activeMonitorBool(typeof getAtaMailTodayActionHtmlV394 === 'function'), 'v394 ÄTA-mail avslut/Idag', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-COMPLETION-TODAY-V394')));
     if(typeof buildAtaMailUriV395 === 'function' && typeof openAtaMailClientV394 === 'function') ok('ATA-MAIL-OV-395', 'Gmail CC-fix för ÄTA-mail finns', 'v395 bygger mailto med Till och Kopia som query-parametrar så Gmail/Android ska kunna fylla Kopia-fältet.', 'uriFn=' + activeMonitorBool(functionSourceIncludes('buildAtaMailUriV395', 'mailto:?') && functionSourceIncludes('buildAtaMailUriV395', 'cc=')) + '; openUsesV395=' + activeMonitorBool(functionSourceIncludes('openAtaMailClientV394', 'buildAtaMailUriV395')), 'v395 Gmail CC-fix', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FIX-V395')));
+    if(typeof buildAtaGmailComposeUrlV396 === 'function' && typeof buildAtaMailBodyWithCcFallbackV396 === 'function') ok('ATA-MAIL-OV-396', 'Gmail-specifik CC-reserv för ÄTA-mail finns', 'v396 öppnar ÄTA-mail via Gmail compose-URL och lägger Kopia till-rad i brödtexten som reserv när Android/Gmail ignorerar cc-fält.', 'gmailFn=' + activeMonitorBool(functionSourceIncludes('buildAtaGmailComposeUrlV396', 'mail.google.com/mail') && functionSourceIncludes('buildAtaGmailComposeUrlV396', 'cc=')) + '; bodyFallback=' + activeMonitorBool(functionSourceIncludes('buildAtaMailBodyWithCcFallbackV396', 'Kopia till:')) + '; openUsesV396=' + activeMonitorBool(functionSourceIncludes('openAtaMailClientV394', 'buildAtaGmailComposeUrlV396')), 'v396 Gmail CC-reserv', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FALLBACK-V396')));
     if(typeof getAtaRecipientFromJobTypeV393 === 'function' && typeof buildJobTypeAtaRecipientEditorV393 === 'function') ok('ATA-MAIL-OV-393', 'ÄTA-standardmottagare på jobbtyp finns', 'v393 låter ÄTA-jobbtyper bära standardmottagare och låter ÄTA-snabbval/Nytt uppdrag ärva den utan Gmail-/avslutskoppling.', 'jobTypeFn=' + activeMonitorBool(typeof getAtaRecipientFromJobTypeV393 === 'function') + '; quickFallback=' + activeMonitorBool(functionSourceIncludes('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393')), 'v393 ÄTA jobbtyp mottagare', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393')));
     if(typeof recordFeatureUsageV331 === 'function' && typeof getFunctionCleanupCandidatesV331 === 'function' && typeof controlCenterReportTypeSlugV331 === 'function' && typeof toggleSoundSettingsManagerV331 === 'function') ok('CONTROL-OV-331', 'Kontroll- och ordningsfixar uppdaterade', 'v331 har korta rapportfilnamn, ljudinställningar, användningsövervakning, saneringskandidater och moderniserad appregelrad.', 'manifest=' + APP_FEATURE_MANIFEST.length + '; cleanup=' + getFunctionCleanupCandidatesV331(APP_FEATURE_MANIFEST).length, 'v331 Kontroll/ordning', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.name === 'Kontroll- och ordningsfixar v331')));
     if(typeof activateNewJobReceivedSoundV342 === 'function' && typeof showNewJobReceivedNoticeV342 === 'function' && typeof playNewJobReceivedToneSequenceV342 === 'function') ok('AUDIO-OV-342', 'Ljudavisering och mottagningsnotis uppdaterad', 'v342 ger ljud och liten synlig notis först när nytt uppdrag faktiskt importeras till 189:s kö. Datorläge ska inte spela ljud.', 'webAudio=true; notice=true; pattern=' + activeMonitorSafe((state && state.soundSettingsV331 && state.soundSettingsV331.newJobReceivedPatternV342) || 'double', 'double'), 'v342 Ljud/notis 189', 'manifest=' + activeMonitorBool(APP_FEATURE_MANIFEST.some(item => item.id === 'AUDIO-NOTICE-NEW-JOB-V342')));
@@ -15798,7 +15801,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v395';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v396';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15823,6 +15826,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'ATA-MAIL-GMAIL-CC-FALLBACK-V396', name:'Gmail-specifik CC-reserv för ÄTA-mail v396', status:'ÄTA/Gmail/CC', protectionStatus:'Aktiv', introduced:'v396', purpose:'v396 byter ÄTA-mailöppningen från vanlig mailto till Gmail compose-URL med to/cc/ämne/brödtext och lägger dessutom en tydlig Kopia till-rad i brödtexten när arbetsledare/CC finns. Funktionen är en riktad reserv efter att Android/Gmail inte fyllde Kopia-fältet i v394/v395.', changeRule:'Får bara påverka hur ÄTA-mailutkast öppnas och hur kopia/CC säkras i ÄTA-mailtexten. Får inte ändra ÄTA-mottagare, lokal arbetsledare/CC-inställning, debiterbar tid, Klart-flöde, aktivt jobb, vikt, GPS/geofence/ETA, Returplats, sync/spegling, historik, Excel/sammanställning eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-MAIL-GMAIL-CC-FIX-V395', name:'Gmail CC-fix för ÄTA-mail v395', status:'ÄTA/Gmail/CC', protectionStatus:'Aktiv', introduced:'v395', purpose:'v395 rättar hur ÄTA-mail öppnas i Gmail/Android genom att bygga mailto-länken med Till och Kopia som separata query-parametrar. Funktionen ändrar endast länkgenereringen för ÄTA-mail och behåller samma mottagare, arbetsledare/CC, ämne, brödtext, mall, mailstatus och Idag-koppling som v394.', changeRule:'Får bara påverka hur ÄTA-mailutkast öppnas via mailto/Gmail. Får inte ändra ÄTA-mottagare, lokal arbetsledare/CC-inställning, debiterbar tid, Klart-flöde, aktivt jobb, vikt, GPS/geofence/ETA, Returplats, sync/spegling, historik, Excel/sammanställning eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-MAIL-COMPLETION-TODAY-V394', name:'ÄTA-mail vid avslut och Idag v394', status:'ÄTA/Avslut/Idag/Gmail', protectionStatus:'Aktiv', introduced:'v394', purpose:'v394 kopplar befintlig ÄTA-debitering till ett isolerat mailval efter avslut och till dagens ÄTA-jobb i Idag. Funktionen bygger Gmail/mailutkast från sparat avslutat jobb, lokal mottagare, lokal arbetsledare/CC, vald mailmall och fast avslutstext. Den sparar endast mailstatus/öppnat/kopierat/överhoppat på jobbet.', changeRule:'Får bara påverka avslutade ÄTA-jobbs mailstatus och visning/knappar för ÄTA-mail vid avslut och i Idag. Får inte skicka mail automatiskt, inte ändra debiterbar tid, total arbetstid, vikt, Lastar/Ange vikt/Klart, GPS/geofence/ETA, Returplats, material, mtrl kod/anläggning, syncsanning, spegling, Excel/sammanställning, historisk kalender eller driftlogg_v4_full-nyckeln.'},
   {id:'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393', name:'ÄTA standardmottagare på jobbtyp v393', status:'Inställningar/Jobbtyper/Snabbval/Nytt uppdrag', protectionStatus:'Aktiv', introduced:'v393', purpose:'v393 reparerar v392:s mottagarkedja genom att låta ÄTA-jobbtyper bära standard ÄTA-mottagare. ÄTA-snabbval visar mottagarfält och ärver jobbtypens mottagare när snabbvalet saknar egen mottagare. Nya ÄTA-uppdrag får jobbtypens standardmottagare förifylld när uppdraget saknar egen mottagare.', changeRule:'Får bara påverka ÄTA-mottagarfält på jobbtyper, snabbval, Nytt uppdrag och ostartade köuppdrag. Får inte koppla Gmail ännu, får inte ändra ÄTA-debitering, total arbetstid, Lastar/Ange vikt/Klart, aktivt jobb utöver mottagarsnapshot vid start, avslut/historik, GPS/geofence/ETA, material, mtrl kod/anläggning, spegling eller driftlogg_v4_full-nyckeln.'},
@@ -17466,6 +17470,30 @@ function fallbackCopyTextToClipboardV394(text){
   }catch(e){ return false; }
 }
 
+
+function buildAtaMailBodyWithCcFallbackV396(job){
+  const body = buildAtaMailBodyV394(job);
+  const ccText = getAtaMailSupervisorTextV394();
+  if(!ccText) return body;
+  const ccLine = 'Kopia till: ' + ccText;
+  if(String(body || '').indexOf(ccLine) === 0) return body;
+  return ccLine + '\n\n' + body;
+}
+
+function buildAtaGmailComposeUrlV396(to, cc, subject, body){
+  const params = [];
+  params.push('view=cm');
+  params.push('fs=1');
+  params.push('tf=1');
+  const toValue = String(to || '').trim();
+  const ccValue = String(cc || '').trim();
+  if(toValue) params.push('to=' + encodeURIComponent(toValue));
+  if(ccValue) params.push('cc=' + encodeURIComponent(ccValue));
+  params.push('su=' + encodeURIComponent(String(subject || '')));
+  params.push('body=' + encodeURIComponent(String(body || '')));
+  return 'https://mail.google.com/mail/?' + params.join('&');
+}
+
 function buildAtaMailUriV395(to, cc, subject, body){
   const query = [];
   const toValue = String(to || '').trim();
@@ -17483,13 +17511,15 @@ function openAtaMailClientV394(job){
   const supervisor = getAtaMailSupervisorV394();
   const to = recipient && (recipient.email || recipient.emailKey) ? String(recipient.email || recipient.emailKey).trim() : '';
   const cc = supervisor && (supervisor.email || supervisor.emailKey) ? String(supervisor.email || supervisor.emailKey).trim() : '';
-  const body = buildAtaMailBodyV394(job);
-  const mailto = buildAtaMailUriV395(to, cc, ATA_MAIL_SUBJECT_V394, body);
+  const body = typeof buildAtaMailBodyWithCcFallbackV396 === 'function' ? buildAtaMailBodyWithCcFallbackV396(job) : buildAtaMailBodyV394(job);
+  const gmailUrl = typeof buildAtaGmailComposeUrlV396 === 'function' ? buildAtaGmailComposeUrlV396(to, cc, ATA_MAIL_SUBJECT_V394, body) : buildAtaMailUriV395(to, cc, ATA_MAIL_SUBJECT_V394, body);
   copyTextToClipboardV394(buildAtaMailPreviewTextV394(job));
   try{
-    window.location.href = mailto;
+    window.location.href = gmailUrl;
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    try{ window.location.href = buildAtaMailUriV395(to, cc, ATA_MAIL_SUBJECT_V394, body); return true; }catch(err){ return false; }
+  }
 }
 
 function closeAtaMailModalV394(){
@@ -17576,6 +17606,9 @@ function getAtaMailTodayActionHtmlV394(job){
     '</div>' +
   '</div>';
 }
+
+const ATA_MAIL_GMAIL_CC_FALLBACK_FUNCTIONS_V396 = ['buildAtaMailBodyWithCcFallbackV396','buildAtaGmailComposeUrlV396'];
+try{ ATA_MAIL_GMAIL_CC_FALLBACK_FUNCTIONS_V396.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); }); }catch(e){}
 
 const ATA_MAIL_GMAIL_CC_FIX_FUNCTIONS_V395 = ['buildAtaMailUriV395'];
 try{ ATA_MAIL_GMAIL_CC_FIX_FUNCTIONS_V395.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); }); }catch(e){}
@@ -17797,7 +17830,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392' || currentShort === 'v393' || currentShort === 'v394' || currentShort === 'v395'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392' || currentShort === 'v393' || currentShort === 'v394' || currentShort === 'v395' || currentShort === 'v396'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -17810,6 +17843,7 @@ function buildFunctionProtectionRowsV329(){
   add('ATA-MAIL-RECIPIENT-PLANNING-V392', 'ÄTA-mottagare på planerade uppdrag och snabbval v392', !!document.getElementById('ataSupervisorNameV392') && !!document.getElementById('newAtaRecipientWrapV392') && !!document.getElementById('editQueueAtaRecipientWrapV392') && typeof loadAtaSupervisorV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function' && typeof renderQuickAtaRecipientFieldsV392 === 'function' && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392'), 'supervisorPanel=' + (!!document.getElementById('ataSupervisorNameV392')) + '; newRecipientPanel=' + (!!document.getElementById('newAtaRecipientWrapV392')) + '; editQueueRecipientPanel=' + (!!document.getElementById('editQueueAtaRecipientWrapV392')), 'KRITISK');
   add('ATA-MAIL-COMPLETION-TODAY-V394', 'ÄTA-mail vid avslut och Idag v394', !!document.getElementById('ataMailModalV394') && typeof requestAtaMailAfterCompletionV394 === 'function' && typeof buildAtaMailBodyV394 === 'function' && functionSourceIncludes('stopJob', 'requestAtaMailAfterCompletionV394') && functionSourceIncludes('renderTodayRegularJobCard', 'getAtaMailTodayActionHtmlV394') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-COMPLETION-TODAY-V394'), 'modal=' + (!!document.getElementById('ataMailModalV394')) + '; mailFn=' + (typeof requestAtaMailAfterCompletionV394 === 'function') + '; todayFn=' + functionSourceIncludes('renderTodayRegularJobCard', 'getAtaMailTodayActionHtmlV394'), 'KRITISK');
   add('ATA-MAIL-GMAIL-CC-FIX-V395', 'Gmail CC-fix för ÄTA-mail v395', typeof buildAtaMailUriV395 === 'function' && functionSourceIncludes('buildAtaMailUriV395', 'mailto:?') && functionSourceIncludes('buildAtaMailUriV395', 'cc=') && functionSourceIncludes('openAtaMailClientV394', 'buildAtaMailUriV395') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FIX-V395'), 'uriFn=' + (typeof buildAtaMailUriV395 === 'function') + '; ccParam=' + functionSourceIncludes('buildAtaMailUriV395', 'cc=') + '; openUses=' + functionSourceIncludes('openAtaMailClientV394', 'buildAtaMailUriV395'), 'KRITISK');
+  add('ATA-MAIL-GMAIL-CC-FALLBACK-V396', 'Gmail-specifik CC-reserv för ÄTA-mail v396', typeof buildAtaGmailComposeUrlV396 === 'function' && typeof buildAtaMailBodyWithCcFallbackV396 === 'function' && functionSourceIncludes('buildAtaGmailComposeUrlV396', 'mail.google.com/mail') && functionSourceIncludes('buildAtaGmailComposeUrlV396', 'cc=') && functionSourceIncludes('buildAtaMailBodyWithCcFallbackV396', 'Kopia till:') && functionSourceIncludes('openAtaMailClientV394', 'buildAtaGmailComposeUrlV396') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FALLBACK-V396'), 'gmailFn=' + (typeof buildAtaGmailComposeUrlV396 === 'function') + '; ccParam=' + functionSourceIncludes('buildAtaGmailComposeUrlV396', 'cc=') + '; fallbackLine=' + functionSourceIncludes('buildAtaMailBodyWithCcFallbackV396', 'Kopia till:') + '; openUses=' + functionSourceIncludes('openAtaMailClientV394', 'buildAtaGmailComposeUrlV396'), 'KRITISK');
   add('ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393', 'ÄTA standardmottagare på jobbtyp v393', typeof getAtaRecipientFromJobTypeV393 === 'function' && typeof buildJobTypeAtaRecipientEditorV393 === 'function' && typeof collectJobTypeAtaRecipientV393 === 'function' && functionSourceIncludes('renderJobTypeManager', 'buildJobTypeAtaRecipientEditorV393') && functionSourceIncludes('renderQuickManager', 'renderQuickAtaRecipientFieldsV392') && functionSourceIncludes('updateNewAtaRecipientUIV392', 'applyDefaultAtaRecipientToNewJobV393') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393'), 'jobbtypEditor=' + (typeof buildJobTypeAtaRecipientEditorV393 === 'function') + '; quickFallback=' + functionSourceIncludes('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393'), 'KRITISK');
   add('SOUND-SETTINGS-V331', 'Synliga ljudinställningar', !!document.getElementById('soundSettingsWrapV331') && !!document.getElementById('newJobReceivedSoundEnabledV331') && !!document.getElementById('activateNewJobReceivedSoundV342') && !!document.getElementById('newJobReceivedSoundPatternV342') && typeof toggleSoundSettingsManagerV331 === 'function' && typeof setNewJobReceivedSoundEnabledV331 === 'function' && typeof activateNewJobReceivedSoundV342 === 'function', 'panel=' + (!!document.getElementById('soundSettingsWrapV331')) + '; aktivera=' + (!!document.getElementById('activateNewJobReceivedSoundV342')) + '; val=' + (!!document.getElementById('newJobReceivedSoundPatternV342')), 'KRITISK');
   add('FEATURE-USAGE-MONITORING-V331', 'Användningsövervakning finns', typeof recordFeatureUsageV331 === 'function' && typeof buildFunctionUsageSummaryV331 === 'function' && typeof getFeatureUsageRowsV331 === 'function', 'lätt användningslogg från v331', 'KRITISK');
@@ -18323,6 +18357,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'ÄTA-mottagare planering v392', !!el('ataSupervisorNameV392') && !!el('newAtaRecipientWrapV392') && !!el('editQueueAtaRecipientWrapV392') && fn('loadAtaSupervisorV392') && fn('updateNewAtaRecipientUIV392') && fn('applyAtaRecipientToJobIfAtaV392') && fn('renderQuickAtaRecipientFieldsV392') && src('startJob', 'ataRecipientV392') && src('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && src('normalizeImportedQueueItem', 'normalizeImportedAtaRecipientV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v392 ÄTA-mottagare')), 'v392 kopplar mottagare/arbetsledare till ÄTA-planering utan Gmail- eller avslutskoppling.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA-mail avslut och Idag v394', !!el('ataMailModalV394') && fn('requestAtaMailAfterCompletionV394') && fn('buildAtaMailBodyV394') && fn('getAtaMailTodayActionHtmlV394') && src('stopJob', 'requestAtaMailAfterCompletionV394') && src('renderTodayRegularJobCard', 'getAtaMailTodayActionHtmlV394') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-COMPLETION-TODAY-V394') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v394 ÄTA-mail')), 'v394 kopplar sparat avslutat ÄTA-jobb till Gmail/mailutkast vid avslut och från Idag utan att skicka automatiskt eller ändra debiterbar tid.');
   addFunctionCheck(results, 'Nivå 2', 'Gmail CC-fix för ÄTA-mail v395', fn('buildAtaMailUriV395') && src('buildAtaMailUriV395', 'mailto:?') && src('buildAtaMailUriV395', 'cc=') && src('openAtaMailClientV394', 'buildAtaMailUriV395') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FIX-V395') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v395 Gmail CC-fix')), 'v395 ändrar bara mailto-länken för ÄTA-mail så Gmail/Android ska få Kopia som eget fält.');
+  addFunctionCheck(results, 'Nivå 2', 'Gmail-specifik CC-reserv för ÄTA-mail v396', fn('buildAtaGmailComposeUrlV396') && fn('buildAtaMailBodyWithCcFallbackV396') && src('buildAtaGmailComposeUrlV396', 'mail.google.com/mail') && src('buildAtaGmailComposeUrlV396', 'cc=') && src('buildAtaMailBodyWithCcFallbackV396', 'Kopia till:') && src('openAtaMailClientV394', 'buildAtaGmailComposeUrlV396') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FALLBACK-V396') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v396 Gmail-specifik CC-reserv')), 'v396 använder Gmail compose-URL för ÄTA-mail och lägger Kopia till-rad i brödtexten som reserv utan att ändra arbetsdata.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA standardmottagare jobbtyp v393', fn('getAtaRecipientFromJobTypeV393') && fn('buildJobTypeAtaRecipientEditorV393') && fn('collectJobTypeAtaRecipientV393') && src('renderJobTypeManager', 'buildJobTypeAtaRecipientEditorV393') && src('saveManagedJobType', 'collectJobTypeAtaRecipientV393') && src('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393') && src('renderQuickManager', 'renderQuickAtaRecipientFieldsV392') && src('updateNewAtaRecipientUIV392', 'applyDefaultAtaRecipientToNewJobV393') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v393 ÄTA standardmottagare')), 'v393 låter ÄTA-jobbtyper ha standardmottagare och låter snabbval/Nytt uppdrag ärva den utan Gmail- eller avslutskoppling.');
   addFunctionCheck(results, 'Nivå 2', 'Beräkna tider i kö borttagen v390', !fn('calculateQueueTimesFromCurrentGps') && !el('queueCalculateTimesButtonV286') && fn('isManualQueueTimeCalculationRemovedV390') && APP_FEATURE_MANIFEST.some(item => item.id === 'QUEUE-TIME-CALC-REMOVED-V390'), 'knappen och den manuella GPS-baserade köberäkningen är borttagna med godkännande');
   addFunctionCheck(results, 'Nivå 2', 'Köberäkning hybrid/smart delberäkning borttagen v390', !fn('calculateQueueMapTotalsFromGps') && !fn('getStoredQueueGpsEstimateForJob') && !fn('buildQueueGpsEstimateStorageKey'), 'den borttagna manuella kökedjan har ingen kvarvarande aktiv beräkningsfunktion');
@@ -19755,6 +19790,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('ÄTA-mottagare planering v392', typeof loadAtaSupervisorV392 === 'function' && typeof updateNewAtaRecipientUIV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function' && typeof renderQuickAtaRecipientFieldsV392 === 'function' && !!document.getElementById('ataSupervisorNameV392') && !!document.getElementById('newAtaRecipientWrapV392') && !!document.getElementById('editQueueAtaRecipientWrapV392') && functionSourceIncludes('startJob', 'ataRecipientV392') && functionSourceIncludes('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392'), 'ÄTA-mottagare och lokal arbetsledare/CC finns för planering utan Gmail-/avslutskoppling'),
     systemCheck('ÄTA-mail avslut och Idag v394', typeof requestAtaMailAfterCompletionV394 === 'function' && typeof buildAtaMailBodyV394 === 'function' && typeof getAtaMailTodayActionHtmlV394 === 'function' && !!document.getElementById('ataMailModalV394') && functionSourceIncludes('stopJob', 'requestAtaMailAfterCompletionV394') && functionSourceIncludes('renderTodayRegularJobCard', 'getAtaMailTodayActionHtmlV394') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-COMPLETION-TODAY-V394'), 'ÄTA-mail kan öppnas som Gmail/mailutkast från avslut och Idag utan automatisk sändning'),
     systemCheck('Gmail CC-fix för ÄTA-mail v395', typeof buildAtaMailUriV395 === 'function' && functionSourceIncludes('buildAtaMailUriV395', 'mailto:?') && functionSourceIncludes('buildAtaMailUriV395', 'cc=') && functionSourceIncludes('openAtaMailClientV394', 'buildAtaMailUriV395') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FIX-V395'), 'ÄTA-mail bygger mailto med Till och Kopia som query-parametrar för Gmail/Android'),
+    systemCheck('Gmail-specifik CC-reserv för ÄTA-mail v396', typeof buildAtaGmailComposeUrlV396 === 'function' && typeof buildAtaMailBodyWithCcFallbackV396 === 'function' && functionSourceIncludes('buildAtaGmailComposeUrlV396', 'mail.google.com/mail') && functionSourceIncludes('buildAtaGmailComposeUrlV396', 'cc=') && functionSourceIncludes('buildAtaMailBodyWithCcFallbackV396', 'Kopia till:') && functionSourceIncludes('openAtaMailClientV394', 'buildAtaGmailComposeUrlV396') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FALLBACK-V396'), 'ÄTA-mail öppnas via Gmail compose-URL och brödtexten får Kopia till-rad som reserv'),
     systemCheck('ÄTA standardmottagare jobbtyp v393', typeof getAtaRecipientFromJobTypeV393 === 'function' && typeof buildJobTypeAtaRecipientEditorV393 === 'function' && typeof collectJobTypeAtaRecipientV393 === 'function' && functionSourceIncludes('renderJobTypeManager', 'buildJobTypeAtaRecipientEditorV393') && functionSourceIncludes('saveManagedJobType', 'collectJobTypeAtaRecipientV393') && functionSourceIncludes('getAtaRecipientFromQuickItemV392', 'getEffectiveAtaRecipientForQuickItemV393') && functionSourceIncludes('renderQuickManager', 'renderQuickAtaRecipientFieldsV392') && functionSourceIncludes('updateNewAtaRecipientUIV392', 'applyDefaultAtaRecipientToNewJobV393') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-JOBTYPE-DEFAULT-RECIPIENT-V393'), 'ÄTA-jobbtyper kan bära standardmottagare som snabbval/Nytt uppdrag kan ärva utan Gmail-/avslutskoppling'),
     systemCheck('Beräkna tider i kö borttagen v390', APP_FEATURE_MANIFEST.some(item => item.id === 'QUEUE-TIME-CALC-REMOVED-V390') && !document.getElementById('queueCalculateTimesButtonV286') && typeof calculateQueueTimesFromCurrentGps !== 'function' && typeof isManualQueueTimeCalculationRemovedV390 === 'function', 'manuell GPS-baserad köberäkning är borttagen med godkännande'),
     systemCheck('Kontrollcentral/Funktionslista kalibrering v389', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V389') && Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329) && typeof CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389 !== 'undefined' && CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389.every(function(name){ return APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) >= 0; }), 'v389 baseline och kontrollvillkor finns utan arbetsdataändring'),
@@ -22564,7 +22600,7 @@ function buildFinishedGpsSnapHistorySummaryV362(job, completedFrom){
   let quality = '';
   try{ quality = rec ? getRouteGpsQuality({routeGps:rec, routeGpsStatus:job && job.routeGpsStatus}) : ''; }catch(e){ quality = ''; }
   return {
-    version:String(APP_VERSION || 'Stadslass 2.0 v395'),
+    version:String(APP_VERSION || 'Stadslass 2.0 v396'),
     removedAt:new Date().toISOString(),
     completedFrom:String(completedFrom || ''),
     routeGpsStatus:String((job && job.routeGpsStatus) || (rec && rec.status) || ''),
@@ -22603,7 +22639,7 @@ function stripNewFinishedJobGpsSnapV362(job, completedFrom){
     job.historicalGpsSnapRemovedV362 = {
       removed:true,
       removedAt:summary.removedAt,
-      version:String(APP_VERSION || 'Stadslass 2.0 v395'),
+      version:String(APP_VERSION || 'Stadslass 2.0 v396'),
       pointCount:summary.gpsPointCount,
       removedBytes:removedBytes,
       removedKeys:removedKeys.slice(),
