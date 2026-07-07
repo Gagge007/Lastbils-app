@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v401
+- Nuvarande version: Stadslass 2.0 v402
+- v402: Hårdare sanering av parkerad historisk GPS/Snap/sträcklogik. Tar bort synlig tillfällig Snap-historiktest, stoppar automatisk Snap-efteranalys efter avslut från att spara historiska Snap-objekt och minskar ny historik till minimal saneringsmarkering utan GPS-/Snap-sträcksammanfattning. Aktiv GPS, geofence, ETA/Tid till/Klar ca, fasstöd, trippmätare separat, tider/tidsinlärning, ÄTA, vikt, platser, sync och driftlogg_v4_full behålls.
 - v401: Smal sanering av GPS/sträcka efter avslutat uppdrag. Parkerar historisk GPS-/Snap-/sträckvisning, ruttavvikelseanalys och gamla redovisningskrav efter avslut. Aktiv GPS, geofence, Lastningslås/Lossningslås, ETA/Tid till/Klar ca, fasstöd, tillfälliga platser/geofence, Trippmätare separat och alla tider/tidsinlärning behålls. Ingen ändring av arbetsflöde, ÄTA, vikt, platser, material/mtrl kod, sync eller driftlogg_v4_full.
 - v400: Fortsatt kontrollkalibrering från v399-rapporten. Kalibrerar kvarvarande ÄTA-dubbelkontroll, v362 historisk GPS/Snap-kontroll och äldre sköra kontrollklassningar som letar efter omrenderad DOM/gammal källtext. Ingen ändring av ÄTA-flöde, arbetsflöde, GPS/geofence/ETA-sanning, vikt, sync, historikdata eller driftlogg_v4_full.
 - v399: Kontroll-/registreringsversion. Registrerar ÄTA-hjälpfunktioner från v391-v398 i källkodsbaseline och kalibrerar ÄTA-relaterade kontroller efter godkänd praktisk testning, utan att ändra ÄTA-flöde, Gmail/mail, mottagare, dagsmail, historiskt underlag, arbetsflöde eller driftlogg_v4_full.
@@ -413,7 +414,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v401';
+  const version = 'Stadslass 2.0 v402';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4255,7 +4256,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v401</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v402</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -4757,16 +4758,6 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
           <button class="inline" onclick="resetSnapRoadsTestResultV171()">Rensa Snap-test</button>
         </div>
         <div id="snapRoadsTestResultV171" class="multi-help map-test-result" style="margin-top:10px">Inget Snap-test kört.</div>
-      </div>
-
-      <div class="place-row" data-temp-snap-hist-test-v173="1">
-        <div class="place-key">Tillfällig Snap-historiktest v173</div>
-        <div class="multi-help"><strong>Tillfällig testfunktion.</strong> Läser senaste avslutade uppdrag med sparad GPS, gör ett Snap to Roads-test och visar resultatet direkt. Testet sparar inte om historik och påverkar inte sammanställning, Excel, tider, vikt, GPS-punkter, geofence eller tidsinlärning. Märkning i kod: SNAP-HIST-TEST-173.</div>
-        <div class="row" style="margin-top:12px">
-          <button class="primary inline" onclick="runTemporarySnapHistoryTestV173()">Testa Snap på senaste GPS-uppdrag</button>
-          <button class="inline" onclick="resetTemporarySnapHistoryTestV173()">Rensa historiktest</button>
-        </div>
-        <div id="temporarySnapHistoryTestResultV173" class="multi-help map-test-result" style="margin-top:10px">Tillfälligt historiktest är inte kört.</div>
       </div>
 
       <div class="place-row">
@@ -11210,35 +11201,13 @@ function discardActiveRouteGpsData(){
 }
 
 function discardFinishedRouteGpsData(jobId){
-  const job = (state.jobs || []).find(x => x.id === jobId);
-  if(!job) return;
-  discardRouteGpsData(job);
-  saveState();
-  renderToday();
-  renderHistoryManager();
+  // v402: historisk GPS/Snap/sträcka hanteras inte längre via jobbkortsknappar.
+  return;
 }
 
 function approveFinishedRouteGpsData(jobId){
-  const job = (state.jobs || []).find(x => x.id === jobId);
-  if(!job) return;
-  const rec = getRouteGps(job);
-  if(!rec || getRouteGpsStatus(job) === 'discarded'){
-    alert('GPS-data saknas eller är redan borttagen för detta uppdrag.');
-    return;
-  }
-  rec.status = 'saved';
-  updateRouteGpsSummary(rec, job.end || Date.now());
-  job.routeGpsStatus = 'saved';
-  job.routeGpsDiscarded = false;
-  delete job.routeGpsDiscardedAt;
-  job.routeGpsManualApproved = true;
-  job.routeGpsManualApprovedAt = Date.now();
-  job.excludeFromGpsLearning = false;
-  job.routeGpsApprovalNote = 'GPS-data sparad manuellt som ruttdata. Tidsinlärning påverkas inte automatiskt.';
-  saveState();
-  renderToday();
-  renderHistoryManager();
-  renderFunctionControlIdle();
+  // v402: historiskt Spara GPS-data är borttaget med godkännande.
+  return;
 }
 
 function resetRouteGpsForRestart(job){
@@ -13792,6 +13761,7 @@ function renderActiveMonitorIfOpen(){
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
 const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v400';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v402 hårdare historisk GPS/Snap-borttagning',
   'v401 sanering GPS/sträcka efter avslutat uppdrag',
   'v400 kontrollrapport kalibrering',
   'v399 ÄTA kontrollbaseline och registrering',
@@ -15822,7 +15792,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v401';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v402';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15847,6 +15817,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'HISTORICAL-GPS-SNAP-REMOVAL-V402', name:'Hårdare borttagning historisk GPS/Snap/sträcka v402', status:'Historik/GPS/Snap/Sträcka/Sanering', protectionStatus:'Aktiv', introduced:'v402', purpose:'v402 tar nästa smala saneringssteg efter v401: historisk Snap-efteranalys efter avslut skriver inte längre Snap-objekt, tillfällig Snap-historiktest tas bort ur synlig vy och ny historik får bara minimal saneringsmarkering utan GPS-/Snap-sträcksammanfattning. Aktiv GPS, geofence, Lastningslås/Lossningslås, ETA/Tid till/Klar ca, fasstöd, Trippmätare separat och alla tider/tidsinlärning behålls.', changeRule:'Får bara ta bort eller no-op:a historisk GPS/Snap/sträcklogik efter avslutat jobb och uppdatera kontroller/manifest. Får inte ändra aktiv GPS, geofence, ETA, arbetsflöde, starttid, sluttid, arbetstid, pausmedveten tid, debiterbar tid, ÄTA-tid, lastningstid, transporttid, lossningstid, returtid, fasmedian, tidsinlärning, snittid, jobbtyp/JT-ID, Från/Till/Returplats, adress/gata/Plus Code, vikt, materialkod/anläggning, kommentar, ÄTA-underlag, sync/spegling eller driftlogg_v4_full-nyckeln.'},
   {id:'HISTORICAL-GPS-DISTANCE-SANERING-V401', name:'Sanering GPS/sträcka efter avslutat uppdrag v401', status:'Historik/GPS/Snap/Sträcka/Sanering', protectionStatus:'Aktiv', introduced:'v401', purpose:'v401 parkerar GPS/Snap/sträcka som redovisningssanning efter avslutat uppdrag. Nya avslutade jobb sparas utan rå routeGps/Snap och utan historisk GPS-/Snap-/sträckvisning. Aktiv GPS, geofence, Lastningslås/Lossningslås, ETA/Tid till/Klar ca, fasstöd, tillfällig Annan plats-geofence, tillfälliga platser, Trippmätare separat och alla tider/tidsinlärning behålls.', changeRule:'Får bara sanera eller parkera historisk GPS/Snap/sträcklogik efter avslutat jobb och kalibrera kontroller/texter som krävde GPS/Snap på avslutade jobb. Får inte ändra starttid, sluttid, arbetstid, pausmedveten arbetstid, debiterbar tid, ÄTA-tid, lastningstid, transporttid, lossningstid, returtid, fasmedian, Stadslass tidsinlärning, snittid, jobbtyp/JT-ID, Från/Till/Returplats, adress/gata/Plus Code, vikt, materialkod/anläggning, kommentar, ÄTA-underlag, aktiv GPS/geofence/ETA, arbetsflöde, sync/spegling eller driftlogg_v4_full-nyckeln.'},
   {id:'CONTROL-REPORT-CALIBRATION-V400', name:'Kontrollrapport kalibrering v400', status:'Kontrollcentral/Funktionskontroll/Systemkontroll/Djupkontroll', protectionStatus:'Aktiv', introduced:'v400', purpose:'v400 kalibrerar kvarvarande sköra kontrollrader från v399-rapporten: ÄTA-dubbelkontroll, v362 historisk GPS/Snap-kontroll och äldre källtext-/DOM-beroende kontrollvillkor. Ändringen är en kontrollrapportändring och ändrar inte appens arbetsfunktioner.', changeRule:'Får bara ändra version, manifest, Aktiv övervakning, Funktionslista, kontrollvillkor, rapportklassning och kontrolltexter. Får inte ändra ÄTA-flöde, Gmail/mail, mottagare, arbetsledarens dagsmail, historiskt underlag, debiterbar tid, arbetsflöde, Lastar/Ange vikt/Klart, aktivt jobb, kö, historikdata, vikt, GPS/geofence/ETA-sanning, sync/spegling, Excel/sammanställning, material, mtrl kod/anläggning, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'CONTROL-ATA-BASELINE-CALIBRATION-V399', name:'ÄTA kontrollbaseline och registrering v399', status:'Kontrollcentral/Funktionslista/ÄTA', protectionStatus:'Aktiv', introduced:'v399', purpose:'v399 registrerar de ÄTA-hjälpfunktioner som tillkom i v391-v398 i källkodsbaseline och kalibrerar ÄTA-kontrollerna efter att ÄTA-kedjan är praktiskt testad och godkänd. Funktionen är en kontroll-/registreringsversion och ändrar inte själva ÄTA-flödet.', changeRule:'Får bara ändra version, manifest, Aktiv övervakning, Funktionslista/källkodsbaseline, Kontrollcentral och relevanta ÄTA-kontrollvillkor/rapporttexter. Får inte ändra ÄTA-mailens innehåll eller öppning, mottagare, arbetsledarens dagsmail, historiskt ÄTA-underlag, debiterbar tid, Klart-flöde, aktivt jobb, kö, historik, vikt, GPS/geofence/ETA, sync/spegling, Excel/sammanställning, material, mtrl kod/anläggning, backup/export eller driftlogg_v4_full-nyckeln.'},
@@ -16140,8 +16111,8 @@ const APP_FEATURE_MANIFEST = [
   {name:'Google-budget och enhetsspärrar v169', status:'Skyddad budgetfunktion', purpose:'Google-anrop räknas per enhet med roll Padda 65 % eller Mobil 5 %, dynamisk dagsspärr, hård månadsbudget och förberedd Snap-räknare utan aktiv Snap-analys.', changeRule:'Får bara styra om nya Google-anrop får göras. Får inte stoppa Starta jobb, Lastar, Ange vikt, Klart, GPS-inspelning, historik, backup, export eller ändra localStorage-nyckeln.'},
   {name:'Säker Google-budgetkorrigering v170', status:'Skyddad budgetfunktion', purpose:'Visar budgetmånad, senaste automatiska nollning och senaste manuella korrigering. Vanlig månadsnollning ersätts med varnad korrigering av räknarvärden så 70 %-spärren inte kringgås av misstag.', changeRule:'Får bara påverka lokal Google-budgetvisning och korrigering av räknarvärden. Får inte nolla månadsräknare utan bekräftad korrigering och får inte ändra jobb, vikt, GPS, geofence, historik, backup, export eller localStorage-nyckeln.'},
   {name:'Snap to Roads-test v171', status:'Testfunktion', purpose:'Inställningar har en manuell testknapp som använder Roads API/Snap to Roads med fasta testpunkter, räknar ett nytt testanrop i Snap-räknaren och visar OK/Fel utan att starta automatisk Snap-analys.', changeRule:'Får bara testa API-nyckel/Roads API och uppdatera lokal Snap-räknare. Får inte ändra aktivt jobb, kö, historik, GPS-sanning, geofence, vikt, tidsinlärning, backup, export, chefsexport eller localStorage-nyckeln.'},
-  {name:'Automatisk Snap-efteranalys v172', status:'Skyddad efteranalys', purpose:'Efter Klart kan appen använda sparade GPS-punkter för ett Snap to Roads-anrop, räkna det i Snap-budgeten och spara vägjusterad körsträcka som rapport-/sammanfattningsdata.', changeRule:'Får inte ändra jobbets sanning, manuell fasdata, tider, vikt, geofence, GPS-inspelning, historiklogik, backup/export, tidsinlärning eller localStorage-nyckeln. Om GPS, nyckel, budget eller Roads API saknas ska funktionen bara hoppa över och rapportera varför.'},
-  {name:'Tillfällig Snap-historiktest v173', status:'Tillfällig testfunktion', purpose:'Inställningar har en märkt tillfällig knapp som läser senaste avslutade uppdrag med sparad GPS, gör ett Snap to Roads-test och visar resultat direkt.', changeRule:'Får endast läsa historik och uppdatera lokal Snap-räknare. Får inte spara om historik, sammanställning, Excel, tider, vikt, GPS-punkter, geofence, tidsinlärning, backup/export eller localStorage-nyckeln. Ska kunna tas bort samlat via märkningen SNAP-HIST-TEST-173.'},
+  {name:'Automatisk Snap-efteranalys v172', status:'Borttagen med godkännande', purpose:'Automatisk Snap-efteranalys efter Klart är borttagen från historisk redovisning i v402. Aktiv GPS/geofence/ETA och manuell Snap to Roads-testknapp v171 påverkas inte.', changeRule:'Ska inte återaktiveras för avslutade jobb utan nytt uttryckligt beslut. Får inte skriva historiska Snap-objekt, vägjusterad sträcka eller GPS-sträcka som redovisningssanning efter avslut.'},
+  {name:'Tillfällig Snap-historiktest v173', status:'Borttagen med godkännande', purpose:'Den tillfälliga Snap-historiktestknappen är borttagen i v402 eftersom historisk GPS/Snap/sträcka efter avslut inte längre ska vara redovisningssanning.', changeRule:'Ska inte återinföras utan nytt uttryckligt beslut. Manuell Snap to Roads-testknapp v171 för API-kontroll kan finnas kvar separat eftersom den inte läser avslutade uppdrag.'},
   {name:'Reparation Annan plats v175', status:'Reparation/isolering', purpose:'Bygger från v173 och lägger till isolerade uppdragsfält för Från/Till Annan plats med adress/Plus Code, ETA-koordinat och tillfälligt 80 m geofence.', changeRule:'Får inte ändra Platser-registret, placeConfigs, placeUsage, snabbval, permanenta geofence, vikt, GPS-sanning, historik, backup/export eller localStorage-nyckel. V174:s listpåverkan ska inte följa med.'},
   {name:'Platslogik inställningsstyrd v178', status:'Struktur/rensning', purpose:'Vanliga Från/Till-listor styrs av Platser-inställningarnas Från/Till-jobbtyper i stället för gamla hårdkodade platsregler. Ringön behandlas som vanlig plats och tomma --- poster filtreras bort.', changeRule:'Får inte ändra sparade Platser, placeConfigs, snabbval, Havstång/badplatser, materialkoder, geofence, vikt, GPS, historik, backup/export eller localStorage-nyckel.'},
   {name:'Maskintransport platsval i Nytt jobb v179', status:'Reparation/struktur', purpose:'Maskintransport använder samma tillfälliga Annan plats-stöd som vanliga uppdrag och maskinrutan visas även när Maskintransport väljs i Nytt jobb.', changeRule:'Får inte ändra maskinlistan, sparade platser, snabbval, Havstång/badplatser, GPS, Snap, vikt, historik, backup/export eller localStorage-nyckel.'},
@@ -17990,7 +17961,7 @@ function buildFunctionProtectionRowsV329(){
   const audioCode = hasNewJobReceivedAudioCodeV329();
   const rows = [];
   const add = (id, name, ok, detail, level) => rows.push({id, name, ok:!!ok, detail:String(detail || ''), level:level || (ok ? 'OK' : 'KRITISK')});
-  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392' || currentShort === 'v393' || currentShort === 'v394' || currentShort === 'v395' || currentShort === 'v397' || currentShort === 'v398' || currentShort === 'v399' || currentShort === 'v400' || currentShort === 'v401'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
+  add('VERSION-CONSISTENCY-V351', 'Aktuell version konsekvent', APP_VERSION === (window.STADSLASS_APP_VERSION || APP_VERSION) && (currentShort === 'v354' || currentShort === 'v355' || currentShort === 'v356' || currentShort === 'v357' || currentShort === 'v358' || currentShort === 'v359' || currentShort === 'v360' || currentShort === 'v361' || currentShort === 'v362' || currentShort === 'v363' || currentShort === 'v364' || currentShort === 'v365' || currentShort === 'v366' || currentShort === 'v367' || currentShort === 'v368' || currentShort === 'v369' || currentShort === 'v370' || currentShort === 'v371' || currentShort === 'v372' || currentShort === 'v373' || currentShort === 'v374' || currentShort === 'v375' || currentShort === 'v376' || currentShort === 'v377' || currentShort === 'v378' || currentShort === 'v379' || currentShort === 'v380' || currentShort === 'v381' || currentShort === 'v382' || currentShort === 'v383' || currentShort === 'v384' || currentShort === 'v385' || currentShort === 'v386' || currentShort === 'v387' || currentShort === 'v388' || currentShort === 'v389' || currentShort === 'v390' || currentShort === 'v391' || currentShort === 'v392' || currentShort === 'v393' || currentShort === 'v394' || currentShort === 'v395' || currentShort === 'v397' || currentShort === 'v398' || currentShort === 'v399' || currentShort === 'v400' || currentShort === 'v401' || currentShort === 'v402'), 'APP_VERSION=' + APP_VERSION + '; boot=' + (window.STADSLASS_APP_VERSION || '-'), 'KRITISK');
   add('MANIFEST-CURRENT-VERSION-V347', 'Funktionslistan är uppdaterad för aktuell version', currentManifest, 'current=' + currentShort + '; manifestPoster=' + manifest.length, 'KRITISK');
   add('MANIFEST-IDS-V334', 'Funktionsposter har unika ID:n/namn', duplicateIds.length === 0, duplicateIds.length ? duplicateIds.slice(0,30).join(', ') : 'unika poster=' + ids.size, 'KRITISK');
   add('REMOVAL-APPROVAL-V334', 'Borttagna funktioner kräver godkännande', unapprovedRemoved.length === 0, unapprovedRemoved.length ? unapprovedRemoved.map(f => f.name).join(', ') : 'inga ogodkända borttagningar i manifest', 'KRITISK');
@@ -17999,6 +17970,7 @@ function buildFunctionProtectionRowsV329(){
   add('CONTROL-ATA-BASELINE-CALIBRATION-V399', 'ÄTA kontrollbaseline och registrering v399', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-ATA-BASELINE-CALIBRATION-V399') && Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329) && typeof ATA_CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V399 !== 'undefined' && ATA_CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V399.every(function(name){ return APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) >= 0; }), 'registrerade ÄTA-hjälpfunktioner=' + (typeof ATA_CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V399 !== 'undefined' ? ATA_CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V399.length : 0) + '; ÄTA-kedjan praktiskt godkänd och kontroller kalibrerade', 'KRITISK');
   add('CONTROL-REPORT-CALIBRATION-V400', 'Kontrollrapport kalibrering v400', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-CALIBRATION-V400') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v400 kontrollrapport kalibrering')), 'v400 kalibrerar kvarvarande ÄTA-dubbelkontroll, v362 historisk GPS/Snap-kontroll och äldre sköra kontrollklassningar utan att ändra arbetsdata', 'KRITISK');
   add('HISTORICAL-GPS-DISTANCE-SANERING-V401', 'Sanering GPS/sträcka efter avslutat uppdrag v401', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-DISTANCE-SANERING-V401') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v401 sanering GPS/sträcka')), 'GPS/Snap/sträcka efter avslut parkerad som redovisningssanning; aktiv GPS/geofence/ETA, trippmätare och tider behålls', 'KRITISK');
+  add('HISTORICAL-GPS-SNAP-REMOVAL-V402', 'Hårdare borttagning historisk GPS/Snap/sträcka v402', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-SNAP-REMOVAL-V402') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v402 hårdare historisk GPS/Snap-borttagning')) && !document.getElementById('temporarySnapHistoryTestResultV173'), 'tillfällig Snap-historiktest borttagen och automatisk Snap-efteranalys skriver inte historiska Snap-objekt', 'KRITISK');
   add('AUDIO-NEW-JOB-RECEIVED', 'Ljud vid mottagning av nytt uppdrag', audioManifest && audioCode, 'manifest=' + (audioManifest ? 'ja' : 'nej') + '; ljudkod=' + (audioCode ? 'hittad' : 'saknas'), 'KRITISK');
   add('CONTROL-CENTER-LIST-V331', 'Funktionslista finns i Kontrollcentralen', !!document.getElementById('controlCenterFunctionProtectionButtonV329') && typeof runControlCenterFunctionPreservationV329 === 'function', 'button=' + (!!document.getElementById('controlCenterFunctionProtectionButtonV329')) + '; runFn=' + (typeof runControlCenterFunctionPreservationV329 === 'function'), 'KRITISK');
   add('REPORT-FILENAMES-SHORT-V331', 'Korta rapportfilnamn', typeof controlCenterReportTypeSlugV331 === 'function' && functionSourceIncludes('downloadControlCenterReportFileV303', 'controlCenterReportTypeSlugV331') && !functionSourceIncludes('downloadControlCenterReportFileV303', 'stadslass-kontrollrapport-'), 'filnamn=rapporttyp-version-tid', 'KRITISK');
@@ -18384,8 +18356,8 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Google-budget och enhetsspärrar v169', fn('getGoogleBudgetStatusV169') && fn('canMakeMapRequest') && fn('canMakeSnapRoadsRequestV169') && fn('registerSnapRoadsRequestV169') && !!el('googleBudgetDeviceRoleV169') && !!el('googleBudgetStatusV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169'), 'Padda/Mobil-roll, dynamisk dagsspärr, månadsbudget och Snap-räknare är laddade utan att starta Snap-analys');
   addFunctionCheck(results, 'Nivå 2', 'Säker Google-budgetkorrigering v170', fn('toggleGoogleBudgetCorrectionV170') && fn('saveGoogleBudgetCorrectionV170') && fn('getGoogleBudgetResetSummaryHtmlV170') && !!el('googleBudgetCorrectionV170') && !!el('googleBudgetRouteMonthV170') && !!el('googleBudgetSnapMonthV170') && !src('renderMapGuardStatus', 'Rensa anropsräknare') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170'), 'budgetmånad/nollningsinfo visas och månadsräknare korrigeras med varning i stället för vanlig nollning');
   addFunctionCheck(results, 'Nivå 2', 'Snap to Roads-test v171', fn('runSnapRoadsTestV171') && fn('requestSnapRoadsTestV171') && fn('setSnapRoadsTestResultV171') && !!el('snapRoadsTestResultV171') && src('requestSnapRoadsTestV171', 'roads.googleapis.com/v1/snapToRoads') && src('requestSnapRoadsTestV171', 'registerSnapRoadsRequestV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171'), 'manuell testknapp använder Roads API, räknas i Snap-räknaren och startar ingen automatisk Snap-analys');
-  addFunctionCheck(results, 'Nivå 2', 'Automatisk Snap-efteranalys v172 parkerad v401', fn('runAutomaticSnapRoadsAnalysisV172') && fn('getSnapRoadsAnalysisHtmlV172') && src('getSnapRoadsAnalysisHtmlV172', 'if(job && job.end) return') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-DISTANCE-SANERING-V401'), 'Snap efter avslut visas inte som historisk redovisningssträcka i v401; aktiv GPS/geofence/ETA påverkas inte');
-  addFunctionCheck(results, 'Nivå 2', 'Tillfällig Snap-historiktest v173', fn('runTemporarySnapHistoryTestV173') && fn('getTemporarySnapHistoryCandidateV173') && fn('resetTemporarySnapHistoryTestV173') && !!el('temporarySnapHistoryTestResultV173') && src('runTemporarySnapHistoryTestV173', 'requestSnapRoadsForJobV172') && src('runTemporarySnapHistoryTestV173', 'SNAP-HIST-TEST-173') && !src('runTemporarySnapHistoryTestV173', 'saveState(') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173'), 'tillfällig läsande testknapp för senaste avslutade GPS-uppdrag; sparar inte om historik');
+  addFunctionCheck(results, 'Nivå 2', 'Automatisk Snap-efteranalys borttagen v402', fn('runAutomaticSnapRoadsAnalysisV172') && fn('getSnapRoadsAnalysisHtmlV172') && src('runAutomaticSnapRoadsAnalysisV172', 'delete job.snapRoadsAnalysisV172') && src('getSnapRoadsAnalysisHtmlV172', "return ''") && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-SNAP-REMOVAL-V402'), 'automatisk Snap efter avslut skriver inte längre historiska Snap-objekt; aktiv GPS/geofence/ETA påverkas inte');
+  addFunctionCheck(results, 'Nivå 2', 'Tillfällig Snap-historiktest borttagen v402', fn('runTemporarySnapHistoryTestV173') && fn('getTemporarySnapHistoryCandidateV173') && !el('temporarySnapHistoryTestResultV173') && !src('runTemporarySnapHistoryTestV173', 'requestSnapRoadsForJobV172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173' && item.status === 'Borttagen med godkännande'), 'tillfällig historisk Snap-testknapp är borttagen med godkännande; vanlig Snap API-testknapp v171 påverkas inte');
   addFunctionCheck(results, 'Nivå 2', 'Reparation Annan plats v175', fn('collectTemporaryOtherPlacesV175') && fn('applyTemporaryOtherPlacesToJobV175') && fn('getTemporaryPlaceInfoForJobRoleV175') && fn('resolveMapPointFromTemporaryOtherPlaceV175') && !!el('newTemporaryFromPlaceWrap') && !!el('newTemporaryToPlaceWrap') && !!el('editQueueTemporaryFromPlaceWrap') && !!el('editQueueTemporaryToPlaceWrap') && src('startManualJob', 'collectTemporaryOtherPlacesV175') && src('addManualJobToQueue', 'collectTemporaryOtherPlacesV175') && src('saveEditedQueueJob', 'collectTemporaryOtherPlacesV175') && src('buildTemporaryJobGeofenceZone', 'coord.radiusMeters') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175'), 'Annan plats har isolerade uppdragsfält, ETA-koordinat och tillfälligt 80 m geofence utan att röra Platser-registret');
   addFunctionCheck(results, 'Nivå 2', 'Platslogik inställningsstyrd v178', fn('getSettingsControlledPlaceValuesForJobTypeV178') && fn('sanitizePlaceValueListV178') && src('getFilteredPlaceValuesForJobType', 'getSettingsControlledPlaceValuesForJobTypeV178') && src('getFixedPlaceValuesForJobType', "type === 'Havstång'") && src('getFixedPlaceValuesForJobType', 'return [];') && src('quickDestOptions', 'getFreeDestinationValuesWithStandardFirst') && getFilteredPlaceValuesForJobType('Havstång', 'from', '').includes('Ringön (BAS)') && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslogik inställningsstyrd v178'), 'vanliga Från/Till-listor följer Platser-inställningar; Havstång/badplatser undantas; gamla Ringön-spärrar neutraliseras');
   addFunctionCheck(results, 'Nivå 2', 'Maskintransport platsval i Nytt jobb v179', fn('isMachineTransportTypeV179') && fn('getMachineTransportPlaceValuesV179') && getFilteredPlaceValuesForJobType('Maskintransport', 'from', '').includes('Annan plats') && getFilteredPlaceValuesForJobType('Maskintransport', 'to', '').includes(SYSTEM_OTHER_PLACE_TO_V186) && src('updateNewMachineUI', 'isMachineTransportTypeV179') && src('startManualJob', 'temporaryPlaces:temporaryPlaces') && APP_FEATURE_MANIFEST.some(item => item.name === 'Maskintransport platsval i Nytt jobb v179'), 'Maskintransport får Annan plats i Nytt jobb och behåller maskinrutan utan att ändra maskinlista eller snabbval');
@@ -19146,8 +19118,8 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('v197: Uppskattad tid visar Väntar på transportläge när Stadslass spärrar karttid under Lastning/rangering.');
   lines.push('v201: Missad Lastning kan registreras manuellt efter att Från-plats har lämnats, med fullbredd reparationsknapp och bevarad geofence-observerad transportstart.');
   lines.push('v202: Inställningar är textknapp, Huvudmeny heter Snabbval och Nytt jobb heter Nytt uppdrag.');
-  lines.push('v203/v401: Idag / Dagens sammanfattning visar inte längre GPS/Snap-sträcka som redovisningssanning efter avslut.');
-  lines.push('v204/v401: Idag har separat trippmätare med start/slut km, numeriskt tangentbord och sparade kompletta dagar utan jämförelse mot Stadslass historiska sträcka.');
+  lines.push('v203/v402: Idag / Dagens sammanfattning visar inte längre GPS/Snap-sträcka som redovisningssanning efter avslut.');
+  lines.push('v204/v402: Idag har separat trippmätare med start/slut km, numeriskt tangentbord och sparade kompletta dagar utan jämförelse mot Stadslass historiska sträcka.');
   lines.push('v205: Trippmätaren visades tidigare före Dagens sammanfattning i Idag. v246 flyttar inmatningen till Uppdrag i kö utan ändrad beräkning.');
   lines.push('v249: Inställningar organiseras visuellt med Platsregister först och tydligare kategorier.');
   lines.push('v251: Paddans kö-spegling visar även paddans aktuella status/aktiva uppdrag från befintlig paddstatus utan styrknappar.');
@@ -19503,8 +19475,8 @@ function buildFunctionControlTextReportV165(results, createdAt){
   lines.push('v197: Uppskattad tid visar Väntar på transportläge när Stadslass spärrar karttid under Lastning/rangering.');
   lines.push('v201: Missad Lastning kan registreras manuellt efter att Från-plats har lämnats, med fullbredd reparationsknapp och bevarad geofence-observerad transportstart.');
   lines.push('v202: Inställningar är textknapp, Huvudmeny heter Snabbval och Nytt jobb heter Nytt uppdrag.');
-  lines.push('v203/v401: Idag / Dagens sammanfattning visar inte längre GPS/Snap-sträcka som redovisningssanning efter avslut.');
-  lines.push('v204/v401: Idag har separat trippmätare med start/slut km, numeriskt tangentbord och sparade kompletta dagar utan jämförelse mot Stadslass historiska sträcka.');
+  lines.push('v203/v402: Idag / Dagens sammanfattning visar inte längre GPS/Snap-sträcka som redovisningssanning efter avslut.');
+  lines.push('v204/v402: Idag har separat trippmätare med start/slut km, numeriskt tangentbord och sparade kompletta dagar utan jämförelse mot Stadslass historiska sträcka.');
   lines.push('v205: Trippmätaren visades tidigare före Dagens sammanfattning i Idag. v246 flyttar inmatningen till Uppdrag i kö utan ändrad beräkning.');
   lines.push('v249: Inställningar organiseras visuellt med Platsregister först och tydligare kategorier.');
   lines.push('v248: ETA visar Tid till nästa mål direkt efter Lastad/vikt men håller nedräkning/Klar ca tills transport-/returläge.');
@@ -19734,7 +19706,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Tillfällig plats adressvisning och pausmedveten tid v360', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-ADDRESS-PAUSE-TIME-V360') && typeof getTemporaryOtherPlaceVisibleLabelV360 === 'function' && typeof getPauseAwareWorkSessionMsV360 === 'function' && functionSourceIncludes('requestGoogleGeocodeForPlaceReference', 'streetAddress') && functionSourceIncludes('getSummaryRowTimeMs', 'v360'), 'Plus Code/adress kan ge gata/väg i Från/Till och pausade jobb räknas med workSessions utan synliga extra rader'),
     systemCheck('Tillfällig plats reverse-adress v361', APP_FEATURE_MANIFEST.some(item => item.id === 'TEMP-PLACE-REVERSE-ADDRESS-V361') && typeof requestGoogleReverseGeocodeForLatLonV361 === 'function' && typeof refreshTemporaryOtherPlaceReverseAddressV361 === 'function' && typeof pickBestGoogleAddressResultV361 === 'function', 'tillfällig Plus Code kan reverse-geokodas från koordinat så gata/väg visas före Plus Code'),
     systemCheck('Ny historik utan rå GPS/Snap v362', APP_FEATURE_MANIFEST.some(item => item.id === 'FUTURE-GPS-HISTORY-LITE-V362') && typeof stripNewFinishedJobGpsSnapV362 === 'function' && typeof buildFinishedGpsSnapHistorySummaryV362 === 'function' && (functionSourceIncludes('stopJob', 'stripNewFinishedJobGpsSnapV362') || functionSourceIncludes('completeQueuedJob', 'stripNewFinishedJobGpsSnapV362') || (Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329) && APP_FUNCTION_SOURCE_BASELINE_V329.indexOf('stripNewFinishedJobGpsSnapV362') >= 0)), 'avslutsrapport kan läsa GPS före historikjobbet sparas utan rå GPS/Snap'),
-    systemCheck('Sanering GPS/sträcka efter avslutat uppdrag v401', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-DISTANCE-SANERING-V401') && functionSourceIncludes('stripNewFinishedJobGpsSnapV362', 'historicalGpsDistanceSanitizedV401') && functionSourceIncludes('getJobBestDistanceChoiceV211', 'sanerad_v401') && functionSourceIncludes('getTodayTripMeterHtmlV204', 'Trippmätaren är separat'), 'GPS/Snap/sträcka efter avslut är parkerad; aktiv GPS/geofence/ETA och tider behålls'),
+    systemCheck('Sanering GPS/sträcka efter avslutat uppdrag v401', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-DISTANCE-SANERING-V401') && functionSourceIncludes('stripNewFinishedJobGpsSnapV362', 'historicalGpsSnapHardRemovedV402') && functionSourceIncludes('getJobBestDistanceChoiceV211', 'sanerad_v401') && functionSourceIncludes('getTodayTripMeterHtmlV204', 'Trippmätaren är separat'), 'GPS/Snap/sträcka efter avslut är parkerad; aktiv GPS/geofence/ETA och tider behålls'),
     systemCheck('GPS/Snap/ETA precisionsregler v211', typeof buildSnapRoadsSegmentsForJobV211 === 'function' && typeof getJobBestDistanceChoiceV211 === 'function' && typeof evaluateSnapDistanceReasonabilityV211 === 'function' && MAP_AUTO_RECALC_INTERVAL_MINUTES === 2.5 && APP_FEATURE_MANIFEST.some(item => item.name === 'GPS/Snap/ETA precisionsregler v211'), 'Fasdelad Snap + rimlighetsval + 2,5 min ETA'),
     systemCheck('Sträckval v212 parkerad i historik v401', typeof getJobDistanceChoiceHtmlV212 === 'function' && functionSourceIncludes('getJobBestDistanceChoiceV211', 'sanerad_v401') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-DISTANCE-SANERING-V401'), 'Historiska jobb använder inte GPS/Snap-sträcka som redovisningssanning'),
     systemCheck('Bred returknapp v213', functionSourceIncludes('renderActiveTransportPhaseControl', "visualLabel === 'Retur pågår'") && functionSourceIncludes('renderActiveTransportPhaseControl', 'returnWide') && functionSourceIncludes('renderActiveTransportPhaseControl', "btn.classList.add('return-wide')") && APP_FEATURE_MANIFEST.some(item => item.name === 'Bred returknapp v213'), 'Retur pågår-knappen blir fullbredd/centrerad som ren visuell ändring'),
@@ -19820,8 +19792,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Google-budget och enhetsspärrar v169', typeof getGoogleBudgetStatusV169 === 'function' && typeof canMakeSnapRoadsRequestV169 === 'function' && typeof registerSnapRoadsRequestV169 === 'function' && document.getElementById('googleBudgetDeviceRoleV169') && document.getElementById('googleBudgetStatusV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Google-budget och enhetsspärrar v169'), (function(){ const r = getMapGuardStatus(); const s = getSnapGuardStatusV169(); return r.roleLabel + ' · rutter idag ' + r.dayCount + '/' + r.dayLimit + ', månad ' + r.monthCount + '/' + r.monthlyLimit + ' · Snap idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit; })()),
     systemCheck('Säker Google-budgetkorrigering v170', typeof toggleGoogleBudgetCorrectionV170 === 'function' && typeof saveGoogleBudgetCorrectionV170 === 'function' && typeof getGoogleBudgetResetSummaryHtmlV170 === 'function' && document.getElementById('googleBudgetCorrectionV170') && document.getElementById('googleBudgetRouteMonthV170') && document.getElementById('googleBudgetSnapMonthV170') && APP_FEATURE_MANIFEST.some(item => item.name === 'Säker Google-budgetkorrigering v170'), (function(){ const r = getMapGuardStatus(); return 'budgetmånad ' + r.monthKey + ' · senaste korrigering ' + formatGoogleBudgetTimestampV170(r.lastManualCorrectionAt); })()),
     systemCheck('Snap to Roads-test v171', typeof runSnapRoadsTestV171 === 'function' && typeof requestSnapRoadsTestV171 === 'function' && typeof setSnapRoadsTestResultV171 === 'function' && document.getElementById('snapRoadsTestResultV171') && functionSourceIncludes('requestSnapRoadsTestV171', 'roads.googleapis.com/v1/snapToRoads') && functionSourceIncludes('requestSnapRoadsTestV171', 'registerSnapRoadsRequestV169') && APP_FEATURE_MANIFEST.some(item => item.name === 'Snap to Roads-test v171'), (function(){ const s = getSnapGuardStatusV169(); return 'Snap-test redo · idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit + ' · fasdelad automatisk Snap-efteranalys v211 finns separat'; })()),
-    systemCheck('Automatisk Snap-efteranalys v172', typeof runAutomaticSnapRoadsAnalysisV172 === 'function' && typeof requestSnapRoadsForJobV172 === 'function' && typeof getSnapRoadsAnalysisHtmlV172 === 'function' && functionSourceIncludes('stopJob', 'await runAutomaticSnapRoadsAnalysisV172') && functionSourceIncludes('completeQueuedJob', 'await runAutomaticSnapRoadsAnalysisV172') && functionSourceIncludes('buildActiveMonitorEndReport', 'SNAP TO ROADS') && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172'), (function(){ const s = getSnapGuardStatusV169(); return 'Snap efteranalys aktiv · idag ' + s.dayCount + '/' + s.dayLimit + ', månad ' + s.monthCount + '/' + s.monthlyLimit; })()),
-    systemCheck('Tillfällig Snap-historiktest v173', typeof runTemporarySnapHistoryTestV173 === 'function' && typeof getTemporarySnapHistoryCandidateV173 === 'function' && typeof resetTemporarySnapHistoryTestV173 === 'function' && document.getElementById('temporarySnapHistoryTestResultV173') && functionSourceIncludes('runTemporarySnapHistoryTestV173', 'SNAP-HIST-TEST-173') && !functionSourceIncludes('runTemporarySnapHistoryTestV173', 'saveState(') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173'), 'tillfällig läsande historiktestknapp · sparar inte om avslutat uppdrag'),
+    systemCheck('Automatisk Snap-efteranalys borttagen v402', typeof runAutomaticSnapRoadsAnalysisV172 === 'function' && typeof getSnapRoadsAnalysisHtmlV172 === 'function' && functionSourceIncludes('runAutomaticSnapRoadsAnalysisV172', 'delete job.snapRoadsAnalysisV172') && functionSourceIncludes('getSnapRoadsAnalysisHtmlV172', "return ''") && APP_FEATURE_MANIFEST.some(item => item.name === 'Automatisk Snap-efteranalys v172' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-SNAP-REMOVAL-V402'), 'automatisk Snap efter avslut skriver inte längre historiska Snap-objekt; vanlig manuell API-testknapp v171 påverkas inte'),
+    systemCheck('Tillfällig Snap-historiktest borttagen v402', typeof runTemporarySnapHistoryTestV173 === 'function' && typeof getTemporarySnapHistoryCandidateV173 === 'function' && !document.getElementById('temporarySnapHistoryTestResultV173') && !functionSourceIncludes('runTemporarySnapHistoryTestV173', 'requestSnapRoadsForJobV172') && APP_FEATURE_MANIFEST.some(item => item.name === 'Tillfällig Snap-historiktest v173' && item.status === 'Borttagen med godkännande'), 'tillfällig historisk Snap-testknapp är borttagen med godkännande'),
     systemCheck('Reparation Annan plats v175', typeof collectTemporaryOtherPlacesV175 === 'function' && typeof applyTemporaryOtherPlacesToJobV175 === 'function' && typeof getTemporaryPlaceInfoForJobRoleV175 === 'function' && typeof resolveMapPointFromTemporaryOtherPlaceV175 === 'function' && document.getElementById('newTemporaryFromPlaceWrap') && document.getElementById('newTemporaryToPlaceWrap') && document.getElementById('editQueueTemporaryFromPlaceWrap') && document.getElementById('editQueueTemporaryToPlaceWrap') && functionSourceIncludes('startManualJob', 'collectTemporaryOtherPlacesV175') && functionSourceIncludes('addManualJobToQueue', 'collectTemporaryOtherPlacesV175') && functionSourceIncludes('saveEditedQueueJob', 'collectTemporaryOtherPlacesV175') && functionSourceIncludes('buildTemporaryJobGeofenceZone', 'coord.radiusMeters') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175'), 'byggd från v173-bas · Annan plats isolerad · 80 m tillfälligt geofence · v174-listpåverkan följer inte med'),
     systemCheck('Platslogik inställningsstyrd v178', typeof getSettingsControlledPlaceValuesForJobTypeV178 === 'function' && typeof sanitizePlaceValueListV178 === 'function' && functionSourceIncludes('getFilteredPlaceValuesForJobType', 'getSettingsControlledPlaceValuesForJobTypeV178') && functionSourceIncludes('getFixedPlaceValuesForJobType', "type === 'Havstång'") && functionSourceIncludes('getFixedPlaceValuesForJobType', 'return [];') && functionSourceIncludes('quickDestOptions', 'getFreeDestinationValuesWithStandardFirst') && getFilteredPlaceValuesForJobType('Havstång', 'to', '').includes(SYSTEM_OTHER_PLACE_TO_V186) && APP_FEATURE_MANIFEST.some(item => item.name === 'Platslogik inställningsstyrd v178'), 'vanliga listor styrs av Platser-inställningar · Ringön ingen BAS-spärr · Havstång/badplatser undantagna'),
     systemCheck('Maskintransport platsval i Nytt jobb v179', typeof isMachineTransportTypeV179 === 'function' && typeof getMachineTransportPlaceValuesV179 === 'function' && getFilteredPlaceValuesForJobType('Maskintransport', 'from', '').includes('Annan plats') && getFilteredPlaceValuesForJobType('Maskintransport', 'to', '').includes(SYSTEM_OTHER_PLACE_TO_V186) && functionSourceIncludes('updateNewMachineUI', 'isMachineTransportTypeV179') && functionSourceIncludes('startManualJob', 'temporaryPlaces:temporaryPlaces') && APP_FEATURE_MANIFEST.some(item => item.name === 'Maskintransport platsval i Nytt jobb v179'), 'Maskintransport får Annan plats och maskinruta via Nytt jobb utan ändring av maskinlista/snabbval'),
@@ -20567,8 +20539,8 @@ function buildControlCenterReportV189(sourceLabel){
   lines.push('v338: Rapporttexten poleras så versionsrensning inte lämnar avklippta meningar.');
   lines.push('v201: Missad Lastning kan registreras manuellt efter att Från-plats har lämnats, med fullbredd reparationsknapp och bevarad geofence-observerad transportstart.');
   lines.push('v202: Inställningar är textknapp, Huvudmeny heter Snabbval och Nytt jobb heter Nytt uppdrag.');
-  lines.push('v203/v401: Idag / Dagens sammanfattning visar inte längre GPS/Snap-sträcka som redovisningssanning efter avslut.');
-  lines.push('v204/v401: Idag har separat trippmätare med start/slut km, numeriskt tangentbord och sparade kompletta dagar utan jämförelse mot Stadslass historiska sträcka.');
+  lines.push('v203/v402: Idag / Dagens sammanfattning visar inte längre GPS/Snap-sträcka som redovisningssanning efter avslut.');
+  lines.push('v204/v402: Idag har separat trippmätare med start/slut km, numeriskt tangentbord och sparade kompletta dagar utan jämförelse mot Stadslass historiska sträcka.');
   lines.push('v205: Trippmätaren visades tidigare före Dagens sammanfattning i Idag. v246 flyttar inmatningen till Uppdrag i kö utan ändrad beräkning.');
   lines.push('v249: Inställningar organiseras visuellt med Platsregister först och tydligare kategorier.');
   lines.push('v248: ETA visar Tid till nästa mål direkt efter Lastad/vikt men håller nedräkning/Klar ca tills transport-/returläge.');
@@ -22834,10 +22806,11 @@ function stripNewFinishedJobGpsSnapV362(job, completedFrom){
       pointCount:summary.gpsPointCount,
       removedBytes:removedBytes,
       removedKeys:removedKeys.slice(),
-      note:'v401: Nyavslutat jobb sparas utan rå GPS/Snap/sträckfält i historiken. Aktiv GPS, fas-/geofenceunderlag, ETA, tider, vikt, platser och ÄTA-underlag behålls.'
+      note:'v402: Nyavslutat jobb sparas utan rå GPS/Snap/sträckfält och utan GPS-/Snap-sträcksammanfattning i historiken. Aktiv GPS före avslut, fas-/geofenceunderlag, ETA, tider, vikt, platser och ÄTA-underlag behålls.'
     };
-    job.routeGpsSummaryV362 = summary;
+    delete job.routeGpsSummaryV362;
     job.historicalGpsDistanceSanitizedV401 = true;
+    job.historicalGpsSnapHardRemovedV402 = true;
   }
   return job;
 }
@@ -24546,115 +24519,28 @@ function getSnapRoadsAnalysisV172(job){
 
 // SNAP-HIST-TEST-173: tillfällig, läsande testfunktion. Får inte spara om historik eller ändra uppdrag.
 function setTemporarySnapHistoryTestResultV173(html, isError, isSuccess){
-  const el = document.getElementById('temporarySnapHistoryTestResultV173');
-  if(!el) return;
-  el.classList.toggle('error', !!isError);
-  el.classList.toggle('success', !!isSuccess);
-  el.innerHTML = html;
+  return;
 }
 
 function resetTemporarySnapHistoryTestV173(){
-  setTemporarySnapHistoryTestResultV173('Tillfälligt historiktest är inte kört.', false, false);
+  return;
 }
 
 function calculateTemporarySnapHistoryGpsDistanceKmV173(points){
-  const list = Array.isArray(points) ? points.filter(p => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon))) : [];
-  let distance = 0;
-  for(let i = 1; i < list.length; i++){
-    const delta = haversineKm(Number(list[i - 1].lat), Number(list[i - 1].lon), Number(list[i].lat), Number(list[i].lon));
-    if(Number.isFinite(delta) && delta > 0 && delta < 5) distance += delta;
-  }
-  return Number(distance.toFixed(3));
+  return 0;
 }
 
 function getTemporarySnapHistoryCandidateV173(){
-  const jobs = (typeof getFinishedJobsForUnderlag === 'function' ? getFinishedJobsForUnderlag() : (state.jobs || []))
-    .filter(job => {
-      if(!job || job.receiptImported || isOtherWorkJob(job) || !isRouteGpsRecordingAllowedForJob(job)) return false;
-      if(job.routeGpsDiscarded || getRouteGpsStatus(job) === 'discarded') return false;
-      const rec = getRouteGps(job);
-      if(!rec || rec.status !== 'saved' || !Array.isArray(rec.points)) return false;
-      return getValidSnapRoadsGpsPointsV172(job).length >= 2;
-    })
-    .sort((a,b) => Number(b.end || b.start || 0) - Number(a.end || a.start || 0));
-  if(!jobs.length) return null;
-  const job = jobs[0];
-  const rec = getRouteGps(job);
-  const gpsPoints = getValidSnapRoadsGpsPointsV172(job);
-  return {job, rec, gpsPoints};
+  return null;
 }
 
 function describeTemporarySnapHistoryJobV173(job){
-  if(!job) return '-';
-  const type = job.displayType || job.type || 'Uppdrag';
-  const date = job.date || (job.start ? new Date(job.start).toISOString().slice(0,10) : 'okänt datum');
-  const from = (typeof getItemPlaceLabel === 'function' ? getItemPlaceLabel(job, 'place') : '') || job.place || '-';
-  const to = (typeof getItemPlaceLabel === 'function' ? getItemPlaceLabel(job, 'dest') : '') || job.dest || '-';
-  return String(type) + ' · ' + String(date) + ' · Från ' + String(from) + ' → Till ' + String(to);
+  return '-';
 }
 
 async function runTemporarySnapHistoryTestV173(){
-  setTemporarySnapHistoryTestResultV173('Letar senaste avslutade uppdrag med sparad GPS…', false, false);
-  try{
-    const candidate = getTemporarySnapHistoryCandidateV173();
-    if(!candidate){
-      setTemporarySnapHistoryTestResultV173(
-        '<strong>Inget testbart GPS-uppdrag hittades.</strong>' +
-        '<span class="map-test-section map-test-detail">Funktionen letar efter senaste avslutade vanliga uppdrag med sparad GPS, minst 2 GPS-punkter och ej Spara ej GPS-data.</span>' +
-        '<span class="map-test-section muted">SNAP-HIST-TEST-173 är tillfällig och har inte ändrat historik.</span>',
-        true,
-        false
-      );
-      return;
-    }
-    if(!getLocalMapApiKey()) throw new Error('Kartnyckel saknas på denna enhet.');
-    const job = candidate.job;
-    const gpsPoints = candidate.gpsPoints;
-    const selected = selectSnapRoadsPointsForRequestV172(gpsPoints);
-    if(selected.length < 2) throw new Error('För få valbara GPS-punkter efter urval.');
-    const gpsDistanceKm = Number(candidate.rec && candidate.rec.distanceKm || 0) || calculateTemporarySnapHistoryGpsDistanceKmV173(gpsPoints);
-    const before = getSnapGuardStatusV169();
-    setTemporarySnapHistoryTestResultV173('Skickar tillfälligt Snap-test för senaste GPS-uppdrag…', false, false);
-    const result = await requestSnapRoadsForJobV172(selected);
-    const after = getSnapGuardStatusV169();
-    const snappedDistanceKm = calculateSnapRoadsDistanceKmV172(result.snappedPoints);
-    const first = getSnappedPointLocationV172(result.snappedPoints[0]);
-    const counted = after.dayCount > before.dayCount || after.monthCount > before.monthCount;
-    setTemporarySnapHistoryTestResultV173(
-      '<strong>SNAP-HIST-TEST-173 OK.</strong>' +
-      '<span class="map-test-section map-test-label">Uppdrag:</span>' +
-      '<span class="map-test-detail">' + escapeHtml(describeTemporarySnapHistoryJobV173(job)) + '</span>' +
-      '<span class="map-test-section map-test-label">GPS-punkter hittade:</span>' +
-      '<span class="map-test-detail">' + escapeHtml(String(gpsPoints.length)) + '</span>' +
-      '<span class="map-test-section map-test-label">Punkter skickade / tillbaka:</span>' +
-      '<span class="map-test-detail">' + escapeHtml(String(selected.length)) + ' / ' + escapeHtml(String(result.snappedPoints.length)) + '</span>' +
-      '<span class="map-test-section map-test-label">Körsträcka:</span>' +
-      '<span class="map-test-detail">GPS ' + escapeHtml(formatSnapRoadsDistanceKmV182(gpsDistanceKm)) + ' km · vägjusterad ' + escapeHtml(formatSnapRoadsDistanceKmV182(snappedDistanceKm)) + ' km</span>' +
-      '<span class="map-test-section map-test-label">Första snappade punkt:</span>' +
-      '<span class="map-test-detail">' + escapeHtml(first ? (Number(first.lat).toFixed(6) + ', ' + Number(first.lon).toFixed(6)) : '-') + '</span>' +
-      '<span class="map-test-section map-test-label">Anrop räknat:</span>' +
-      '<span class="map-test-detail">' + (counted ? 'Ja' : 'Nej') + ' · Snap idag ' + escapeHtml(String(after.dayCount)) + ' / ' + escapeHtml(String(after.dayLimit)) + ' · Snap månad ' + escapeHtml(String(after.monthCount)) + ' / ' + escapeHtml(String(after.monthlyLimit)) + '</span>' +
-      '<span class="map-test-section map-test-label">Historik ändrad:</span>' +
-      '<span class="map-test-detail">Nej. Testet är läsande och sparar inte om uppdraget.</span>' +
-      '<span class="map-test-section muted">Tillfällig testfunktion. Kan tas bort samlat via märkningen SNAP-HIST-TEST-173.</span>',
-      false,
-      true
-    );
-  }catch(e){
-    const after = getSnapGuardStatusV169();
-    const message = e && e.message ? e.message : String(e || 'Okänt fel');
-    setTemporarySnapHistoryTestResultV173(
-      '<strong>SNAP-HIST-TEST-173 misslyckades.</strong>' +
-      '<span class="map-test-section map-test-label">Fel:</span>' +
-      '<span class="map-test-detail">' + escapeHtml(message) + '</span>' +
-      '<span class="map-test-section map-test-label">Historik ändrad:</span>' +
-      '<span class="map-test-detail">Nej. Testet är läsande även vid fel.</span>' +
-      '<span class="map-test-section muted">Snap-räknare nu: idag ' + escapeHtml(String(after.dayCount)) + ' / ' + escapeHtml(String(after.dayLimit)) + ' · månad ' + escapeHtml(String(after.monthCount)) + ' / ' + escapeHtml(String(after.monthlyLimit)) + '.</span>',
-      true,
-      false
-    );
-  }
-  renderMapGuardStatus();
+  // v402: tillfällig Snap-historiktest är borttagen med godkännande.
+  return;
 }
 
 function getValidSnapRoadsGpsPointsV172(job){
@@ -24966,7 +24852,7 @@ function evaluateSnapDistanceReasonabilityV211(snappedKm, gpsKm){
 
 function getJobBestDistanceChoiceV211(job){
   if(job && job.summaryMetricCarrier === false) return {km:0, source:'excluded', label:'Ingår inte'};
-  if(job && job.end) return {km:0, source:'sanerad_v401', label:'Sträcka ej redovisning', message:'v401: GPS/sträcka efter avslut är parkerad. Använd Trippmätare separat vid behov.'};
+  if(job && job.end) return {km:0, source:'sanerad_v401', label:'Sträcka ej redovisning', message:'v402: GPS/Snap/sträcka efter avslut är borttagen som redovisningssanning. Använd Trippmätare separat vid behov.'};
   const snap = typeof getSnapRoadsAnalysisV172 === 'function' ? getSnapRoadsAnalysisV172(job) : null;
   const rec = typeof getRouteGps === 'function' ? getRouteGps(job) : null;
   const gps = Number((snap && snap.gpsDistanceKm) || (rec && rec.distanceKm) || 0);
@@ -25009,160 +24895,23 @@ function getJobDistanceChoiceHtmlV212(job){
 }
 
 async function runAutomaticSnapRoadsAnalysisV172(job, completedFrom){
-  if(!job) return null;
-  if(STADSLASS_DISTANCE_LITE_MODE_V356){
-    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('distance_lite_v356', STADSLASS_DISTANCE_LITE_NOTE_V356, job);
-    return job.snapRoadsAnalysisV172;
+  // v402: automatisk Snap-efteranalys efter avslutat jobb är borttagen från historisk redovisning.
+  if(job && typeof job === 'object') {
+    delete job.snapRoadsAnalysisV172;
+    delete job.snapRoadsAnalysis;
+    delete job.snapDistanceKm;
+    delete job.snappedDistanceKm;
+    delete job.gpsSegmentDistanceKm;
   }
-  if(isOtherWorkJob(job) || !isRouteGpsRecordingAllowedForJob(job)){
-    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('not_applicable', 'Snap-analys används inte för denna jobbtyp.', job);
-    return job.snapRoadsAnalysisV172;
-  }
-  const rec = getRouteGps(job);
-  if(!rec || getRouteGpsStatus(job) === 'discarded' || job.routeGpsDiscarded){
-    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('no_saved_gps', 'Sparad GPS saknas eller är markerad som Spara ej GPS-data.', job);
-    return job.snapRoadsAnalysisV172;
-  }
-  const gpsPoints = getValidSnapRoadsGpsPointsV172(job);
-  if(gpsPoints.length < 2){
-    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('too_few_points', 'För få GPS-punkter för Snap to Roads.', job);
-    return job.snapRoadsAnalysisV172;
-  }
-  if(!getLocalMapApiKey()){
-    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('missing_key', 'Kartnyckel saknas på denna enhet.', job);
-    return job.snapRoadsAnalysisV172;
-  }
-  const plan = buildSnapRoadsRequestPlanV211(job, gpsPoints);
-  if(!plan.chunks.length){
-    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('too_few_segment_points', 'För få GPS-punkter i transportsegmenten för Snap to Roads.', job);
-    return job.snapRoadsAnalysisV172;
-  }
-  const budgetCheck = canMakeSnapRoadsRequestV169();
-  if(!budgetCheck.ok){
-    job.snapRoadsAnalysisV172 = makeSkippedSnapRoadsAnalysisV172('budget_stop', budgetCheck.reason, job);
-    return job.snapRoadsAnalysisV172;
-  }
-  const before = getSnapGuardStatusV169();
-  const segmentMap = {};
-  plan.segments.forEach(segment => {
-    segmentMap[segment.id] = {
-      id:segment.id, label:segment.label, role:segment.role, pointCount:segment.pointCount, gpsDistanceKm:segment.gpsDistanceKm,
-      requestCount:0, sentPointCount:0, returnedPointCount:0, snappedDistanceKm:0
-    };
-  });
-  let requestCount = 0;
-  let sentPointCount = 0;
-  let returnedPointCount = 0;
-  let snappedDistanceKm = 0;
-  let stoppedByBudget = '';
-  let partialError = '';
-  let firstSnapped = null;
-  let lastSnapped = null;
-  try{
-    for(const chunk of plan.chunks){
-      const guard = canMakeSnapRoadsRequestV169();
-      if(!guard.ok){ stoppedByBudget = guard.reason || 'Snap-budget stoppade fler segment.'; break; }
-      const result = await requestSnapRoadsForJobV172(chunk.points);
-      const chunkDistance = calculateSnapRoadsDistanceKmV172(result.snappedPoints);
-      const first = getSnappedPointLocationV172(result.snappedPoints[0]);
-      const last = getSnappedPointLocationV172(result.snappedPoints[result.snappedPoints.length - 1]);
-      if(!firstSnapped) firstSnapped = first;
-      lastSnapped = last;
-      requestCount += 1;
-      sentPointCount += chunk.points.length;
-      returnedPointCount += result.snappedPoints.length;
-      snappedDistanceKm += Number(chunkDistance || 0);
-      const seg = segmentMap[chunk.segmentId] || null;
-      if(seg){
-        seg.requestCount += 1;
-        seg.sentPointCount += chunk.points.length;
-        seg.returnedPointCount += result.snappedPoints.length;
-        seg.snappedDistanceKm = Number((Number(seg.snappedDistanceKm || 0) + Number(chunkDistance || 0)).toFixed(3));
-      }
-    }
-  }catch(e){
-    partialError = e && e.message ? e.message : String(e || 'Okänt Snap-fel');
-  }
-  const after = getSnapGuardStatusV169();
-  if(requestCount <= 0){
-    job.snapRoadsAnalysisV172 = {
-      version:'v211', status:'error', reason:'request_error', message:partialError || stoppedByBudget || 'Snap-analysen kunde inte skicka något segment.',
-      createdAt:Date.now(), completedFrom:String(completedFrom || ''), source:'automatic-after-completion-v211', interpolate:true,
-      requestCount:0, gpsPointCount:gpsPoints.length, sentPointCount:0, returnedPointCount:0,
-      sampled:gpsPoints.length > SNAP_ROADS_MAX_POINTS_PER_REQUEST_V211, segmentCount:plan.segments.length, chunkCount:plan.chunks.length,
-      gpsDistanceKm:Number(rec.distanceKm || 0), gpsSegmentDistanceKm:plan.segments.reduce((sum, s) => sum + Number(s.gpsDistanceKm || 0), 0), snappedDistanceKm:0,
-      snapDayCount:after.dayCount, snapDayLimit:after.dayLimit, snapMonthCount:after.monthCount, snapMonthLimit:after.monthlyLimit
-    };
-    return job.snapRoadsAnalysisV172;
-  }
-  snappedDistanceKm = Number(snappedDistanceKm.toFixed(3));
-  const gpsSegmentDistanceKm = Number(plan.segments.reduce((sum, s) => sum + Number(s.gpsDistanceKm || 0), 0).toFixed(3));
-  const compareGps = gpsSegmentDistanceKm > 0 ? gpsSegmentDistanceKm : Number(rec.distanceKm || 0);
-  const reasonability = evaluateSnapDistanceReasonabilityV211(snappedDistanceKm, compareGps);
-  job.snapRoadsAnalysisV172 = {
-    version:'v211', status:'ok', reason:partialError ? 'partial_ok' : (stoppedByBudget ? 'budget_partial' : 'ok'),
-    message:partialError ? ('Fasdelad Snap delvis utförd. Fel efter ' + requestCount + ' anrop: ' + partialError) : (stoppedByBudget ? ('Fasdelad Snap delvis utförd. ' + stoppedByBudget) : 'Fasdelad Snap-efteranalys utförd efter Klart.'),
-    createdAt:Date.now(), completedFrom:String(completedFrom || ''), source:'automatic-after-completion-v211',
-    interpolate:true, requestCount, segmentCount:plan.segments.length, chunkCount:plan.chunks.length, gpsPointCount:gpsPoints.length, sentPointCount, returnedPointCount,
-    sampled:gpsPoints.length > sentPointCount, capped:!!plan.capped,
-    gpsDistanceKm:Number(rec.distanceKm || 0), gpsSegmentDistanceKm, snappedDistanceKm,
-    snapUsableAsMain:!!reasonability.usable, snapReasonabilityStatus:reasonability.status, snapReasonabilityMessage:reasonability.message,
-    segments:Object.values(segmentMap).map(seg => Object.assign({}, seg, {snappedDistanceKm:Number(Number(seg.snappedDistanceKm || 0).toFixed(3))})),
-    firstSnapped:firstSnapped, lastSnapped:lastSnapped,
-    snapDayCount:after.dayCount, snapDayLimit:after.dayLimit, snapMonthCount:after.monthCount, snapMonthLimit:after.monthlyLimit,
-    counted:(after.dayCount > before.dayCount || after.monthCount > before.monthCount)
-  };
-  return job.snapRoadsAnalysisV172;
+  return null;
 }
 
 function getSnapRoadsAnalysisSummaryLinesV172(job){
-  const snap = getSnapRoadsAnalysisV172(job);
-  if(!snap) return ['Status: saknas', 'Automatisk Snap-efteranalys har inte körts för detta uppdrag.'];
-  const lines = [];
-  if(snap.status === 'ok'){
-    lines.push('Status: OK');
-    lines.push('GPS inspelad körsträcka: ' + formatSnapRoadsDistanceKmV182(snap.gpsDistanceKm) + ' km');
-    if(Number(snap.gpsSegmentDistanceKm || 0) > 0) lines.push('GPS i Snap-segment: ' + formatSnapRoadsDistanceKmV182(snap.gpsSegmentDistanceKm) + ' km');
-    lines.push('Vägjusterad körsträcka: ' + formatSnapRoadsDistanceKmV182(snap.snappedDistanceKm) + ' km');
-    lines.push('Rimlighetsval: ' + activeMonitorSafe(snap.snapReasonabilityMessage || (snap.snapUsableAsMain ? 'Snap använd.' : 'Snap/GPS bedöms separat.'), '-'));
-    lines.push('Segment/anrop: ' + activeMonitorSafe(snap.segmentCount, '0') + ' segment · ' + activeMonitorSafe(snap.requestCount, '0') + ' Snap-anrop');
-    lines.push('GPS-punkter totalt: ' + activeMonitorSafe(snap.gpsPointCount, '0'));
-    lines.push('Punkter skickade: ' + activeMonitorSafe(snap.sentPointCount, '0'));
-    lines.push('Punkter tillbaka: ' + activeMonitorSafe(snap.returnedPointCount, '0'));
-    lines.push('Urval: ' + (String(snap.version || '') === 'v211' ? 'fasdelade segment med max 100 punkter per Snap-anrop' : (snap.sampled ? 'max 100 punkter användes' : 'alla sparade punkter användes')));
-    if(Array.isArray(snap.segments) && snap.segments.length){
-      snap.segments.slice(0, 8).forEach(segment => {
-        lines.push('Segment: ' + activeMonitorSafe(segment.label, '-') + ' · GPS ' + formatSnapRoadsDistanceKmV182(segment.gpsDistanceKm) + ' km · Snap ' + formatSnapRoadsDistanceKmV182(segment.snappedDistanceKm) + ' km · ' + activeMonitorSafe(segment.requestCount, '0') + ' anrop');
-      });
-    }
-  } else if(snap.status === 'skipped'){
-    lines.push('Status: hoppades över');
-    lines.push('Orsak: ' + activeMonitorSafe(snap.message || snap.reason, '-'));
-    lines.push('GPS-punkter: ' + activeMonitorSafe(snap.gpsPointCount, '0'));
-  } else {
-    lines.push('Status: fel');
-    lines.push('Fel: ' + activeMonitorSafe(snap.message || snap.reason, '-'));
-    lines.push('GPS-punkter: ' + activeMonitorSafe(snap.gpsPointCount, '0'));
-    lines.push('Punkter skickade: ' + activeMonitorSafe(snap.sentPointCount, '0'));
-  }
-  lines.push('Budget efter analys: Snap idag ' + activeMonitorSafe(snap.snapDayCount, '-') + ' / ' + activeMonitorSafe(snap.snapDayLimit, '-') + ' · Snap månad ' + activeMonitorSafe(snap.snapMonthCount, '-') + ' / ' + activeMonitorSafe(snap.snapMonthLimit, '-'));
-  lines.push('Appregel: v401 parkerar Snap/GPS-sträcka efter avslutat jobb. Aktiv GPS/geofence/ETA används fortsatt under arbete, men historisk sträcka är inte redovisningssanning.');
-  return lines;
+  return ['Status: borttagen med godkännande', 'v402: Historisk Snap-efteranalys används inte längre efter avslutat jobb.'];
 }
 
 function getSnapRoadsAnalysisHtmlV172(job){
-  if(job && job.end) return '';
-  const snap = getSnapRoadsAnalysisV172(job);
-  if(!snap) return '';
-  if(snap.status === 'ok'){
-    const choice = typeof getJobBestDistanceChoiceV211 === 'function' ? getJobBestDistanceChoiceV211(job) : null;
-    const choiceText = choice && choice.label ? ' · ' + choice.label : '';
-    const reasonText = snap.snapReasonabilityMessage ? ' · ' + snap.snapReasonabilityMessage : '';
-    const segmentText = String(snap.version || '') === 'v211' ? ' · ' + escapeHtml(String(snap.segmentCount || 0)) + ' segment / ' + escapeHtml(String(snap.requestCount || 0)) + ' anrop' : '';
-    return '<div class="private-comment-note" style="margin-top:6px"><strong>Snap to Roads:</strong> vägjusterad körsträcka ' + escapeHtml(formatSnapRoadsDistanceKmV182(snap.snappedDistanceKm)) + ' km · GPS ' + escapeHtml(formatSnapRoadsDistanceKmV182(snap.gpsDistanceKm)) + ' km' + segmentText + ' · ' + escapeHtml(String(snap.sentPointCount || 0)) + ' punkter skickade / ' + escapeHtml(String(snap.returnedPointCount || 0)) + ' tillbaka' + escapeHtml(choiceText + reasonText) + '.</div>';
-  }
-  if(snap.status === 'skipped' && !['budget_stop','missing_key'].includes(String(snap.reason || ''))) return '';
-  return '<div class="private-comment-note" style="margin-top:6px"><strong>Snap to Roads:</strong> ' + escapeHtml(snap.status === 'skipped' ? 'ej utförd' : 'fel') + ' · ' + escapeHtml(snap.message || snap.reason || '-').replace(/\n/g, '<br>') + '</div>';
+  return '';
 }
 
 function renderGoogleBudgetSettingsV169(){
@@ -37487,7 +37236,7 @@ function getTodaySummaryHtml(){
       '<div class="day-summary-item"><span>Vikt</span><strong>'+escapeHtml(totalWeight.toFixed(1))+' ton</strong></div>'+
 
     '</div>'+
-    '<div class="day-summary-note">Visar endast färdiga jobb för idag. Kö, prognos och aktivt jobb räknas inte in här. GPS/sträcka efter avslut används inte som redovisningssanning i v401.</div>';
+    '<div class="day-summary-note">Visar endast färdiga jobb för idag. Kö, prognos och aktivt jobb räknas inte in här. GPS/Snap/sträcka efter avslut används inte som redovisningssanning i v402.</div>';
 }
 
 function renderTodaySummary(){
