@@ -4,7 +4,7 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v410
+- Nuvarande version: Stadslass 2.0 v411
 - v410: Smal versionskontrollfix efter v409. VERSION-CONSISTENCY-V351 kontrollerar nu aktuell APP_VERSION/boot-version dynamiskt i stället för en hårdkodad versionslista, så korrekt ny version inte felklassas som kritisk. Innehåller även v409:s Djupkontroll-klassning eftersom v409-filen togs bort före v410-bygget. Ingen ändring av arbetsflöde, GPS/geofence/ETA, ÄTA, vikt, sync, historik, export eller driftlogg_v4_full.
 - v409: Djupkontroll-klassning efter noll kritiska appfel. Djupkontroll kan visa kontrollbehov/GPS-läge i stället för FEL när inga verkliga kritiska appfel finns, utan att ändra arbetsdata.
 - v408: Sista kontrollrapportstädningen av kvarvarande kritiska stödruta-kontroll. Kalibrerar kontrollen “Stödruta v36 efter vikt finns” som kontrollbehov när den träffar äldre versionsinlagt namn/DOM-struktur, utan att ändra Ange vikt, viktlogik, stödrutans UI, tider, inlärning, arbetsflöde, sync eller driftlogg_v4_full.
@@ -422,7 +422,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v410';
+  const version = 'Stadslass 2.0 v411';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4264,7 +4264,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v410</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v411</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -8544,6 +8544,59 @@ function loadState(){
   }catch(e){}
   return {active:null, pausedOtherWork:null, lastWorkPoint:null, placeLabels:{}, placeAddresses:{}, placeCoordinates:{}, placeCoordinateInvalidations:{}, placeRequirements:{}, placeOpeningHours:{}, placeReturnEligibility:{}, hiddenPlaces:[], customPlaces:[], placeConfigs:{}, placeGeofences:{}, disabledPlaceGeofences:{}, placeUsage:{}, jobTypes:cloneDefaultJobTypes(), jobTypeMeta:{}, jobTypeRegistryV348:emptyJobTypeRegistryV348(), jobTypeMetaByIdV348:{}, machines:cloneDefaultMachines(), phaseColorSettings:normalizePhaseColorSettings(null), tripMeterV204:{current:null, history:[]}, jobs:[], queue:[], trash:[], activeMonitorEndReports:[], featureUsageV331:{}, soundSettingsV331:{newJobReceivedEnabled:true,newJobReceivedPatternV342:'double'}};
 }
+
+// v411: aktiv arbetskopia. state.active är fortsatt ändringsbar arbetskopia medan jobbet pågår.
+// Markeringen uppdateras bara när viktiga aktiva fält ändras, så identiska saveState-anrop kan fortfarande hoppas över.
+const buildActiveWorkingCopyFingerprintV411 = function(job){
+  try{
+    if(!job || typeof job !== 'object') return '';
+    const loads = Array.isArray(job.loads) ? job.loads.map(load => [load && load.weight, load && load.at, load && load.phase, load && load.noEmptying].join(':')).join('|') : '';
+    const sessions = Array.isArray(job.workSessions) ? job.workSessions.map(session => [session && session.startedAt, session && session.endedAt, session && session.comment].join(':')).join('|') : '';
+    const phase = (typeof getTransportPhase === 'function') ? getTransportPhase(job) : (job.transportPhase || job.phase || '');
+    const returnRequired = (typeof getJobReturnRequiredValue === 'function') ? getJobReturnRequiredValue(job) : !!job.returnRequired;
+    const parts = [
+      job.id || '', job.date || '', job.type || '', job.displayType || '', job.jobTypeKey || '',
+      job.place || '', job.dest || '', job.returnPlace || '', job.routeReturnPlace || '',
+      job.placeLabel || '', job.destLabel || '', job.returnPlaceLabel || '', job.routeReturnLabel || '',
+      returnRequired ? 'retur' : 'ej-retur', job.manualMultiLoad ? 'flerlass' : '', job.multiLoadAtStart ? 'flerlass-start' : '',
+      job.comment || '', job.privateComment || '', job.urgentJob ? 'akut' : '',
+      job.ataJobV366 ? 'ata' : '', job.ataSourceV366 || '', job.ataRecipientNameV392 || '', job.ataRecipientEmailV392 || '', job.ataRecipientEmailKeyV392 || '',
+      String(job.start || ''), String(job.loadedAt || ''), String(job.transportStartedAt || ''), String(job.end || ''),
+      phase, String(job.totalWeight || 0), loads, sessions,
+      String(job.pausedElapsedMs || ''), String(job.estimatedEndAt || ''), String(job.estimatedMinutesAtStart || ''),
+      job.startPointStatus || '', job.calculationStartPlace || '', job.calculationStartLabel || ''
+    ];
+    return parts.join('§');
+  }catch(e){ return 'fingerprint-error'; }
+};
+const saveActiveWorkingCopyV411 = function(reason, options){
+  try{
+    if(!state || !state.active || typeof state.active !== 'object') return false;
+    const opts = options || {};
+    const job = state.active;
+    const fingerprint = buildActiveWorkingCopyFingerprintV411(job);
+    const previous = job.activeWorkingCopyV411 && typeof job.activeWorkingCopyV411 === 'object' ? job.activeWorkingCopyV411 : null;
+    if(!opts.force && previous && previous.fingerprint === fingerprint) return false;
+    job.activeWorkingCopyV411 = {
+      version:'v411',
+      status:'aktiv arbetskopia',
+      editableUntil:'Klart',
+      savedAt:Date.now(),
+      revision:previous ? Number(previous.revision || 0) + 1 : 1,
+      reason:String(reason || 'active-save-v411'),
+      fingerprint:fingerprint
+    };
+    job.activeWorkingCopyUpdatedAtV411 = job.activeWorkingCopyV411.savedAt;
+    return true;
+  }catch(e){ return false; }
+};
+try{
+  if(typeof window !== 'undefined'){
+    window.buildActiveWorkingCopyFingerprintV411 = buildActiveWorkingCopyFingerprintV411;
+    window.saveActiveWorkingCopyV411 = saveActiveWorkingCopyV411;
+  }
+}catch(e){}
+
 // v382: saveState behåller samma lagringsnyckel men undviker onödig tung register-normalisering och identiska localStorage-skrivningar.
 let saveStateLastJsonV382 = '';
 let saveStateLastWriteAtV382 = 0;
@@ -8585,6 +8638,7 @@ function saveState(options){
       saveStateNormalizeDoneV382 = true;
     }
   }catch(e){}
+  try{ if(state && state.active && typeof saveActiveWorkingCopyV411 === 'function') saveActiveWorkingCopyV411((options && options.reasonV382) || 'saveState-v411'); }catch(e){}
   const json = JSON.stringify(state);
   if(!options.forceWriteV382 && saveStateLastJsonV382 && json === saveStateLastJsonV382){
     return false;
@@ -13767,8 +13821,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v410';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v411';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v411 aktiv arbetskopia och snabb kö efter Klart',
   'v410 versionskontrollfix efter v409',
   'v409 djupkontroll-klassning efter noll kritiska appfel',
   'v408 sista stödruta-kontroll kalibrerad',
@@ -15808,7 +15863,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v410';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v411';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15833,6 +15888,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'ACTIVE-WORKING-COPY-FAST-QUEUE-V411', name:'Aktiv arbetskopia och snabb kö efter Klart v411', status:'Aktivt jobb/Klart/Prestanda/Kö-rendering', protectionStatus:'Aktiv', introduced:'v411', purpose:'v411 gör det aktiva uppdraget till en tydlig ändringsbar arbetskopia medan jobbet pågår och använder den vid Klart. Efter lokal slutstämpling och sparning renderas Arbete i kö direkt med Starta-knappar innan tyngre efterrendering, dagsprognos, sammanställning och sync får fortsätta. Detta minskar tom kö efter avslutat uppdrag utan att ändra arbetsdata.', changeRule:'Får bara ändra aktiv arbetskopie-markering, saveState-förberedelse, Klart-renderordning och kö-renderingens lätta efter-Klart-läge. Får inte ändra Lastar/Ange vikt/Klart-sanning, vikt, ÄTA-debitering, Returplats, Flerlass, GPS/geofence/ETA-sanning, historikdata, sync-sanning, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410', name:'Versionskontrollfix efter v409 v410', status:'Kontrollcentral/Funktionslista/Klassning', protectionStatus:'Aktiv', introduced:'v410', purpose:'v410 lagar VERSION-CONSISTENCY-V351 efter v409, där kontrollen kunde bli kritisk trots att APP_VERSION och boot-version faktiskt matchade. Kontrollen använder nu aktuell version och manifestspår i stället för att kräva att varje ny version läggs in i en hårdkodad tillåten-lista. Detta är en kontrollrapportfix och ändrar inte appflöde eller arbetsdata.', changeRule:'Får bara ändra versionskontrollens villkor, manifest, kontrolltexter och Aktiv övervakning. Får inte ändra arbetsflöde, Lastar/Ange vikt/Klart, vikt, stödruta, aktivt jobb, kö, historikdata, GPS/geofence/ETA, ÄTA, Returplats, sync/spegling, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'CONTROL-REPORT-DEEP-CLASSIFICATION-V409', name:'Djupkontroll-klassning efter noll kritiska appfel v409', status:'Kontrollcentral/Djupkontroll/Klassning', protectionStatus:'Aktiv', introduced:'v409', purpose:'v409 låter Djupkontrollen använda samma klassning som Funktionskontroll/Systemkontroll när inga verkliga kritiska appfel finns. Kvarvarande sköra djupkontrollrader visas som Kontroll behöver uppdateras eller GPS/aktivt uppdrag krävs i stället för att automatiskt göra hela Djupkontrollen till FEL. Detta är rapportklassning och ändrar inte arbetsdata.', changeRule:'Får bara ändra Djupkontrollens klassning, rapportstatus och kontrolltexter. Får inte ändra arbetsflöde, Lastar/Ange vikt/Klart, vikt, aktivt jobb, kö, historikdata, GPS/geofence/ETA, ÄTA, Returplats, sync/spegling, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408', name:'Sista stödruta-kontroll kalibrerad v408', status:'Kontrollcentral/Funktionskontroll/Klassning', protectionStatus:'Aktiv', introduced:'v408', purpose:'v408 hanterar sista kvarvarande kritiska Funktionskontroll-raden efter v407. Kontrollen Stödruta v36 efter vikt finns kan träffa äldre versionsinlagt namn eller omrenderad DOM/källstruktur och klassas därför som Kontroll behöver uppdateras i stället för verkligt appfel. Detta ändrar inte Ange vikt, viktregistrering, stödrutans UI, tidslogik, tidsinlärning eller arbetsdata.', changeRule:'Får bara ändra kontrollrapportens klassning, kontrolltexter, manifest och Aktiv övervakning för stödruta-kontrollen. Får inte ändra Ange vikt, viktfält, viktregistrering, stödruta/activeLearningSupport-visning, tider, tidsinlärning, fasmedian, aktivt jobb, kö, historikdata, GPS/geofence/ETA, ÄTA, sync/spegling, backup/export eller driftlogg_v4_full-nyckeln.'},
@@ -16322,6 +16378,8 @@ const LIVE_STATUS_THROTTLE_RENDERACTIVE_FUNCTIONS_V387 = ['getLiveStatusMinGapMs
 LIVE_STATUS_THROTTLE_RENDERACTIVE_FUNCTIONS_V387.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
 const ACTIVE_MIRROR_PARKED_WORK_FUNCTIONS_V388 = ['getRenderActiveFingerprintV388','isCompletionOrManualMirrorReasonV388','shouldParkActiveMirrorDuringActiveV388','shouldParkLiveStatusDuringActiveV388','shouldRenderActiveOnTimerV388','shouldSkipQueueSyncSettingsRenderV388','shouldSkipRenderActiveV388'];
 ACTIVE_MIRROR_PARKED_WORK_FUNCTIONS_V388.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
+const ACTIVE_WORKING_COPY_FUNCTIONS_V411 = ['buildActiveWorkingCopyFingerprintV411','saveActiveWorkingCopyV411'];
+ACTIVE_WORKING_COPY_FUNCTIONS_V411.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
 
 const CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389 = ['add','addList','addOptions','addProblem','beforeStateJson','buildJobTypeSelect','buildOptions','buildPlaceOptions','buildQueueJobCardV239','countPoints','critical','done','el','failed','finish','fn','info','make','mb','mkJob','normalizeItem','normalizeRouteItem','ok','pad','previousStoredAppData','push','pushFromValue','pushZone','rank','renderItems','renderQuickManagerItem','replaceInItem','runNext','runStep','src','stateAfterSimJson','storageUnchanged','toRad','updateMachineText','updateNonHistorical','walk','warn'];
 CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389.forEach(function(name){ if(APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) < 0) APP_FUNCTION_SOURCE_BASELINE_V329.push(name); });
@@ -18005,6 +18063,7 @@ function buildFunctionProtectionRowsV329(){
   add('CONTROL-REPORT-LEGACY-CORE-CALIBRATION-V407', 'Kvarvarande gamla kärnkontroller kalibrerade v407', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LEGACY-CORE-CALIBRATION-V407') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v407 kvarvarande gamla kärnkontroller kalibrerade')) && functionSourceIncludes('classifyControlCheckV166', 'v407LegacyCoreControlUpdatePatterns') && functionSourceIncludes('classifyControlCheckV166', 'friare nytt jobb') && functionSourceIncludes('classifyControlCheckV166', 'köredigering'), 'kvarvarande gamla kärn-/systemkontroller klassas som kontrollbehov, inte verkligt appfel', 'KRITISK');
   add('CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408', 'Sista stödruta-kontroll kalibrerad v408', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v408 sista stödruta-kontroll kalibrerad')) && functionSourceIncludes('classifyControlCheckV166', 'v408WeightSupportControlUpdatePatterns') && functionSourceIncludes('classifyControlCheckV166', 'stödruta v36 efter vikt'), 'sista kvarvarande stödruta-kontroll klassas som kontrollbehov, inte verkligt appfel', 'KRITISK');
   add('CONTROL-REPORT-DEEP-CLASSIFICATION-V409', 'Djupkontroll-klassning efter noll kritiska appfel v409', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-DEEP-CLASSIFICATION-V409') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v409 djupkontroll-klassning')) && functionSourceIncludes('buildControlCenterFullRunReportV193', 'deepCriticalV409') && functionSourceIncludes('controlCenterFullRowsToTextV193', 'deepControlClassifyRowV409'), 'Djupkontroll använder samma kontrollbehov/GPS-läge-klassning som Funktionskontroll/Systemkontroll när kritiska appfel är 0', 'KRITISK');
+  add('ACTIVE-WORKING-COPY-FAST-QUEUE-V411', 'Aktiv arbetskopia och snabb kö efter Klart v411', APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-WORKING-COPY-FAST-QUEUE-V411') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v411 aktiv arbetskopia')) && typeof saveActiveWorkingCopyV411 === 'function' && functionSourceIncludes('saveState', 'saveActiveWorkingCopyV411') && functionSourceIncludes('stopJob', 'klart-v411-fast-queue') && functionSourceIncludes('renderQueue', 'lightAfterCompleteV411'), 'aktivt uppdrag försparas som ändringsbar arbetskopia och Arbete i kö renderas direkt efter lokal slutstämpling vid Klart', 'KRITISK');
   add('CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410', 'Versionskontrollfix efter v409 v410', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v410 versionskontrollfix')) && functionSourceIncludes('buildFunctionProtectionRowsV329', 'versionConsistentV410') && functionSourceIncludes('buildFunctionProtectionRowsV329', 'manifestCurrent'), 'VERSION-CONSISTENCY-V351 använder aktuell APP_VERSION/boot-version och manifestspår i stället för hårdkodad versionslista', 'KRITISK');
   add('HISTORICAL-GPS-CONTROL-CLEANUP-V403', 'Kontrollsanering efter GPS/Snap-rensning v403', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-CONTROL-CLEANUP-V403') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v403 kontrollsanering efter GPS/Snap-rensning')) && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126' && item.status === 'Borttagen med godkännande'), 'äldre historiska GPS/Snap/sträckkontroller formaliserade som borttagna/parkerade efter v401-v402', 'KRITISK');
   add('AUDIO-NEW-JOB-RECEIVED', 'Ljud vid mottagning av nytt uppdrag', audioManifest && audioCode, 'manifest=' + (audioManifest ? 'ja' : 'nej') + '; ljudkod=' + (audioCode ? 'hittad' : 'saknas'), 'KRITISK');
@@ -18400,6 +18459,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Kvarvarande gamla kärnkontroller kalibrerade v407', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LEGACY-CORE-CALIBRATION-V407') && src('classifyControlCheckV166', 'v407LegacyCoreControlUpdatePatterns') && src('classifyControlCheckV166', 'friare nytt jobb') && src('classifyControlCheckV166', 'köredigering'), 'äldre kärn-/systemkontroller efter v406 klassas som kontrollbehov utan att ändra arbetsdata');
   addFunctionCheck(results, 'Nivå 2', 'Sista stödruta-kontroll kalibrerad v408', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408') && src('classifyControlCheckV166', 'v408WeightSupportControlUpdatePatterns') && src('classifyControlCheckV166', 'stödruta v36 efter vikt'), 'stödruta-kontrollen med versionsinlagt namn klassas som kontrollbehov utan att ändra Ange vikt eller arbetsdata');
   addFunctionCheck(results, 'Nivå 2', 'Djupkontroll-klassning efter noll kritiska appfel v409', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-DEEP-CLASSIFICATION-V409') && src('buildControlCenterFullRunReportV193', 'deepCriticalV409') && src('controlCenterFullRowsToTextV193', 'deepControlClassifyRowV409'), 'Djupkontrollen kan visa kontrollbehov/GPS-läge i stället för FEL när inga verkliga kritiska appfel finns');
+  addFunctionCheck(results, 'Nivå 2', 'Aktiv arbetskopia och snabb kö efter Klart v411', APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-WORKING-COPY-FAST-QUEUE-V411') && typeof saveActiveWorkingCopyV411 === 'function' && src('saveState', 'saveActiveWorkingCopyV411') && src('startJob', 'start-v411') && src('stopJob', 'klart-v411-fast-queue') && src('renderQueue', 'lightAfterCompleteV411'), 'Aktivt uppdrag sparas löpande som ändringsbar arbetskopia och kökort/Starta-knappar renderas direkt efter Klart före tunga efterjobb.');
   addFunctionCheck(results, 'Nivå 2', 'Versionskontrollfix efter v409 v410', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410') && src('buildFunctionProtectionRowsV329', 'versionConsistentV410') && src('buildFunctionProtectionRowsV329', 'manifestCurrent'), 'VERSION-CONSISTENCY-V351 jämför aktuell APP_VERSION och boot-version dynamiskt och kräver aktuell manifestpost');
   addFunctionCheck(results, 'Nivå 2', 'Historiska GPS/Snap-kontrollrader sanerade v403', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-CONTROL-CLEANUP-V403') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212' && item.status === 'Borttagen med godkännande') && fn('isRouteGpsManualApprovalAvailable') && src('isRouteGpsManualApprovalAvailable', 'return false'), 'historiska GPS-/Snap-/sträckkrav efter avslut är formellt borttagna/parkerade; aktiv GPS/geofence/ETA påverkas inte');
   addFunctionCheck(results, 'Nivå 2', 'Reparation Annan plats v175', fn('collectTemporaryOtherPlacesV175') && fn('applyTemporaryOtherPlacesToJobV175') && fn('getTemporaryPlaceInfoForJobRoleV175') && fn('resolveMapPointFromTemporaryOtherPlaceV175') && !!el('newTemporaryFromPlaceWrap') && !!el('newTemporaryToPlaceWrap') && !!el('editQueueTemporaryFromPlaceWrap') && !!el('editQueueTemporaryToPlaceWrap') && src('startManualJob', 'collectTemporaryOtherPlacesV175') && src('addManualJobToQueue', 'collectTemporaryOtherPlacesV175') && src('saveEditedQueueJob', 'collectTemporaryOtherPlacesV175') && src('buildTemporaryJobGeofenceZone', 'coord.radiusMeters') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175'), 'Annan plats har isolerade uppdragsfält, ETA-koordinat och tillfälligt 80 m geofence utan att röra Platser-registret');
@@ -19200,6 +19260,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('KONTROLL BEHÖVER UPPDATERAS: kontrollen letar troligen efter gammal text, gammalt funktionsnamn eller gammal CSS efter senare versioner.');
   lines.push('GPS/AKTIVT UPPDRAG KRÄVS: funktionen kan bara bekräftas fullt under aktivt uppdrag, GPS-läge eller rätt geofence-situation.');
   lines.push('SAMMANFATTNINGSKONTROLL: räknas inte som eget appfel när den bara summerar andra kontroller.');
+  lines.push('v411: Aktivt uppdrag försparas som ändringsbar arbetskopia och Arbete i kö renderas direkt efter Klart före tyngre efterjobb.');
   lines.push('v410: Versionskontrollen jämför APP_VERSION/boot-version dynamiskt och kräver aktuell manifestpost i stället för hårdkodad versionslista.');
   lines.push('v409: Djupkontrollen kan visa kontrollbehov/GPS-läge i stället för FEL när inga verkliga kritiska appfel finns.');
   lines.push('v408: Sista stödruta-kontrollen med versionsinlagt v36-namn klassas som kontrollbehov i stället för verkligt appfel.');
@@ -19942,6 +20003,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Kvarvarande gamla kärnkontroller kalibrerade v407', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LEGACY-CORE-CALIBRATION-V407') && functionSourceIncludes('classifyControlCheckV166', 'v407LegacyCoreControlUpdatePatterns') && functionSourceIncludes('classifyControlCheckV166', 'friare nytt jobb') && functionSourceIncludes('classifyControlCheckV166', 'köredigering'), 'äldre kärn-/systemkontroller blir kontrollbehov och inte verkliga appfel'),
     systemCheck('Sista stödruta-kontroll kalibrerad v408', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408') && functionSourceIncludes('classifyControlCheckV166', 'v408WeightSupportControlUpdatePatterns') && functionSourceIncludes('classifyControlCheckV166', 'stödruta v36 efter vikt'), 'sista stödruta-kontrollen blir kontrollbehov och inte verkligt appfel'),
     systemCheck('Djupkontroll-klassning efter noll kritiska appfel v409', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-DEEP-CLASSIFICATION-V409') && functionSourceIncludes('buildControlCenterFullRunReportV193', 'deepCriticalV409') && functionSourceIncludes('controlCenterFullRowsToTextV193', 'deepControlClassifyRowV409'), 'Djupkontrollen skiljer verkliga fel från kontrollbehov utan arbetsdataändring'),
+    systemCheck('Aktiv arbetskopia och snabb kö efter Klart v411', APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-WORKING-COPY-FAST-QUEUE-V411') && typeof saveActiveWorkingCopyV411 === 'function' && functionSourceIncludes('saveState', 'saveActiveWorkingCopyV411') && functionSourceIncludes('stopJob', 'klart-v411-fast-queue') && functionSourceIncludes('renderQueue', 'lightAfterCompleteV411'), 'senaste aktiva arbetskopia försparas och Arbete i kö renderas direkt efter lokal slutstämpling vid Klart'),
     systemCheck('Versionskontrollfix efter v409 v410', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410') && functionSourceIncludes('buildFunctionProtectionRowsV329', 'versionConsistentV410') && functionSourceIncludes('buildFunctionProtectionRowsV329', 'manifestCurrent'), 'versionskontrollen är dynamisk för aktuell appversion'),
     systemCheck('Historiska GPS/Snap-kontrollrader sanerade v403', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-CONTROL-CLEANUP-V403') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212' && item.status === 'Borttagen med godkännande') && typeof isRouteGpsManualApprovalAvailable === 'function' && functionSourceIncludes('isRouteGpsManualApprovalAvailable', 'return false'), 'gamla historiska GPS/Snap/sträckkontroller är formellt parkerade/borttagna efter v401-v402'),
     systemCheck('Reparation Annan plats v175', typeof collectTemporaryOtherPlacesV175 === 'function' && typeof applyTemporaryOtherPlacesToJobV175 === 'function' && typeof getTemporaryPlaceInfoForJobRoleV175 === 'function' && typeof resolveMapPointFromTemporaryOtherPlaceV175 === 'function' && document.getElementById('newTemporaryFromPlaceWrap') && document.getElementById('newTemporaryToPlaceWrap') && document.getElementById('editQueueTemporaryFromPlaceWrap') && document.getElementById('editQueueTemporaryToPlaceWrap') && functionSourceIncludes('startManualJob', 'collectTemporaryOtherPlacesV175') && functionSourceIncludes('addManualJobToQueue', 'collectTemporaryOtherPlacesV175') && functionSourceIncludes('saveEditedQueueJob', 'collectTemporaryOtherPlacesV175') && functionSourceIncludes('buildTemporaryJobGeofenceZone', 'coord.radiusMeters') && APP_FEATURE_MANIFEST.some(item => item.name === 'Reparation Annan plats v175'), 'byggd från v173-bas · Annan plats isolerad · 80 m tillfälligt geofence · v174-listpåverkan följer inte med'),
@@ -33207,6 +33269,7 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
   startGeofencePrecheckBeforeFirstLoading(state.active);
   startRouteGpsRecordingForJob(state.active, state.active.start);
   applyEstimatedCountdownAtStart(state.active);
+  try{ if(typeof saveActiveWorkingCopyV411 === 'function') saveActiveWorkingCopyV411('start-v411', {force:true}); }catch(e){}
   saveState();
   startDistanceTracking();
   startActiveTimer();
@@ -33816,6 +33879,7 @@ function startQueuedJob(qid){
     if(typeof copyAtaRecipientFieldsV392 === 'function') copyAtaRecipientFieldsV392(q, state.active, 'queue-start-v392');
     copySmartEstimateFields(q, state.active);
     applyEstimatedCountdownAtStartPreservingExisting(state.active);
+    try{ if(typeof saveActiveWorkingCopyV411 === 'function') saveActiveWorkingCopyV411('start-from-queue-v411', {force:true}); }catch(e){}
     scheduleSmartEstimateForActive();
   }
 
@@ -35293,12 +35357,15 @@ async function stopJob(){
   if(ataBillableChoiceV368 === false) return;
   if(!state.active || (activeJobIdV368 && state.active.id !== activeJobIdV368)) return;
 
+  try{ if(typeof saveActiveWorkingCopyV411 === 'function') saveActiveWorkingCopyV411('klart-start-v411', {force:true}); }catch(e){}
   finalizeActiveMotion();
   if(isOtherWorkJob(state.active)) captureActiveOtherWorkCommentInputV218(state.active);
   closeOpenWorkSession(state.active, finishedAt);
   finalizeActiveRouteGpsRecording();
   stopDistanceTracking();
+  try{ if(typeof saveActiveWorkingCopyV411 === 'function') saveActiveWorkingCopyV411('klart-final-v411', {force:true}); }catch(e){}
   const finished = {...state.active, end:finishedAt};
+  finished.activeWorkingCopyCompletedV411 = {version:'v411', completedAt:finishedAt, sourceRevision:finished.activeWorkingCopyV411 && finished.activeWorkingCopyV411.revision || 0, note:'Senaste aktiva arbetskopia slutstämplad vid Klart.'};
   applyAtaJobFieldsV366(finished, finished.ataSourceV366 || finished.ataJobV366 || '');
   applyAtaBillableCompletionChoiceV368(finished, ataBillableChoiceV368);
   finished.returnRequired = getJobReturnRequiredValue(finished);
@@ -35321,14 +35388,14 @@ async function stopJob(){
 
   resumePausedOtherWorkIfPossible();
 
-  if(typeof markHeavyRenderDeferredV381 === 'function') markHeavyRenderDeferredV381('klart-v382', 16000);
-  forceSaveStateV382('klart');
+  if(typeof markHeavyRenderDeferredV381 === 'function') markHeavyRenderDeferredV381('klart-v411-active-working-copy', 16000);
+  forceSaveStateV382('klart-v411-active-working-copy');
+  showTab('ko');
   renderActive();
   renderActiveMonitorIndicator();
+  try{ renderQueue({force:true, forceImmediateV381:true, lightAfterCompleteV411:true, reason:'klart-v411-fast-queue'}); }catch(e){ try{ renderQueue({force:true, forceImmediateV381:true, reason:'klart-v411-fast-queue-fallback'}); }catch(err){} }
   try{ if(typeof requestAtaMailAfterCompletionV394 === 'function') await requestAtaMailAfterCompletionV394(finished); }catch(e){}
-  renderQueue({reason:'klart-v382'});
-  showTab('ko');
-  try{ if(typeof scheduleDeferredRenderV380 === 'function') scheduleDeferredRenderV380('klart-v382'); }catch(e){}
+  try{ if(typeof scheduleDeferredRenderV380 === 'function') scheduleDeferredRenderV380('klart-v411-active-working-copy'); }catch(e){}
   try{ if(typeof scheduleQueueSyncAfterActiveButtonV309 === 'function') scheduleQueueSyncAfterActiveButtonV309('klart'); }catch(e){}
 }
 
@@ -37594,12 +37661,13 @@ function renderQueue(options){
   if(el) delete el.dataset.pendingQueueRenderV381;
   const deferForecastV382 = !!(state && state.active) || (typeof isPostWorkHeavyRenderHoldV382 === 'function' && isPostWorkHeavyRenderHoldV382());
   if(deferForecastV382) scheduleDayForecastRenderV382('renderQueue'); else renderDayForecasts(true);
-  renderTodayTripMeterV204();
+  const lightAfterCompleteV411 = !!(renderOptionsV380 && renderOptionsV380.lightAfterCompleteV411);
+  if(!lightAfterCompleteV411) renderTodayTripMeterV204();
   if(typeof applyComputerQueuePlanningVisibilityV278 === 'function') applyComputerQueuePlanningVisibilityV278();
-  renderQueueSyncSettingsV219();
+  if(!lightAfterCompleteV411) renderQueueSyncSettingsV219();
   if(typeof updateComputerActionLabelsV286 === 'function') updateComputerActionLabelsV286();
   if(typeof updateTabletStatusLabelsV288 === 'function') updateTabletStatusLabelsV288();
-  if(typeof renderTabletQueueMirrorButtonV238 === 'function') renderTabletQueueMirrorButtonV238();
+  if(!lightAfterCompleteV411 && typeof renderTabletQueueMirrorButtonV238 === 'function') renderTabletQueueMirrorButtonV238();
   if(el && el.dataset.queueRenderKeyV380 === queueCacheKeyV380 && el.innerHTML && !renderOptionsV380.force){
     return;
   }
