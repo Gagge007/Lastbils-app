@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v414
+- Nuvarande version: Stadslass 2.0 v415
+- v415: Riktad prestandafix efter v414-diagnos. Aktivt jobb helrenderas inte längre av sekundtimer eller varje GPS-punkt; timer/GPS uppdaterar bara nödvändiga tids-, sträck-, ETA- och fasfält. Full renderActive skyddas medan viktfältet har fokus. Sammanställning renderas bara när dess egen panel är synlig. Detaljerad diagnos sammanfattar normala renderActive-körningar och skriver sin separata logg glesare. Ingen ändring av arbetsdata, viktvärden, Lastar/Ange vikt/Klart-sanning, historikberäkning, syncsanning, GPS/geofence/ETA-sanning eller driftlogg_v4_full.
 - v414: Ren diagnosförstärkning. Prestandadiagnosens rullande kapacitet höjs till 500 händelser, 250 knappkedjor och 250 frys/låsningar. Lägger diagnostiska spår för viktfältets fokus/tangentbord/tangentfördröjning, Klart-kedjans delsteg och Sammanställningens delsteg/utlösare. Diagnoslogg skrivs fortsatt separat och mer buffrat. Ingen ändring av arbetsflöde, viktlogik, Klart-logik, render-/syncbeteende, historik, kö, GPS/geofence/ETA, kvittoimport eller driftlogg_v4_full.
 - v413: Hårt återimportskydd för 189-sync. 189 hoppar över uppdrag vars unika sync-id redan har mottagits tidigare, även om uppdraget senare har startats eller avslutats och därför inte längre finns i 189:s aktuella kö. Detta stoppar att datorns kvarvarande mottagna uppdrag importeras igen automatiskt. Ingen ändring av arbetsflöde, köstart, Klart, historik, vikt, GPS/geofence/ETA, kvittoimport, syncsanning på datorn eller driftlogg_v4_full.
 - v410: Smal versionskontrollfix efter v409. VERSION-CONSISTENCY-V351 kontrollerar nu aktuell APP_VERSION/boot-version dynamiskt i stället för en hårdkodad versionslista, så korrekt ny version inte felklassas som kritisk. Innehåller även v409:s Djupkontroll-klassning eftersom v409-filen togs bort före v410-bygget. Ingen ändring av arbetsflöde, GPS/geofence/ETA, ÄTA, vikt, sync, historik, export eller driftlogg_v4_full.
@@ -424,7 +425,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v414';
+  const version = 'Stadslass 2.0 v415';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4266,7 +4267,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v414</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v415</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -8068,7 +8069,13 @@ function startActiveTimer(){
   stopActiveTimer();
   if(!state.active) return;
   activeTimerId = setInterval(() => {
-    if(typeof shouldRenderActiveOnTimerV388 === 'function' ? shouldRenderActiveOnTimerV388() : (typeof shouldRenderActiveOnTimerV387 !== 'function' || shouldRenderActiveOnTimerV387())) renderActive();
+    if(!state.active) return;
+    const weightFocusedV415 = !!(document.activeElement && document.activeElement.id === 'weightInput');
+    if(!weightFocusedV415){
+      const activeTimeV415 = document.getElementById('activeTime');
+      if(activeTimeV415) activeTimeV415.textContent = mins(typeof getActualJobWorkMsV360 === 'function' ? getActualJobWorkMsV360(state.active, Date.now()) : (Date.now() - state.active.start));
+      renderActiveEstimateCountdown();
+    }
     renderActiveMonitorIndicator();
   }, 1000);
 }
@@ -8102,7 +8109,13 @@ function startDistanceTracking(){
         updateActiveGeofenceVisualStatus(point, {allowLowAccuracy:true});
         scheduleActiveAutoMapRecalculation(point, {reason:'gps'});
         saveState();
-        renderActive();
+        if(!(document.activeElement && document.activeElement.id === 'weightInput')){
+          const activeTimeV415 = document.getElementById('activeTime');
+          if(activeTimeV415) activeTimeV415.textContent = mins(typeof getActualJobWorkMsV360 === 'function' ? getActualJobWorkMsV360(state.active, Date.now()) : (Date.now() - state.active.start));
+          renderActiveEstimateCountdown();
+          renderActiveTransportPhaseControl();
+          renderActiveAutoMapStatus();
+        }
         return;
       }
 
@@ -8127,8 +8140,16 @@ function startDistanceTracking(){
           state.active.distanceKm = Number((state.active.distanceKm || 0) + delta);
         }
         saveState();
-        renderActive();
-        if(!STADSLASS_DISTANCE_LITE_MODE_V356){ renderSummary(); }
+        if(!(document.activeElement && document.activeElement.id === 'weightInput')){
+          const activeTimeV415 = document.getElementById('activeTime');
+          const activeDistanceV415 = document.getElementById('activeDistance');
+          if(activeTimeV415) activeTimeV415.textContent = mins(typeof getActualJobWorkMsV360 === 'function' ? getActualJobWorkMsV360(state.active, Date.now()) : (Date.now() - state.active.start));
+          if(activeDistanceV415) activeDistanceV415.textContent = km(state.active.distanceKm || 0);
+          renderActiveEstimateCountdown();
+          renderActiveTransportPhaseControl();
+          renderActiveWeightButtonVisual();
+          renderActiveAutoMapStatus();
+        }
       } else {
         addActiveMotionTime('still', point.ts - Number(state.active.motionLastTs || state.active.start || point.ts));
         state.active.motionLastMode = 'still';
@@ -13823,8 +13844,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v414';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v415';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v415 aktiv vy, viktfokus och Sammanställning prestandafix',
   'v414 förstärkt prestandadiagnos och längre rullande logg',
   'v413 hårt återimportskydd för mottagna sync-id',
   'v412 kvittoimport uppskattad tid från kvittotid',
@@ -15868,7 +15890,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v414';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v415';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15893,6 +15915,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'ACTIVE-RENDER-SUMMARY-WEIGHT-PERFORMANCE-V415', name:'Aktiv vy, viktfokus och Sammanställning prestandafix v415', status:'Prestanda/Aktivt jobb/Vikt/Sammanställning/Diagnostik', protectionStatus:'Aktiv', introduced:'v415', purpose:'v415 stoppar onödig helrendering av Aktivt jobb från sekundtimer och varje GPS-punkt. Timer/GPS uppdaterar endast nödvändiga synliga tids-, sträck-, ETA- och fasfält. Full renderActive skjuts undan medan viktfältet har fokus. Sammanställning byggs bara när dess egen panel är synlig. Normal renderActive-diagnostik sammanfattas och diagnosloggen skrivs glesare.', changeRule:'Får bara ändra renderfrekvens och lättviktsuppdatering i aktiv vy, skydd under viktfokus, när Sammanställning renderas samt prestandadiagnosens separata buffring/sammanfattning. Får inte ändra arbetsknapparnas sanning, viktvärden, Lastar/Ange vikt/Klart, aktiv arbetsdata, kö/historikdata, Sammanställningens beräkningar när panelen öppnas, GPS/geofence/ETA-sanning, syncsanning, ÄTA, kvittoimport, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'PERFORMANCE-DIAGNOSTICS-ENHANCEMENT-V414', name:'Förstärkt prestandadiagnos och längre rullande logg v414', status:'Kontrollcentral/Prestanda/Diagnostik', protectionStatus:'Aktiv', introduced:'v414', purpose:'v414 förstärker den separata prestandadiagnosen för längre skarpa arbetsdagar. Rullande logg behåller 500 händelser, 250 knappkedjor och 250 frys/låsningar. Diagnosen fångar viktfältets fokus, tangentbordsöppning och tangentfördröjning, Klart-kedjans delsteg samt Sammanställningens delsteg och utlösande kedja.', changeRule:'Får bara ändra prestandadiagnosens separata loggkapacitet, buffrad loggskrivning, diagnostiska mätpunkter, rapporttext, manifest och kontrolltexter. Får inte ändra arbetsflöde, Lastar/Ange vikt/Klart, viktvärden, aktivt jobb, kö, historik, Sammanställningens beräkningar, renderordning, syncsanning, GPS/geofence/ETA, ÄTA, kvittoimport, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'SYNC-RECEIVED-REIMPORT-GUARD-V413', name:'Hårt återimportskydd för mottagna sync-id v413', status:'Sync/189/Datorläge/Importskydd', protectionStatus:'Aktiv', introduced:'v413', purpose:'v413 gör 189:s mottagningsminne styrande vid import från dator/mobil. Om 189 redan har tagit emot ett uppdrag med samma unika sync-id ska samma uppdrag inte kunna importeras automatiskt igen när uppdraget senare har startats, avslutats eller försvunnit ur 189:s aktuella kö. Detta stoppar återimport från kvarvarande inbox-/datorrader utan att ändra det riktiga arbetsflödet.', changeRule:'Får bara ändra 189-syncens importspärr, analys av fjärr-inbox, manifest och kontrolltexter. Får inte ändra uppdragsinnehåll, köstart, aktivt jobb, Klart, historik, vikt, ÄTA, Returplats, Flerlass, GPS/geofence/ETA, kvittoimport, datorns synliga mottagen-status, syncfilernas grundformat, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412', name:'Kvittoimport uppskattad tid från kvittotid v412', status:'Kvittoimport/Historik/Snittid/ÄTA-flaggning', protectionStatus:'Aktiv', introduced:'v412', purpose:'v412 utökar den separata kvittoimporten så kvittorader kan bära Datum, Kvittotid, Anläggning, Material/kod, Vikt, Trolig jobbtyp, Trolig Från-plats, Trolig Till-plats/anläggning och Trolig ÄTA. Kvittotiden används som mittpunkt och appens befintliga snittid kan ge uppskattad start/slut i historik när appen inte användes.', changeRule:'Får bara ändra kvittoimportens separata inläsning, förhandsvisning, kvittohistorik och kvittoimporterade historikrader. Får inte ändra riktiga appkörda uppdrag, aktivt jobb, kö, Lastar/Ange vikt/Klart, debiterbar ÄTA-tid, ÄTA-mail, GPS/geofence/ETA, tidsinlärning, sync/spegling, backup/export eller driftlogg_v4_full-nyckeln. Kvittoimporterad uppskattad tid ska fortsatt vara exkluderad från tidsinlärning.'},
@@ -18687,6 +18710,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Geofence lossningslås v96 finns', !!el('geofenceUnloadingLock') && fn('isGeofenceUnloadingLockEnabled') && fn('activateUnloadingLockForToZone') && fn('releaseUnloadingLockAfterWeight') && src('updateActiveGeofenceVisualStatus', 'activateUnloadingLockForToZone') && src('addLoadToCurrent', 'releaseUnloadingLockAfterWeight') && APP_FEATURE_MANIFEST.some(item => item.name === 'Geofence lossningslås v96'), 'geofence har Lossningslås som bara håller visuell Till-zon/lossning tills vikt registreras');
   addFunctionCheck(results, 'Nivå 2', 'Geofence lastningslås v376 finns', !!el('geofenceLoadingLock') && fn('isGeofenceLoadingLockEnabled') && fn('activateLoadingLockForFromZone') && fn('releaseLoadingLockAfterManualLoading') && fn('retainLoadingLockStartVisual') && src('updateActiveGeofenceVisualStatus', 'activateLoadingLockForFromZone') && src('updateActiveGeofenceVisualStatus', 'retainLoadingLockStartVisual') && src('toggleActiveTransportPhase', 'releaseLoadingLockAfterManualLoading') && src('buildGeofenceFromForm', 'loadingLockUntilManualLoading') && APP_FEATURE_MANIFEST.some(item => item.id === 'GEOFENCE-LOADING-LOCK-V376'), 'geofence har Lastningslås som bara håller visuell Från-zon/lastning tills Lastar registreras');
   addFunctionCheck(results, 'Nivå 2', 'Render- och turordningsfix v380', typeof getQueueRenderCacheKeyV380 === 'function' && typeof scheduleDeferredRenderV380 === 'function' && typeof buildDayForecastUncachedV380 === 'function' && typeof isQueueTabVisibleV380 === 'function' && functionSourceIncludes('renderActive', 'renderDayForecasts()') === false && functionSourceIncludes('renderQueue', 'queueRenderKeyV380') && functionSourceIncludes('render', 'scheduleDeferredRenderV380') && APP_FEATURE_MANIFEST.some(item => item.id === 'PERFORMANCE-RENDER-ORDER-FIX-V380'), 'Kövyn/dagsprognos cacheas eller skjuts upp och renderActive drar inte längre med dagsprognosen vid varje aktivt arbetssteg.');
+  addFunctionCheck(results, 'Nivå 2', 'Aktiv vy, viktfokus och Sammanställning prestandafix v415', functionSourceIncludes('startActiveTimer', 'renderActiveEstimateCountdown') && functionSourceIncludes('startActiveTimer', 'renderActive();') === false && functionSourceIncludes('startDistanceTracking', 'activeDistanceV415') && functionSourceIncludes('shouldSkipRenderActiveV388', "document.activeElement.id === 'weightInput'") && functionSourceIncludes('renderSummary', 'summaryWrapV415.classList.contains') && APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-RENDER-SUMMARY-WEIGHT-PERFORMANCE-V415'), 'Sekundtimer/GPS helrenderar inte aktivkortet, viktfokus skyddas och Sammanställning byggs bara när panelen visas.');
   addFunctionCheck(results, 'Nivå 2', 'Lastbils status/live-status throttle v387', fn('shouldThrottleLiveStatusUploadV387') && fn('markLiveStatusUploadStartV387') && fn('markLiveStatusUploadEndV387') && fn('shouldRenderActiveOnTimerV387') && fn('queueSyncUploadLiveStatusBaseV387') && fn('queueSyncUploadLiveStatusV321') && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'Lastbils status/live-status har överlappsspärr, tät GitHub PUT-throttle och aktiv timer renderar inte aktiv vy varje sekund i onödan.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv spegling parkerad under arbete v388', fn('shouldParkActiveMirrorDuringActiveV388') && fn('shouldParkLiveStatusDuringActiveV388') && fn('shouldRenderActiveOnTimerV388') && fn('shouldSkipRenderActiveV388') && fn('shouldSkipQueueSyncSettingsRenderV388') && fn('isCompletionOrManualMirrorReasonV388') && APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-MIRROR-PARKED-WORK-V388'), 'v388 parkerar löpande aktiv Lastbils status/live-status under aktivt arbete, minskar aktiv render och låter arbetsknapparnas lokala sanning gå före GitHub PUT.');
   addFunctionCheck(results, 'Nivå 2', 'Kontrollcentral/Funktionslista kalibrering v389', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-BASELINE-CALIBRATION-V389') && Array.isArray(APP_FUNCTION_SOURCE_BASELINE_V329) && typeof CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389 !== 'undefined' && CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V389.every(function(name){ return APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) >= 0; }), 'v389 kalibrerar kontrollbaseline för lokala kontrollhjälpare och uppdaterar v383-v388-kontroller utan att ändra arbetsdata.');
@@ -20209,7 +20233,8 @@ function buildSystemControlInternalChecks(){
     systemCheck('Klart-/saveState-/köprognosfix v382', typeof forceSaveStateV382 === 'function' && typeof scheduleDayForecastRenderV382 === 'function' && typeof isPostWorkHeavyRenderHoldV382 === 'function' && functionSourceIncludes('showTab', 'showTab-deferred-v382') && APP_FEATURE_MANIFEST.some(item => item.id === 'COMPLETE-SAVE-QUEUE-THROTTLE-V382'), 'Klart/Ange vikt undviker direkt tung kö/prognos och render sparar inte extra state'),
     systemCheck('ÄTA-markering i köredigering och aktivt jobb v383', typeof getAtaQueuePillHtmlV383 === 'function' && typeof getActiveAtaBadgeHtmlV383 === 'function' && functionSourceIncludes('renderQueue', 'getAtaQueuePillHtmlV383') && functionSourceIncludes('formatActiveOverviewHtml', 'ÄTA-uppdrag') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-ACTIVE-VISIBILITY-V383'), 'ÄTA visas som liten etikett och kökortsbadge utan att ändra debiteringslogik'),
     systemCheck('Returplats inte som egen Excel-flik v385', functionSourceIncludes('buildExcelWorkbookXml', '<Worksheet ss:Name="Detaljer"') && functionSourceIncludes('buildExcelWorkbookXml', 'Returplats') && !functionSourceIncludes('buildExcelWorkbookXml', 'Worksheet ss:Name="Returplatser"') && APP_FEATURE_MANIFEST.some(item => item.id === 'RETURNPLACE-EXCEL-NO-OWN-SHEET-V385'), 'Excel behåller Returplats i detaljraden men saknar egen Returplatser-flik'),
-    systemCheck('Lastbils status/live-status throttle v387', typeof shouldThrottleLiveStatusUploadV387 === 'function' && typeof markLiveStatusUploadStartV387 === 'function' && typeof markLiveStatusUploadEndV387 === 'function' && typeof shouldRenderActiveOnTimerV387 === 'function' && typeof queueSyncUploadLiveStatusBaseV387 === 'function' && typeof queueSyncUploadLiveStatusV321 === 'function' && functionSourceIncludes('startActiveTimer', 'shouldRenderActiveOnTimerV388') && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'Live-status/GitHub PUT har överlappsspärr och aktiv vy timer-renderas glesare'),
+    systemCheck('Lastbils status/live-status throttle v387', typeof shouldThrottleLiveStatusUploadV387 === 'function' && typeof markLiveStatusUploadStartV387 === 'function' && typeof markLiveStatusUploadEndV387 === 'function' && typeof shouldRenderActiveOnTimerV387 === 'function' && typeof queueSyncUploadLiveStatusBaseV387 === 'function' && typeof queueSyncUploadLiveStatusV321 === 'function' && (functionSourceIncludes('startActiveTimer', 'shouldRenderActiveOnTimerV388') || functionSourceIncludes('startActiveTimer', 'renderActiveEstimateCountdown')) && APP_FEATURE_MANIFEST.some(item => item.id === 'LIVE-STATUS-THROTTLE-RENDERACTIVE-V387'), 'Live-status/GitHub PUT har överlappsspärr och aktiv vy timer-renderas glesare eller lättare enligt v415'),
+    systemCheck('Aktiv vy/vikt/Sammanställning prestandafix v415', functionSourceIncludes('startActiveTimer', 'renderActiveEstimateCountdown') && functionSourceIncludes('startActiveTimer', 'renderActive();') === false && functionSourceIncludes('startDistanceTracking', 'activeDistanceV415') && functionSourceIncludes('shouldSkipRenderActiveV388', "document.activeElement.id === 'weightInput'") && functionSourceIncludes('renderSummary', 'summaryWrapV415.classList.contains') && APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-RENDER-SUMMARY-WEIGHT-PERFORMANCE-V415'), 'Aktiv timer/GPS använder lätt UI-uppdatering, viktfält skyddas och dold Sammanställning renderas inte'),
     systemCheck('ÄTA aviseringar grundlager v391', typeof toggleAtaMailSettingsManagerV391 === 'function' && typeof loadAtaContactsV391 === 'function' && typeof loadAtaMailTemplateV391 === 'function' && !!document.getElementById('ataMailSettingsWrapV391') && !!document.getElementById('ataMailTemplateFieldsV391') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391'), 'lokal ÄTA-adressbok och mailmall finns i Inställningar och sparas i separata lokala nycklar'),
     systemCheck('ÄTA-mottagare planering v392', typeof loadAtaSupervisorV392 === 'function' && typeof updateNewAtaRecipientUIV392 === 'function' && typeof applyAtaRecipientToJobIfAtaV392 === 'function' && typeof renderQuickAtaRecipientFieldsV392 === 'function' && typeof collectEditQueueAtaRecipientV392 === 'function' && functionSourceIncludes('startJob', 'ataRecipientV392') && functionSourceIncludes('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392'), 'ÄTA-mottagare och lokal arbetsledare finns för planering utan Gmail-/avslutskoppling; DOM-fält kan vara stängda/omrenderade i v399-kontrollen'),
     systemCheck('ÄTA-mail avslut och Idag v394', typeof requestAtaMailAfterCompletionV394 === 'function' && typeof buildAtaMailBodyV394 === 'function' && typeof getAtaMailTodayActionHtmlV394 === 'function' && !!document.getElementById('ataMailModalV394') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-COMPLETION-TODAY-V394'), 'ÄTA-mail kan öppnas som Gmail/mailutkast från avslut och Idag utan automatisk sändning; kontroll kalibrerad i v399'),
@@ -21251,8 +21276,8 @@ const PERFORMANCE_DIAG_MAX_EVENTS_V379 = 500;
 const PERFORMANCE_DIAG_MAX_CHAINS_V379 = 250;
 const PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 = 250;
 const PERFORMANCE_DIAG_MAX_CHAIN_CHILDREN_V414 = 40;
-const PERFORMANCE_DIAG_PERSIST_DELAY_MS_V414 = 6000;
-const PERFORMANCE_DIAG_FORCE_PERSIST_MS_V414 = 10000;
+const PERFORMANCE_DIAG_PERSIST_DELAY_MS_V414 = 20000;
+const PERFORMANCE_DIAG_FORCE_PERSIST_MS_V414 = 60000; // v415: större diagnoslogg skrivs glesare så mätningen inte själv blockerar arbetet
 const PERFORMANCE_DIAG_TICK_MS_V379 = 500;
 let performanceDiagStoreCacheV379 = null;
 let performanceDiagPersistTimerV379 = null;
@@ -21471,6 +21496,18 @@ function endPerformanceDiagChainV379(chain, ok, error){
   const duration = performanceDiagNowV379() - chain.start;
   const thresholds = getPerformanceDiagThresholdsV379();
   const record = {at:chain.startedAt, type:'knappkedja', label:chain.label, durationMs:performanceDiagRoundV379(duration), ok:ok !== false, error:error ? String((error && error.message) || error) : '', meta:chain.meta, children:(chain.children || []).slice(-PERFORMANCE_DIAG_MAX_CHAIN_CHILDREN_V414)};
+  const compactNormalActiveRenderV415 = record.label === 'renderActive / Aktivt jobb' && !record.error && !(record.meta && record.meta.weightFocused) && record.durationMs < 1500;
+  if(compactNormalActiveRenderV415){
+    const store = getPerformanceDiagStoreV379();
+    const key = 'renderActive / Aktivt jobb (sammanfattad v415)';
+    if(!store.counters[key]) store.counters[key] = {count:0,totalMs:0,maxMs:0,lastAt:0};
+    store.counters[key].count += 1;
+    store.counters[key].totalMs += record.durationMs;
+    store.counters[key].maxMs = Math.max(store.counters[key].maxMs || 0, record.durationMs);
+    store.counters[key].lastAt = record.at;
+    schedulePerformanceDiagPersistV379(false);
+    return;
+  }
   if(record.durationMs >= thresholds.chain || record.children.length || record.error){
     const store = getPerformanceDiagStoreV379();
     store.chains.push(record);
@@ -21621,9 +21658,10 @@ function buildPerformanceDiagnosticsReportV379(){
   lines.push('- Om huvudtrådsfrys finns men funktionskedjan är okänd: troligen hände låsningen i en omarkerad render-/timer-/webbläsarkedja.');
   lines.push('- Om en knappkedja visar många tunga delsteg: nästa version bör dela upp kedjan och låta arbetsknappen spara/visa först.');
   lines.push('- Om saveState eller renderQueue dominerar: nästa version bör lätta spar-/kövy-rutinen utan att ändra arbetsdata.');
+  lines.push('- v415 sammanfattar normala renderActive-körningar under 1 500 ms. Långsamma renderActive, viktfokus och fel sparas fortsatt som fulla händelser.');
   lines.push('');
   lines.push('RAW');
-  lines.push('mode=' + store.mode + '; events=' + events.length + '/' + PERFORMANCE_DIAG_MAX_EVENTS_V379 + '; chains=' + chains.length + '/' + PERFORMANCE_DIAG_MAX_CHAINS_V379 + '; lagEvents=' + lag.length + '/' + PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 + '; enhancement=v414; storageKey=' + PERFORMANCE_DIAG_STORAGE_KEY_V379);
+  lines.push('mode=' + store.mode + '; events=' + events.length + '/' + PERFORMANCE_DIAG_MAX_EVENTS_V379 + '; chains=' + chains.length + '/' + PERFORMANCE_DIAG_MAX_CHAINS_V379 + '; lagEvents=' + lag.length + '/' + PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 + '; enhancement=v415; storageKey=' + PERFORMANCE_DIAG_STORAGE_KEY_V379);
   return lines.join('\n');
 }
 function renderPerformanceDiagnosticsV379(){
@@ -30886,6 +30924,10 @@ function getRenderActiveFingerprintV388(job){
 function shouldSkipRenderActiveV388(){
   try{
     if(!state || !state.active) return false;
+    if(document.activeElement && document.activeElement.id === 'weightInput'){
+      renderActiveSkippedV388++;
+      return true;
+    }
     const now = Date.now();
     const fp = getRenderActiveFingerprintV388(state.active);
     if(fp === renderActiveLastFingerprintV388 && now - Number(renderActiveLastAtV388 || 0) < 2500){
@@ -33028,7 +33070,7 @@ function showTab(tab){
     updateQueueGithubActionButtonV183();
   }
   if(tab === 'idag'){
-    try{ renderToday(); renderSummary(); }catch(e){}
+    try{ renderToday(); }catch(e){}
   }
   if(tab === 'snabb'){
     try{ renderQuickSelections(); }catch(e){}
@@ -35893,7 +35935,8 @@ function renderCurrentVisiblePanelImmediateV380(){
   }
   if(tab === 'idag'){
     renderToday();
-    renderSummary();
+    const summaryWrapV415 = document.getElementById('settingsSummaryWrap');
+    if(summaryWrapV415 && !summaryWrapV415.classList.contains('hidden')) renderSummary();
     return;
   }
   if(tab === 'settings'){
@@ -35914,7 +35957,7 @@ function scheduleDeferredRenderV380(reason){
     deferredRenderRunningV380 = true;
     const steps = [
       ['renderToday / Idag', () => { if(getVisibleMainTabV380() === 'idag') renderToday(); }],
-      ['renderSummary / Sammanställning', () => { if(getVisibleMainTabV380() === 'idag') renderSummary(); }],
+      ['renderSummary / Sammanställning', () => { const summaryWrapV415 = document.getElementById('settingsSummaryWrap'); if(summaryWrapV415 && !summaryWrapV415.classList.contains('hidden')) renderSummary(); }],
       ['renderQuickSelections / Snabbval', () => { if(getVisibleMainTabV380() === 'settings' || getVisibleMainTabV380() === 'snabb') renderQuickSelections(); }],
       ['renderHistoryManager / Historik', () => { if(getVisibleMainTabV380() === 'settings') renderHistoryManager(); }],
       ['renderTrashManager / Papperskorg', () => { if(getVisibleMainTabV380() === 'settings') renderTrashManager(); }],
@@ -39495,6 +39538,8 @@ function exportSummaryExcel(){
 }
 
 function renderSummary(){
+  const summaryWrapV415 = document.getElementById('settingsSummaryWrap');
+  if(summaryWrapV415 && summaryWrapV415.classList.contains('hidden')) return;
   const performanceDiagSummaryTotalV414 = performanceDiagNowV379();
   let performanceDiagSummaryStageV414 = performanceDiagSummaryTotalV414;
   const performanceDiagSummaryTriggerV414 = performanceDiagCurrentChainV379 && performanceDiagCurrentChainV379.label ? String(performanceDiagCurrentChainV379.label) : (performanceDiagLastInteractionV379 && performanceDiagLastInteractionV379.label ? String(performanceDiagLastInteractionV379.label) : 'okänd');
