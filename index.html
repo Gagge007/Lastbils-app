@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v413
+- Nuvarande version: Stadslass 2.0 v414
+- v414: Ren diagnosförstärkning. Prestandadiagnosens rullande kapacitet höjs till 500 händelser, 250 knappkedjor och 250 frys/låsningar. Lägger diagnostiska spår för viktfältets fokus/tangentbord/tangentfördröjning, Klart-kedjans delsteg och Sammanställningens delsteg/utlösare. Diagnoslogg skrivs fortsatt separat och mer buffrat. Ingen ändring av arbetsflöde, viktlogik, Klart-logik, render-/syncbeteende, historik, kö, GPS/geofence/ETA, kvittoimport eller driftlogg_v4_full.
 - v413: Hårt återimportskydd för 189-sync. 189 hoppar över uppdrag vars unika sync-id redan har mottagits tidigare, även om uppdraget senare har startats eller avslutats och därför inte längre finns i 189:s aktuella kö. Detta stoppar att datorns kvarvarande mottagna uppdrag importeras igen automatiskt. Ingen ändring av arbetsflöde, köstart, Klart, historik, vikt, GPS/geofence/ETA, kvittoimport, syncsanning på datorn eller driftlogg_v4_full.
 - v410: Smal versionskontrollfix efter v409. VERSION-CONSISTENCY-V351 kontrollerar nu aktuell APP_VERSION/boot-version dynamiskt i stället för en hårdkodad versionslista, så korrekt ny version inte felklassas som kritisk. Innehåller även v409:s Djupkontroll-klassning eftersom v409-filen togs bort före v410-bygget. Ingen ändring av arbetsflöde, GPS/geofence/ETA, ÄTA, vikt, sync, historik, export eller driftlogg_v4_full.
 - v409: Djupkontroll-klassning efter noll kritiska appfel. Djupkontroll kan visa kontrollbehov/GPS-läge i stället för FEL när inga verkliga kritiska appfel finns, utan att ändra arbetsdata.
@@ -423,7 +424,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v413';
+  const version = 'Stadslass 2.0 v414';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4265,7 +4266,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v413</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v414</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -13822,8 +13823,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v413';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v414';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v414 förstärkt prestandadiagnos och längre rullande logg',
   'v413 hårt återimportskydd för mottagna sync-id',
   'v412 kvittoimport uppskattad tid från kvittotid',
   'v411 aktiv arbetskopia och snabb kö efter Klart',
@@ -15866,7 +15868,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v413';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v414';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15891,6 +15893,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'PERFORMANCE-DIAGNOSTICS-ENHANCEMENT-V414', name:'Förstärkt prestandadiagnos och längre rullande logg v414', status:'Kontrollcentral/Prestanda/Diagnostik', protectionStatus:'Aktiv', introduced:'v414', purpose:'v414 förstärker den separata prestandadiagnosen för längre skarpa arbetsdagar. Rullande logg behåller 500 händelser, 250 knappkedjor och 250 frys/låsningar. Diagnosen fångar viktfältets fokus, tangentbordsöppning och tangentfördröjning, Klart-kedjans delsteg samt Sammanställningens delsteg och utlösande kedja.', changeRule:'Får bara ändra prestandadiagnosens separata loggkapacitet, buffrad loggskrivning, diagnostiska mätpunkter, rapporttext, manifest och kontrolltexter. Får inte ändra arbetsflöde, Lastar/Ange vikt/Klart, viktvärden, aktivt jobb, kö, historik, Sammanställningens beräkningar, renderordning, syncsanning, GPS/geofence/ETA, ÄTA, kvittoimport, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'SYNC-RECEIVED-REIMPORT-GUARD-V413', name:'Hårt återimportskydd för mottagna sync-id v413', status:'Sync/189/Datorläge/Importskydd', protectionStatus:'Aktiv', introduced:'v413', purpose:'v413 gör 189:s mottagningsminne styrande vid import från dator/mobil. Om 189 redan har tagit emot ett uppdrag med samma unika sync-id ska samma uppdrag inte kunna importeras automatiskt igen när uppdraget senare har startats, avslutats eller försvunnit ur 189:s aktuella kö. Detta stoppar återimport från kvarvarande inbox-/datorrader utan att ändra det riktiga arbetsflödet.', changeRule:'Får bara ändra 189-syncens importspärr, analys av fjärr-inbox, manifest och kontrolltexter. Får inte ändra uppdragsinnehåll, köstart, aktivt jobb, Klart, historik, vikt, ÄTA, Returplats, Flerlass, GPS/geofence/ETA, kvittoimport, datorns synliga mottagen-status, syncfilernas grundformat, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412', name:'Kvittoimport uppskattad tid från kvittotid v412', status:'Kvittoimport/Historik/Snittid/ÄTA-flaggning', protectionStatus:'Aktiv', introduced:'v412', purpose:'v412 utökar den separata kvittoimporten så kvittorader kan bära Datum, Kvittotid, Anläggning, Material/kod, Vikt, Trolig jobbtyp, Trolig Från-plats, Trolig Till-plats/anläggning och Trolig ÄTA. Kvittotiden används som mittpunkt och appens befintliga snittid kan ge uppskattad start/slut i historik när appen inte användes.', changeRule:'Får bara ändra kvittoimportens separata inläsning, förhandsvisning, kvittohistorik och kvittoimporterade historikrader. Får inte ändra riktiga appkörda uppdrag, aktivt jobb, kö, Lastar/Ange vikt/Klart, debiterbar ÄTA-tid, ÄTA-mail, GPS/geofence/ETA, tidsinlärning, sync/spegling, backup/export eller driftlogg_v4_full-nyckeln. Kvittoimporterad uppskattad tid ska fortsatt vara exkluderad från tidsinlärning.'},
   {id:'ACTIVE-WORKING-COPY-FAST-QUEUE-V411', name:'Aktiv arbetskopia och snabb kö efter Klart v411', status:'Aktivt jobb/Klart/Prestanda/Kö-rendering', protectionStatus:'Aktiv', introduced:'v411', purpose:'v411 gör det aktiva uppdraget till en tydlig ändringsbar arbetskopia medan jobbet pågår och använder den vid Klart. Efter lokal slutstämpling och sparning renderas Arbete i kö direkt med Starta-knappar innan tyngre efterrendering, dagsprognos, sammanställning och sync får fortsätta. Detta minskar tom kö efter avslutat uppdrag utan att ändra arbetsdata.', changeRule:'Får bara ändra aktiv arbetskopie-markering, saveState-förberedelse, Klart-renderordning och kö-renderingens lätta efter-Klart-läge. Får inte ändra Lastar/Ange vikt/Klart-sanning, vikt, ÄTA-debitering, Returplats, Flerlass, GPS/geofence/ETA-sanning, historikdata, sync-sanning, backup/export eller driftlogg_v4_full-nyckeln.'},
@@ -18068,6 +18071,7 @@ function buildFunctionProtectionRowsV329(){
   add('CONTROL-REPORT-LEGACY-CORE-CALIBRATION-V407', 'Kvarvarande gamla kärnkontroller kalibrerade v407', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LEGACY-CORE-CALIBRATION-V407') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v407 kvarvarande gamla kärnkontroller kalibrerade')) && functionSourceIncludes('classifyControlCheckV166', 'v407LegacyCoreControlUpdatePatterns') && functionSourceIncludes('classifyControlCheckV166', 'friare nytt jobb') && functionSourceIncludes('classifyControlCheckV166', 'köredigering'), 'kvarvarande gamla kärn-/systemkontroller klassas som kontrollbehov, inte verkligt appfel', 'KRITISK');
   add('CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408', 'Sista stödruta-kontroll kalibrerad v408', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v408 sista stödruta-kontroll kalibrerad')) && functionSourceIncludes('classifyControlCheckV166', 'v408WeightSupportControlUpdatePatterns') && functionSourceIncludes('classifyControlCheckV166', 'stödruta v36 efter vikt'), 'sista kvarvarande stödruta-kontroll klassas som kontrollbehov, inte verkligt appfel', 'KRITISK');
   add('CONTROL-REPORT-DEEP-CLASSIFICATION-V409', 'Djupkontroll-klassning efter noll kritiska appfel v409', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-DEEP-CLASSIFICATION-V409') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v409 djupkontroll-klassning')) && functionSourceIncludes('buildControlCenterFullRunReportV193', 'deepCriticalV409') && functionSourceIncludes('controlCenterFullRowsToTextV193', 'deepControlClassifyRowV409'), 'Djupkontroll använder samma kontrollbehov/GPS-läge-klassning som Funktionskontroll/Systemkontroll när kritiska appfel är 0', 'KRITISK');
+  add('PERFORMANCE-DIAGNOSTICS-ENHANCEMENT-V414', 'Förstärkt prestandadiagnos och längre rullande logg v414', APP_FEATURE_MANIFEST.some(item => item.id === 'PERFORMANCE-DIAGNOSTICS-ENHANCEMENT-V414') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v414 förstärkt prestandadiagnos')) && PERFORMANCE_DIAG_MAX_EVENTS_V379 === 500 && PERFORMANCE_DIAG_MAX_CHAINS_V379 === 250 && PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 === 250 && typeof setupPerformanceWeightCaptureV414 === 'function' && typeof performanceDiagRecordNamedStageV414 === 'function' && functionSourceIncludes('stopJob', 'Klart: lokal sparning') && functionSourceIncludes('renderSummary', 'Sammanställning: filtrera historikunderlag'), 'längre rullande diagnoslogg samt separata mätspår för viktfält/tangentbord, Klart-delsteg och Sammanställningens delsteg/utlösare utan ändrad arbetslogik', 'KRITISK');
   add('RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412', 'Kvittoimport uppskattad tid från kvittotid v412', APP_FEATURE_MANIFEST.some(item => item.id === 'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v412 kvittoimport')) && functionSourceIncludes('cleanReceiptRowForStorage', 'receiptTime') && functionSourceIncludes('cleanReceiptRowForStorage', 'likelyAta') && functionSourceIncludes('getReceiptSummaryJobs', 'buildReceiptTimeWindowV412') && functionSourceIncludes('parseReceiptSemicolonRows', 'materialKod'), 'kvittoimport kan bära datum, kvittotid, anläggning, material/kod, vikt, jobbtyp, Från/Till och trolig ÄTA; kvittotid kan bli mittpunkt för uppskattad historiktid utan tidsinlärning', 'KRITISK');
   add('ACTIVE-WORKING-COPY-FAST-QUEUE-V411', 'Aktiv arbetskopia och snabb kö efter Klart v411', APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-WORKING-COPY-FAST-QUEUE-V411') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v411 aktiv arbetskopia')) && typeof saveActiveWorkingCopyV411 === 'function' && functionSourceIncludes('saveState', 'saveActiveWorkingCopyV411') && functionSourceIncludes('stopJob', 'klart-v411-fast-queue') && functionSourceIncludes('renderQueue', 'lightAfterCompleteV411'), 'aktivt uppdrag försparas som ändringsbar arbetskopia och Arbete i kö renderas direkt efter lokal slutstämpling vid Klart', 'KRITISK');
   add('CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410', 'Versionskontrollfix efter v409 v410', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v410 versionskontrollfix')) && functionSourceIncludes('buildFunctionProtectionRowsV329', 'versionConsistentV410') && functionSourceIncludes('buildFunctionProtectionRowsV329', 'manifestCurrent'), 'VERSION-CONSISTENCY-V351 använder aktuell APP_VERSION/boot-version och manifestspår i stället för hårdkodad versionslista', 'KRITISK');
@@ -18466,6 +18470,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sista stödruta-kontroll kalibrerad v408', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408') && src('classifyControlCheckV166', 'v408WeightSupportControlUpdatePatterns') && src('classifyControlCheckV166', 'stödruta v36 efter vikt'), 'stödruta-kontrollen med versionsinlagt namn klassas som kontrollbehov utan att ändra Ange vikt eller arbetsdata');
   addFunctionCheck(results, 'Nivå 2', 'Djupkontroll-klassning efter noll kritiska appfel v409', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-DEEP-CLASSIFICATION-V409') && src('buildControlCenterFullRunReportV193', 'deepCriticalV409') && src('controlCenterFullRowsToTextV193', 'deepControlClassifyRowV409'), 'Djupkontrollen kan visa kontrollbehov/GPS-läge i stället för FEL när inga verkliga kritiska appfel finns');
   addFunctionCheck(results, 'Nivå 2', 'Kvittoimport uppskattad tid från kvittotid v412', APP_FEATURE_MANIFEST.some(item => item.id === 'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412') && !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && src('cleanReceiptRowForStorage', 'receiptTime') && src('cleanReceiptRowForStorage', 'likelyAta') && src('getReceiptSummaryJobs', 'buildReceiptTimeWindowV412') && src('renderReceiptImportPreview', 'Trolig ÄTA'), 'Kvittoimport kan ta färdigt kvittoanalysunderlag med kvittotid, anläggning/materialkod, trolig ÄTA och uppskattad start/slut utan att påverka tidsinlärning.');
+  addFunctionCheck(results, 'Nivå 2', 'Förstärkt prestandadiagnos och längre rullande logg v414', APP_FEATURE_MANIFEST.some(item => item.id === 'PERFORMANCE-DIAGNOSTICS-ENHANCEMENT-V414') && PERFORMANCE_DIAG_MAX_EVENTS_V379 === 500 && PERFORMANCE_DIAG_MAX_CHAINS_V379 === 250 && PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 === 250 && typeof setupPerformanceWeightCaptureV414 === 'function' && typeof performanceDiagRecordNamedStageV414 === 'function' && src('stopJob', 'Klart: visa kö och aktiv vy') && src('renderSummary', 'Sammanställning: gruppera per jobbtyp'), 'diagnosen behåller längre skarp logg och skiljer viktfält/tangentbord, Klart-delsteg och Sammanställningens utlösare utan funktionsändring.');
   addFunctionCheck(results, 'Nivå 2', 'Hårt återimportskydd för mottagna sync-id v413', APP_FEATURE_MANIFEST.some(item => item.id === 'SYNC-RECEIVED-REIMPORT-GUARD-V413') && typeof isTabletReceivedStrictSyncItemV413 === 'function' && src('queueSyncImportMobileInboxV219', 'redan har mottagits tidigare') && src('queueSyncImportMobileInboxV219', 'alreadyReceivedStrictV413') && src('analyzeQueueSyncRemoteInboxV223', 'alreadyReceivedStrictV413'), '189 hoppar över uppdrag vars unika sync-id redan har mottagits tidigare även om de inte längre finns i aktuell kö/aktivt jobb.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv arbetskopia och snabb kö efter Klart v411', APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-WORKING-COPY-FAST-QUEUE-V411') && typeof saveActiveWorkingCopyV411 === 'function' && src('saveState', 'saveActiveWorkingCopyV411') && src('startJob', 'start-v411') && src('stopJob', 'klart-v411-fast-queue') && src('renderQueue', 'lightAfterCompleteV411'), 'Aktivt uppdrag sparas löpande som ändringsbar arbetskopia och kökort/Starta-knappar renderas direkt efter Klart före tunga efterjobb.');
   addFunctionCheck(results, 'Nivå 2', 'Versionskontrollfix efter v409 v410', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410') && src('buildFunctionProtectionRowsV329', 'versionConsistentV410') && src('buildFunctionProtectionRowsV329', 'manifestCurrent'), 'VERSION-CONSISTENCY-V351 jämför aktuell APP_VERSION och boot-version dynamiskt och kräver aktuell manifestpost');
@@ -19263,11 +19268,49 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('Sammanfattningskontroller: ' + summary.summary);
   lines.push('Varningar: ' + summary.warnings);
   lines.push('');
+  lines.push('VIKTFÄLT / TANGENTBORD');
+  const weightEventsV414 = events.filter(item => /^viktfält /.test(String(item.type || '')) || /^Viktfält:/.test(String(item.label || '')));
+  const weightSessionsV414 = weightEventsV414.filter(item => item.type === 'viktfält skrivsession');
+  const worstWeightFocusV414 = weightEventsV414.slice().sort((a,b) => Number((b.meta && b.meta.focusDelayMs) || 0) - Number((a.meta && a.meta.focusDelayMs) || 0))[0] || null;
+  const worstWeightKeyboardV414 = weightEventsV414.slice().sort((a,b) => Number((b.meta && b.meta.keyboardDelayMs) || 0) - Number((a.meta && a.meta.keyboardDelayMs) || 0))[0] || null;
+  const worstWeightInputV414 = weightEventsV414.slice().sort((a,b) => Number((b.meta && b.meta.maxInputDelayMs) || b.durationMs || 0) - Number((a.meta && a.meta.maxInputDelayMs) || a.durationMs || 0))[0] || null;
+  lines.push('- Skrivsessioner: ' + weightSessionsV414.length);
+  lines.push('- Värsta fokusfördröjning: ' + (worstWeightFocusV414 ? Math.round(Number((worstWeightFocusV414.meta && worstWeightFocusV414.meta.focusDelayMs) || 0)) + ' ms' : 'saknas'));
+  lines.push('- Värsta tangentbordsöppning: ' + (worstWeightKeyboardV414 && Number(worstWeightKeyboardV414.meta && worstWeightKeyboardV414.meta.keyboardDelayMs) >= 0 ? Math.round(Number(worstWeightKeyboardV414.meta.keyboardDelayMs)) + ' ms' : 'saknas'));
+  lines.push('- Värsta tangentfördröjning: ' + (worstWeightInputV414 ? Math.round(Number((worstWeightInputV414.meta && worstWeightInputV414.meta.maxInputDelayMs) || worstWeightInputV414.durationMs || 0)) + ' ms' : 'saknas'));
+  weightEventsV414.slice(-20).reverse().forEach(item => {
+    const detailV414 = performanceDiagDetailMetaTextV414(item.meta);
+    lines.push('- ' + performanceDiagDateTextV379(item.at) + ' · ' + item.label + ' · ' + item.durationMs + ' ms' + (detailV414 ? ' · ' + detailV414 : '') + ' · ' + performanceDiagShortMetaTextV379(item.meta));
+  });
+  if(!weightEventsV414.length) lines.push('- Inga viktfältshändelser mätta ännu.');
+  lines.push('');
+  lines.push('KLART – DIAGNOSTISKA DELSTEG');
+  const completionStagesV414 = events.filter(item => item.type === 'klart delsteg' || /^Klart:/.test(String(item.label || ''))).slice().sort((a,b) => Number(b.durationMs || 0) - Number(a.durationMs || 0)).slice(0,30);
+  if(!completionStagesV414.length) lines.push('- Inga Klart-delsteg mätta ännu.');
+  completionStagesV414.forEach(item => {
+    const detailV414 = performanceDiagDetailMetaTextV414(item.meta);
+    lines.push('- ' + performanceDiagDateTextV379(item.at) + ' · ' + item.label + ' · ' + item.durationMs + ' ms' + (detailV414 ? ' · ' + detailV414 : ''));
+  });
+  lines.push('');
+  lines.push('SAMMANSTÄLLNING – DELSTEG OCH UTLÖSARE');
+  const summaryStagesV414 = events.filter(item => item.type === 'sammanställning delsteg' || /^Sammanställning:/.test(String(item.label || ''))).slice().sort((a,b) => Number(b.durationMs || 0) - Number(a.durationMs || 0)).slice(0,30);
+  const summaryChainsV414 = chains.filter(item => String(item.label || '').includes('renderSummary')).slice(-20).reverse();
+  if(!summaryStagesV414.length && !summaryChainsV414.length) lines.push('- Inga Sammanställningsmätningar ännu.');
+  summaryStagesV414.forEach(item => {
+    const detailV414 = performanceDiagDetailMetaTextV414(item.meta);
+    lines.push('- DELSTEG · ' + performanceDiagDateTextV379(item.at) + ' · ' + item.label + ' · ' + item.durationMs + ' ms' + (detailV414 ? ' · ' + detailV414 : ''));
+  });
+  summaryChainsV414.forEach(item => {
+    const detailV414 = performanceDiagDetailMetaTextV414(item.meta);
+    lines.push('- KEDJA · ' + performanceDiagDateTextV379(item.at) + ' · ' + item.durationMs + ' ms' + (detailV414 ? ' · ' + detailV414 : '') + ' · ' + performanceDiagShortMetaTextV379(item.meta));
+  });
+  lines.push('');
   lines.push('TOLKNING');
   lines.push('KRITISKA FEL: verkligt appfel som behöver åtgärdas först.');
   lines.push('KONTROLL BEHÖVER UPPDATERAS: kontrollen letar troligen efter gammal text, gammalt funktionsnamn eller gammal CSS efter senare versioner.');
   lines.push('GPS/AKTIVT UPPDRAG KRÄVS: funktionen kan bara bekräftas fullt under aktivt uppdrag, GPS-läge eller rätt geofence-situation.');
   lines.push('SAMMANFATTNINGSKONTROLL: räknas inte som eget appfel när den bara summerar andra kontroller.');
+  lines.push('v414: Prestandadiagnosen behåller längre rullande arbetsdagslogg och redovisar viktfält/tangentbord, Klart-delsteg och Sammanställningens delsteg/utlösare utan att ändra appens beteende.');
   lines.push('v413: 189 hoppar över uppdrag vars unika sync-id redan har mottagits tidigare så samma dator-/mobiluppdrag inte importeras igen automatiskt.');
   lines.push('v412: Kvittoimport kan använda kvittotid som mittpunkt och appens snittid för uppskattad historiktid utan tidsinlärning.');
   lines.push('v411: Aktivt uppdrag försparas som ändringsbar arbetskopia och Arbete i kö renderas direkt efter Klart före tyngre efterjobb.');
@@ -20200,6 +20243,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
     systemCheck('Kvittoimport uppskattad tid från kvittotid v412', APP_FEATURE_MANIFEST.some(item => item.id === 'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412') && typeof normalizeReceiptTimeValueV412 === 'function' && typeof buildReceiptTimeWindowV412 === 'function' && functionSourceIncludes('cleanReceiptRowForStorage', 'materialCode') && functionSourceIncludes('getReceiptSummaryJobs', 'excludeFromTimeEstimate'), 'kvittotid som mittpunkt + snittid kan ge uppskattad start/slut men kvittoraden är fortsatt exkluderad från tidsinlärning'),
+    systemCheck('Förstärkt prestandadiagnos och längre rullande logg v414', APP_FEATURE_MANIFEST.some(item => item.id === 'PERFORMANCE-DIAGNOSTICS-ENHANCEMENT-V414') && PERFORMANCE_DIAG_MAX_EVENTS_V379 === 500 && PERFORMANCE_DIAG_MAX_CHAINS_V379 === 250 && PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 === 250 && typeof setupPerformanceWeightCaptureV414 === 'function' && typeof performanceDiagRecordNamedStageV414 === 'function' && functionSourceIncludes('buildPerformanceDiagnosticsReportV379', 'VIKTFÄLT / TANGENTBORD') && functionSourceIncludes('buildPerformanceDiagnosticsReportV379', 'KLART – DIAGNOSTISKA DELSTEG'), 'prestandadiagnosen har större rullande kapacitet och riktad diagnostik utan ändrad arbetsdata'),
     systemCheck('Hårt återimportskydd för mottagna sync-id v413', APP_FEATURE_MANIFEST.some(item => item.id === 'SYNC-RECEIVED-REIMPORT-GUARD-V413') && typeof isTabletReceivedStrictSyncItemV413 === 'function' && functionSourceIncludes('queueSyncImportMobileInboxV219', 'alreadyReceivedStrictV413') && functionSourceIncludes('analyzeQueueSyncRemoteInboxV223', 'alreadyReceivedStrictV413'), '189 importerar inte automatiskt samma sync-id igen efter att uppdraget redan mottagits'),
     systemCheck('Historik kalender kvittorader v100', typeof getHistoryCalendarJobsForDisplay === 'function' && typeof renderHistoryReceiptJobCard === 'function' && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && functionSourceIncludes('renderHistoryManager', 'getHistoryDateSubLabel'), 'historik kalender läser importerade kvittorader tillsammans med avslutade jobb'),
     systemCheck('Övrig verksamhet dagsrad v102', typeof aggregateOtherWorkRowsByDate === 'function' && typeof renderTodayOtherWorkCard === 'function' && functionSourceIncludes('buildSummaryRowsFromJobs', 'aggregateOtherWorkRowsByDate') && functionSourceIncludes('renderTodayOtherWorkCard', 'Total tid idag'), 'Övrig verksamhet aggregeras per datum i Idag och sammanställning/export'),
@@ -21203,8 +21247,12 @@ function clearControlCenterReportV189(){
 
 // v379: Prestandadiagnos/frysrapport. Separat lokal logg; får inte ändra arbetsdata.
 const PERFORMANCE_DIAG_STORAGE_KEY_V379 = 'stadslass_performance_diag_v379';
-const PERFORMANCE_DIAG_MAX_EVENTS_V379 = 90;
-const PERFORMANCE_DIAG_MAX_CHAINS_V379 = 40;
+const PERFORMANCE_DIAG_MAX_EVENTS_V379 = 500;
+const PERFORMANCE_DIAG_MAX_CHAINS_V379 = 250;
+const PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 = 250;
+const PERFORMANCE_DIAG_MAX_CHAIN_CHILDREN_V414 = 40;
+const PERFORMANCE_DIAG_PERSIST_DELAY_MS_V414 = 6000;
+const PERFORMANCE_DIAG_FORCE_PERSIST_MS_V414 = 10000;
 const PERFORMANCE_DIAG_TICK_MS_V379 = 500;
 let performanceDiagStoreCacheV379 = null;
 let performanceDiagPersistTimerV379 = null;
@@ -21212,6 +21260,10 @@ let performanceDiagCurrentChainV379 = null;
 let performanceDiagLastInteractionV379 = null;
 let performanceDiagLagTimerStartedV379 = false;
 let performanceDiagLastLagRecordedAtV381 = 0;
+let performanceDiagWeightCaptureInstalledV414 = false;
+let performanceDiagWeightSessionV414 = null;
+let performanceDiagWeightPointerAtV414 = 0;
+let performanceDiagWeightPendingKeyV414 = null;
 
 function shouldRecordPerformanceLagV381(gap){
   try{
@@ -21250,7 +21302,7 @@ function normalizePerformanceDiagStoreV379(store){
   if(!s.counters || typeof s.counters !== 'object' || Array.isArray(s.counters)) s.counters = {};
   s.events = s.events.slice(-PERFORMANCE_DIAG_MAX_EVENTS_V379);
   s.chains = s.chains.slice(-PERFORMANCE_DIAG_MAX_CHAINS_V379);
-  s.lagEvents = s.lagEvents.slice(-PERFORMANCE_DIAG_MAX_EVENTS_V379);
+  s.lagEvents = s.lagEvents.slice(-PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414);
   return s;
 }
 function getPerformanceDiagStoreV379(){
@@ -21278,7 +21330,7 @@ function schedulePerformanceDiagPersistV379(force){
     performanceDiagPersistTimerV379 = window.setTimeout(() => {
       performanceDiagPersistTimerV379 = null;
       savePerformanceDiagStoreNowV379();
-    }, 2500);
+    }, PERFORMANCE_DIAG_PERSIST_DELAY_MS_V414);
     return true;
   }catch(e){ return savePerformanceDiagStoreNowV379(); }
 }
@@ -21322,12 +21374,74 @@ function performanceDiagMetaV379(extra){
   try{ meta.queueCount = Array.isArray(state && state.queue) ? state.queue.length : 0; }catch(e){ meta.queueCount = 0; }
   try{ meta.historyCount = Array.isArray(state && state.jobs) ? state.jobs.length : 0; }catch(e){ meta.historyCount = 0; }
   try{ meta.activeGpsPoints = state && state.active && state.active.routeGps && Array.isArray(state.active.routeGps.points) ? state.active.routeGps.points.length : 0; }catch(e){ meta.activeGpsPoints = 0; }
+  try{
+    const activeElementV414 = document && document.activeElement ? document.activeElement : null;
+    meta.activeElementId = activeElementV414 ? String(activeElementV414.id || activeElementV414.tagName || '-') : '-';
+    meta.weightFocused = !!(activeElementV414 && activeElementV414.id === 'weightInput');
+    meta.documentHidden = !!(document && document.hidden);
+    meta.visibleMainTab = typeof getVisibleMainTabV380 === 'function' ? String(getVisibleMainTabV380() || '-') : '-';
+    const summaryWrapV414 = document.getElementById('settingsSummaryWrap');
+    const historyWrapV414 = document.getElementById('historyManagerWrap');
+    meta.summaryVisible = !!(summaryWrapV414 && !summaryWrapV414.classList.contains('hidden'));
+    meta.historyVisible = !!(historyWrapV414 && !historyWrapV414.classList.contains('hidden'));
+  }catch(e){}
+  try{
+    const lastV414 = performanceDiagLastInteractionV379;
+    meta.lastInteraction = lastV414 && lastV414.label ? String(lastV414.label) : '-';
+    meta.lastInteractionAgoMs = lastV414 && lastV414.at ? Math.max(0, Date.now() - Number(lastV414.at || 0)) : -1;
+    meta.currentChain = performanceDiagCurrentChainV379 && performanceDiagCurrentChainV379.label ? String(performanceDiagCurrentChainV379.label) : '-';
+  }catch(e){}
   return meta;
 }
 function performanceDiagShortMetaTextV379(meta){
   const m = meta || {};
-  return 'läge=' + (m.deviceMode || '-') + ' · sync=' + (m.syncRole || '-') + ' · aktivt=' + (m.activeJob ? 'ja' : 'nej') + ' · kö=' + (m.queueCount || 0) + ' · historik=' + (m.historyCount || 0);
+  let textV414 = 'läge=' + (m.deviceMode || '-') + ' · sync=' + (m.syncRole || '-') + ' · aktivt=' + (m.activeJob ? 'ja' : 'nej') + ' · kö=' + (m.queueCount || 0) + ' · historik=' + (m.historyCount || 0);
+  if(m.weightFocused) textV414 += ' · fokus=viktfält';
+  if(m.visibleMainTab && m.visibleMainTab !== '-') textV414 += ' · flik=' + m.visibleMainTab;
+  if(m.lastInteraction && m.lastInteraction !== '-') textV414 += ' · efter=' + m.lastInteraction;
+  return textV414;
 }
+const performanceDiagDetailMetaTextV414 = function(meta){
+  const m = meta || {};
+  const parts = [];
+  if(m.parentChain) parts.push('förälder=' + m.parentChain);
+  if(m.trigger) parts.push('utlösare=' + m.trigger);
+  if(Number.isFinite(Number(m.triggerAgoMs)) && Number(m.triggerAgoMs) >= 0) parts.push('utlösare sedan=' + Math.round(Number(m.triggerAgoMs)) + ' ms');
+  if(Number.isFinite(Number(m.focusDelayMs))) parts.push('fokusfördröjning=' + Math.round(Number(m.focusDelayMs)) + ' ms');
+  if(Number.isFinite(Number(m.keyboardDelayMs))) parts.push('tangentbord=' + Math.round(Number(m.keyboardDelayMs)) + ' ms');
+  if(Number.isFinite(Number(m.maxInputDelayMs))) parts.push('max tangent=' + Math.round(Number(m.maxInputDelayMs)) + ' ms');
+  if(Number.isFinite(Number(m.avgInputDelayMs))) parts.push('snitt tangent=' + Math.round(Number(m.avgInputDelayMs)) + ' ms');
+  if(Number.isFinite(Number(m.totalMs))) parts.push('total=' + Math.round(Number(m.totalMs)) + ' ms');
+  if(Number.isFinite(Number(m.sessionDurationMs))) parts.push('skrivsession=' + Math.round(Number(m.sessionDurationMs)) + ' ms');
+  if(Number.isFinite(Number(m.elapsedMs))) parts.push('förfluten tid=' + Math.round(Number(m.elapsedMs)) + ' ms');
+  if(Number.isFinite(Number(m.keyCount))) parts.push('tangenter=' + Math.round(Number(m.keyCount)));
+  if(Number.isFinite(Number(m.inputCount))) parts.push('input=' + Math.round(Number(m.inputCount)));
+  if(Number.isFinite(Number(m.slowInputCount))) parts.push('långsamma=' + Math.round(Number(m.slowInputCount)));
+  if(Number.isFinite(Number(m.filteredCount))) parts.push('underlag=' + Math.round(Number(m.filteredCount)));
+  if(Number.isFinite(Number(m.rowCount))) parts.push('rader=' + Math.round(Number(m.rowCount)));
+  if(m.stage) parts.push('steg=' + m.stage);
+  if(m.summaryVisible !== undefined) parts.push('sammanställning synlig=' + (m.summaryVisible ? 'ja' : 'nej'));
+  return parts.join(' · ');
+};
+const performanceDiagRecordNamedStageV414 = function(label, startedAt, meta, force){
+  const nowV414 = performanceDiagNowV379();
+  try{
+    if(isPerformanceDiagnosticsEnabledV379()){
+      const durationV414 = Math.max(0, nowV414 - Number(startedAt || nowV414));
+      const thresholdsV414 = getPerformanceDiagThresholdsV379();
+      if(force || durationV414 >= Math.min(100, Number(thresholdsV414.step || 100))){
+        const totalStartedV414 = meta && Number(meta.totalStarted || 0);
+        const nonBlockingSpanV414 = !!(meta && meta.nonBlockingSpan);
+        const cleanMetaV414 = Object.assign({}, meta || {}, totalStartedV414 > 0 ? {totalMs:Math.max(0, nowV414 - totalStartedV414)} : {}, nonBlockingSpanV414 ? {elapsedMs:durationV414} : {});
+        delete cleanMetaV414.totalStarted;
+        delete cleanMetaV414.nonBlockingSpan;
+        recordPerformanceDiagEventV379({type:String((meta && meta.type) || 'diagnos delsteg'), label:String(label || 'diagnossteg'), name:String(label || 'diagnossteg'), durationMs:nonBlockingSpanV414 ? 0 : durationV414, meta:performanceDiagMetaV379(cleanMetaV414)}, !!force);
+      }
+    }
+  }catch(e){}
+  return nowV414;
+};
+
 function recordPerformanceDiagEventV379(event, force){
   if(!isPerformanceDiagnosticsEnabledV379() && !force) return false;
   const store = getPerformanceDiagStoreV379();
@@ -21344,9 +21458,9 @@ function recordPerformanceDiagEventV379(event, force){
   store.counters[key].lastAt = clean.at;
   if(clean.type === 'huvudtrådsfrys' || clean.type === 'frys' || clean.durationMs >= 1000){
     store.lagEvents.push(clean);
-    store.lagEvents = store.lagEvents.slice(-PERFORMANCE_DIAG_MAX_EVENTS_V379);
+    store.lagEvents = store.lagEvents.slice(-PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414);
   }
-  schedulePerformanceDiagPersistV379(clean.durationMs >= 5000); // v381: buffra mätloggen hårdare så diagnosen inte själv skriver localStorage vid varje kort frys
+  schedulePerformanceDiagPersistV379(clean.durationMs >= PERFORMANCE_DIAG_FORCE_PERSIST_MS_V414); // v381: buffra mätloggen hårdare så diagnosen inte själv skriver localStorage vid varje kort frys
   return true;
 }
 function beginPerformanceDiagChainV379(label, meta){
@@ -21356,7 +21470,7 @@ function endPerformanceDiagChainV379(chain, ok, error){
   if(!chain) return;
   const duration = performanceDiagNowV379() - chain.start;
   const thresholds = getPerformanceDiagThresholdsV379();
-  const record = {at:chain.startedAt, type:'knappkedja', label:chain.label, durationMs:performanceDiagRoundV379(duration), ok:ok !== false, error:error ? String((error && error.message) || error) : '', meta:chain.meta, children:(chain.children || []).slice(-25)};
+  const record = {at:chain.startedAt, type:'knappkedja', label:chain.label, durationMs:performanceDiagRoundV379(duration), ok:ok !== false, error:error ? String((error && error.message) || error) : '', meta:chain.meta, children:(chain.children || []).slice(-PERFORMANCE_DIAG_MAX_CHAIN_CHILDREN_V414)};
   if(record.durationMs >= thresholds.chain || record.children.length || record.error){
     const store = getPerformanceDiagStoreV379();
     store.chains.push(record);
@@ -21413,7 +21527,11 @@ function performanceDiagWrapFunctionV379(name, label, meta){
     const wrapped = function(){
       const args = arguments;
       const runLabel = label || name;
-      return performanceDiagRunV379(runLabel, () => original.apply(this, args), Object.assign({functionName:name}, meta || {}));
+      const parentChainV414 = performanceDiagCurrentChainV379 && performanceDiagCurrentChainV379.label ? String(performanceDiagCurrentChainV379.label) : '';
+      const lastInteractionV414 = performanceDiagLastInteractionV379 && performanceDiagLastInteractionV379.label ? String(performanceDiagLastInteractionV379.label) : '';
+      const triggerAgoV414 = performanceDiagLastInteractionV379 && performanceDiagLastInteractionV379.at ? Math.max(0, Date.now() - Number(performanceDiagLastInteractionV379.at || 0)) : -1;
+      const dynamicMetaV414 = Object.assign({functionName:name, parentChain:parentChainV414, trigger:lastInteractionV414, triggerAgoMs:triggerAgoV414}, meta || {});
+      return performanceDiagRunV379(runLabel, () => original.apply(this, args), dynamicMetaV414);
     };
     wrapped.performanceWrappedV379 = true;
     wrapped.performanceOriginalV379 = original;
@@ -21463,6 +21581,7 @@ function buildPerformanceDiagnosticsReportV379(){
   lines.push('- Händelser i logg: ' + events.length);
   lines.push('- Knappkedjor i logg: ' + chains.length);
   lines.push('- Huvudtrådsfrys/långa låsningar: ' + lag.length);
+  lines.push('- Rullande kapacitet: händelser ' + PERFORMANCE_DIAG_MAX_EVENTS_V379 + ' · knappkedjor ' + PERFORMANCE_DIAG_MAX_CHAINS_V379 + ' · frys/låsningar ' + PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414);
   lines.push('- Värsta händelse: ' + (worstEvent ? (worstEvent.label + ' · ' + worstEvent.durationMs + ' ms') : 'saknas'));
   lines.push('- Värsta knappkedja: ' + (worstChain ? (worstChain.label + ' · ' + worstChain.durationMs + ' ms') : 'saknas'));
   lines.push('- Värsta huvudtrådsfrys: ' + (worstLag ? (worstLag.label + ' · ' + worstLag.durationMs + ' ms') : 'saknas'));
@@ -21472,12 +21591,12 @@ function buildPerformanceDiagnosticsReportV379(){
   lines.push('');
   lines.push('SENASTE HUVUDTRÅDSFRYS / LÅSNINGAR');
   if(!lag.length) lines.push('- Inga huvudtrådsfrysningar mätta ännu.');
-  lag.slice(-12).reverse().forEach(item => {
+  lag.slice(-30).reverse().forEach(item => {
     lines.push('- ' + performanceDiagDateTextV379(item.at) + ' · ' + item.durationMs + ' ms · ' + (item.label || '-') + ' · ' + performanceDiagShortMetaTextV379(item.meta));
   });
   lines.push('');
   lines.push('TYNGSTA KNAPPKEDJOR');
-  const topChains = chains.slice().sort((a,b) => Number(b.durationMs || 0) - Number(a.durationMs || 0)).slice(0, 12);
+  const topChains = chains.slice().sort((a,b) => Number(b.durationMs || 0) - Number(a.durationMs || 0)).slice(0, 30);
   if(!topChains.length) lines.push('- Inga knappkedjor mätta ännu.');
   topChains.forEach(chain => {
     const children = (chain.children || []).slice().sort((a,b) => Number(b.durationMs || 0) - Number(a.durationMs || 0)).slice(0,5).map(c => c.name + ' ' + c.durationMs + ' ms').join(', ');
@@ -21494,7 +21613,7 @@ function buildPerformanceDiagnosticsReportV379(){
   lines.push('');
   lines.push('SENASTE MÄTTA HÄNDELSER');
   if(!events.length) lines.push('- Inga händelser mätta ännu.');
-  events.slice(-20).reverse().forEach(item => {
+  events.slice(-80).reverse().forEach(item => {
     lines.push('- ' + performanceDiagDateTextV379(item.at) + ' · ' + item.type + ' · ' + item.label + ' · ' + item.durationMs + ' ms · ' + performanceDiagShortMetaTextV379(item.meta));
   });
   lines.push('');
@@ -21504,7 +21623,7 @@ function buildPerformanceDiagnosticsReportV379(){
   lines.push('- Om saveState eller renderQueue dominerar: nästa version bör lätta spar-/kövy-rutinen utan att ändra arbetsdata.');
   lines.push('');
   lines.push('RAW');
-  lines.push('mode=' + store.mode + '; events=' + events.length + '; chains=' + chains.length + '; lagEvents=' + lag.length + '; storageKey=' + PERFORMANCE_DIAG_STORAGE_KEY_V379);
+  lines.push('mode=' + store.mode + '; events=' + events.length + '/' + PERFORMANCE_DIAG_MAX_EVENTS_V379 + '; chains=' + chains.length + '/' + PERFORMANCE_DIAG_MAX_CHAINS_V379 + '; lagEvents=' + lag.length + '/' + PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 + '; enhancement=v414; storageKey=' + PERFORMANCE_DIAG_STORAGE_KEY_V379);
   return lines.join('\n');
 }
 function renderPerformanceDiagnosticsV379(){
@@ -21521,7 +21640,7 @@ function renderPerformanceDiagnosticsV379(){
     summary.classList.remove('is-error','is-ok');
     summary.classList.add(lagCount ? 'is-error' : 'is-ok');
     summary.innerHTML = '<strong>Prestandadiagnos: ' + escapeHtml(performanceDiagModeLabelV379(store.mode)) + '</strong>' +
-      '<div class="map-test-section">Händelser: <strong>' + (store.events || []).length + '</strong> · knappkedjor: <strong>' + (store.chains || []).length + '</strong> · frys/låsningar: <strong>' + lagCount + '</strong></div>' +
+      '<div class="map-test-section">Händelser: <strong>' + (store.events || []).length + '/' + PERFORMANCE_DIAG_MAX_EVENTS_V379 + '</strong> · knappkedjor: <strong>' + (store.chains || []).length + '/' + PERFORMANCE_DIAG_MAX_CHAINS_V379 + '</strong> · frys/låsningar: <strong>' + lagCount + '/' + PERFORMANCE_DIAG_MAX_LAG_EVENTS_V414 + '</strong></div>' +
       '<div class="map-test-section">Tyngst hittills: <strong>' + escapeHtml(worst ? (worst.label + ' · ' + worst.durationMs + ' ms') : 'saknas') + '</strong></div>';
   }
   const status = document.getElementById('performanceDiagStatusV379');
@@ -21571,12 +21690,140 @@ function startPerformanceLagMonitorV379(){
     }, PERFORMANCE_DIAG_TICK_MS_V379);
   }catch(e){}
 }
+const performanceDiagFinishWeightSessionV414 = function(reason){
+  const sessionV414 = performanceDiagWeightSessionV414;
+  if(!sessionV414) return false;
+  performanceDiagWeightSessionV414 = null;
+  performanceDiagWeightPendingKeyV414 = null;
+  try{
+    if(!isPerformanceDiagnosticsEnabledV379()) return false;
+    const endedAtV414 = performanceDiagNowV379();
+    const avgV414 = sessionV414.inputDelayCount ? sessionV414.totalInputDelayMs / sessionV414.inputDelayCount : 0;
+    const sessionDurationV414 = Math.max(0, endedAtV414 - sessionV414.focusedAt);
+    const latencyDurationV414 = Math.max(0, Number(sessionV414.focusDelayMs || 0), Number(sessionV414.keyboardDelayMs || 0), Number(sessionV414.maxInputDelayMs || 0));
+    recordPerformanceDiagEventV379({
+      type:'viktfält skrivsession',
+      label:'Viktfält: skrivsession ' + String(reason || 'avslutad'),
+      name:'Viktfält skrivsession',
+      durationMs:latencyDurationV414,
+      meta:performanceDiagMetaV379({
+        sessionDurationMs:sessionDurationV414,
+        focusDelayMs:sessionV414.focusDelayMs,
+        keyboardDelayMs:sessionV414.keyboardDelayMs,
+        keyCount:sessionV414.keyCount,
+        inputCount:sessionV414.inputCount,
+        slowInputCount:sessionV414.slowInputCount,
+        maxInputDelayMs:sessionV414.maxInputDelayMs,
+        avgInputDelayMs:avgV414,
+        reason:String(reason || 'avslutad')
+      })
+    }, true);
+  }catch(e){}
+  return true;
+};
+
+const setupPerformanceWeightCaptureV414 = function(){
+  if(performanceDiagWeightCaptureInstalledV414) return true;
+  performanceDiagWeightCaptureInstalledV414 = true;
+  try{
+    const getWeightTargetV414 = function(event){ return event && event.target && event.target.id === 'weightInput' ? event.target : null; };
+    const markPointerV414 = function(event){
+      if(!getWeightTargetV414(event)) return;
+      performanceDiagWeightPointerAtV414 = performanceDiagNowV379();
+      performanceDiagLastInteractionV379 = {label:'Viktfält tryckt', at:Date.now()};
+    };
+    document.addEventListener('pointerdown', markPointerV414, true);
+    document.addEventListener('touchstart', markPointerV414, true);
+    document.addEventListener('focusin', event => {
+      const inputV414 = getWeightTargetV414(event);
+      if(!inputV414) return;
+      const nowV414 = performanceDiagNowV379();
+      const focusDelayV414 = performanceDiagWeightPointerAtV414 > 0 ? Math.max(0, nowV414 - performanceDiagWeightPointerAtV414) : 0;
+      performanceDiagWeightSessionV414 = {
+        focusedAt:nowV414,
+        pointerAt:performanceDiagWeightPointerAtV414,
+        focusDelayMs:focusDelayV414,
+        keyboardDelayMs:-1,
+        viewportHeight:window.visualViewport ? Number(window.visualViewport.height || 0) : 0,
+        keyCount:0,
+        inputCount:0,
+        slowInputCount:0,
+        maxInputDelayMs:0,
+        totalInputDelayMs:0,
+        inputDelayCount:0
+      };
+      performanceDiagWeightPendingKeyV414 = null;
+      if(isPerformanceDiagnosticsEnabledV379()){
+        recordPerformanceDiagEventV379({type:'viktfält fokus', label:'Viktfält: fokus', name:'Viktfält fokus', durationMs:focusDelayV414, meta:performanceDiagMetaV379({focusDelayMs:focusDelayV414})}, focusDelayV414 >= 500);
+      }
+    }, true);
+    document.addEventListener('keydown', event => {
+      if(!getWeightTargetV414(event) || !performanceDiagWeightSessionV414) return;
+      const keyV414 = String(event.key || event.code || '');
+      let keyTypeV414 = 'övrig';
+      if(/^\d$/.test(keyV414)) keyTypeV414 = 'siffra';
+      else if(keyV414 === ',' || keyV414 === '.') keyTypeV414 = 'decimal';
+      else if(keyV414 === 'Backspace' || keyV414 === 'Delete') keyTypeV414 = 'radera';
+      else if(keyV414 === 'Enter' || keyV414 === 'NumpadEnter') keyTypeV414 = 'enter';
+      performanceDiagWeightSessionV414.keyCount += 1;
+      performanceDiagWeightPendingKeyV414 = {at:performanceDiagNowV379(), keyType:keyTypeV414};
+    }, true);
+    document.addEventListener('input', event => {
+      const inputV414 = getWeightTargetV414(event);
+      const sessionV414 = performanceDiagWeightSessionV414;
+      if(!inputV414 || !sessionV414) return;
+      sessionV414.inputCount += 1;
+      const pendingV414 = performanceDiagWeightPendingKeyV414;
+      if(pendingV414){
+        const delayV414 = Math.max(0, performanceDiagNowV379() - Number(pendingV414.at || 0));
+        sessionV414.inputDelayCount += 1;
+        sessionV414.totalInputDelayMs += delayV414;
+        sessionV414.maxInputDelayMs = Math.max(sessionV414.maxInputDelayMs || 0, delayV414);
+        if(delayV414 >= 180) sessionV414.slowInputCount += 1;
+        if(isPerformanceDiagnosticsEnabledV379() && delayV414 >= 300){
+          recordPerformanceDiagEventV379({type:'viktfält tangentfördröjning', label:'Viktfält: fördröjd tangent', name:'Viktfält tangentfördröjning', durationMs:delayV414, meta:performanceDiagMetaV379({keyType:pendingV414.keyType, valueLength:String(inputV414.value || '').length, maxInputDelayMs:delayV414})}, delayV414 >= 1000);
+        }
+      }
+      performanceDiagWeightPendingKeyV414 = null;
+    }, true);
+    document.addEventListener('focusout', event => {
+      if(!getWeightTargetV414(event)) return;
+      window.setTimeout(() => {
+        try{ if(!document.activeElement || document.activeElement.id !== 'weightInput') performanceDiagFinishWeightSessionV414('blur'); }catch(e){ performanceDiagFinishWeightSessionV414('blur'); }
+      }, 0);
+    }, true);
+    if(window.visualViewport && typeof window.visualViewport.addEventListener === 'function'){
+      window.visualViewport.addEventListener('resize', () => {
+        const sessionV414 = performanceDiagWeightSessionV414;
+        if(!sessionV414 || sessionV414.keyboardDelayMs >= 0) return;
+        try{
+          if(!document.activeElement || document.activeElement.id !== 'weightInput') return;
+          const currentHeightV414 = Number(window.visualViewport.height || 0);
+          const startHeightV414 = Number(sessionV414.viewportHeight || 0);
+          if(startHeightV414 > 0 && currentHeightV414 > 0 && startHeightV414 - currentHeightV414 >= 80){
+            sessionV414.keyboardDelayMs = Math.max(0, performanceDiagNowV379() - sessionV414.focusedAt);
+            if(isPerformanceDiagnosticsEnabledV379()){
+              recordPerformanceDiagEventV379({type:'viktfält tangentbord', label:'Viktfält: tangentbord visat', name:'Viktfält tangentbord', durationMs:sessionV414.keyboardDelayMs, meta:performanceDiagMetaV379({keyboardDelayMs:sessionV414.keyboardDelayMs, viewportDelta:Math.round(startHeightV414 - currentHeightV414)})}, sessionV414.keyboardDelayMs >= 1000);
+            }
+          }
+        }catch(e){}
+      });
+    }
+    window.addEventListener('pagehide', () => performanceDiagFinishWeightSessionV414('pagehide'));
+  }catch(e){}
+  return true;
+};
+
 function setupPerformanceInteractionCaptureV379(){
   try{
     document.addEventListener('click', event => {
       const target = event && event.target && event.target.closest ? event.target.closest('button,[onclick],input,select') : null;
       if(!target) return;
-      const text = String(target.innerText || target.value || target.getAttribute('aria-label') || target.getAttribute('title') || target.id || target.tagName || '').trim().replace(/\s+/g,' ').slice(0,80);
+      const isFormFieldV414 = /^(INPUT|TEXTAREA|SELECT)$/i.test(String(target.tagName || ''));
+      const sourceTextV414 = isFormFieldV414
+        ? (target.getAttribute('aria-label') || target.getAttribute('title') || target.getAttribute('placeholder') || target.id || target.tagName || '')
+        : (target.innerText || target.getAttribute('aria-label') || target.getAttribute('title') || target.id || target.tagName || '');
+      const text = String(sourceTextV414 || '').trim().replace(/\s+/g,' ').slice(0,80);
       performanceDiagLastInteractionV379 = {label:text || 'okänd knapp', at:Date.now()};
     }, true);
   }catch(e){}
@@ -21620,6 +21867,7 @@ function installPerformanceDiagnosticsV379(){
   ];
   wrappers.forEach(item => performanceDiagWrapFunctionV379(item[0], item[1], item[2]));
   setupPerformanceInteractionCaptureV379();
+  setupPerformanceWeightCaptureV414();
   startPerformanceLagMonitorV379();
   try{ window.addEventListener('beforeunload', () => savePerformanceDiagStoreNowV379()); }catch(e){}
   return true;
@@ -35391,6 +35639,8 @@ function prepareJobForCompletionWithPhaseGuard(job){
 
 async function stopJob(){
   if(!state.active) return;
+  const performanceDiagStopTotalV414 = performanceDiagNowV379();
+  let performanceDiagStopStageV414 = performanceDiagStopTotalV414;
 
   if(!prepareJobForCompletionWithPhaseGuard(state.active)) return;
 
@@ -35399,6 +35649,7 @@ async function stopJob(){
   const ataBillableChoiceV368 = await requestAtaBillableBeforeCompletionV368(state.active, finishedAt);
   if(ataBillableChoiceV368 === false) return;
   if(!state.active || (activeJobIdV368 && state.active.id !== activeJobIdV368)) return;
+  performanceDiagStopStageV414 = performanceDiagRecordNamedStageV414('Klart: förkontroll och ÄTA-val', performanceDiagStopStageV414, {type:'klart delsteg', stage:'förkontroll/ÄTA-dialog', totalStarted:performanceDiagStopTotalV414, nonBlockingSpan:true}, true);
 
   try{ if(typeof saveActiveWorkingCopyV411 === 'function') saveActiveWorkingCopyV411('klart-start-v411', {force:true}); }catch(e){}
   finalizeActiveMotion();
@@ -35407,6 +35658,7 @@ async function stopJob(){
   finalizeActiveRouteGpsRecording();
   stopDistanceTracking();
   try{ if(typeof saveActiveWorkingCopyV411 === 'function') saveActiveWorkingCopyV411('klart-final-v411', {force:true}); }catch(e){}
+  performanceDiagStopStageV414 = performanceDiagRecordNamedStageV414('Klart: slutstämpla aktiv arbetskopia', performanceDiagStopStageV414, {type:'klart delsteg', stage:'slutstämpling aktiv', totalStarted:performanceDiagStopTotalV414}, true);
   const finished = {...state.active, end:finishedAt};
   finished.activeWorkingCopyCompletedV411 = {version:'v411', completedAt:finishedAt, sourceRevision:finished.activeWorkingCopyV411 && finished.activeWorkingCopyV411.revision || 0, note:'Senaste aktiva arbetskopia slutstämplad vid Klart.'};
   applyAtaJobFieldsV366(finished, finished.ataSourceV366 || finished.ataJobV366 || '');
@@ -35423,6 +35675,7 @@ async function stopJob(){
   await runAutomaticSnapRoadsAnalysisV172(finished, 'stopJob');
   storeActiveMonitorEndReport(finished, 'stopJob');
   stripNewFinishedJobGpsSnapV362(finished, 'stopJob');
+  performanceDiagStopStageV414 = performanceDiagRecordNamedStageV414('Klart: slutdata, Snap och avslutsrapport', performanceDiagStopStageV414, {type:'klart delsteg', stage:'slutdata/Snap/rapport', totalStarted:performanceDiagStopTotalV414}, true);
   state.jobs.unshift(finished);
   updateLastWorkPointFromJob(finished);
   state.active = null;
@@ -35430,16 +35683,21 @@ async function stopJob(){
   stopActiveTimer();
 
   resumePausedOtherWorkIfPossible();
+  performanceDiagStopStageV414 = performanceDiagRecordNamedStageV414('Klart: flytta till historik och rensa aktivt', performanceDiagStopStageV414, {type:'klart delsteg', stage:'historik/rensa aktivt', totalStarted:performanceDiagStopTotalV414}, true);
 
   if(typeof markHeavyRenderDeferredV381 === 'function') markHeavyRenderDeferredV381('klart-v411-active-working-copy', 16000);
   forceSaveStateV382('klart-v411-active-working-copy');
+  performanceDiagStopStageV414 = performanceDiagRecordNamedStageV414('Klart: lokal sparning', performanceDiagStopStageV414, {type:'klart delsteg', stage:'localStorage', totalStarted:performanceDiagStopTotalV414}, true);
   showTab('ko');
   renderActive();
   renderActiveMonitorIndicator();
   try{ renderQueue({force:true, forceImmediateV381:true, lightAfterCompleteV411:true, reason:'klart-v411-fast-queue'}); }catch(e){ try{ renderQueue({force:true, forceImmediateV381:true, reason:'klart-v411-fast-queue-fallback'}); }catch(err){} }
+  performanceDiagStopStageV414 = performanceDiagRecordNamedStageV414('Klart: visa kö och aktiv vy', performanceDiagStopStageV414, {type:'klart delsteg', stage:'visa kö', totalStarted:performanceDiagStopTotalV414}, true);
   try{ if(typeof requestAtaMailAfterCompletionV394 === 'function') await requestAtaMailAfterCompletionV394(finished); }catch(e){}
+  performanceDiagStopStageV414 = performanceDiagRecordNamedStageV414('Klart: ÄTA-mailsteg', performanceDiagStopStageV414, {type:'klart delsteg', stage:'ÄTA-mail/användarval', totalStarted:performanceDiagStopTotalV414, nonBlockingSpan:true}, true);
   try{ if(typeof scheduleDeferredRenderV380 === 'function') scheduleDeferredRenderV380('klart-v411-active-working-copy'); }catch(e){}
   try{ if(typeof scheduleQueueSyncAfterActiveButtonV309 === 'function') scheduleQueueSyncAfterActiveButtonV309('klart'); }catch(e){}
+  performanceDiagRecordNamedStageV414('Klart: schemalägg efterjobb och total', performanceDiagStopStageV414, {type:'klart delsteg', stage:'efterjobb', totalStarted:performanceDiagStopTotalV414}, true);
 }
 
 function switchJob(){
@@ -39237,10 +39495,15 @@ function exportSummaryExcel(){
 }
 
 function renderSummary(){
+  const performanceDiagSummaryTotalV414 = performanceDiagNowV379();
+  let performanceDiagSummaryStageV414 = performanceDiagSummaryTotalV414;
+  const performanceDiagSummaryTriggerV414 = performanceDiagCurrentChainV379 && performanceDiagCurrentChainV379.label ? String(performanceDiagCurrentChainV379.label) : (performanceDiagLastInteractionV379 && performanceDiagLastInteractionV379.label ? String(performanceDiagLastInteractionV379.label) : 'okänd');
   updateSummaryControls();
+  performanceDiagSummaryStageV414 = performanceDiagRecordNamedStageV414('Sammanställning: kontroller och periodval', performanceDiagSummaryStageV414, {type:'sammanställning delsteg', stage:'kontroller/period', totalStarted:performanceDiagSummaryTotalV414, trigger:performanceDiagSummaryTriggerV414}, false);
   const selection = getSummarySelection();
   const label = getSummaryLabel(selection);
   const filtered = getFilteredSummaryJobs();
+  performanceDiagSummaryStageV414 = performanceDiagRecordNamedStageV414('Sammanställning: filtrera historikunderlag', performanceDiagSummaryStageV414, {type:'sammanställning delsteg', stage:'filtrering', totalStarted:performanceDiagSummaryTotalV414, trigger:performanceDiagSummaryTriggerV414, filteredCount:Array.isArray(filtered) ? filtered.length : 0}, false);
 
   document.getElementById('sumJobsLabel').textContent = 'Jobb ' + label;
   document.getElementById('sumLoadsLabel').textContent = 'Antal last ' + label;
@@ -39258,16 +39521,21 @@ function renderSummary(){
   const sumBillableTimeV369 = document.getElementById('sumBillableTimeV369');
   if(sumBillableTimeV369) sumBillableTimeV369.textContent = mins(filtered.reduce((a,x)=>a+getSummaryRowBillableMsV369(x),0));
   renderBillableInfoV369(selection, filtered);
+  performanceDiagSummaryStageV414 = performanceDiagRecordNamedStageV414('Sammanställning: totalsiffror och debiterbar tid', performanceDiagSummaryStageV414, {type:'sammanställning delsteg', stage:'totalsiffror', totalStarted:performanceDiagSummaryTotalV414, trigger:performanceDiagSummaryTriggerV414}, false);
 
   const byType = summarizeJobsByType(filtered);
+  performanceDiagSummaryStageV414 = performanceDiagRecordNamedStageV414('Sammanställning: gruppera per jobbtyp', performanceDiagSummaryStageV414, {type:'sammanställning delsteg', stage:'gruppering', totalStarted:performanceDiagSummaryTotalV414, trigger:performanceDiagSummaryTriggerV414, groupCount:Object.keys(byType || {}).length}, false);
   const el = document.getElementById('sumByType');
   const keys = Object.keys(byType).sort((a,b) => String((byType[a] && byType[a].label) || a).localeCompare(String((byType[b] && byType[b].label) || b), 'sv-SE', {sensitivity:'base', numeric:true}));
+  const performanceDiagSummaryHtmlStartV414 = performanceDiagNowV379();
   el.innerHTML = keys.length ? keys.map(k => {
     const row = byType[k];
     const label = row.label || k;
     const idText = row.jobTypeId ? ' <span class="muted">'+escapeHtml(row.jobTypeId)+'</span>' : '';
     return '<div class="job"><strong>'+escapeHtml(label)+idText+'</strong><div style="margin-top:6px">Jobb: '+row.jobs+' · Antal last: '+row.loads+' · Total vikt i ton: '+row.weight.toFixed(1)+' ton · Tid: '+mins(row.timeMs)+' · Debiterbar tid: '+mins(row.billableMs || 0)+'</div></div>';
   }).join('') : '<div class="muted">Ingen data för vald period.</div>';
+  performanceDiagRecordNamedStageV414('Sammanställning: bygg och skriv jobbtypsrader', performanceDiagSummaryHtmlStartV414, {type:'sammanställning delsteg', stage:'HTML/DOM per jobbtyp', totalStarted:performanceDiagSummaryTotalV414, trigger:performanceDiagSummaryTriggerV414, rowCount:keys.length}, false);
+  performanceDiagRecordNamedStageV414('Sammanställning: total render', performanceDiagSummaryTotalV414, {type:'sammanställning delsteg', stage:'total', totalStarted:performanceDiagSummaryTotalV414, trigger:performanceDiagSummaryTriggerV414, filteredCount:Array.isArray(filtered) ? filtered.length : 0, rowCount:keys.length}, false);
 
 }
 
