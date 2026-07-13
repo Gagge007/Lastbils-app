@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v416
+- Nuvarande version: Stadslass 2.0 v417
+- v417: ÄTA-kryss i Nytt uppdrag följer jobbtypens ÄTA-inställning som standard men kan ändras tillfälligt för just det uppdraget. Avmarkering tar bort uppdragets ÄTA-flagga och mottagare utan att ändra Inställningar; uppdragsvalet följer kö, sync och start. Ingen ändring av ÄTA-debitering, mailregler, arbetsdata utanför ÄTA-fälten, GPS/geofence/ETA, vikt, backup/export eller driftlogg_v4_full.
 - v416: Dagsprognos är fullständigt borttagen med godkännande. Prognoskort, beräkning, cache, uppskjuten timer, övervakningsfält och diagnoskopplingar är sanerade. ETA/Klar cirka, tidsuppskattning per köuppdrag, tidsinlärning, planerade tider, dagens/framtida ködelning och Dagens sammanfattning är kvar. Ingen ändring av arbetsdata, kö-/historiksanning, sync, GPS/geofence/ETA, vikt, ÄTA, backup/export eller driftlogg_v4_full.
 - v415: Riktad prestandafix efter v414-diagnos. Aktivt jobb helrenderas inte längre av sekundtimer eller varje GPS-punkt; timer/GPS uppdaterar bara nödvändiga tids-, sträck-, ETA- och fasfält. Full renderActive skyddas medan viktfältet har fokus. Sammanställning renderas bara när dess egen panel är synlig. Detaljerad diagnos sammanfattar normala renderActive-körningar och skriver sin separata logg glesare. Ingen ändring av arbetsdata, viktvärden, Lastar/Ange vikt/Klart-sanning, historikberäkning, syncsanning, GPS/geofence/ETA-sanning eller driftlogg_v4_full.
 - v414: Ren diagnosförstärkning. Prestandadiagnosens rullande kapacitet höjs till 500 händelser, 250 knappkedjor och 250 frys/låsningar. Lägger diagnostiska spår för viktfältets fokus/tangentbord/tangentfördröjning, Klart-kedjans delsteg och Sammanställningens delsteg/utlösare. Diagnoslogg skrivs fortsatt separat och mer buffrat. Ingen ändring av arbetsflöde, viktlogik, Klart-logik, render-/syncbeteende, historik, kö, GPS/geofence/ETA, kvittoimport eller driftlogg_v4_full.
@@ -426,7 +427,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v416';
+  const version = 'Stadslass 2.0 v417';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -952,6 +953,7 @@ button{
   margin-top:10px;
 }
 .ata-recipient-panel-v392.hidden{display:none !important;}
+#newAtaJobWrapV363:not(.hidden){display:flex;}
 .ata-recipient-title-v392{
   font-weight:900;
   color:#14532d;
@@ -3920,7 +3922,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
     <div id="newJobModeFlags" class="row" style="margin-top:10px; gap:16px; align-items:center; flex-wrap:wrap">
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="newReturnRequired" type="checkbox" style="width:auto" onchange="handleNewJobFlagToggle('return')"> Returkrav</label>
       <label style="display:flex; align-items:center; gap:8px; margin:0"><input id="newMultiLoad" type="checkbox" style="width:auto" onchange="handleNewJobFlagToggle('multi')"> Flerlass</label>
-      <label id="newAtaJobWrapV363" class="hidden" style="display:flex;align-items:center;gap:8px;margin:0;font-weight:900"><input id="newAtaJobV363" type="checkbox" style="width:auto" onchange="updateNewAtaRecipientUIV392()"> ÄTA-uppdrag?</label>
+      <label id="newAtaJobWrapV363" class="hidden" style="align-items:center;gap:8px;margin:0;font-weight:900"><input id="newAtaJobV363" type="checkbox" style="width:auto" onchange="updateNewAtaRecipientUIV392()"> ÄTA-uppdrag?</label>
     </div>
 
     <div id="newAtaRecipientWrapV392" class="ata-recipient-panel-v392 hidden">
@@ -4258,7 +4260,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v416</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v417</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -13835,8 +13837,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v416';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v417';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v417 uppdragsbunden ÄTA-override i Nytt uppdrag',
   'v416 Dagsprognos borttagen med godkännande',
   'v415 aktiv vy, viktfokus och Sammanställning prestandafix',
   'v414 förstärkt prestandadiagnos och längre rullande logg',
@@ -15868,7 +15871,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v416';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v417';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15893,6 +15896,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'ATA-NEW-JOB-OVERRIDE-V417', name:'ÄTA-standard och tillfälligt uppdragsval v417', status:'Nytt uppdrag/ÄTA/Jobbtyper/Mottagare/Sync', protectionStatus:'Aktiv', introduced:'v417', purpose:'v417 visar ÄTA-uppdrag? ikryssad i Nytt uppdrag när vald jobbtyp är markerad som ÄTA-jobb i Inställningar. Föraren kan avmarkera eller markera rutan för just det nya uppdraget. Valet sparas som uppdragsbunden override, styr mottagarfältet och följer kö, sync och start utan att ändra jobbtypens permanenta inställning.', changeRule:'Får bara påverka ÄTA-kryssets standard och uppdragsbundna override i Nytt uppdrag samt överföring av denna override genom kö/sync/start. Avmarkering ska ta bort ÄTA-flagga och ÄTA-mottagare från just uppdraget. Får inte ändra jobbtypens inställning, nästa uppdrags standard, ÄTA-debitering, mailregler, Lastar/Ange vikt/Klart, vikt, GPS/geofence/ETA, material, mtrl kod/anläggning, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'DAY-FORECAST-REMOVED-V416', name:'Dagsprognos borttagen v416', status:'Kö/Planeringsstöd/Prestandasanering', protectionStatus:'Borttagen med godkännande', introduced:'v416', purpose:'v416 tar med användarens uttryckliga godkännande bort hela Dagsprognosfunktionen: synligt kökort, dagsummering av återstående tid, beräknad sluttid, osäkerhet, cache, timer, renderkedja, Aktiv övervakning och prestandadiagnos. ETA/Klar cirka, tidsuppskattning per enskilt köuppdrag, tidsinlärning, planerade tider, dagens/framtida ködelning och Dagens sammanfattning behålls.', changeRule:'Dagsprognosen ska inte återinföras utan nytt uttryckligt godkännande. Får inte användas som skäl att ta bort eller ändra ETA/Klar cirka, köuppdragets egen tidsuppskattning, tidsinlärning, planerade tider, köordning, Dagens sammanfattning, arbetsdata, sync, GPS/geofence, vikt, ÄTA, backup/export eller driftlogg_v4_full.'},
   {id:'ACTIVE-RENDER-SUMMARY-WEIGHT-PERFORMANCE-V415', name:'Aktiv vy, viktfokus och Sammanställning prestandafix v415', status:'Prestanda/Aktivt jobb/Vikt/Sammanställning/Diagnostik', protectionStatus:'Aktiv', introduced:'v415', purpose:'v415 stoppar onödig helrendering av Aktivt jobb från sekundtimer och varje GPS-punkt. Timer/GPS uppdaterar endast nödvändiga synliga tids-, sträck-, ETA- och fasfält. Full renderActive skjuts undan medan viktfältet har fokus. Sammanställning byggs bara när dess egen panel är synlig. Normal renderActive-diagnostik sammanfattas och diagnosloggen skrivs glesare.', changeRule:'Får bara ändra renderfrekvens och lättviktsuppdatering i aktiv vy, skydd under viktfokus, när Sammanställning renderas samt prestandadiagnosens separata buffring/sammanfattning. Får inte ändra arbetsknapparnas sanning, viktvärden, Lastar/Ange vikt/Klart, aktiv arbetsdata, kö/historikdata, Sammanställningens beräkningar när panelen öppnas, GPS/geofence/ETA-sanning, syncsanning, ÄTA, kvittoimport, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'PERFORMANCE-DIAGNOSTICS-ENHANCEMENT-V414', name:'Förstärkt prestandadiagnos och längre rullande logg v414', status:'Kontrollcentral/Prestanda/Diagnostik', protectionStatus:'Aktiv', introduced:'v414', purpose:'v414 förstärker den separata prestandadiagnosen för längre skarpa arbetsdagar. Rullande logg behåller 500 händelser, 250 knappkedjor och 250 frys/låsningar. Diagnosen fångar viktfältets fokus, tangentbordsöppning och tangentfördröjning, Klart-kedjans delsteg samt Sammanställningens delsteg och utlösande kedja.', changeRule:'Får bara ändra prestandadiagnosens separata loggkapacitet, buffrad loggskrivning, diagnostiska mätpunkter, rapporttext, manifest och kontrolltexter. Får inte ändra arbetsflöde, Lastar/Ange vikt/Klart, viktvärden, aktivt jobb, kö, historik, Sammanställningens beräkningar, renderordning, syncsanning, GPS/geofence/ETA, ÄTA, kvittoimport, backup/export eller driftlogg_v4_full-nyckeln.'},
@@ -17070,8 +17074,10 @@ function shouldShowAtaRecipientForNewJobV392(){
   const typeEl = document.getElementById('newType');
   const type = typeEl ? typeEl.value || '' : '';
   if(!type || type === 'Övrig verksamhet') return false;
-  if(typeof isAtaManualChoiceTypeV366 === 'function' && isAtaManualChoiceTypeV366(type)) return typeof isNewAtaJobCheckedV366 === 'function' && isNewAtaJobCheckedV366();
-  try{ return !!isJobTypeAtaBySettingV366({type:type, displayType:type}); }catch(e){ return false; }
+  try{
+    if(typeof shouldShowNewAtaCheckboxV366 === 'function' && !shouldShowNewAtaCheckboxV366(type)) return false;
+    return typeof isNewAtaJobCheckedV366 === 'function' && isNewAtaJobCheckedV366();
+  }catch(e){ return false; }
 }
 
 function updateNewAtaRecipientUIV392(){
@@ -18612,6 +18618,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'ÄTA kontrollbaseline och registrering v399', fn('requestAtaMailAfterCompletionV394') && fn('buildAtaSupervisorDailyMailBodyV397') && fn('openAtaHistoryUnderlagModalV398') && typeof ATA_CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V399 !== 'undefined' && ATA_CONTROL_BASELINE_CALIBRATION_FUNCTIONS_V399.every(function(name){ return APP_FUNCTION_SOURCE_BASELINE_V329.indexOf(name) >= 0; }) && APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-ATA-BASELINE-CALIBRATION-V399') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v399 ÄTA kontrollbaseline')), 'v399 registrerar ÄTA-hjälpfunktioner och kalibrerar kontroller efter praktiskt godkänd ÄTA-kedja utan att ändra ÄTA-flödet.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA dagsmail arbetsledare v397', fn('buildAtaSupervisorDailyMailBodyV397') && fn('openAtaSupervisorDailyMailV397') && fn('getAtaSupervisorDailyMailPanelHtmlV397') && src('buildAtaMailUriV397', 'mailto:?') && !src('buildAtaMailUriV397', 'cc=') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-SUPERVISOR-DAILY-V397'), 'v397 har inget CC i enskilda ÄTA-mail och kan skapa samlat dagsmail till arbetsledare från Idag och Historisk kalender. Kontroll kalibrerad i v399.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA aviseringar grundlager v391', !!el('ataMailSettingsWrapV391') && !!el('ataContactsListV391') && !!el('ataMailTemplateFieldsV391') && fn('toggleAtaMailSettingsManagerV391') && fn('loadAtaContactsV391') && fn('saveAtaContactFromFormV391') && fn('renderAtaMailTemplateV391') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-LOCAL-CONTACTS-TEMPLATE-V391') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v391 Lokal ÄTA-adressbok')), 'v391 har lokal adressbok och mailmall i Inställningar utan Gmail-, avsluts-, sync- eller historikkoppling.');
+  addFunctionCheck(results, 'Nivå 2', 'ÄTA-standard och tillfälligt uppdragsval v417', fn('updateNewAtaJobUIV366') && fn('getNewAtaSourceV366') && fn('applyAtaJobFieldsV366') && src('shouldShowNewAtaCheckboxV366', 'isJobTypeAtaBySettingV366') && src('getNewAtaSourceV366', 'new_job_ata_off_v417') && src('applyAtaJobFieldsV366', 'ataJobOverrideV417') && src('startQueuedJob', 'ataJobOverrideV417') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-NEW-JOB-OVERRIDE-V417'), 'Jobbtypens ÄTA-inställning förväljer krysset i Nytt uppdrag; uppdragsvalet kan ändras tillfälligt och följer kö/sync/start utan att ändra Inställningar.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA-mottagare planering v392', fn('loadAtaSupervisorV392') && fn('updateNewAtaRecipientUIV392') && fn('applyAtaRecipientToJobIfAtaV392') && fn('renderQuickAtaRecipientFieldsV392') && fn('collectEditQueueAtaRecipientV392') && src('startJob', 'ataRecipientV392') && src('sanitizeQueueItemForTransfer', 'copyAtaRecipientToTransferV392') && src('normalizeImportedQueueItem', 'normalizeImportedAtaRecipientV392') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-RECIPIENT-PLANNING-V392') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v392 ÄTA')), 'v392 kopplar mottagare/arbetsledare till ÄTA-planering utan Gmail- eller avslutskoppling. DOM-fält kan vara stängda/omrenderade, därför kontrolleras laddad kedja i v399.');
   addFunctionCheck(results, 'Nivå 2', 'ÄTA-mail avslut och Idag v394', !!el('ataMailModalV394') && fn('requestAtaMailAfterCompletionV394') && fn('buildAtaMailBodyV394') && fn('getAtaMailTodayActionHtmlV394') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-COMPLETION-TODAY-V394') && ACTIVE_MONITOR_TRACKED_FEATURES.some(item => String(item).includes('v394 ÄTA-mail')), 'v394 kopplar sparat avslutat ÄTA-jobb till Gmail/mailutkast vid avslut och från Idag utan att skicka automatiskt eller ändra debiterbar tid. Kontroll kalibrerad i v399.');
   addFunctionCheck(results, 'Nivå 2', 'Gmail CC-fix ersatt v395', fn('buildAtaMailUriV395') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-MAIL-GMAIL-CC-FIX-V395' && item.protectionStatus === 'Ersatt med godkännande') && !src('buildAtaMailUriV397', 'cc='), 'v395 CC-spår är ersatt med godkännande i v397. Enskilda ÄTA-mail använder inte Kopia/CC.');
@@ -19165,6 +19172,7 @@ function getControlCenterExtendedChecksV303(){
   add('v363 Maskintransport snabbnycklar och ÄTA', typeof updateNewAtaJobUIV363 === 'function' && !!document.getElementById('newAtaJobWrapV363') && !!document.getElementById('quickKeySetupWrapV363') && typeof saveQuickKeySetupV363 === 'function' && typeof isJobAtaV363 === 'function' && !!document.querySelector('.history-calendar-day.has-ata-v366, #historyCalendarGrid') && APP_FEATURE_MANIFEST.some(item => item.id === 'LOW-RISK-UI-ATA-V363'), 'maskinruta/Nytt uppdrag behålls, snabbnyckelruta finns och ÄTA-dagar kan markeras med röd prick', 'läsande/UI-kontroll');
   add('v364 Adress/Excel och ÄTA-placering', typeof applyResolvedAddressLabelsForExcelV364 === 'function' && typeof applyCurrentLocationAddressToJobV364 === 'function' && typeof sanitizeResolvedPlaceLabelV364 === 'function' && functionSourceIncludes('buildExcelWorkbookXml', 'applyResolvedAddressLabelsForExcelV364') && functionSourceIncludes('requestActiveStartPointAddress', 'applyCurrentLocationAddressToJobV364') && document.getElementById('newJobModeFlags') && document.getElementById('newAtaJobWrapV363') && APP_FEATURE_MANIFEST.some(item => item.id === 'ADDRESS-EXCEL-LABELS-V364'), 'hittad adress kan följa med till Excel och ÄTA-kryss ligger i Returkrav/Flerlass-gruppen', 'läsande/UI-kontroll');
   add('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && (functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV366(state.active') || functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active')) && (functionSourceIncludes('stopJob', 'applyAtaJobFieldsV366(finished') || functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished')) && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'ÄTA-flagga följer från kö/start till avslutat jobb så historisk kalender kan sätta röd prick', 'läsande/källkodskontroll');
+  add('v417 ÄTA-standard och tillfälligt uppdragsval', typeof updateNewAtaJobUIV366 === 'function' && typeof getNewAtaSourceV366 === 'function' && functionSourceIncludes('applyAtaJobFieldsV366', 'ataJobOverrideV417') && functionSourceIncludes('startQueuedJob', 'ataJobOverrideV417') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-NEW-JOB-OVERRIDE-V417'), 'ÄTA-krysset i Nytt uppdrag följer jobbtypens standard men kan tillfälligt ändras per uppdrag och följer kö/sync/start', 'ÄTA/UI/dataöverföring');
   add('v366 ÄTA via Jobbtyper och JT-ID', typeof isJobAtaV366 === 'function' && typeof applyAtaJobFieldsV366 === 'function' && functionSourceIncludes('renderJobTypeManager', 'data-jobtype-ata-v366') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-JOBTYPE-ID-REBUILD-V366'), 'v366 styr ÄTA via Jobbtyper/JT-ID och manuell specialruta', 'riktad ombyggnad/kontroll');
   add('v367 Debiterbar tid i avslutat jobb', typeof getBillableMinutesForJobV367 === 'function' && typeof setEditedJobBillableMinutesV367 === 'function' && !!document.getElementById('editBillableMinutesV367') && functionSourceIncludes('openEditJob', 'getBillableMinutesForJobV367') && functionSourceIncludes('saveEditedJob', 'setEditedJobBillableMinutesV367') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-FINISHED-EDIT-V367'), 'Redigera avslutat jobb har separat fält för debiterbar tid utan att ändra total arbetstid', 'riktad UI-/sparakontroll');
   add('v368 ÄTA-debitering vid avslut', typeof requestAtaBillableBeforeCompletionV368 === 'function' && typeof applyAtaBillableCompletionChoiceV368 === 'function' && !!document.getElementById('ataBillableModalV368') && functionSourceIncludes('stopJob', 'requestAtaBillableBeforeCompletionV368') && functionSourceIncludes('stopJob', 'applyAtaBillableCompletionChoiceV368') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-ON-COMPLETION-V368'), 'ÄTA-jobb får fråga om totaltid eller manuell debiterbar tid vid Klart utan att total arbetstid ändras', 'riktad avslutskontroll');
@@ -20148,6 +20156,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('v363 Maskintransport snabbnycklar och ÄTA-kalender', typeof updateNewAtaJobUIV363 === 'function' && typeof saveQuickKeySetupV363 === 'function' && typeof applyAtaJobFieldsV363 === 'function' && document.getElementById('newAtaJobWrapV363') && document.getElementById('quickKeySetupWrapV363') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && functionSourceIncludes('startManualJob', 'ataSourceV363') && APP_FEATURE_MANIFEST.some(item => item.id === 'LOW-RISK-UI-ATA-V363'), 'v363 låg-risk/UI-fixar finns utan adress/Excel eller fasjustering'),
     systemCheck('v364 Adress/Excel och ÄTA-placering', typeof applyResolvedAddressLabelsForExcelV364 === 'function' && typeof applyCurrentLocationAddressToJobV364 === 'function' && typeof sanitizeResolvedPlaceLabelV364 === 'function' && functionSourceIncludes('buildExcelWorkbookXml', 'applyResolvedAddressLabelsForExcelV364') && functionSourceIncludes('requestActiveStartPointAddress', 'applyCurrentLocationAddressToJobV364') && functionSourceIncludes('collectTemporaryOtherPlacesV175', 'noAddressRequiredV364') && document.getElementById('newJobModeFlags') && document.getElementById('newAtaJobWrapV363') && APP_FEATURE_MANIFEST.some(item => item.id === 'ADDRESS-EXCEL-LABELS-V364'), 'v364 adress/Excel-regler finns och adress/Plus Code är inte krav'),
     systemCheck('v365 ÄTA-flagga från kö till historik', typeof applyAtaJobFieldsV363 === 'function' && functionSourceIncludes('startQueuedJob', 'queuedAtaSourceV365') && (functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV366(state.active') || functionSourceIncludes('startQueuedJob', 'applyAtaJobFieldsV363(state.active')) && (functionSourceIncludes('stopJob', 'applyAtaJobFieldsV366(finished') || functionSourceIncludes('stopJob', 'applyAtaJobFieldsV363(finished')) && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-QUEUE-HISTORY-FLAG-V365'), 'v365 bevarar ÄTA-flagga från kö till aktivt jobb/historik'),
+    systemCheck('v417 ÄTA-standard och tillfälligt uppdragsval', typeof updateNewAtaJobUIV366 === 'function' && typeof getNewAtaSourceV366 === 'function' && typeof applyAtaJobFieldsV366 === 'function' && functionSourceIncludes('shouldShowNewAtaCheckboxV366', 'isJobTypeAtaBySettingV366') && functionSourceIncludes('getNewAtaSourceV366', 'new_job_ata_off_v417') && functionSourceIncludes('applyAtaJobFieldsV366', 'ataJobOverrideV417') && functionSourceIncludes('sanitizeQueueItemForTransfer', 'ataJobOverrideV417') && functionSourceIncludes('normalizeImportedQueueItem', 'ataJobOverrideV417') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-NEW-JOB-OVERRIDE-V417'), 'Nytt uppdrag förväljer ÄTA från jobbtypens inställning men låter just uppdraget avvika; override följer kö, sync och start.'),
     systemCheck('v366 ÄTA via Jobbtyper och JT-ID', typeof isJobAtaV366 === 'function' && typeof applyAtaJobFieldsV366 === 'function' && functionSourceIncludes('renderJobTypeManager', 'data-jobtype-ata-v366') && functionSourceIncludes('renderHistoryManager', 'has-ata-v366') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-JOBTYPE-ID-REBUILD-V366'), 'v366 använder jobbtypers ÄTA-kryss/JT-ID för historisk kalender och manuell specialruta för flytt av material'),
     systemCheck('v367 Debiterbar tid i avslutat jobb', typeof getBillableMinutesForJobV367 === 'function' && typeof setEditedJobBillableMinutesV367 === 'function' && !!document.getElementById('editBillableMinutesV367') && functionSourceIncludes('openEditJob', 'getBillableMinutesForJobV367') && functionSourceIncludes('saveEditedJob', 'setEditedJobBillableMinutesV367') && APP_FEATURE_MANIFEST.some(item => item.id === 'BILLABLE-TIME-FINISHED-EDIT-V367'), 'Redigera avslutat jobb har separat debiterbar tid som inte ändrar total arbetstid'),
     systemCheck('v368 ÄTA-debitering vid avslut', typeof requestAtaBillableBeforeCompletionV368 === 'function' && typeof applyAtaBillableCompletionChoiceV368 === 'function' && !!document.getElementById('ataBillableModalV368') && functionSourceIncludes('stopJob', 'requestAtaBillableBeforeCompletionV368') && functionSourceIncludes('stopJob', 'applyAtaBillableCompletionChoiceV368') && APP_FEATURE_MANIFEST.some(item => item.id === 'ATA-BILLABLE-ON-COMPLETION-V368'), 'ÄTA-jobb kan få debiterbar tid vid Klart utan att total arbetstid ändras'),
@@ -27562,6 +27571,10 @@ function sanitizeQueueItemForSyncV219(item){
   clean.multiLoadAtStart = !!getQueueJobMultiLoadChoice(item);
   clean.manualMultiLoad = clean.multiLoadAtStart;
   clean.urgentJob = !!item.urgentJob || hasUrgentJobComment(item.comment);
+  if(typeof item.ataJobOverrideV417 === 'boolean'){
+    clean.ataJobOverrideV417 = item.ataJobOverrideV417;
+    clean.ataJobOverrideTypeV417 = String(item.ataJobOverrideTypeV417 || normalizeAtaTextV366(item.type || item.displayType || ''));
+  }
   applyAtaJobFieldsV366(clean, (isAtaManualChoiceTypeV366(item) && isManualAtaCheckedOnJobV366(item)) ? 'manual_checkbox' : '');
   applyMachineToJobV307(clean, getMachineNameFromJobV307(item));
   clean.syncExportedAtV219 = new Date().toISOString();
@@ -30366,7 +30379,7 @@ function activeJobMatchesQueueActionV275(action){
 
 function applyEditedQueueFieldsFromActionV275(job, updated){
   if(!job || !updated) return;
-  const fields = ['type','displayType','vehicle','place','dest','placeLabel','destLabel','comment','plannedDate','plannedTime','date','returnRequired','returnRequiredAtStart','routeRule','routeEndPlace','multiLoadAtStart','manualMultiLoad','canBeMultiLoad','temporaryPlaces','urgentJob','ataJobV366','ataManualV366','ataSourceV366','machineName','machine','returnPlace','returnPlaceLabel','routeReturnPlace','routeReturnLabel'];
+  const fields = ['type','displayType','vehicle','place','dest','placeLabel','destLabel','comment','plannedDate','plannedTime','date','returnRequired','returnRequiredAtStart','routeRule','routeEndPlace','multiLoadAtStart','manualMultiLoad','canBeMultiLoad','temporaryPlaces','urgentJob','ataJobV366','ataManualV366','ataSourceV366','ataJobOverrideV417','ataJobOverrideTypeV417','machineName','machine','returnPlace','returnPlaceLabel','routeReturnPlace','routeReturnLabel'];
   fields.forEach(key => {
     if(updated[key] === undefined) return;
     if(key === 'temporaryPlaces' && updated[key] && typeof updated[key] === 'object') job[key] = JSON.parse(JSON.stringify(updated[key]));
@@ -31444,6 +31457,10 @@ function sanitizeQueueItemForTransfer(item){
     routeRule: ret ? 'returkrav_ja' : 'returkrav_nej',
     routeEndPlace: ret ? (source.place || '') : (source.dest || '')
   };
+  if(typeof source.ataJobOverrideV417 === 'boolean'){
+    clean.ataJobOverrideV417 = source.ataJobOverrideV417;
+    clean.ataJobOverrideTypeV417 = String(source.ataJobOverrideTypeV417 || normalizeAtaTextV366(source.type || source.displayType || ''));
+  }
   applyAtaJobFieldsV366(clean, (isAtaManualChoiceTypeV366(source) && isManualAtaCheckedOnJobV366(source)) ? 'manual_checkbox' : '');
   if(typeof copyAtaRecipientToTransferV392 === 'function') copyAtaRecipientToTransferV392(source, clean);
   applyMachineToJobV307(clean, getMachineNameFromJobV307(source));
@@ -31579,6 +31596,10 @@ function normalizeImportedQueueItem(item){
     normalized.returnPlaceLabel = String(item.returnPlaceLabel || item.returplatsLabel || item.routeReturnLabel || getReturnPlaceLabelForValueV290(normalized.returnPlace) || '');
     normalized.routeReturnPlace = normalized.returnPlace;
     normalized.routeReturnLabel = normalized.returnPlaceLabel;
+  }
+  if(typeof item.ataJobOverrideV417 === 'boolean'){
+    normalized.ataJobOverrideV417 = item.ataJobOverrideV417;
+    normalized.ataJobOverrideTypeV417 = String(item.ataJobOverrideTypeV417 || normalizeAtaTextV366(item.type || item.displayType || ''));
   }
   applyAtaJobFieldsV366(normalized, (isAtaManualChoiceTypeV366(item) && isManualAtaCheckedOnJobV366(item)) ? 'manual_checkbox' : '');
   if(typeof normalizeImportedAtaRecipientV392 === 'function') normalizeImportedAtaRecipientV392(item, normalized);
@@ -33555,6 +33576,10 @@ function startJob(vehicle, type, place, dest, comment, displayType, privateComme
     motionLastMode:'still',
     workSessions:[{startedAt:Date.now(), endedAt:null}]
   };
+  if(typeof jobOptions.ataJobOverrideV417 === 'boolean'){
+    state.active.ataJobOverrideV417 = jobOptions.ataJobOverrideV417;
+    state.active.ataJobOverrideTypeV417 = String(jobOptions.ataJobOverrideTypeV417 || normalizeAtaTextV366(type || displayType || ''));
+  }
   applyAtaJobFieldsV366(state.active, jobOptions.ataSourceV366 || jobOptions.ataSourceV363 || jobOptions.ataJobV366 || false);
   if(typeof applyAtaRecipientToJobIfAtaV392 === 'function') applyAtaRecipientToJobIfAtaV392(state.active, jobOptions.ataRecipientV392 || jobOptions.ataRecipient || null, 'start-v392');
   if(isMachineTransportTypeV179(type)){
@@ -33616,6 +33641,8 @@ function openNewJobPreset(type){
   updateNewSeaweedUI();
   updateFixedRouteRules();
   setNewJobFlagDefaultsFromType();
+  updateNewAtaJobUIV363(true);
+  if(typeof updateNewAtaRecipientUIV392 === 'function') updateNewAtaRecipientUIV392();
   updateNewPrivateCommentVisibility();
 }
 function startQuickSeaweed(){
@@ -33728,15 +33755,30 @@ function isManualAtaCheckedOnJobV366(job){
 }
 function isJobAtaV366(job){
   if(!job || typeof job !== 'object') return false;
+  const currentOverrideTypeV417 = normalizeAtaTextV366(job.type || job.displayType || job.jobTypeKey || job.jobTypeId || job.jobTypeIdV348 || '');
+  const storedOverrideTypeV417 = normalizeAtaTextV366(job.ataJobOverrideTypeV417 || '');
+  if(typeof job.ataJobOverrideV417 === 'boolean' && (!storedOverrideTypeV417 || storedOverrideTypeV417 === currentOverrideTypeV417)) return job.ataJobOverrideV417;
   if(isAtaManualChoiceTypeV366(job)) return isManualAtaCheckedOnJobV366(job);
   return isJobTypeAtaBySettingV366(job);
 }
 function applyAtaJobFieldsV366(job, source){
   if(!job || typeof job !== 'object') return job;
   const manualType = isAtaManualChoiceTypeV366(job);
+  const currentOverrideTypeV417 = normalizeAtaTextV366(job.type || job.displayType || job.jobTypeKey || job.jobTypeId || job.jobTypeIdV348 || '');
+  const storedOverrideTypeV417 = normalizeAtaTextV366(job.ataJobOverrideTypeV417 || '');
+  const explicitOverrideOnV417 = source === 'new_job_ata_on_v417';
+  const explicitOverrideOffV417 = source === 'new_job_ata_off_v417';
+  if(explicitOverrideOnV417 || explicitOverrideOffV417){
+    job.ataJobOverrideV417 = explicitOverrideOnV417;
+    job.ataJobOverrideTypeV417 = currentOverrideTypeV417;
+  } else if(typeof job.ataJobOverrideV417 === 'boolean' && storedOverrideTypeV417 && storedOverrideTypeV417 !== currentOverrideTypeV417){
+    delete job.ataJobOverrideV417;
+    delete job.ataJobOverrideTypeV417;
+  }
+  const hasOverrideV417 = typeof job.ataJobOverrideV417 === 'boolean';
   const manual = source === 'manual_checkbox' || source === true || job.ataJobV366 === true || job.ataManualV366 === true;
   const fromJobType = isJobTypeAtaBySettingV366(job);
-  const isAta = manualType ? manual : fromJobType;
+  const isAta = hasOverrideV417 ? job.ataJobOverrideV417 : (manualType ? manual : fromJobType);
   delete job.ataJobV363;
   delete job.isAtaJobV363;
   delete job.ataRuleV363;
@@ -33745,8 +33787,8 @@ function applyAtaJobFieldsV366(job, source){
   delete job.ataJob;
   if(isAta){
     job.ataJobV366 = true;
-    job.ataSourceV366 = manualType ? 'manual_checkbox' : 'jobtype_setting';
-    if(manualType) job.ataManualV366 = true;
+    job.ataSourceV366 = hasOverrideV417 ? 'new_job_override_v417' : (manualType ? 'manual_checkbox' : 'jobtype_setting');
+    if(manualType && !hasOverrideV417) job.ataManualV366 = true;
     else delete job.ataManualV366;
   } else {
     delete job.ataJobV366;
@@ -33764,19 +33806,27 @@ function isNewAtaJobCheckedV366(){
   return !!(el && el.checked);
 }
 function shouldShowNewAtaCheckboxV366(type){
-  return isAtaManualChoiceTypeV366(type);
+  if(!type || type === 'Övrig verksamhet') return false;
+  if(isAtaManualChoiceTypeV366(type)) return true;
+  try{ return !!isJobTypeAtaBySettingV366({type:type, displayType:type}); }catch(e){ return false; }
 }
 function updateNewAtaJobUIV366(resetDefault){
   const typeEl = document.getElementById('newType');
   const wrap = document.getElementById('newAtaJobWrapV363');
   if(!wrap || !typeEl) return;
-  const show = shouldShowNewAtaCheckboxV366(typeEl.value);
+  const type = typeEl.value || '';
+  const show = shouldShowNewAtaCheckboxV366(type);
   wrap.classList.toggle('hidden', !show);
-  if(!show || resetDefault) setNewAtaJobCheckedV366(false);
+  if(!show){
+    setNewAtaJobCheckedV366(false);
+  } else if(resetDefault){
+    setNewAtaJobCheckedV366(isAtaManualChoiceTypeV366(type) ? false : !!isJobTypeAtaBySettingV366({type:type, displayType:type}));
+  }
 }
 function getNewAtaSourceV366(type, displayType){
-  if(isAtaManualChoiceTypeV366(type) && isNewAtaJobCheckedV366()) return 'manual_checkbox';
-  return '';
+  if(!shouldShowNewAtaCheckboxV366(type)) return '';
+  if(isNewAtaJobCheckedV366()) return isAtaManualChoiceTypeV366(type) ? 'manual_checkbox' : 'new_job_ata_on_v417';
+  return 'new_job_ata_off_v417';
 }
 function applyNewAtaFieldsToJobV366(job, type, displayType){
   return applyAtaJobFieldsV366(job, getNewAtaSourceV366(type, displayType));
@@ -33998,7 +34048,7 @@ async function startManualJob(){
 
   comment = applyUrgentJobComment(comment, urgentJob);
 
-  startJob(vehicle, type, place, dest, comment, '', privateComment, {returnRequired:returnRequiredChoice, returnPlace:returnPlaceChoiceV290, returnPlaceLabel:returnPlaceLabelChoiceV290, multiLoad:multiLoadChoice, urgentJob:urgentJob, temporaryPlaces:temporaryPlaces, machineName:(isMachineTransportTypeV179(type) ? machine : ''), ataSourceV366:getNewAtaSourceV366(type, ''), ataSourceV363:getNewAtaSourceV366(type, ''), ataRecipientV392:ataRecipientV392});
+  startJob(vehicle, type, place, dest, comment, '', privateComment, {returnRequired:returnRequiredChoice, returnPlace:returnPlaceChoiceV290, returnPlaceLabel:returnPlaceLabelChoiceV290, multiLoad:multiLoadChoice, urgentJob:urgentJob, temporaryPlaces:temporaryPlaces, machineName:(isMachineTransportTypeV179(type) ? machine : ''), ataSourceV366:getNewAtaSourceV366(type, ''), ataSourceV363:getNewAtaSourceV366(type, ''), ataJobOverrideV417:(shouldShowNewAtaCheckboxV366(type) ? isNewAtaJobCheckedV366() : undefined), ataJobOverrideTypeV417:normalizeAtaTextV366(type), ataRecipientV392:ataRecipientV392});
   if(state.active){
     resetNewJobForm();
     showTab('ko');
@@ -34167,7 +34217,7 @@ function startQueuedJob(qid){
   const queuedReturnPlaceV290 = queuedReturnRequired ? (q.returnPlace || q.returplats || q.routeReturnPlace || q.place || '') : '';
   const queuedReturnPlaceLabelV290 = queuedReturnRequired ? (q.returnPlaceLabel || q.returplatsLabel || q.routeReturnLabel || getReturnPlaceLabelForValueV290(queuedReturnPlaceV290)) : '';
   const queuedAtaSourceV365 = q.ataSourceV366 || q.ataJobV366 || (isAtaManualChoiceTypeV366(q) && (q.ataJobV363 === true || q.isAtaJobV363 === true || q.ataJob === true) ? 'manual_checkbox' : '');
-  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, getAllowedPrivateComment(q.type, q.privateComment || ''), {returnRequired:queuedReturnRequired, returnPlace:queuedReturnPlaceV290, returnPlaceLabel:queuedReturnPlaceLabelV290, multiLoad:queuedMultiLoad, urgentJob:queuedUrgentJob, temporaryPlaces:q.temporaryPlaces || null, machineName:getMachineNameFromJobV307(q), ataSourceV366:queuedAtaSourceV365, ataSourceV363:queuedAtaSourceV365, ataRecipientV392:(typeof getAtaRecipientFromJobV392 === 'function' ? getAtaRecipientFromJobV392(q) : null)});
+  const started = startJob(q.vehicle, q.type, q.place, q.dest, q.comment, q.displayType, getAllowedPrivateComment(q.type, q.privateComment || ''), {returnRequired:queuedReturnRequired, returnPlace:queuedReturnPlaceV290, returnPlaceLabel:queuedReturnPlaceLabelV290, multiLoad:queuedMultiLoad, urgentJob:queuedUrgentJob, temporaryPlaces:q.temporaryPlaces || null, machineName:getMachineNameFromJobV307(q), ataSourceV366:queuedAtaSourceV365, ataSourceV363:queuedAtaSourceV365, ataJobOverrideV417:(typeof q.ataJobOverrideV417 === 'boolean' ? q.ataJobOverrideV417 : undefined), ataJobOverrideTypeV417:q.ataJobOverrideTypeV417 || '', ataRecipientV392:(typeof getAtaRecipientFromJobV392 === 'function' ? getAtaRecipientFromJobV392(q) : null)});
   if(!started) return;
 
   if(state.active && q.plannedDate){
