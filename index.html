@@ -4,7 +4,8 @@ Stadslass versionskontroll
 - v371: Tillfällig legacy-koppling för gamla jobbtypgrupper utan JT-ID. Användaren kan manuellt koppla gamla textgrupper till rätt jobbtyp-ID; kopplingen sparas och används i Sammanställning, speglad sammanställning, Excel och ÄTA-bedömning utan att skriva om historikjobb. UI-funktionen kan tas bort senare medan kopplingstabellen behålls.
 - Fil för GitHub Pages: index.html
 - Rör inte lagringsnyckeln: driftlogg_v4_full
-- Nuvarande version: Stadslass 2.0 v412
+- Nuvarande version: Stadslass 2.0 v413
+- v413: Hårt återimportskydd för 189-sync. 189 hoppar över uppdrag vars unika sync-id redan har mottagits tidigare, även om uppdraget senare har startats eller avslutats och därför inte längre finns i 189:s aktuella kö. Detta stoppar att datorns kvarvarande mottagna uppdrag importeras igen automatiskt. Ingen ändring av arbetsflöde, köstart, Klart, historik, vikt, GPS/geofence/ETA, kvittoimport, syncsanning på datorn eller driftlogg_v4_full.
 - v410: Smal versionskontrollfix efter v409. VERSION-CONSISTENCY-V351 kontrollerar nu aktuell APP_VERSION/boot-version dynamiskt i stället för en hårdkodad versionslista, så korrekt ny version inte felklassas som kritisk. Innehåller även v409:s Djupkontroll-klassning eftersom v409-filen togs bort före v410-bygget. Ingen ändring av arbetsflöde, GPS/geofence/ETA, ÄTA, vikt, sync, historik, export eller driftlogg_v4_full.
 - v409: Djupkontroll-klassning efter noll kritiska appfel. Djupkontroll kan visa kontrollbehov/GPS-läge i stället för FEL när inga verkliga kritiska appfel finns, utan att ändra arbetsdata.
 - v408: Sista kontrollrapportstädningen av kvarvarande kritiska stödruta-kontroll. Kalibrerar kontrollen “Stödruta v36 efter vikt finns” som kontrollbehov när den träffar äldre versionsinlagt namn/DOM-struktur, utan att ändra Ange vikt, viktlogik, stödrutans UI, tider, inlärning, arbetsflöde, sync eller driftlogg_v4_full.
@@ -422,7 +423,7 @@ Stadslass versionskontroll
 <meta name="theme-color" content="#0f172a">
 <script>
 (function(){
-  const version = 'Stadslass 2.0 v412';
+  const version = 'Stadslass 2.0 v413';
   const timeoutMs = 8000;
   const startedAt = Date.now();
   const steps = [];
@@ -4264,7 +4265,7 @@ body[data-stadslass-device-mode-v272="computer"] #activeJobCard{
 
   <div id="tab-settings" class="card hidden">
     <h3>Inställningar</h3>
-    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v412</div>
+    <div class="muted" id="appVersionInfo" style="margin-top:-4px;margin-bottom:12px">Version: Stadslass 2.0 v413</div>
     <div id="computerSettingsPanelV284" class="computer-settings-panel-v284">
       <h4>Datorenhet – planering</h4>
       <div class="muted">Datorläge används för att se status och lägga uppdrag till paddan. Datorn är inte arbetsenhet och ska inte starta eller avsluta jobb.</div>
@@ -13821,8 +13822,9 @@ function renderActiveMonitorIfOpen(){
 }
 
 const ACTIVE_MONITOR_UPDATED_FOR_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v373';
-const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v412';
+const ACTIVE_MONITOR_UPDATED_FOR_SHORT = 'v413';
 const ACTIVE_MONITOR_TRACKED_FEATURES = [
+  'v413 hårt återimportskydd för mottagna sync-id',
   'v412 kvittoimport uppskattad tid från kvittotid',
   'v411 aktiv arbetskopia och snabb kö efter Klart',
   'v410 versionskontrollfix efter v409',
@@ -15864,7 +15866,7 @@ function clearActiveMonitorEndReports(){
 }
 
 
-const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v412';
+const APP_VERSION = window.STADSLASS_APP_VERSION || 'Stadslass 2.0 v413';
 
 function markStartupStep(label){
   if(window.STADSLASS_BOOT && typeof window.STADSLASS_BOOT.mark === 'function') window.STADSLASS_BOOT.mark(label);
@@ -15889,6 +15891,7 @@ function getStartupWatchdogStatus(){
 
 const TIME_LEARNING_CUTOFF_ISO = '2026-05-19';
 const APP_FEATURE_MANIFEST = [
+  {id:'SYNC-RECEIVED-REIMPORT-GUARD-V413', name:'Hårt återimportskydd för mottagna sync-id v413', status:'Sync/189/Datorläge/Importskydd', protectionStatus:'Aktiv', introduced:'v413', purpose:'v413 gör 189:s mottagningsminne styrande vid import från dator/mobil. Om 189 redan har tagit emot ett uppdrag med samma unika sync-id ska samma uppdrag inte kunna importeras automatiskt igen när uppdraget senare har startats, avslutats eller försvunnit ur 189:s aktuella kö. Detta stoppar återimport från kvarvarande inbox-/datorrader utan att ändra det riktiga arbetsflödet.', changeRule:'Får bara ändra 189-syncens importspärr, analys av fjärr-inbox, manifest och kontrolltexter. Får inte ändra uppdragsinnehåll, köstart, aktivt jobb, Klart, historik, vikt, ÄTA, Returplats, Flerlass, GPS/geofence/ETA, kvittoimport, datorns synliga mottagen-status, syncfilernas grundformat, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412', name:'Kvittoimport uppskattad tid från kvittotid v412', status:'Kvittoimport/Historik/Snittid/ÄTA-flaggning', protectionStatus:'Aktiv', introduced:'v412', purpose:'v412 utökar den separata kvittoimporten så kvittorader kan bära Datum, Kvittotid, Anläggning, Material/kod, Vikt, Trolig jobbtyp, Trolig Från-plats, Trolig Till-plats/anläggning och Trolig ÄTA. Kvittotiden används som mittpunkt och appens befintliga snittid kan ge uppskattad start/slut i historik när appen inte användes.', changeRule:'Får bara ändra kvittoimportens separata inläsning, förhandsvisning, kvittohistorik och kvittoimporterade historikrader. Får inte ändra riktiga appkörda uppdrag, aktivt jobb, kö, Lastar/Ange vikt/Klart, debiterbar ÄTA-tid, ÄTA-mail, GPS/geofence/ETA, tidsinlärning, sync/spegling, backup/export eller driftlogg_v4_full-nyckeln. Kvittoimporterad uppskattad tid ska fortsatt vara exkluderad från tidsinlärning.'},
   {id:'ACTIVE-WORKING-COPY-FAST-QUEUE-V411', name:'Aktiv arbetskopia och snabb kö efter Klart v411', status:'Aktivt jobb/Klart/Prestanda/Kö-rendering', protectionStatus:'Aktiv', introduced:'v411', purpose:'v411 gör det aktiva uppdraget till en tydlig ändringsbar arbetskopia medan jobbet pågår och använder den vid Klart. Efter lokal slutstämpling och sparning renderas Arbete i kö direkt med Starta-knappar innan tyngre efterrendering, dagsprognos, sammanställning och sync får fortsätta. Detta minskar tom kö efter avslutat uppdrag utan att ändra arbetsdata.', changeRule:'Får bara ändra aktiv arbetskopie-markering, saveState-förberedelse, Klart-renderordning och kö-renderingens lätta efter-Klart-läge. Får inte ändra Lastar/Ange vikt/Klart-sanning, vikt, ÄTA-debitering, Returplats, Flerlass, GPS/geofence/ETA-sanning, historikdata, sync-sanning, backup/export eller driftlogg_v4_full-nyckeln.'},
   {id:'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410', name:'Versionskontrollfix efter v409 v410', status:'Kontrollcentral/Funktionslista/Klassning', protectionStatus:'Aktiv', introduced:'v410', purpose:'v410 lagar VERSION-CONSISTENCY-V351 efter v409, där kontrollen kunde bli kritisk trots att APP_VERSION och boot-version faktiskt matchade. Kontrollen använder nu aktuell version och manifestspår i stället för att kräva att varje ny version läggs in i en hårdkodad tillåten-lista. Detta är en kontrollrapportfix och ändrar inte appflöde eller arbetsdata.', changeRule:'Får bara ändra versionskontrollens villkor, manifest, kontrolltexter och Aktiv övervakning. Får inte ändra arbetsflöde, Lastar/Ange vikt/Klart, vikt, stödruta, aktivt jobb, kö, historikdata, GPS/geofence/ETA, ÄTA, Returplats, sync/spegling, backup/export eller driftlogg_v4_full-nyckeln.'},
@@ -18463,6 +18466,7 @@ function runFunctionControlChecks(){
   addFunctionCheck(results, 'Nivå 2', 'Sista stödruta-kontroll kalibrerad v408', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-LAST-WEIGHT-SUPPORT-CALIBRATION-V408') && src('classifyControlCheckV166', 'v408WeightSupportControlUpdatePatterns') && src('classifyControlCheckV166', 'stödruta v36 efter vikt'), 'stödruta-kontrollen med versionsinlagt namn klassas som kontrollbehov utan att ändra Ange vikt eller arbetsdata');
   addFunctionCheck(results, 'Nivå 2', 'Djupkontroll-klassning efter noll kritiska appfel v409', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-DEEP-CLASSIFICATION-V409') && src('buildControlCenterFullRunReportV193', 'deepCriticalV409') && src('controlCenterFullRowsToTextV193', 'deepControlClassifyRowV409'), 'Djupkontrollen kan visa kontrollbehov/GPS-läge i stället för FEL när inga verkliga kritiska appfel finns');
   addFunctionCheck(results, 'Nivå 2', 'Kvittoimport uppskattad tid från kvittotid v412', APP_FEATURE_MANIFEST.some(item => item.id === 'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412') && !!el('receiptImportManagerWrap') && !!el('receiptImportFileInput') && fn('handleReceiptImportFile') && src('cleanReceiptRowForStorage', 'receiptTime') && src('cleanReceiptRowForStorage', 'likelyAta') && src('getReceiptSummaryJobs', 'buildReceiptTimeWindowV412') && src('renderReceiptImportPreview', 'Trolig ÄTA'), 'Kvittoimport kan ta färdigt kvittoanalysunderlag med kvittotid, anläggning/materialkod, trolig ÄTA och uppskattad start/slut utan att påverka tidsinlärning.');
+  addFunctionCheck(results, 'Nivå 2', 'Hårt återimportskydd för mottagna sync-id v413', APP_FEATURE_MANIFEST.some(item => item.id === 'SYNC-RECEIVED-REIMPORT-GUARD-V413') && typeof isTabletReceivedStrictSyncItemV413 === 'function' && src('queueSyncImportMobileInboxV219', 'redan har mottagits tidigare') && src('queueSyncImportMobileInboxV219', 'alreadyReceivedStrictV413') && src('analyzeQueueSyncRemoteInboxV223', 'alreadyReceivedStrictV413'), '189 hoppar över uppdrag vars unika sync-id redan har mottagits tidigare även om de inte längre finns i aktuell kö/aktivt jobb.');
   addFunctionCheck(results, 'Nivå 2', 'Aktiv arbetskopia och snabb kö efter Klart v411', APP_FEATURE_MANIFEST.some(item => item.id === 'ACTIVE-WORKING-COPY-FAST-QUEUE-V411') && typeof saveActiveWorkingCopyV411 === 'function' && src('saveState', 'saveActiveWorkingCopyV411') && src('startJob', 'start-v411') && src('stopJob', 'klart-v411-fast-queue') && src('renderQueue', 'lightAfterCompleteV411'), 'Aktivt uppdrag sparas löpande som ändringsbar arbetskopia och kökort/Starta-knappar renderas direkt efter Klart före tunga efterjobb.');
   addFunctionCheck(results, 'Nivå 2', 'Versionskontrollfix efter v409 v410', APP_FEATURE_MANIFEST.some(item => item.id === 'CONTROL-REPORT-VERSION-CONSISTENCY-FIX-V410') && src('buildFunctionProtectionRowsV329', 'versionConsistentV410') && src('buildFunctionProtectionRowsV329', 'manifestCurrent'), 'VERSION-CONSISTENCY-V351 jämför aktuell APP_VERSION och boot-version dynamiskt och kräver aktuell manifestpost');
   addFunctionCheck(results, 'Nivå 2', 'Historiska GPS/Snap-kontrollrader sanerade v403', APP_FEATURE_MANIFEST.some(item => item.id === 'HISTORICAL-GPS-CONTROL-CLEANUP-V403') && APP_FEATURE_MANIFEST.some(item => item.name === 'Manuellt sparad GPS-data v126' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträcka i Dagens sammanfattning v203' && item.status === 'Borttagen med godkännande') && APP_FEATURE_MANIFEST.some(item => item.name === 'Sträckval synligt i jobbkort v212' && item.status === 'Borttagen med godkännande') && fn('isRouteGpsManualApprovalAvailable') && src('isRouteGpsManualApprovalAvailable', 'return false'), 'historiska GPS-/Snap-/sträckkrav efter avslut är formellt borttagna/parkerade; aktiv GPS/geofence/ETA påverkas inte');
@@ -19264,6 +19268,7 @@ function buildSystemControlTextReportV165(checks, mapText, createdAt){
   lines.push('KONTROLL BEHÖVER UPPDATERAS: kontrollen letar troligen efter gammal text, gammalt funktionsnamn eller gammal CSS efter senare versioner.');
   lines.push('GPS/AKTIVT UPPDRAG KRÄVS: funktionen kan bara bekräftas fullt under aktivt uppdrag, GPS-läge eller rätt geofence-situation.');
   lines.push('SAMMANFATTNINGSKONTROLL: räknas inte som eget appfel när den bara summerar andra kontroller.');
+  lines.push('v413: 189 hoppar över uppdrag vars unika sync-id redan har mottagits tidigare så samma dator-/mobiluppdrag inte importeras igen automatiskt.');
   lines.push('v412: Kvittoimport kan använda kvittotid som mittpunkt och appens snittid för uppskattad historiktid utan tidsinlärning.');
   lines.push('v411: Aktivt uppdrag försparas som ändringsbar arbetskopia och Arbete i kö renderas direkt efter Klart före tyngre efterjobb.');
   lines.push('v410: Versionskontrollen jämför APP_VERSION/boot-version dynamiskt och kräver aktuell manifestpost i stället för hårdkodad versionslista.');
@@ -20195,6 +20200,7 @@ function buildSystemControlInternalChecks(){
     systemCheck('Inställningar struktur', typeof getPlaceRequirements === 'function' && typeof getCombinedRequirementsForJob === 'function' && !!document.getElementById('newManagedPlaceRequirements') && !!document.getElementById('newManagedJobTypeRequirements'), 'Platser, Jobbtyper och Snabbval hålls isär'),
     systemCheck('Kvittoimport', !!document.getElementById('receiptImportManagerWrap') && typeof handleReceiptImportFile === 'function' && typeof normalizeImportedReceiptRow === 'function', 'tillfällig kvittoimport finns separat'),
     systemCheck('Kvittoimport uppskattad tid från kvittotid v412', APP_FEATURE_MANIFEST.some(item => item.id === 'RECEIPT-MIDPOINT-ESTIMATE-IMPORT-V412') && typeof normalizeReceiptTimeValueV412 === 'function' && typeof buildReceiptTimeWindowV412 === 'function' && functionSourceIncludes('cleanReceiptRowForStorage', 'materialCode') && functionSourceIncludes('getReceiptSummaryJobs', 'excludeFromTimeEstimate'), 'kvittotid som mittpunkt + snittid kan ge uppskattad start/slut men kvittoraden är fortsatt exkluderad från tidsinlärning'),
+    systemCheck('Hårt återimportskydd för mottagna sync-id v413', APP_FEATURE_MANIFEST.some(item => item.id === 'SYNC-RECEIVED-REIMPORT-GUARD-V413') && typeof isTabletReceivedStrictSyncItemV413 === 'function' && functionSourceIncludes('queueSyncImportMobileInboxV219', 'alreadyReceivedStrictV413') && functionSourceIncludes('analyzeQueueSyncRemoteInboxV223', 'alreadyReceivedStrictV413'), '189 importerar inte automatiskt samma sync-id igen efter att uppdraget redan mottagits'),
     systemCheck('Historik kalender kvittorader v100', typeof getHistoryCalendarJobsForDisplay === 'function' && typeof renderHistoryReceiptJobCard === 'function' && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'getReceiptSummaryJobs') && functionSourceIncludes('renderHistoryManager', 'getHistoryDateSubLabel'), 'historik kalender läser importerade kvittorader tillsammans med avslutade jobb'),
     systemCheck('Övrig verksamhet dagsrad v102', typeof aggregateOtherWorkRowsByDate === 'function' && typeof renderTodayOtherWorkCard === 'function' && functionSourceIncludes('buildSummaryRowsFromJobs', 'aggregateOtherWorkRowsByDate') && functionSourceIncludes('renderTodayOtherWorkCard', 'Total tid idag'), 'Övrig verksamhet aggregeras per datum i Idag och sammanställning/export'),
     systemCheck('Historik kalender samlar Övrig verksamhet v103', typeof renderHistoryOtherWorkCard === 'function' && functionSourceIncludes('getHistoryCalendarJobsForDisplay', 'buildSummaryRowsFromJobs') && functionSourceIncludes('renderHistoryJobCard', 'renderHistoryOtherWorkCard') && functionSourceIncludes('renderHistoryOtherWorkCard', 'Total tid'), 'historik kalender visar en samlad Övrig verksamhet per datum'),
@@ -29045,6 +29051,24 @@ function isTabletReceivedSyncItemV232(item){
   return false;
 }
 
+// v413: hårt återimportskydd ska bara använda unikt sync-id/sourceJobId/id.
+// Innehållsdubbletter ska fortfarande kunna vara nya uppdrag om de får nytt sync-id.
+const isTabletReceivedStrictSyncItemV413 = function(item){
+  try{
+    if(!item || typeof item !== 'object') return false;
+    const received = typeof getTabletReceivedSyncKeysV232 === 'function' ? getTabletReceivedSyncKeysV232() : new Set();
+    if(!received || !received.size) return false;
+    const keys = new Set();
+    if(typeof addQueueSyncStrictItemKeysV279 === 'function') addQueueSyncStrictItemKeysV279(keys, item);
+    else if(typeof addQueueSyncItemKeysToSetV232 === 'function') addQueueSyncItemKeysToSetV232(keys, item);
+    for(const key of keys){
+      if(key && received.has(key)) return true;
+    }
+  }catch(e){}
+  return false;
+};
+if(typeof window !== 'undefined') window.isTabletReceivedStrictSyncItemV413 = isTabletReceivedStrictSyncItemV413;
+
 function getTabletReceivedSyncKeysArrayV232(){
   return normalizeQueueSyncReceivedKeyListV232(Array.from(getTabletReceivedSyncKeysV232()));
 }
@@ -29312,15 +29336,18 @@ async function queueSyncImportMobileInboxV219(options){
   }
   const payload = await queueSyncGetJsonFileV219(QUEUE_SYNC_MOBILE_INBOX_FILE_V219);
   const rawItems = payload ? getQueueItemsFromTransferPayload(payload) : [];
-  // v279: paddan ska bara hoppa över uppdrag som har samma unika sync-id i aktuell kö/aktiv status.
-  // Innehållsdubbletter och gamla mottagna nycklar får inte stoppa ett nytt eller återskickat uppdrag.
+  // v279: aktuell kö/aktiv status kontrolleras med strikt sync-id.
+  // v413: 189 ska dessutom hoppa över samma unika sync-id om det redan har mottagits tidigare,
+  // även när uppdraget senare har startats/avslutats och inte längre finns i aktuell kö.
+  // Innehållsdubbletter får fortfarande vara nya uppdrag om de har nytt sync-id.
   const existingKeys = typeof getExistingQueueSyncStrictKeysV279 === 'function' ? getExistingQueueSyncStrictKeysV279() : getExistingQueueSyncKeysV219();
   const imported = [];
   let learnedReceivedV232 = 0;
   rawItems.map(normalizeImportedSyncQueueItemV219).filter(Boolean).forEach(item => {
     markQueuedJobCreatedForSyncV219(item);
     const key = typeof getQueueSyncStrictItemKeyV279 === 'function' ? getQueueSyncStrictItemKeyV279(item) : getQueueSyncItemKeyV219(item);
-    if(key && existingKeys.has(key)){
+    const alreadyReceivedStrictV413 = typeof isTabletReceivedStrictSyncItemV413 === 'function' && isTabletReceivedStrictSyncItemV413(item);
+    if((key && existingKeys.has(key)) || alreadyReceivedStrictV413){
       if(typeof rememberTabletReceivedSyncItemV232 === 'function' && rememberTabletReceivedSyncItemV232(item)) learnedReceivedV232 += 1;
       return;
     }
@@ -29398,7 +29425,8 @@ function analyzeQueueSyncRemoteInboxV223(payload){
   rawItems.map(normalizeImportedSyncQueueItemV219).filter(Boolean).forEach(item => {
     markQueuedJobCreatedForSyncV219(item);
     const key = typeof getQueueSyncStrictItemKeyV279 === 'function' ? getQueueSyncStrictItemKeyV279(item) : getQueueSyncItemKeyV219(item);
-    if(key && existingKeys.has(key)){
+    const alreadyReceivedStrictV413 = typeof isTabletReceivedStrictSyncItemV413 === 'function' && isTabletReceivedStrictSyncItemV413(item);
+    if((key && existingKeys.has(key)) || alreadyReceivedStrictV413){
       skippedCount++;
       return;
     }
